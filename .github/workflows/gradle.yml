@@ -32,14 +32,12 @@ jobs:
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
     - name: Build
-      env:
-        ARCLIGHT_FILES_TOKEN: ${{ secrets.ARCLIGHT_FILES_TOKEN }}
       run: |
         ./gradlew cleanBuild remapSpigotJar idea --no-daemon -i --stacktrace --refresh-dependencies
-        ./gradlew build collect uploadFiles --no-daemon -i --stacktrace
+        ./gradlew build collect --no-daemon -i --stacktrace
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: Arclight 
+        name: Luminara
         path: ./build/libs/*.jar
 

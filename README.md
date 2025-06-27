@@ -29,7 +29,8 @@
 
 ### 自行构建
  - 克隆本项目到本地 `git clone -b <分支> https://github.com/QianMoo0121/Luminara.git`
- - 运行 `./gradlew cleanBuild build collect` 构建项目
+ - 运行 `./gradlew cleanBuild remapSpigotJar idea --no-daemon -i --stacktrace --refresh-dependencies` 进行配置
+ - 运行 `./gradlew build collect` 构建项目
  - 构建完成后，jar 文件位于 `./build/libs` 目录下
 
 ## 🚀 安装使用
