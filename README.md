@@ -1,53 +1,57 @@
-# Arclight
+# Luminara
 
-A Bukkit server implementation on common mod loaders.
+> 一个在常见模组加载器上运行的 Bukkit 服务器实现
 
-![Downloads](https://img.shields.io/github/downloads/IzzelAliz/Arclight/total?style=flat-square)  ![GitHub](https://img.shields.io/github/license/IzzelAliz/Arclight?style=flat-square)
+## ✨ 特性
 
-![](.github/arclightlogo.jpg)
+- 🔧 **兼容性强** - 支持 Bukkit/Spigot/Paper 插件与 Forge 模组同时运行
+- 🚀 **高性能** - 基于 Minecraft Forge 构建，性能优异
+- 🛠️ **易于使用** - 简单的安装和配置过程
+- 🌐 **多版本支持** - 支持多个 Minecraft 版本
 
-## Download
-Versions list and support status: [Discussions thread](https://wiki.izzel.io/s/arclight-docs/doc/versions-and-its-supporting-status-NCKYxXI3mt)
+## 🎯 主要维护版本
 
-- [Stable releases](https://github.com/IzzelAliz/Arclight/releases)
-- [Nightly build (GitHub login required)](https://github.com/IzzelAliz/Arclight/actions/workflows/gradle.yml?query=branch%3ATrials)
+> **当前主要维护版本：Minecraft 1.20.1**
+>
+> - **Forge 版本**：47.4.2
+> - **稳定性**：⭐⭐⭐⭐⭐ 
+> - **插件兼容性**：优秀
+> - **模组兼容性**：优秀
 
-## Installing
+## 📥 下载
 
-* Download the jar.
-* Launch with command `java -jar arclight.jar nogui`.
-  * The `nogui` argument will disable the server control panel.
+### 稳定版本
+- [GitHub Releases](https://github.com/QianMoo0121/Luminara/releases) - 推荐用于生产环境
 
-Read our document for more information.
+### 开发版本
+- [每日构建版本](https://github.com/QianMoo0121/Luminara/actions/workflows/gradle.yml?query=branch%3ATrials) *(需要 GitHub 登录)*
 
-## Support
 
-Read the [document](https://wiki.izzel.io/s/arclight-docs).  
-Something is not working? Report any problems [here](https://github.com/IzzelAliz/Arclight/issues/new/choose)!.  
-Questions and discussions [here](https://github.com/IzzelAliz/Arclight/discussions).
+### 自行构建
+ - 克隆本项目到本地 `git clone -b <分支> https://github.com/QianMoo0121/Luminara.git`
+ - 运行 `./gradlew cleanBuild build collect` 构建项目
+ - 构建完成后，jar 文件位于 `./build/libs` 目录下
 
-Discord Server: https://discord.gg/ZvTY5SC  
-QQ Group Chat: 3556966
+## 🚀 安装使用
 
-## License
+1. **下载** jar 文件
+2. **启动服务器**：
+   ```bash
+   java -jar luminara.jar nogui
+   ```
+   > `nogui` 参数将禁用服务器控制面板
+   
 
-This project is licensed under [GPL v3](LICENSE).
+## 📚 支持与帮助
 
-## Sponsor
+### 📖 文档
+- [官方文档](https://wiki.izzel.io/s/arclight-docs) - 详细的使用指南和配置说明
 
-[![](.github/bisecthosting.webp)](https://bisecthosting.com/arclight)
+### 🐛 问题反馈
+- [提交 Bug](https://github.com/QianMoo0121/Luminara/issues/new/choose) - 遇到问题请在这里报告
+- [讨论区](https://github.com/QianMoo0121/Luminara/discussions) - 提问和讨论
+- 请勿将本服务端的问题反馈到Arclight！
 
-Get 25% off hosting server with promocode **arclight** at [BisectHosting](https://bisecthosting.com/arclight).
+## 📄 开源协议
 
-[![](https://www.yourkit.com/images/yklogo.png)](https://www.yourkit.com)
-
-YourKit supports open source projects with innovative and intelligent tools for monitoring and profiling Java and .NET
-applications. YourKit is the creator of <a href="https://www.yourkit.com/java/profiler/">YourKit Java Profiler</a>,
-<a href="https://www.yourkit.com/.net/profiler/">YourKit .NET Profiler</a>,
-and <a href="https://www.yourkit.com/youmonitor/">YourKit YouMonitor</a>.
-
-[![](.github/jetbrains.png)](https://www.jetbrains.com/?from=Arclight)
-
-[![](.github/nexusnode.gif)](https://nexusnode.com/minecraft.php)
-
-Get 10% off hosting server with promocode **ARCLIGHT** at [NEXUSNODE](https://nexusnode.com/minecraft.php)
+本项目基于 [GPL v3](LICENSE) 协议开源。
