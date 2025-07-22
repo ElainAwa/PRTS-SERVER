@@ -37,6 +37,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import org.spongepowered.asm.mixin.injection.callback.LocalCapture;
 
 import java.util.function.Predicate;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 @Mixin(ChunkGenerator.class)
 public abstract class ChunkGeneratorMixin implements ChunkGeneratorBridge {
@@ -56,7 +58,17 @@ public abstract class ChunkGeneratorMixin implements ChunkGeneratorBridge {
                                          Structure structure, int i, HolderSet<Biome> holderset, Predicate<Holder<Biome>> predicate, StructureStart structurestart) {
         var box = structurestart.getBoundingBox();
         var event = new org.bukkit.event.world.AsyncStructureSpawnEvent(((WorldBridge) ((IWorldBridge) manager.level).bridge$getMinecraftWorld()).bridge$getWorld(), CraftStructure.minecraftToBukkit(structure, registryAccess), new org.bukkit.util.BoundingBox(box.minX(), box.minY(), box.minZ(), box.maxX(), box.maxY(), box.maxZ()), chunkPos.x, chunkPos.z);
-        Bukkit.getPluginManager().callEvent(event);
+
+        // Check if we're on the primary thread, if not skip event call to avoid async errors
+        if (io.izzel.arclight.common.mod.server.ArclightServer.isPrimaryThread()) {
+            Bukkit.getPluginManager().callEvent(event);
+        } else {
+            // In non-primary threads, we don't call this event to avoid async errors
+            // This is a trade-off: skip structure spawn events during async chunk generation
+            org.slf4j.LoggerFactory.getLogger("Arclight").debug("Skipping AsyncStructureSpawnEvent in non-primary thread to avoid async error");
+            return;
+        }
+
         if (event.isCancelled()) {
             cir.setReturnValue(true);
         }
