@@ -90,7 +90,7 @@ public class AbstractBootstrap {
 
     protected void setupMod() throws Exception {
         ArclightVersion.setVersion(ArclightVersion.TRIALS);
-        var logger = LogManager.getLogger("Arclight");
+        var logger = LogManager.getLogger("Luminara");
         try (InputStream stream = getClass().getModule().getResourceAsStream("/META-INF/MANIFEST.MF")) {
             Manifest manifest = new Manifest(stream);
             Attributes attributes = manifest.getMainAttributes();

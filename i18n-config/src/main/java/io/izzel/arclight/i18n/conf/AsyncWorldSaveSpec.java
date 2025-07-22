@@ -12,9 +12,6 @@ public class AsyncWorldSaveSpec {
     @Setting("timeout-seconds")
     private int timeoutSeconds = 30;
 
-    @Setting("save-player-data")
-    private boolean savePlayerData = true;
-
     @Setting("save-world-data")
     private boolean saveWorldData = true;
 
@@ -24,10 +21,6 @@ public class AsyncWorldSaveSpec {
 
     public int getTimeoutSeconds() {
         return timeoutSeconds;
-    }
-
-    public boolean isSavePlayerData() {
-        return savePlayerData;
     }
 
     public boolean isSaveWorldData() {

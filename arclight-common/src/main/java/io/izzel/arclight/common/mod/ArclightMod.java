@@ -21,7 +21,7 @@ import java.io.PrintStream;
 @Mod("arclight")
 public class ArclightMod {
 
-    public static final Logger LOGGER = ArclightI18nLogger.getLogger("Arclight");
+    public static final Logger LOGGER = ArclightI18nLogger.getLogger("Luminara");
 
     public ArclightMod(FMLJavaModLoadingContext context) {
         LOGGER.info("mod-load");

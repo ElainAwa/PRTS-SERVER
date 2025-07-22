@@ -38,5 +38,5 @@ jobs:
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: Arclight 
+        name: Luminara
         path: ./build/libs/*.jar

@@ -65,7 +65,7 @@ public abstract class ChunkGeneratorMixin implements ChunkGeneratorBridge {
         } else {
             // In non-primary threads, we don't call this event to avoid async errors
             // This is a trade-off: skip structure spawn events during async chunk generation
-            org.slf4j.LoggerFactory.getLogger("Arclight").debug("Skipping AsyncStructureSpawnEvent in non-primary thread to avoid async error");
+            org.slf4j.LoggerFactory.getLogger("Luminara").debug("Skipping AsyncStructureSpawnEvent in non-primary thread to avoid async error");
             return;
         }
 
