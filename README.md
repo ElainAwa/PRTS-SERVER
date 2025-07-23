@@ -53,6 +53,11 @@
 - [讨论区](https://github.com/QianMoo0121/Luminara/discussions) - 提问和讨论
 - 请勿将本服务端的问题反馈到Arclight！
 
+## ✏️ 待办事项
+- [ ] 支持Velocity Modern转发（Port PCF）
+- [ ] 并入*①MPEM的部分优化项
+- [ ] 支持Adventure库
+- [ ] 使用Paper方法加速初始化世界的速度
 ## 📄 开源协议
 
 本项目基于 [GPL v3](LICENSE) 协议开源。
