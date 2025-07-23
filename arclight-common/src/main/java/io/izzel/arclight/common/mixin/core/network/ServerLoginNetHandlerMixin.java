@@ -5,6 +5,8 @@ import com.mojang.authlib.properties.Property;
 import io.izzel.arclight.common.bridge.core.network.NetworkManagerBridge;
 import io.izzel.arclight.common.bridge.core.server.MinecraftServerBridge;
 import io.izzel.arclight.common.bridge.core.server.management.PlayerListBridge;
+import io.izzel.arclight.common.mod.velocity.VelocityManager;
+import io.izzel.arclight.common.mod.velocity.VelocityForwarding;
 import io.izzel.arclight.i18n.ArclightConfig;
 import net.minecraft.DefaultUncaughtExceptionHandler;
 import net.minecraft.core.UUIDUtil;
@@ -34,6 +36,9 @@ import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Overwrite;
 import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import javax.annotation.Nullable;
 import javax.crypto.Cipher;
@@ -64,6 +69,9 @@ public abstract class ServerLoginNetHandlerMixin {
     @Shadow private ServerPlayer delayedAcceptPlayer;
     @Shadow @Final private byte[] challenge;
     // @formatter:on
+
+    // Velocity Modern Forwarding support
+    private int luminara$velocityLoginMessageId = -1;
 
     public void disconnect(final String s) {
         this.disconnect(Component.literal(s));
@@ -130,6 +138,34 @@ public abstract class ServerLoginNetHandlerMixin {
         Validate.validState(this.state == ServerLoginPacketListenerImpl.State.HELLO, "Unexpected hello packet");
         Validate.validState(this.state == ServerLoginPacketListenerImpl.State.HELLO, "Unexpected hello packet");
         Validate.validState(arclight$validUsernameCheck(packetIn.name()) || isValidUsername(packetIn.name()), "Invalid characters in username");
+
+        // Check for Velocity Modern Forwarding
+        VelocityManager velocityManager = VelocityManager.getInstance();
+        if (velocityManager.isVelocityForwardingEnabled()) {
+            LOGGER.info("Velocity Modern Forwarding is enabled for player: {}", packetIn.name());
+            // Send Velocity query packet - following Mohist's approach
+            this.luminara$velocityLoginMessageId = java.util.concurrent.ThreadLocalRandom.current().nextInt();
+
+            // Create the query packet exactly like Mohist does
+            try {
+                // Create a simple buffer with just the supported version
+                net.minecraft.network.FriendlyByteBuf queryBuf = new net.minecraft.network.FriendlyByteBuf(io.netty.buffer.Unpooled.buffer());
+                queryBuf.writeByte(VelocityForwarding.MAX_SUPPORTED_FORWARDING_VERSION);
+
+                // Create the custom query packet
+                net.minecraft.network.protocol.login.ClientboundCustomQueryPacket queryPacket =
+                    new net.minecraft.network.protocol.login.ClientboundCustomQueryPacket(
+                        this.luminara$velocityLoginMessageId, VelocityForwarding.PLAYER_INFO_CHANNEL, queryBuf);
+
+                this.connection.send(queryPacket);
+                LOGGER.debug("Sent Velocity query packet with ID: {}", this.luminara$velocityLoginMessageId);
+                return; // Don't continue with normal login process
+            } catch (Exception e) {
+                LOGGER.error("Failed to send Velocity query packet", e);
+                // Continue with normal login if we can't send the query
+            }
+        }
+
         GameProfile gameprofile = this.server.getSingleplayerProfile();
         if (gameprofile != null && packetIn.name().equalsIgnoreCase(gameprofile.getName())) {
             this.gameProfile = gameprofile;
@@ -284,5 +320,87 @@ public abstract class ServerLoginNetHandlerMixin {
         }
         LOGGER.info("UUID of player {} is {}", gameProfile.getName(), gameProfile.getId());
         state = ServerLoginPacketListenerImpl.State.NEGOTIATING;
+    }
+
+    /**
+     * Handle custom query packets for Velocity Modern Forwarding
+     * Following Mohist's implementation approach
+     */
+    @Inject(method = "handleCustomQueryPacket", at = @At("HEAD"), cancellable = true)
+    private void luminara$handleVelocityForwarding(net.minecraft.network.protocol.login.ServerboundCustomQueryPacket packet, CallbackInfo ci) {
+        VelocityManager velocityManager = VelocityManager.getInstance();
+
+        if (!velocityManager.isVelocityForwardingEnabled()) {
+            return; // Let normal processing continue
+        }
+
+        try {
+            // Get transaction ID and data using reflection (like Mohist does)
+            int transactionId = luminara$getTransactionId(packet);
+            net.minecraft.network.FriendlyByteBuf buf = luminara$getPacketData(packet);
+
+            LOGGER.debug("Received custom query packet - ID: {}, Expected: {}, HasData: {}",
+                        transactionId, this.luminara$velocityLoginMessageId, buf != null);
+
+            if (transactionId == this.luminara$velocityLoginMessageId) {
+                if (buf == null) {
+                    LOGGER.warn("Received Velocity query response with null data");
+                    this.disconnect("This server requires you to connect with Velocity.");
+                    ci.cancel();
+                    return;
+                }
+
+                LOGGER.debug("Processing Velocity forwarding data, buffer size: {}", buf.readableBytes());
+                this.gameProfile = velocityManager.getVelocityForwarding().handleForwardingPacket(buf, this.connection);
+                LOGGER.info("Successfully processed Velocity forwarding for player: {}", this.gameProfile.getName());
+
+                // Continue with the login process like Mohist does
+                this.luminara$continueLogin();
+                ci.cancel();
+            }
+        } catch (Exception e) {
+            LOGGER.warn("Exception processing Velocity forwarding packet from {}",
+                       this.connection.getRemoteAddress(), e);
+            this.disconnect("Unable to verify player details");
+            ci.cancel();
+        }
+    }
+
+    /**
+     * Continue the login process after Velocity forwarding
+     */
+    private void luminara$continueLogin() {
+        // Execute the login process in a separate thread, similar to Mohist's approach
+        Thread thread = new Thread("Luminara Velocity Login") {
+            @Override
+            public void run() {
+                try {
+                    arclight$preLogin();
+                } catch (Exception ex) {
+                    disconnect("Failed to verify username!");
+                    LOGGER.warn("Exception verifying " + gameProfile.getName(), ex);
+                }
+            }
+        };
+        thread.setUncaughtExceptionHandler(new DefaultUncaughtExceptionHandler(LOGGER));
+        thread.start();
+    }
+
+    /**
+     * Get transaction ID from custom query packet using Mohist's exact method names
+     */
+    private int luminara$getTransactionId(net.minecraft.network.protocol.login.ServerboundCustomQueryPacket packet) throws Exception {
+        // Use the exact obfuscated method name from Mohist patch: m_179824_()
+        var method = packet.getClass().getMethod("m_179824_");
+        return (Integer) method.invoke(packet);
+    }
+
+    /**
+     * Get data from custom query packet using Mohist's exact method names
+     */
+    private net.minecraft.network.FriendlyByteBuf luminara$getPacketData(net.minecraft.network.protocol.login.ServerboundCustomQueryPacket packet) throws Exception {
+        // Use the exact obfuscated method name from Mohist patch: m_179825_()
+        var method = packet.getClass().getMethod("m_179825_");
+        return (net.minecraft.network.FriendlyByteBuf) method.invoke(packet);
     }
 }

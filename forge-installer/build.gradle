@@ -2,6 +2,8 @@ plugins {
     id 'java'
 }
 
+archivesBaseName = 'luminara-forge-installer'
+
 repositories {
     mavenCentral()
     maven {

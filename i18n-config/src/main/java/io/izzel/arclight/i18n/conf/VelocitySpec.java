@@ -1,0 +1,29 @@
+package io.izzel.arclight.i18n.conf;
+
+import ninja.leaping.configurate.objectmapping.Setting;
+import ninja.leaping.configurate.objectmapping.serialize.ConfigSerializable;
+
+@ConfigSerializable
+public class VelocitySpec {
+
+    @Setting("enabled")
+    private boolean enabled;
+
+    @Setting("forwarding-secret")
+    private String forwardingSecret;
+
+    @Setting("debug-logging")
+    private boolean debugLogging;
+
+    public boolean isEnabled() {
+        return enabled;
+    }
+
+    public String getForwardingSecret() {
+        return forwardingSecret != null ? forwardingSecret : "";
+    }
+
+    public boolean isDebugLogging() {
+        return debugLogging;
+    }
+}

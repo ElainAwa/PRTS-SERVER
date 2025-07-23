@@ -21,6 +21,8 @@ apply plugin: 'java'
 apply plugin: 'idea'
 apply plugin: 'io.izzel.arclight'
 
+archivesBaseName = 'luminara-common-' + minecraftVersion
+
 arclight {
     mcVersion = minecraftVersion
     forgeVersion = project.ext.forgeVersion
@@ -80,9 +82,9 @@ dependencies {
 
 jar {
     manifest.attributes 'MixinConnector': 'io.izzel.arclight.common.mod.ArclightConnector'
-    manifest.attributes 'Implementation-Title': 'Arclight'
-    manifest.attributes 'Implementation-Version': "arclight-$minecraftVersion-${project.version}-$gitHash"
-    manifest.attributes 'Implementation-Vendor': 'Arclight Team'
+    manifest.attributes 'Implementation-Title': 'Luminara'
+    manifest.attributes 'Implementation-Version': "luminara-$minecraftVersion-${project.version}-$gitHash"
+    manifest.attributes 'Implementation-Vendor': 'Luminara Team'
     manifest.attributes 'Implementation-Timestamp': new Date().format("yyyy-MM-dd HH:mm:ss")
     from { configurations.embed.collect { it.isDirectory() ? it : zipTree(it) } } {
         exclude "META-INF/MANIFEST.MF"

@@ -1,7 +1,7 @@
 import io.izzel.arclight.gradle.tasks.UploadFilesTask
 
 allprojects {
-    group 'io.izzel.arclight'
+    group 'io.izzel.luminara'
     version '1.0.7'
 
     def getGitHash = { ->

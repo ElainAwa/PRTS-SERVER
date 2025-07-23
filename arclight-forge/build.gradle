@@ -9,7 +9,7 @@ apply plugin: 'idea'
 apply plugin: 'maven-publish'
 apply plugin: 'com.github.johnrengelman.shadow'
 
-archivesBaseName = archivesBaseName + '-' + minecraftVersion
+archivesBaseName = 'luminara-' + minecraftVersion
 
 sourceSets {
     applaunch {
@@ -228,7 +228,7 @@ publishing {
     }
     publications {
         mavenJava(MavenPublication) {
-            artifactId = 'arclight-forge-' + versionName
+            artifactId = 'luminara-forge-' + versionName
             artifact project(':arclight-common').tasks.srgJar
             artifact project(':arclight-common').tasks.spigotJar
             //artifact sourceJar

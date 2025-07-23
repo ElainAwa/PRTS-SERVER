@@ -24,6 +24,9 @@ public class ConfigSpec {
     @Setting("async-world-save")
     private AsyncWorldSaveSpec asyncWorldSaveSpec;
 
+    @Setting("velocity")
+    private VelocitySpec velocitySpec;
+
     public int getVersion() {
         return version;
     }
@@ -46,5 +49,9 @@ public class ConfigSpec {
 
     public AsyncWorldSaveSpec getAsyncWorldSave() {
         return asyncWorldSaveSpec;
+    }
+
+    public VelocitySpec getVelocity() {
+        return velocitySpec;
     }
 }

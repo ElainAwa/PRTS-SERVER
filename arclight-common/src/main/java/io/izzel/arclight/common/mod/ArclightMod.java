@@ -2,6 +2,9 @@ package io.izzel.arclight.common.mod;
 
 import io.izzel.arclight.common.mod.server.event.ArclightEventDispatcherRegistry;
 import io.izzel.arclight.common.mod.util.log.ArclightI18nLogger;
+import io.izzel.arclight.common.mod.velocity.VelocityManager;
+import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.event.server.ServerAboutToStartEvent;
 import net.minecraftforge.fml.IExtensionPoint;
 import net.minecraftforge.fml.ModList;
 import net.minecraftforge.fml.ModLoadingContext;
@@ -30,6 +33,15 @@ public class ArclightMod {
         ArclightEventDispatcherRegistry.registerAllEventDispatchers();
         context.registerExtensionPoint(IExtensionPoint.DisplayTest.class,
             () -> new IExtensionPoint.DisplayTest(() -> NetworkConstants.IGNORESERVERONLY, (a, b) -> true));
+
+        // Register server start event for Velocity initialization
+        MinecraftForge.EVENT_BUS.addListener(this::onServerAboutToStart);
+    }
+
+    private void onServerAboutToStart(ServerAboutToStartEvent event) {
+        // Initialize Velocity forwarding
+        VelocityManager.getInstance().initialize();
+        LOGGER.info("Luminara server initialization completed");
     }
 
     private static class LoggingPrintStream extends PrintStream {

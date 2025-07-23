@@ -18,4 +18,7 @@ public interface NetworkManagerBridge {
     String bridge$getHostname();
 
     void bridge$setHostname(String hostname);
+
+    // Velocity Modern Forwarding support
+    void bridge$setVelocityAddress(SocketAddress address);
 }

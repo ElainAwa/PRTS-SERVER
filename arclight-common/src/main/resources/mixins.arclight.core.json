@@ -33,6 +33,7 @@
     "network.ServerPlayNetHandlerMixin",
     "network.ServerStatusNetHandlerMixin",
     "network.SynchedEntityDataMixin",
+    "network.VelocityCommandArgumentMixin",
     "network.chat.ComponentMixin",
     "network.chat.StyleMixin",
     "network.chat.TextColorMixin",
