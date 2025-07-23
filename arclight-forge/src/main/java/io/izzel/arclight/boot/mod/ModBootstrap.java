@@ -42,14 +42,14 @@ public class ModBootstrap extends AbstractBootstrap {
     static void run() {
         var plugin = Launcher.INSTANCE.environment().findLaunchPlugin("arclight_implementer");
         if (plugin.isPresent()) return;
-        var logger = LogManager.getLogger("Luminara");
+        var logger = LogManager.getLogger("Arclight");
         var marker = MarkerManager.getMarker("INSTALL");
         try {
             var paths = ForgeInstaller.modInstall(s -> logger.info(marker, s));
             load(paths.toArray(new Path[0]));
             new ModBootstrap().inject();
         } catch (Throwable e) {
-            logger.error("Error bootstrap Luminara", e);
+            logger.error("Error bootstrap Arclight", e);
             throw new RuntimeException(e);
         }
     }

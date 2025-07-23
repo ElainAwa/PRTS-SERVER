@@ -32,9 +32,6 @@ public class CompatSpec {
     @Setting("lenient-item-tag-match")
     private boolean lenientItemTagMatch;
 
-    @Setting("velocity-forwarding")
-    private VelocityForwardingSpec velocityForwarding = new VelocityForwardingSpec();
-
     public Map<String, MaterialPropertySpec> getMaterials() {
         return materials;
     }
@@ -73,9 +70,5 @@ public class CompatSpec {
 
     public boolean isLenientItemTagMatch() {
         return lenientItemTagMatch;
-    }
-
-    public VelocityForwardingSpec getVelocityForwarding() {
-        return velocityForwarding;
     }
 }

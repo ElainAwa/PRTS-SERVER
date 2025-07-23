@@ -18,7 +18,7 @@ import org.jetbrains.annotations.Nullable;
 import java.io.OutputStream;
 import java.io.PrintStream;
 
-@Mod("luminara")
+@Mod("arclight")
 public class ArclightMod {
 
     public static final Logger LOGGER = ArclightI18nLogger.getLogger("Luminara");
