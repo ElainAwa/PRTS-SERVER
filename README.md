@@ -1,20 +1,21 @@
 # Luminara
 
-> 一个在常见模组加载器上运行的 Bukkit 服务器实现
+ 一个Arclight fork，争取在Arclight上做出更多优化与改进（1.20.1）
+ > 使用本服务端过程中出现的任何问题请在本项目Issue反馈，请勿在Arclight项目Issue反馈！
 
 ## ✨ 特性
 
-- 🔧 **兼容性强** - 支持 Bukkit/Spigot/Paper 插件与 Forge 模组同时运行
-- 🚀 **高性能** - 基于 Minecraft Forge 构建，性能优异
-- 🛠️ **易于使用** - 简单的安装和配置过程
-- 🌐 **多版本支持** - 支持多个 Minecraft 版本
+- 🔧 **兼容性强** - 支持 Bukkit/Spigot 插件与 Forge 模组同时运行
+- 🚀 **高性能** - 并入了MPEM部分优化项，异步保存世界...
+- 🛠️ **易于使用** - 简单的安装与使用
+- 🌐 **Velocity支持** - 支持Velocity Modern转发，实现跨服功能
 
 ## 🎯 主要维护版本
 
 > **当前主要维护版本：Minecraft 1.20.1**
 >
 > - **Forge 版本**：47.4.4
-> - **稳定性**：⭐⭐⭐⭐⭐ 
+> - **稳定性**：较好
 > - **插件兼容性**：一般，仅Spigot
 > - **模组兼容性**：优秀
 
@@ -46,7 +47,7 @@
 ## 📚 支持与帮助
 
 ### 📖 文档
-- [官方文档](https://wiki.izzel.io/s/arclight-docs) - 详细的使用指南和配置说明
+- [Arclight文档](https://wiki.izzel.io/s/arclight-docs) - 详细的使用指南和配置说明
 
 ### 🐛 问题反馈
 - [提交 Bug](https://github.com/QianMoo0121/Luminara/issues/new/choose) - 遇到问题请在这里报告
