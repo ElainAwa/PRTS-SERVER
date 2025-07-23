@@ -7,15 +7,18 @@ import net.minecraft.network.Connection;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 
+import java.net.SocketAddress;
 import java.util.UUID;
 
 @Mixin(Connection.class)
 public class ConnectionMixin implements NetworkManagerBridge {
 
     @Shadow public Channel channel;
+    @Shadow private SocketAddress address;
     public java.util.UUID spoofedUUID;
     public com.mojang.authlib.properties.Property[] spoofedProfile;
     public String hostname;
+    public boolean velocityForwarding = false;
 
     @Override
     public UUID bridge$getSpoofedUUID() {
@@ -45,5 +48,20 @@ public class ConnectionMixin implements NetworkManagerBridge {
     @Override
     public void bridge$setHostname(String hostname) {
         this.hostname = hostname;
+    }
+
+    @Override
+    public void bridge$setAddress(SocketAddress address) {
+        this.address = address;
+    }
+
+    @Override
+    public boolean bridge$isVelocityForwarding() {
+        return velocityForwarding;
+    }
+
+    @Override
+    public void bridge$setVelocityForwarding(boolean velocityForwarding) {
+        this.velocityForwarding = velocityForwarding;
     }
 }

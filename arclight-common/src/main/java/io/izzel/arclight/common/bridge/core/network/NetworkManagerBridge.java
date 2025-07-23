@@ -18,4 +18,10 @@ public interface NetworkManagerBridge {
     String bridge$getHostname();
 
     void bridge$setHostname(String hostname);
+
+    void bridge$setAddress(SocketAddress address);
+
+    boolean bridge$isVelocityForwarding();
+
+    void bridge$setVelocityForwarding(boolean velocityForwarding);
 }

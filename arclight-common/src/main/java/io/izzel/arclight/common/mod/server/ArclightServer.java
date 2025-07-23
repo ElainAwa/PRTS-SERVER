@@ -6,6 +6,7 @@ import io.izzel.arclight.common.bridge.bukkit.CraftServerBridge;
 import io.izzel.arclight.common.bridge.core.server.MinecraftServerBridge;
 import io.izzel.arclight.common.mod.ArclightMod;
 import io.izzel.arclight.common.mod.server.api.DefaultArclightServer;
+import io.izzel.arclight.common.mod.util.VelocityForwardingInitializer;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.dedicated.DedicatedServer;
@@ -76,6 +77,8 @@ public class ArclightServer {
                 BukkitRegistry.registerAll(console);
                 org.spigotmc.SpigotConfig.init(new File("./spigot.yml"));
                 org.spigotmc.SpigotConfig.registerCommands();
+
+                VelocityForwardingInitializer.initialize();
             } catch (Throwable t) {
                 ArclightMod.LOGGER.error("registry.error", t);
                 throw t;

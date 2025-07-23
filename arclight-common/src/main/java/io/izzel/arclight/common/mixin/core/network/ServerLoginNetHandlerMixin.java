@@ -130,6 +130,9 @@ public abstract class ServerLoginNetHandlerMixin {
         Validate.validState(this.state == ServerLoginPacketListenerImpl.State.HELLO, "Unexpected hello packet");
         Validate.validState(this.state == ServerLoginPacketListenerImpl.State.HELLO, "Unexpected hello packet");
         Validate.validState(arclight$validUsernameCheck(packetIn.name()) || isValidUsername(packetIn.name()), "Invalid characters in username");
+
+
+
         GameProfile gameprofile = this.server.getSingleplayerProfile();
         if (gameprofile != null && packetIn.name().equalsIgnoreCase(gameprofile.getName())) {
             this.gameProfile = gameprofile;
