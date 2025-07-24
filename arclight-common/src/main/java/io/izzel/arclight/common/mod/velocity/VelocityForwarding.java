@@ -102,7 +102,16 @@ public class VelocityForwarding {
         GameProfile profile = createProfile(buf);
         LOGGER.debug("Created profile for player: {}", profile.getName());
 
-        LOGGER.info("Successfully processed Velocity forwarding for player: {}", profile.getName());
+        // Handle online-mode logic
+        VelocityManager velocityManager = VelocityManager.getInstance();
+        if (velocityManager.getVelocityConfig().isOnlineMode()) {
+            LOGGER.debug("Online-mode is enabled, profile will be verified through Mojang servers");
+        } else {
+            LOGGER.debug("Online-mode is disabled, trusting forwarded profile from Velocity");
+        }
+
+        LOGGER.info("Successfully processed Velocity forwarding for player: {} (online-mode: {})",
+                   profile.getName(), velocityManager.getVelocityConfig().isOnlineMode());
         return profile;
     }
 

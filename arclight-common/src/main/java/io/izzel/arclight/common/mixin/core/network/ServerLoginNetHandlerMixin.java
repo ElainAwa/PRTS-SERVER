@@ -142,7 +142,9 @@ public abstract class ServerLoginNetHandlerMixin {
         // Check for Velocity Modern Forwarding
         VelocityManager velocityManager = VelocityManager.getInstance();
         if (velocityManager.isVelocityForwardingEnabled()) {
-            LOGGER.info("Velocity Modern Forwarding is enabled for player: {}", packetIn.name());
+            LOGGER.info("Velocity Modern Forwarding is enabled for player: {} (online-mode: {})",
+                       packetIn.name(), velocityManager.getVelocityConfig().isOnlineMode());
+
             // Send Velocity query packet - following Mohist's approach
             this.luminara$velocityLoginMessageId = java.util.concurrent.ThreadLocalRandom.current().nextInt();
 
@@ -158,7 +160,8 @@ public abstract class ServerLoginNetHandlerMixin {
                         this.luminara$velocityLoginMessageId, VelocityForwarding.PLAYER_INFO_CHANNEL, queryBuf);
 
                 this.connection.send(queryPacket);
-                LOGGER.debug("Sent Velocity query packet with ID: {}", this.luminara$velocityLoginMessageId);
+                LOGGER.debug("Sent Velocity query packet with ID: {} for player: {}",
+                           this.luminara$velocityLoginMessageId, packetIn.name());
                 return; // Don't continue with normal login process
             } catch (Exception e) {
                 LOGGER.error("Failed to send Velocity query packet", e);
@@ -354,8 +357,16 @@ public abstract class ServerLoginNetHandlerMixin {
                 this.gameProfile = velocityManager.getVelocityForwarding().handleForwardingPacket(buf, this.connection);
                 LOGGER.info("Successfully processed Velocity forwarding for player: {}", this.gameProfile.getName());
 
-                // Continue with the login process like Mohist does
-                this.luminara$continueLogin();
+                // Handle online-mode logic
+                if (velocityManager.getVelocityConfig().isOnlineMode()) {
+                    LOGGER.debug("Online-mode enabled, proceeding with Mojang authentication for: {}", this.gameProfile.getName());
+                    // Continue with normal authentication process
+                    this.luminara$continueLogin();
+                } else {
+                    LOGGER.debug("Online-mode disabled, skipping Mojang authentication for: {}", this.gameProfile.getName());
+                    // Skip Mojang authentication and proceed directly to login
+                    this.luminara$proceedWithVelocityLogin();
+                }
                 ci.cancel();
             }
         } catch (Exception e) {
@@ -367,7 +378,7 @@ public abstract class ServerLoginNetHandlerMixin {
     }
 
     /**
-     * Continue the login process after Velocity forwarding
+     * Continue the login process after Velocity forwarding (with Mojang authentication)
      */
     private void luminara$continueLogin() {
         // Execute the login process in a separate thread, similar to Mohist's approach
@@ -379,6 +390,28 @@ public abstract class ServerLoginNetHandlerMixin {
                 } catch (Exception ex) {
                     disconnect("Failed to verify username!");
                     LOGGER.warn("Exception verifying " + gameProfile.getName(), ex);
+                }
+            }
+        };
+        thread.setUncaughtExceptionHandler(new DefaultUncaughtExceptionHandler(LOGGER));
+        thread.start();
+    }
+
+    /**
+     * Proceed with Velocity login without Mojang authentication (online-mode=false)
+     */
+    private void luminara$proceedWithVelocityLogin() {
+        // Execute the login process in a separate thread, but skip Mojang authentication
+        Thread thread = new Thread("Luminara Velocity Direct Login") {
+            @Override
+            public void run() {
+                try {
+                    // Skip Mojang authentication and proceed directly
+                    LOGGER.info("UUID of player {} is {} (from Velocity)", gameProfile.getName(), gameProfile.getId());
+                    state = ServerLoginPacketListenerImpl.State.NEGOTIATING; // FORGE: continue NEGOTIATING
+                } catch (Exception ex) {
+                    disconnect("Failed to process Velocity login!");
+                    LOGGER.warn("Exception processing Velocity login for " + gameProfile.getName(), ex);
                 }
             }
         };

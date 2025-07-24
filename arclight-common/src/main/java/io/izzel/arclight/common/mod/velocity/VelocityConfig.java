@@ -18,6 +18,10 @@ public class VelocityConfig {
                !getForwardingSecret().isEmpty();
     }
 
+    public boolean isOnlineMode() {
+        return ArclightConfig.spec().getVelocity().isOnlineMode();
+    }
+
     public String getForwardingSecret() {
         return ArclightConfig.spec().getVelocity().getForwardingSecret();
     }

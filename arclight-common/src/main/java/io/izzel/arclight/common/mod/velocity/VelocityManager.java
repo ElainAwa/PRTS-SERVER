@@ -53,6 +53,10 @@ public class VelocityManager {
         return velocityForwarding != null;
     }
 
+    public VelocityConfig getVelocityConfig() {
+        return VelocityConfig.INSTANCE;
+    }
+
     public List<String> getIntegratedArgumentTypes() {
         return integratedArgumentTypes;
     }

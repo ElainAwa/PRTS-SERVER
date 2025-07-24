@@ -9,6 +9,9 @@ public class VelocitySpec {
     @Setting("enabled")
     private boolean enabled;
 
+    @Setting("online-mode")
+    private boolean onlineMode;
+
     @Setting("forwarding-secret")
     private String forwardingSecret;
 
@@ -17,6 +20,10 @@ public class VelocitySpec {
 
     public boolean isEnabled() {
         return enabled;
+    }
+
+    public boolean isOnlineMode() {
+        return onlineMode;
     }
 
     public String getForwardingSecret() {

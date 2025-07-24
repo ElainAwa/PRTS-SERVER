@@ -42,7 +42,7 @@ public class ModBootstrap extends AbstractBootstrap {
     static void run() {
         var plugin = Launcher.INSTANCE.environment().findLaunchPlugin("arclight_implementer");
         if (plugin.isPresent()) return;
-        var logger = LogManager.getLogger("Arclight");
+        var logger = LogManager.getLogger("Luminara");
         var marker = MarkerManager.getMarker("INSTALL");
         try {
             var paths = ForgeInstaller.modInstall(s -> logger.info(marker, s));
