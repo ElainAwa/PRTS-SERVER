@@ -12,7 +12,7 @@ import java.util.List;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
-@Mixin(Component.class)
+@Mixin(value = Component.class, priority = 1500)
 public interface ComponentMixin extends ITextComponentBridge, Iterable<Component> {
 
     // @formatter:off
