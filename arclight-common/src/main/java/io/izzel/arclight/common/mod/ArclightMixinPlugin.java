@@ -144,28 +144,6 @@ public class ArclightMixinPlugin implements IMixinConfigPlugin {
 
     @Override
     public boolean shouldApplyMixin(String targetClassName, String mixinClassName) {
-        // Smart handling for ComponentMixin to prevent early class loading
-        if (mixinClassName.endsWith("ComponentMixin") && targetClassName.equals("net.minecraft.network.chat.Component")) {
-            try {
-                // Use reflection to check if the class is already loaded without triggering loading
-                ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
-                java.lang.reflect.Method findLoadedClassMethod = ClassLoader.class.getDeclaredMethod("findLoadedClass", String.class);
-                findLoadedClassMethod.setAccessible(true);
-                Class<?> loadedClass = (Class<?>) findLoadedClassMethod.invoke(classLoader, targetClassName);
-
-                if (loadedClass != null) {
-                    // Class already loaded, skip this mixin to prevent exception
-                    System.out.println("[Luminara] Component class already loaded, skipping ComponentMixin to prevent MixinTargetAlreadyLoadedException");
-                    return false;
-                }
-                // Class not loaded yet, safe to apply mixin
-                return ShouldApplyProcessor.shouldApply(mixinClassName);
-            } catch (Exception e) {
-                // If reflection fails, fall back to default behavior
-                System.out.println("[Luminara] Failed to check Component class loading status, applying default logic: " + e.getMessage());
-                return ShouldApplyProcessor.shouldApply(mixinClassName);
-            }
-        }
         return ShouldApplyProcessor.shouldApply(mixinClassName);
     }
 
