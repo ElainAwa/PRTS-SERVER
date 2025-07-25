@@ -1,11 +1,8 @@
 package io.izzel.arclight.common.bridge.network.chat;
 
 import com.google.common.collect.Streams;
-import io.izzel.arclight.common.bridge.core.entity.player.ServerPlayerEntityBridge;
 import io.izzel.arclight.common.bridge.core.util.text.ITextComponentBridge;
 import net.minecraft.network.chat.Component;
-import net.minecraft.server.level.ServerPlayer;
-import org.bukkit.craftbukkit.v.entity.CraftPlayer;
 
 import java.lang.reflect.Method;
 import java.util.Iterator;
@@ -123,25 +120,7 @@ public class ComponentBridgeHandler {
         return () -> createIterator(component);
     }
     
-    // Bridge method for text component functionality
-    public static void handleTextComponent(Component component, ServerPlayer player) {
-        if (!initialized) {
-            initialize();
-        }
 
-        try {
-            // Handle text component bridge functionality
-            if (player instanceof ServerPlayerEntityBridge bridge) {
-                CraftPlayer craftPlayer = bridge.bridge$getBukkitEntity();
-                if (craftPlayer != null) {
-                    // Process component for Bukkit compatibility
-                    processComponentForBukkit(component, craftPlayer);
-                }
-            }
-        } catch (Exception e) {
-            System.err.println("[Luminara] Failed to handle text component: " + e.getMessage());
-        }
-    }
     
     // Implementation of ITextComponentBridge functionality
     public static class ComponentBridge implements ITextComponentBridge {
@@ -167,6 +146,5 @@ public class ComponentBridgeHandler {
         return new ComponentBridge(component);
     }
 
-    private static void processComponentForBukkit(Component component, CraftPlayer player) {
-    }
+
 }
