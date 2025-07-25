@@ -15,39 +15,55 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
-/**
- * Runtime bridge handler for Component functionality
- * This replaces the problematic ComponentMixin to avoid early class loading issues
- */
+
 public class ComponentBridgeHandler {
     
     private static final ConcurrentMap<Class<?>, Method> METHOD_CACHE = new ConcurrentHashMap<>();
     private static volatile boolean initialized = false;
     
-    /**
-     * Initialize the bridge handler after all classes are loaded
-     */
+    // Initialize the bridge handler after all classes are loaded
     public static void initialize() {
         if (initialized) return;
         
         try {
-            // Cache commonly used methods to avoid reflection overhead
             Class<?> componentClass = Component.class;
-            
-            // Cache getSiblings method
-            Method getSiblingsMethod = componentClass.getDeclaredMethod("getSiblings");
-            METHOD_CACHE.put(componentClass, getSiblingsMethod);
-            
-            initialized = true;
+
+            // Try to find getSiblings method with different possible names
+            Method getSiblingsMethod = null;
+            String[] possibleNames = {"getSiblings", "m_7220_", "m_130940_", "siblings"};
+
+            for (String methodName : possibleNames) {
+                try {
+                    getSiblingsMethod = componentClass.getDeclaredMethod(methodName);
+                    break;
+                } catch (NoSuchMethodException ignored) {
+                    // Try next name
+                }
+            }
+
+            // If still not found, try to find method by return type
+            if (getSiblingsMethod == null) {
+                for (Method method : componentClass.getDeclaredMethods()) {
+                    if (method.getReturnType().equals(List.class) && method.getParameterCount() == 0) {
+                        getSiblingsMethod = method;
+                        break;
+                    }
+                }
+            }
+
+            if (getSiblingsMethod != null) {
+                METHOD_CACHE.put(componentClass, getSiblingsMethod);
+                initialized = true;
+            } else {
+                System.err.println("[Luminara] Could not find getSiblings method in Component class");
+            }
         } catch (Exception e) {
             System.err.println("[Luminara] Failed to initialize ComponentBridgeHandler: " + e.getMessage());
             e.printStackTrace();
         }
     }
     
-    /**
-     * Get siblings from a Component using cached reflection
-     */
+    // Get siblings from a Component using cached reflection
     @SuppressWarnings("unchecked")
     public static List<Component> getSiblings(Component component) {
         if (!initialized) {
@@ -67,9 +83,7 @@ public class ComponentBridgeHandler {
         return List.of();
     }
     
-    /**
-     * Create a stream of components (replaces ComponentMixin.stream())
-     */
+    //  Create a stream of components (replaces ComponentMixin.stream())
     public static Stream<Component> createStream(Component component) {
         if (!initialized) {
             initialize();
@@ -90,9 +104,7 @@ public class ComponentBridgeHandler {
         }
     }
 
-    /**
-     * Create an iterator for components (replaces ComponentMixin.iterator())
-     */
+    // reate an iterator for components (replaces ComponentMixin.iterator())
     public static Iterator<Component> createIterator(Component component) {
         if (!initialized) {
             initialize();
@@ -106,16 +118,12 @@ public class ComponentBridgeHandler {
         }
     }
 
-    /**
-     * Bridge method to handle Component iteration
-     */
+    // Bridge method to handle Component iteration
     public static Iterable<Component> asIterable(Component component) {
         return () -> createIterator(component);
     }
     
-    /**
-     * Bridge method for text component functionality
-     */
+    // Bridge method for text component functionality
     public static void handleTextComponent(Component component, ServerPlayer player) {
         if (!initialized) {
             initialize();
@@ -135,9 +143,7 @@ public class ComponentBridgeHandler {
         }
     }
     
-    /**
-     * Implementation of ITextComponentBridge functionality
-     */
+    // Implementation of ITextComponentBridge functionality
     public static class ComponentBridge implements ITextComponentBridge {
         private final Component component;
 
@@ -156,16 +162,11 @@ public class ComponentBridgeHandler {
         }
     }
 
-    /**
-     * Create a bridge instance for a component
-     */
+    // Create a bridge instance for a component
     public static ITextComponentBridge createBridge(Component component) {
         return new ComponentBridge(component);
     }
 
     private static void processComponentForBukkit(Component component, CraftPlayer player) {
-        // Implementation for Bukkit component processing
-        // This would contain the logic that was previously in ComponentMixin
-        // For now, this is a placeholder for future implementation
     }
 }

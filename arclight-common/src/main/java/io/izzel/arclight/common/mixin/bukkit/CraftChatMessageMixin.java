@@ -11,11 +11,6 @@ import java.util.Iterator;
 
 @Mixin(value = CraftChatMessage.class, remap = false)
 public class CraftChatMessageMixin {
-
-    /**
-     * Redirect Component.iterator() calls to use our ComponentBridgeHandler
-     * This fixes the NoSuchMethodError when ComponentMixin is not available
-     */
     @Redirect(method = "fromComponent", at = @At(value = "INVOKE", target = "Lnet/minecraft/network/chat/Component;iterator()Ljava/util/Iterator;"))
     private static Iterator<Component> arclight$useComponentBridge(Component component) {
         return ComponentBridgeHandler.createIterator(component);
