@@ -15,6 +15,7 @@
     "CraftAbstractVillagerMixin",
     "CraftBlockMixin",
     "CraftBlockStateMixin",
+    "CraftChatMessageMixin",
     "CraftConsoleCommandSenderMixin",
     "CraftEnderDragonMixin",
     "CraftEntityMixin",
