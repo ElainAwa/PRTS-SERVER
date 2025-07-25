@@ -21,7 +21,7 @@ public class ComponentBridgeHandler {
     // Initialize the bridge handler after all classes are loaded
     public static void initialize() {
         if (initialized) return;
-        
+
         try {
             Class<?> componentClass = Component.class;
 
@@ -32,6 +32,7 @@ public class ComponentBridgeHandler {
             for (String methodName : possibleNames) {
                 try {
                     getSiblingsMethod = componentClass.getDeclaredMethod(methodName);
+                    getSiblingsMethod.setAccessible(true);
                     break;
                 } catch (NoSuchMethodException ignored) {
                     // Try next name
@@ -43,6 +44,7 @@ public class ComponentBridgeHandler {
                 for (Method method : componentClass.getDeclaredMethods()) {
                     if (method.getReturnType().equals(List.class) && method.getParameterCount() == 0) {
                         getSiblingsMethod = method;
+                        getSiblingsMethod.setAccessible(true);
                         break;
                     }
                 }
@@ -50,38 +52,52 @@ public class ComponentBridgeHandler {
 
             if (getSiblingsMethod != null) {
                 METHOD_CACHE.put(componentClass, getSiblingsMethod);
-                initialized = true;
+                System.out.println("[Luminara] ComponentBridgeHandler initialized successfully with method: " + getSiblingsMethod.getName());
             } else {
                 System.err.println("[Luminara] Could not find getSiblings method in Component class");
             }
         } catch (Exception e) {
             System.err.println("[Luminara] Failed to initialize ComponentBridgeHandler: " + e.getMessage());
             e.printStackTrace();
+        } finally {
+            // Always mark as initialized to prevent infinite retry loops
+            initialized = true;
         }
     }
     
     // Get siblings from a Component using cached reflection
     @SuppressWarnings("unchecked")
     public static List<Component> getSiblings(Component component) {
+        if (component == null) {
+            return List.of();
+        }
+
         if (!initialized) {
             initialize();
         }
-        
+
         try {
             Method method = METHOD_CACHE.get(Component.class);
             if (method != null) {
-                return (List<Component>) method.invoke(component);
+                Object result = method.invoke(component);
+                if (result instanceof List) {
+                    return (List<Component>) result;
+                }
             }
         } catch (Exception e) {
             System.err.println("[Luminara] Failed to get siblings from Component: " + e.getMessage());
         }
-        
+
         // Fallback to empty list
         return List.of();
     }
     
-    //  Create a stream of components (replaces ComponentMixin.stream())
+    // Create a stream of components (replaces ComponentMixin.stream())
     public static Stream<Component> createStream(Component component) {
+        if (component == null) {
+            return Stream.empty();
+        }
+
         if (!initialized) {
             initialize();
         }
@@ -94,15 +110,23 @@ public class ComponentBridgeHandler {
                 }
             }
             List<Component> siblings = getSiblings(component);
-            return Streams.concat(Stream.of(component), siblings.stream().flatMap(new Func()));
+            if (siblings != null && !siblings.isEmpty()) {
+                return Streams.concat(Stream.of(component), siblings.stream().flatMap(new Func()));
+            } else {
+                return Stream.of(component);
+            }
         } catch (Exception e) {
             System.err.println("[Luminara] Failed to create Component stream: " + e.getMessage());
             return Stream.of(component);
         }
     }
 
-    // reate an iterator for components (replaces ComponentMixin.iterator())
+    // Create an iterator for components (replaces ComponentMixin.iterator())
     public static Iterator<Component> createIterator(Component component) {
+        if (component == null) {
+            return List.<Component>of().iterator();
+        }
+
         if (!initialized) {
             initialize();
         }

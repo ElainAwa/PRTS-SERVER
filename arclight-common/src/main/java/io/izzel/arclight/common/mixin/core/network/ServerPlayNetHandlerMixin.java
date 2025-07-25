@@ -1187,8 +1187,11 @@ public abstract class ServerPlayNetHandlerMixin implements ServerPlayNetHandlerB
     @Overwrite
     private void broadcastChatMessage(PlayerChatMessage playerchatmessage) {
         String s = playerchatmessage.signedContent();
-        if (s.isEmpty()) {
+        if (s == null || s.isEmpty()) {
             LOGGER.warn(this.player.getScoreboardName() + " tried to send an empty message");
+        } else if (s.length() > 256) { // Validate message length
+            LOGGER.warn(this.player.getScoreboardName() + " tried to send a message that is too long: " + s.length() + " characters");
+            this.disconnect("Chat message too long!");
         } else if (getCraftPlayer().isConversing()) {
             final String conversationInput = s;
             ((MinecraftServerBridge) this.server).bridge$queuedProcess(() -> getCraftPlayer().acceptConversationInput(conversationInput));
@@ -1824,9 +1827,21 @@ public abstract class ServerPlayNetHandlerMixin implements ServerPlayNetHandlerB
             if (this.connection.isConnected()) {
                 if (packet.identifier.equals(CUSTOM_REGISTER)) {
                     try {
+                        if (buf.length > 32767) { // Reasonable limit for channel names
+                            LOGGER.warn("Custom payload REGISTER too large: {} bytes", buf.length);
+                            this.disconnect("Invalid payload REGISTER!");
+                            return;
+                        }
+
                         String channels = new String(buf, StandardCharsets.UTF_8);
+                        if (channels.length() > 32767) { // Additional safety check
+                            LOGGER.warn("Custom payload REGISTER string too long: {} characters", channels.length());
+                            this.disconnect("Invalid payload REGISTER!");
+                            return;
+                        }
+
                         for (String channel : channels.split("\0")) {
-                            if (!StringUtil.isNullOrEmpty(channel)) {
+                            if (!StringUtil.isNullOrEmpty(channel) && channel.length() <= 256) { // Validate channel name length
                                 this.getCraftPlayer().addChannel(channel);
                             }
                         }
@@ -1836,9 +1851,21 @@ public abstract class ServerPlayNetHandlerMixin implements ServerPlayNetHandlerB
                     }
                 } else if (packet.identifier.equals(CUSTOM_UNREGISTER)) {
                     try {
+                        if (buf.length > 32767) { // Reasonable limit for channel names
+                            LOGGER.warn("Custom payload UNREGISTER too large: {} bytes", buf.length);
+                            this.disconnect("Invalid payload UNREGISTER!");
+                            return;
+                        }
+
                         final String channels = new String(buf, StandardCharsets.UTF_8);
+                        if (channels.length() > 32767) { // Additional safety check
+                            LOGGER.warn("Custom payload UNREGISTER string too long: {} characters", channels.length());
+                            this.disconnect("Invalid payload UNREGISTER!");
+                            return;
+                        }
+
                         for (String channel : channels.split("\0")) {
-                            if (!StringUtil.isNullOrEmpty(channel)) {
+                            if (!StringUtil.isNullOrEmpty(channel) && channel.length() <= 256) { // Validate channel name length
                                 this.getCraftPlayer().removeChannel(channel);
                             }
                         }

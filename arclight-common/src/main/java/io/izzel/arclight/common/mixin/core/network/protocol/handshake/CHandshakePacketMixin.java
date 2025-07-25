@@ -26,26 +26,65 @@ public class CHandshakePacketMixin {
 
     @Redirect(method = "<init>(Lnet/minecraft/network/FriendlyByteBuf;)V", at = @At(value = "INVOKE", target = "Lnet/minecraft/network/FriendlyByteBuf;readUtf(I)Ljava/lang/String;"))
     private String arclight$bungeeHostname(FriendlyByteBuf packetBuffer, int maxLength) {
-        return packetBuffer.readUtf(Short.MAX_VALUE);
+        try {
+            if (packetBuffer.readableBytes() < 1) {
+                return "";
+            }
+
+            // Read string length first to validate
+            int readerIndex = packetBuffer.readerIndex();
+            int stringLength = packetBuffer.readVarInt();
+
+            // Check if we have enough bytes for the string
+            if (stringLength < 0 || stringLength > packetBuffer.readableBytes()) {
+                packetBuffer.readerIndex(readerIndex);
+                return "";
+            }
+
+            // Reset reader index and read normally
+            packetBuffer.readerIndex(readerIndex);
+            return packetBuffer.readUtf(Short.MAX_VALUE);
+        } catch (Exception e) {
+            System.err.println("[Luminara] Error reading hostname from handshake packet: " + e.getMessage());
+            return "";
+        }
     }
 
     @Redirect(method = "<init>(Lnet/minecraft/network/FriendlyByteBuf;)V", at = @At(value = "INVOKE", remap = false, target = "Lnet/minecraftforge/network/NetworkHooks;getFMLVersion(Ljava/lang/String;)Ljava/lang/String;"))
     private String arclight$readFromProfile(String ip) {
-        String fmlVersion = NetworkHooks.getFMLVersion(ip);
-        if (SpigotConfig.bungee && !Objects.equals(fmlVersion, NetworkConstants.NETVERSION)) {
-            String[] split = ip.split("\0");
-            if (split.length == 4) {
-                Property[] properties = GSON.fromJson(split[3], Property[].class);
-                for (Property property : properties) {
-                    if (Objects.equals(property.getName(), EXTRA_DATA)) {
-                        String extraData = property.getValue().replace("\1", "\0");
-                        this.arclight$host = ip;
-                        return NetworkHooks.getFMLVersion(split[0] + extraData);
+        try {
+            String fmlVersion = NetworkHooks.getFMLVersion(ip);
+            if (SpigotConfig.bungee && !Objects.equals(fmlVersion, NetworkConstants.NETVERSION)) {
+                if (ip == null || ip.isEmpty()) {
+                    return fmlVersion;
+                }
+
+                String[] split = ip.split("\0");
+                if (split.length == 4 && split[3] != null && !split[3].isEmpty()) {
+                    try {
+                        Property[] properties = GSON.fromJson(split[3], Property[].class);
+                        if (properties != null) {
+                            for (Property property : properties) {
+                                if (property != null && Objects.equals(property.getName(), EXTRA_DATA)) {
+                                    String value = property.getValue();
+                                    if (value != null) {
+                                        String extraData = value.replace("\1", "\0");
+                                        this.arclight$host = ip;
+                                        return NetworkHooks.getFMLVersion(split[0] + extraData);
+                                    }
+                                }
+                            }
+                        }
+                    } catch (Exception e) {
+                        System.err.println("[Luminara] Error parsing BungeeCord profile data: " + e.getMessage());
                     }
                 }
             }
+            return fmlVersion;
+        } catch (Exception e) {
+            System.err.println("[Luminara] Error processing FML version: " + e.getMessage());
+            return NetworkConstants.NETVERSION;
         }
-        return fmlVersion;
     }
 
     private transient String arclight$host;
