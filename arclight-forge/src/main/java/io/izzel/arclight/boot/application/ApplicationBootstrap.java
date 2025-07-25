@@ -5,6 +5,8 @@ import io.izzel.arclight.api.Unsafe;
 import io.izzel.arclight.boot.AbstractBootstrap;
 import io.izzel.arclight.i18n.ArclightConfig;
 import io.izzel.arclight.i18n.ArclightLocale;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.util.Arrays;
 import java.util.ServiceLoader;
@@ -12,6 +14,7 @@ import java.util.function.Consumer;
 
 public class ApplicationBootstrap extends AbstractBootstrap implements Consumer<String[]> {
 
+    private static final Logger LOGGER = LogManager.getLogger("Luminara");
     private static final int MIN_DEPRECATED_VERSION = 60;
     private static final int MIN_DEPRECATED_JAVA_VERSION = 16;
 
@@ -30,7 +33,7 @@ public class ApplicationBootstrap extends AbstractBootstrap implements Consumer<
             }
             Unsafe.ensureClassInitialized(EnumHelper.class);
         } catch (Throwable t) {
-            System.err.println("Your Java is not compatible with Arclight.");
+            LOGGER.error("Your Java is not compatible with Luminara.");
             t.printStackTrace();
             return;
         }
@@ -46,7 +49,7 @@ public class ApplicationBootstrap extends AbstractBootstrap implements Consumer<
                 .findFirst().orElseThrow().get().accept(args);
         } catch (Exception e) {
             e.printStackTrace();
-            System.err.println("Fail to launch Arclight.");
+            LOGGER.error("Fail to launch Luminara.");
         }
     }
 }

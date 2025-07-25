@@ -1,5 +1,7 @@
 package io.izzel.arclight.common.mod.mixins;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.tree.ClassNode;
 
@@ -9,6 +11,7 @@ import java.util.function.Predicate;
 
 public class ShouldApplyProcessor {
 
+    private static final Logger LOGGER = LogManager.getLogger("Luminara");
     private static final List<Predicate<ClassNode>> PREDICATES = List.of(
         LoadIfModProcessor::shouldApply
     );
@@ -27,7 +30,7 @@ public class ShouldApplyProcessor {
                 }
                 return true;
             } else {
-                System.out.println(mixinClass);
+                LOGGER.debug(mixinClass);
             }
             return true;
         } catch (IOException e) {

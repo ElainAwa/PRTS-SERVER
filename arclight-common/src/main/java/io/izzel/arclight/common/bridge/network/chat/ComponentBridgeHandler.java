@@ -3,6 +3,8 @@ package io.izzel.arclight.common.bridge.network.chat;
 import com.google.common.collect.Streams;
 import io.izzel.arclight.common.bridge.core.util.text.ITextComponentBridge;
 import net.minecraft.network.chat.Component;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.lang.reflect.Method;
 import java.util.Iterator;
@@ -14,7 +16,8 @@ import java.util.stream.Stream;
 
 
 public class ComponentBridgeHandler {
-    
+
+    private static final Logger LOGGER = LogManager.getLogger("Luminara");
     private static final ConcurrentMap<Class<?>, Method> METHOD_CACHE = new ConcurrentHashMap<>();
     private static volatile boolean initialized = false;
     
@@ -52,12 +55,12 @@ public class ComponentBridgeHandler {
 
             if (getSiblingsMethod != null) {
                 METHOD_CACHE.put(componentClass, getSiblingsMethod);
-                System.out.println("[Luminara] ComponentBridgeHandler initialized successfully with method: " + getSiblingsMethod.getName());
+                LOGGER.info("ComponentBridgeHandler initialized successfully with method: " + getSiblingsMethod.getName());
             } else {
-                System.err.println("[Luminara] Could not find getSiblings method in Component class");
+                LOGGER.error("Could not find getSiblings method in Component class");
             }
         } catch (Exception e) {
-            System.err.println("[Luminara] Failed to initialize ComponentBridgeHandler: " + e.getMessage());
+            LOGGER.error("Failed to initialize ComponentBridgeHandler: " + e.getMessage());
             e.printStackTrace();
         } finally {
             // Always mark as initialized to prevent infinite retry loops
@@ -85,7 +88,7 @@ public class ComponentBridgeHandler {
                 }
             }
         } catch (Exception e) {
-            System.err.println("[Luminara] Failed to get siblings from Component: " + e.getMessage());
+            LOGGER.error("Failed to get siblings from Component: " + e.getMessage());
         }
 
         // Fallback to empty list
@@ -116,7 +119,7 @@ public class ComponentBridgeHandler {
                 return Stream.of(component);
             }
         } catch (Exception e) {
-            System.err.println("[Luminara] Failed to create Component stream: " + e.getMessage());
+            LOGGER.error("Failed to create Component stream: " + e.getMessage());
             return Stream.of(component);
         }
     }
@@ -134,7 +137,7 @@ public class ComponentBridgeHandler {
         try {
             return createStream(component).iterator();
         } catch (Exception e) {
-            System.err.println("[Luminara] Failed to create Component iterator: " + e.getMessage());
+            LOGGER.error("Failed to create Component iterator: " + e.getMessage());
             return List.of(component).iterator();
         }
     }
