@@ -13,7 +13,7 @@
   "overwrites": {
     "conformVisibility": true
   },
-  "mixinPriority": 1500,
+  "mixinPriority": 500,
   "compatibilityLevel": "JAVA_17",
   "mixins": [
     "advancements.AdvancementMixin",
