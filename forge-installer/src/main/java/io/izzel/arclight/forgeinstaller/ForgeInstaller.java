@@ -6,8 +6,6 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import io.izzel.arclight.api.Unsafe;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 
 import java.io.File;
 import java.io.IOException;
@@ -56,7 +54,6 @@ import java.util.stream.Stream;
 
 public class ForgeInstaller {
 
-    private static final Logger LOGGER = LogManager.getLogger("Luminara");
     private static final MethodHandles.Lookup IMPL_LOOKUP = Unsafe.lookup();
 
     public static List<Path> modInstall(Consumer<String> logger) throws Throwable {
@@ -82,13 +79,13 @@ public class ForgeInstaller {
         Path path = Paths.get("libraries", "net", "minecraftforge", "forge", installInfo.installer.minecraft + "-" + installInfo.installer.forge, sysType + "_args.txt");
         var installForge = !Files.exists(path) || forgeClasspathMissing(path);
         if (!suppliers.isEmpty() || installForge) {
-            LOGGER.info("Downloading missing libraries ...");
+            System.out.println("Downloading missing libraries ...");
             ExecutorService pool = Executors.newWorkStealingPool(8);
-            CompletableFuture<?>[] array = suppliers.stream().map(reportSupply(pool, LOGGER::info)).toArray(CompletableFuture[]::new);
+            CompletableFuture<?>[] array = suppliers.stream().map(reportSupply(pool, System.out::println)).toArray(CompletableFuture[]::new);
             if (installForge) {
-                var futures = installForge(installInfo, pool, LOGGER::info);
-                handleFutures(LOGGER::info, futures);
-                LOGGER.info("Forge installation is starting, please wait... ");
+                var futures = installForge(installInfo, pool, System.out::println);
+                handleFutures(System.out::println, futures);
+                System.out.println("Forge installation is starting, please wait... ");
                 try {
                     ProcessBuilder builder = new ProcessBuilder();
                     File file = new File(System.getProperty("java.home"), "bin/java");
