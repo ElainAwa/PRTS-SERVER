@@ -14,9 +14,21 @@ public interface CommandSenderAdventureMixin extends Audience {
     @Override
     default void sendMessage(@NotNull Component message) {
         CommandSender sender = (CommandSender) this;
-        // Convert Adventure Component to legacy string and send
-        String legacyMessage = PaperAdventure.adventureToLegacy(message);
-        sender.sendMessage(legacyMessage);
+        // Enhanced message handling for better format preservation
+        try {
+            // If this is an ArclightDummyCommandSender, it has its own Adventure implementation
+            if (sender instanceof io.izzel.arclight.common.mod.command.ArclightDummyCommandSender) {
+                ((io.izzel.arclight.common.mod.command.ArclightDummyCommandSender) sender).sendMessage(message);
+                return;
+            }
+            // Convert Adventure Component to legacy string and send
+            String legacyMessage = PaperAdventure.adventureToLegacy(message);
+            sender.sendMessage(legacyMessage);
+        } catch (Exception e) {
+            // Fallback to plain text
+            String plainText = PaperAdventure.asPlain(message);
+            sender.sendMessage(plainText);
+        }
     }
 
     @Override

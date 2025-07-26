@@ -1,5 +1,6 @@
 package io.izzel.arclight.common.optimization.mpem;
 
+import io.izzel.arclight.common.mod.command.LuminaraCommand;
 import io.izzel.arclight.common.optimization.mpem.async.AsyncAIManager;
 import io.izzel.arclight.common.optimization.mpem.async.AsyncCollisionSystem;
 import io.izzel.arclight.common.optimization.mpem.async.AsyncRedstoneManager;
@@ -34,7 +35,7 @@ public class OptimizationManager {
         MinecraftForge.EVENT_BUS.register(AsyncAIManager.class);
         MinecraftForge.EVENT_BUS.register(AsyncCollisionSystem.class);
         MinecraftForge.EVENT_BUS.register(AsyncRedstoneManager.class);
-        MinecraftForge.EVENT_BUS.register(OptimizationCommand.class);
+        MinecraftForge.EVENT_BUS.register(LuminaraCommand.class);
 
         Runtime.getRuntime().addShutdownHook(new Thread(OptimizationManager::shutdown));
     }

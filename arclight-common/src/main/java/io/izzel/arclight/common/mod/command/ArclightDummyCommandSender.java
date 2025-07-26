@@ -29,8 +29,15 @@ public class ArclightDummyCommandSender extends ArclightDummyPermissible impleme
 
     @Override
     public void sendMessage(@NotNull String s) {
-        for (var msg : CraftChatMessage.fromString(s)) {
-            sendToAppropriateTarget(msg);
+        // Enhanced message parsing to support MineDown and other formats
+        try {
+            Component adventureComponent = PaperAdventure.parseMessage(s);
+            sendMessage(adventureComponent);
+        } catch (Exception e) {
+            // Fallback to original implementation
+            for (var msg : CraftChatMessage.fromString(s)) {
+                sendToAppropriateTarget(msg);
+            }
         }
     }
 
@@ -131,10 +138,22 @@ public class ArclightDummyCommandSender extends ArclightDummyPermissible impleme
 
         @Override
         public void sendMessage(@NotNull BaseComponent component) {
-            var json = ComponentSerializer.toString(component);
-            var result = net.minecraft.network.chat.Component.Serializer.fromJson(json);
-            if (result != null) {
-                sendToAppropriateTarget(result);
+            try {
+                // Enhanced BaseComponent handling for better MineDown support
+                var json = ComponentSerializer.toString(component);
+                var result = net.minecraft.network.chat.Component.Serializer.fromJson(json);
+                if (result != null) {
+                    sendToAppropriateTarget(result);
+                } else {
+                    // Fallback to plain text if JSON parsing fails
+                    String plainText = component.toPlainText();
+                    Component adventureComponent = PaperAdventure.parseMessage(plainText);
+                    ArclightDummyCommandSender.this.sendMessage(adventureComponent);
+                }
+            } catch (Exception e) {
+                // Final fallback to plain text
+                String plainText = component.toPlainText();
+                sendToAppropriateTarget(net.minecraft.network.chat.Component.literal(plainText));
             }
         }
     }

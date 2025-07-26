@@ -1,5 +1,6 @@
 package io.izzel.arclight.common.adventure;
 
+import de.themoep.minedown.MineDown;
 import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.chat.SignedMessage;
 import net.kyori.adventure.text.Component;
@@ -82,6 +83,41 @@ public final class PaperAdventure {
     // Get MiniMessage instance
     public static @NotNull MiniMessage miniMessage() {
         return MINI_MESSAGE;
+    }
+
+    // Convert MineDown string to Adventure Component
+    public static @NotNull Component mineDownToAdventure(@NotNull String mineDown) {
+        try {
+            return new MineDown(mineDown).toComponent();
+        } catch (Exception e) {
+            // Fallback to plain text if MineDown parsing fails
+            return Component.text(mineDown);
+        }
+    }
+
+    // Convert Adventure Component to MineDown string (best effort)
+    public static @NotNull String adventureToMineDown(@NotNull Component component) {
+        // MineDown doesn't have a direct serializer, so we convert to legacy format
+        // which is the closest representation that MineDown can understand
+        return adventureToLegacy(component);
+    }
+
+    // Enhanced message parsing that supports multiple formats
+    public static @NotNull Component parseMessage(@NotNull String message) {
+        // Try to detect the message format and parse accordingly
+        if (message.contains("&[") || message.contains("&(")) {
+            // Likely MineDown format
+            return mineDownToAdventure(message);
+        } else if (message.contains("<") && message.contains(">")) {
+            // Likely MiniMessage format
+            return miniMessageToAdventure(message);
+        } else if (message.contains("§") || message.contains("&")) {
+            // Legacy format
+            return legacyToAdventure(message);
+        } else {
+            // Plain text
+            return Component.text(message);
+        }
     }
 
     public static @NotNull Component resolveWithContext(@NotNull Component input, @Nullable CommandSender context, @Nullable Entity scoreboardSubject, boolean bypassPermissions) throws IOException {
