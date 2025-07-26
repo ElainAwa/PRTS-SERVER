@@ -125,10 +125,7 @@ dependencies {
         exclude group: 'org.slf4j'
         exclude group: 'org.checkerframework'
     }
-    embed("de.themoep:minedown:1.7.1-SNAPSHOT") {
-        exclude group: 'org.slf4j'
-        exclude group: 'org.checkerframework'
-    }
+
     embed("net.kyori:adventure-text-logger-slf4j:4.17.0") {
         exclude group: 'org.slf4j'
         exclude group: 'org.checkerframework'
