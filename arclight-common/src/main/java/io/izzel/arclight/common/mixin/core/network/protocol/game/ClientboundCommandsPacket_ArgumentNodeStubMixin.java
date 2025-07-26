@@ -19,7 +19,7 @@ public class ClientboundCommandsPacket_ArgumentNodeStubMixin {
     private static final int ARCLIGHT_WRAP_INDEX = -256;
 
     @Inject(method = "serializeCap(Lnet/minecraft/network/FriendlyByteBuf;Lnet/minecraft/commands/synchronization/ArgumentTypeInfo;Lnet/minecraft/commands/synchronization/ArgumentTypeInfo$Template;)V",
-        cancellable = true, at = @At("HEAD"))
+            cancellable = true, at = @At("HEAD"))
     private static <A extends ArgumentType<?>, T extends ArgumentTypeInfo.Template<A>> void arclight$wrapArgument(FriendlyByteBuf buf, ArgumentTypeInfo<A, T> type, ArgumentTypeInfo.Template<A> node, CallbackInfo ci) {
         if (!SpigotConfig.bungee) {
             return;

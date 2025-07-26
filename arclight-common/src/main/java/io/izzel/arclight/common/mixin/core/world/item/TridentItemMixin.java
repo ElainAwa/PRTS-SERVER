@@ -41,7 +41,7 @@ public class TridentItemMixin {
             return false;
         }
         stack.hurtAndBreak(1, entityLiving, (entity) ->
-            entity.broadcastBreakEvent(entityLiving.getUsedItemHand()));
+                entity.broadcastBreakEvent(entityLiving.getUsedItemHand()));
         ((TridentEntityBridge) entityIn).bridge$setThrownStack(stack.copy());
         return true;
     }

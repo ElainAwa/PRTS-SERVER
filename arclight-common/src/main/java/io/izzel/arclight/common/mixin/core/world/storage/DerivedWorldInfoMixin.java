@@ -14,7 +14,9 @@ import org.spongepowered.asm.mixin.Shadow;
 @Mixin(DerivedLevelData.class)
 public class DerivedWorldInfoMixin implements DerivedWorldInfoBridge {
 
-    @Shadow @Final private ServerLevelData wrapped;
+    @Shadow
+    @Final
+    private ServerLevelData wrapped;
 
     private ResourceKey<LevelStem> typeKey;
 

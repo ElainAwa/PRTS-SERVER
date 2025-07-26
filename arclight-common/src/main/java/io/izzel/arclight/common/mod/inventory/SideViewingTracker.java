@@ -3,11 +3,7 @@ package io.izzel.arclight.common.mod.inventory;
 import net.minecraft.world.Container;
 import org.bukkit.entity.HumanEntity;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.WeakHashMap;
+import java.util.*;
 
 public class SideViewingTracker {
 

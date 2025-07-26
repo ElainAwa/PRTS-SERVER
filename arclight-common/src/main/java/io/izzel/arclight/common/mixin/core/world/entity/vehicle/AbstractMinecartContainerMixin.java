@@ -24,7 +24,8 @@ import java.util.List;
 @Mixin(AbstractMinecartContainer.class)
 public abstract class AbstractMinecartContainerMixin extends AbstractMinecartMixin implements IInventoryBridge, Container {
 
-    @Shadow private NonNullList<ItemStack> itemStacks;
+    @Shadow
+    private NonNullList<ItemStack> itemStacks;
 
     @Inject(method = "<init>(Lnet/minecraft/world/entity/EntityType;Lnet/minecraft/world/level/Level;)V", at = @At("RETURN"))
     private void arclight$init(EntityType<?> type, Level world, CallbackInfo ci) {

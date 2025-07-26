@@ -49,7 +49,7 @@ public abstract class RepairContainerMixin extends ItemCombinerMixin {
         CraftEventFactory.callPrepareAnvilEvent(getBukkitView(), itemStack);
     }
 
-    @Inject(method = "createResult",at = @At(value = "INVOKE", target = "Lnet/minecraft/world/inventory/AnvilMenu;broadcastChanges()V"))
+    @Inject(method = "createResult", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/inventory/AnvilMenu;broadcastChanges()V"))
     private void arclight$sendData(CallbackInfo ci) {
         sendAllDataToRemote();
     }
@@ -71,7 +71,7 @@ public abstract class RepairContainerMixin extends ItemCombinerMixin {
         }
 
         CraftInventory inventory = new CraftInventoryAnvil(
-            ((IWorldPosCallableBridge) this.access).bridge$getLocation(), this.inputSlots, this.resultSlots, (AnvilMenu) (Object) this);
+                ((IWorldPosCallableBridge) this.access).bridge$getLocation(), this.inputSlots, this.resultSlots, (AnvilMenu) (Object) this);
         bukkitEntity = new CraftInventoryView(((PlayerEntityBridge) this.player).bridge$getBukkitEntity(), inventory, (AbstractContainerMenu) (Object) this);
         return bukkitEntity;
     }

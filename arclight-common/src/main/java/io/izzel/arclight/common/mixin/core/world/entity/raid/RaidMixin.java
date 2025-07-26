@@ -23,12 +23,7 @@ import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.Slice;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 @Mixin(Raid.class)
 public class RaidMixin implements RaidBridge {
@@ -39,40 +34,40 @@ public class RaidMixin implements RaidBridge {
     // @formatter:on
 
     @Inject(method = "tick", at = @At(value = "INVOKE", ordinal = 0, target = "Lnet/minecraft/world/entity/raid/Raid;stop()V"),
-        slice = @Slice(from = @At(value = "FIELD", target = "Lnet/minecraft/world/Difficulty;PEACEFUL:Lnet/minecraft/world/Difficulty;")))
+            slice = @Slice(from = @At(value = "FIELD", target = "Lnet/minecraft/world/Difficulty;PEACEFUL:Lnet/minecraft/world/Difficulty;")))
     public void arclight$stopPeace(CallbackInfo ci) {
         CraftEventFactory.callRaidStopEvent((Raid) (Object) this, RaidStopEvent.Reason.PEACE);
     }
 
     @Inject(method = "tick", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/raid/Raid;stop()V"),
-        slice = @Slice(
-            from = @At(value = "INVOKE", target = "Lnet/minecraft/server/level/ServerLevel;isVillage(Lnet/minecraft/core/BlockPos;)Z"),
-            to = @At(value = "FIELD", opcode = Opcodes.PUTFIELD, target = "Lnet/minecraft/world/entity/raid/Raid;ticksActive:J")
-        ))
+            slice = @Slice(
+                    from = @At(value = "INVOKE", target = "Lnet/minecraft/server/level/ServerLevel;isVillage(Lnet/minecraft/core/BlockPos;)Z"),
+                    to = @At(value = "FIELD", opcode = Opcodes.PUTFIELD, target = "Lnet/minecraft/world/entity/raid/Raid;ticksActive:J")
+            ))
     public void arclight$stopNotInVillage(CallbackInfo ci) {
         CraftEventFactory.callRaidStopEvent((Raid) (Object) this, RaidStopEvent.Reason.NOT_IN_VILLAGE);
     }
 
     @Inject(method = "tick", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/raid/Raid;stop()V"),
-        slice = @Slice(
-            from = @At(value = "FIELD", opcode = Opcodes.PUTFIELD, target = "Lnet/minecraft/world/entity/raid/Raid;ticksActive:J"),
-            to = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/raid/Raid;getTotalRaidersAlive()I")
-        ))
+            slice = @Slice(
+                    from = @At(value = "FIELD", opcode = Opcodes.PUTFIELD, target = "Lnet/minecraft/world/entity/raid/Raid;ticksActive:J"),
+                    to = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/raid/Raid;getTotalRaidersAlive()I")
+            ))
     public void arclight$stopTimeout(CallbackInfo ci) {
         CraftEventFactory.callRaidStopEvent((Raid) (Object) this, RaidStopEvent.Reason.TIMEOUT);
     }
 
     @Inject(method = "tick", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/raid/Raid;stop()V"),
-        slice = @Slice(
-            from = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/raid/Raid;shouldSpawnGroup()Z"),
-            to = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/raid/Raid;isStarted()Z")
-        ))
+            slice = @Slice(
+                    from = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/raid/Raid;shouldSpawnGroup()Z"),
+                    to = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/raid/Raid;isStarted()Z")
+            ))
     public void arclight$stopUnspawnable(CallbackInfo ci) {
         CraftEventFactory.callRaidStopEvent((Raid) (Object) this, RaidStopEvent.Reason.UNSPAWNABLE);
     }
 
     @Inject(method = "tick", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/raid/Raid;stop()V"),
-        slice = @Slice(from = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/raid/Raid;isOver()Z")))
+            slice = @Slice(from = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/raid/Raid;isOver()Z")))
     public void arclight$stopFinish(CallbackInfo ci) {
         CraftEventFactory.callRaidStopEvent((Raid) (Object) this, RaidStopEvent.Reason.FINISHED);
     }

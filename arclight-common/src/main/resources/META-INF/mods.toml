@@ -1,13 +1,13 @@
-modLoader="javafml"
-loaderVersion="[44,]"
-license="GNU GENERAL PUBLIC LICENSE Version 3"
+modLoader = "javafml"
+loaderVersion = "[44,]"
+license = "GNU GENERAL PUBLIC LICENSE Version 3"
 
 [[mods]]
-    modId="arclight"
-    version="${version}"
-    displayName="Luminara Mod"
-    credits="lona,夜幕"
-    authors="IzzelAliz"
-    description='''
+modId = "arclight"
+version = "${version}"
+displayName = "Luminara Mod"
+credits = "lona,夜幕"
+authors = "IzzelAliz"
+description = '''
     Luminara bukkit layer for MinecraftForge
     '''

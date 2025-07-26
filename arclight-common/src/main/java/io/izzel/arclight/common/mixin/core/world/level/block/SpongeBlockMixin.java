@@ -25,7 +25,9 @@ import static net.minecraft.world.level.block.Block.dropResources;
 @Mixin(SpongeBlock.class)
 public class SpongeBlockMixin {
 
-    @Shadow @Final private static Direction[] ALL_DIRECTIONS;
+    @Shadow
+    @Final
+    private static Direction[] ALL_DIRECTIONS;
 
     /**
      * @author IzzelAliz

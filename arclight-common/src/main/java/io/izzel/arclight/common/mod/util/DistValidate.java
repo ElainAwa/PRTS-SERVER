@@ -23,8 +23,8 @@ public class DistValidate {
 
     public static boolean isValid(LevelAccessor level) {
         return level != null
-            && !level.isClientSide()
-            && isLogicWorld(level);
+                && !level.isClientSide()
+                && isLogicWorld(level);
     }
 
     public static boolean isValid(BlockGetter getter) {
@@ -34,7 +34,7 @@ public class DistValidate {
     private static boolean isLogicWorld(LevelAccessor level) {
         var cl = level.getClass();
         return cl == ServerLevel.class || cl == WorldGenRegion.class
-            || isLogicWorld(cl);
+                || isLogicWorld(cl);
     }
 
     private static final Map<Class<?>, Boolean> SEEN_CLASSES = new ConcurrentHashMap<>();

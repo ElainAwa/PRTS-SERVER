@@ -8,9 +8,9 @@ import net.minecraft.network.protocol.PacketUtils;
 import net.minecraft.server.RunningOnDifferentThreadException;
 import net.minecraft.server.network.ServerGamePacketListenerImpl;
 import net.minecraft.util.thread.BlockableEventLoop;
-import org.slf4j.Logger;
 import org.bukkit.Bukkit;
 import org.bukkit.craftbukkit.v.CraftServer;
+import org.slf4j.Logger;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Overwrite;
@@ -19,7 +19,9 @@ import org.spongepowered.asm.mixin.Shadow;
 @Mixin(PacketUtils.class)
 public class PacketThreadUtilMixin {
 
-    @Shadow @Final private static Logger LOGGER;
+    @Shadow
+    @Final
+    private static Logger LOGGER;
 
     /**
      * @author IzzelAliz

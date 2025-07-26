@@ -17,7 +17,8 @@ import java.util.stream.Stream;
 @Mixin(Entity.class)
 public abstract class EntityMixin_Optimize {
 
-    @Shadow public ImmutableList<Entity> passengers;
+    @Shadow
+    public ImmutableList<Entity> passengers;
 
     @Inject(method = "getIndirectPassengersStream", cancellable = true, at = @At("HEAD"))
     private void arclight$emptyPassenger(CallbackInfoReturnable<Stream<Entity>> cir) {

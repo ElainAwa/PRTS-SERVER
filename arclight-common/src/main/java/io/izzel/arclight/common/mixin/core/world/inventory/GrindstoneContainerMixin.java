@@ -22,9 +22,15 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(GrindstoneMenu.class)
 public abstract class GrindstoneContainerMixin extends AbstractContainerMenuMixin implements PosContainerBridge {
 
-    @Shadow @Final Container repairSlots;
-    @Shadow @Final private Container resultSlots;
-    @Shadow @Final private ContainerLevelAccess access;
+    @Shadow
+    @Final
+    Container repairSlots;
+    @Shadow
+    @Final
+    private Container resultSlots;
+    @Shadow
+    @Final
+    private ContainerLevelAccess access;
     private CraftInventoryView bukkitEntity = null;
     private Inventory playerInventory;
 

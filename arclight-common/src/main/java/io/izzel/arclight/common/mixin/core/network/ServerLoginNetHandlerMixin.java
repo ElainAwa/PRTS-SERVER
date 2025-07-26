@@ -5,8 +5,8 @@ import com.mojang.authlib.properties.Property;
 import io.izzel.arclight.common.bridge.core.network.NetworkManagerBridge;
 import io.izzel.arclight.common.bridge.core.server.MinecraftServerBridge;
 import io.izzel.arclight.common.bridge.core.server.management.PlayerListBridge;
-import io.izzel.arclight.common.mod.velocity.VelocityManager;
 import io.izzel.arclight.common.mod.velocity.VelocityForwarding;
+import io.izzel.arclight.common.mod.velocity.VelocityManager;
 import io.izzel.arclight.i18n.ArclightConfig;
 import net.minecraft.DefaultUncaughtExceptionHandler;
 import net.minecraft.core.UUIDUtil;
@@ -14,11 +14,7 @@ import net.minecraft.network.Connection;
 import net.minecraft.network.PacketSendListener;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ClientboundDisconnectPacket;
-import net.minecraft.network.protocol.login.ClientboundGameProfilePacket;
-import net.minecraft.network.protocol.login.ClientboundHelloPacket;
-import net.minecraft.network.protocol.login.ClientboundLoginCompressionPacket;
-import net.minecraft.network.protocol.login.ServerboundHelloPacket;
-import net.minecraft.network.protocol.login.ServerboundKeyPacket;
+import net.minecraft.network.protocol.login.*;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.network.ServerLoginPacketListenerImpl;
@@ -143,7 +139,7 @@ public abstract class ServerLoginNetHandlerMixin {
         VelocityManager velocityManager = VelocityManager.getInstance();
         if (velocityManager.isVelocityForwardingEnabled()) {
             LOGGER.info("Velocity Modern Forwarding is enabled for player: {} (online-mode: {})",
-                       packetIn.name(), velocityManager.getVelocityConfig().isOnlineMode());
+                    packetIn.name(), velocityManager.getVelocityConfig().isOnlineMode());
 
             // Send Velocity query packet - following Mohist's approach
             this.luminara$velocityLoginMessageId = java.util.concurrent.ThreadLocalRandom.current().nextInt();
@@ -156,12 +152,12 @@ public abstract class ServerLoginNetHandlerMixin {
 
                 // Create the custom query packet
                 net.minecraft.network.protocol.login.ClientboundCustomQueryPacket queryPacket =
-                    new net.minecraft.network.protocol.login.ClientboundCustomQueryPacket(
-                        this.luminara$velocityLoginMessageId, VelocityForwarding.PLAYER_INFO_CHANNEL, queryBuf);
+                        new net.minecraft.network.protocol.login.ClientboundCustomQueryPacket(
+                                this.luminara$velocityLoginMessageId, VelocityForwarding.PLAYER_INFO_CHANNEL, queryBuf);
 
                 this.connection.send(queryPacket);
                 LOGGER.debug("Sent Velocity query packet with ID: {} for player: {}",
-                           this.luminara$velocityLoginMessageId, packetIn.name());
+                        this.luminara$velocityLoginMessageId, packetIn.name());
                 return; // Don't continue with normal login process
             } catch (Exception e) {
                 LOGGER.error("Failed to send Velocity query packet", e);
@@ -343,7 +339,7 @@ public abstract class ServerLoginNetHandlerMixin {
             net.minecraft.network.FriendlyByteBuf buf = luminara$getPacketData(packet);
 
             LOGGER.debug("Received custom query packet - ID: {}, Expected: {}, HasData: {}",
-                        transactionId, this.luminara$velocityLoginMessageId, buf != null);
+                    transactionId, this.luminara$velocityLoginMessageId, buf != null);
 
             if (transactionId == this.luminara$velocityLoginMessageId) {
                 if (buf == null) {
@@ -371,7 +367,7 @@ public abstract class ServerLoginNetHandlerMixin {
             }
         } catch (Exception e) {
             LOGGER.warn("Exception processing Velocity forwarding packet from {}",
-                       this.connection.getRemoteAddress(), e);
+                    this.connection.getRemoteAddress(), e);
             this.disconnect("Unable to verify player details");
             ci.cancel();
         }

@@ -28,7 +28,8 @@ import java.util.function.Supplier;
 
 public class ArclightServer {
 
-    private interface ExecutorWithThread extends Executor, Supplier<Thread> {}
+    private interface ExecutorWithThread extends Executor, Supplier<Thread> {
+    }
 
     private static final ExecutorWithThread mainThreadExecutor = new ExecutorWithThread() {
         @Override
@@ -42,8 +43,8 @@ public class ArclightServer {
         }
     };
     private static final ExecutorService chatExecutor = Executors.newCachedThreadPool(
-        new ThreadFactoryBuilder().setDaemon(true).setNameFormat("Async Chat Thread - #%d")
-            .setThreadFactory(chatFactory()).build());
+            new ThreadFactoryBuilder().setDaemon(true).setNameFormat("Async Chat Thread - #%d")
+                    .setThreadFactory(chatFactory()).build());
 
     private static ThreadFactory chatFactory() {
         var group = Thread.currentThread().getThreadGroup();

@@ -3,11 +3,7 @@ package io.izzel.arclight.common.mod.util;
 import io.izzel.arclight.api.Unsafe;
 import io.izzel.arclight.common.mod.ArclightMod;
 import net.minecraftforge.eventbus.EventBus;
-import net.minecraftforge.eventbus.api.Event;
-import net.minecraftforge.eventbus.api.EventPriority;
-import net.minecraftforge.eventbus.api.IEventListener;
-import net.minecraftforge.eventbus.api.IGenericEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.eventbus.api.*;
 import org.bukkit.plugin.Plugin;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.MethodVisitor;
@@ -15,11 +11,7 @@ import org.objectweb.asm.Type;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodType;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
-import java.lang.reflect.ParameterizedType;
-import java.lang.reflect.WildcardType;
+import java.lang.reflect.*;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Optional;
@@ -39,7 +31,7 @@ public class PluginEventHandler implements IEventListener {
         try {
             MH_GET_LISTENERS = Unsafe.lookup().findGetter(EventBus.class, "listeners", ConcurrentHashMap.class);
             MH_ADD_LISTENERS = Unsafe.lookup().findVirtual(EventBus.class, "addToListeners", MethodType.methodType(void.class,
-                Object.class, Class.class, IEventListener.class, EventPriority.class));
+                    Object.class, Class.class, IEventListener.class, EventPriority.class));
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
@@ -90,9 +82,9 @@ public class PluginEventHandler implements IEventListener {
 
     private static void registerClass(final Class<?> clazz, Plugin plugin, EventBus bus) {
         Arrays.stream(clazz.getMethods()).
-            filter(m -> Modifier.isStatic(m.getModifiers())).
-            filter(m -> m.isAnnotationPresent(SubscribeEvent.class)).
-            forEach(m -> registerListener(clazz, m, m, plugin, bus));
+                filter(m -> Modifier.isStatic(m.getModifiers())).
+                filter(m -> m.isAnnotationPresent(SubscribeEvent.class)).
+                forEach(m -> registerListener(clazz, m, m, plugin, bus));
     }
 
     private static Optional<Method> getDeclMethod(final Class<?> clz, final Method in) {
@@ -108,12 +100,12 @@ public class PluginEventHandler implements IEventListener {
         final HashSet<Class<?>> classes = new HashSet<>();
         typesFor(obj.getClass(), classes);
         Arrays.stream(obj.getClass().getMethods()).
-            filter(m -> !Modifier.isStatic(m.getModifiers())).
-            forEach(m -> classes.stream().
-                map(c -> getDeclMethod(c, m)).
-                filter(rm -> rm.isPresent() && rm.get().isAnnotationPresent(SubscribeEvent.class)).
-                findFirst().
-                ifPresent(rm -> registerListener(obj, m, rm.get(), plugin, bus)));
+                filter(m -> !Modifier.isStatic(m.getModifiers())).
+                forEach(m -> classes.stream().
+                        map(c -> getDeclMethod(c, m)).
+                        filter(rm -> rm.isPresent() && rm.get().isAnnotationPresent(SubscribeEvent.class)).
+                        findFirst().
+                        ifPresent(rm -> registerListener(obj, m, rm.get(), plugin, bus)));
     }
 
     private static void typesFor(final Class<?> clz, final Set<Class<?>> visited) {
@@ -127,9 +119,9 @@ public class PluginEventHandler implements IEventListener {
         Class<?>[] parameterTypes = method.getParameterTypes();
         if (parameterTypes.length != 1) {
             throw new IllegalArgumentException(
-                "Method " + method + " has @SubscribeEvent annotation. " +
-                    "It has " + parameterTypes.length + " arguments, " +
-                    "but event handler methods require a single argument only."
+                    "Method " + method + " has @SubscribeEvent annotation. " +
+                            "It has " + parameterTypes.length + " arguments, " +
+                            "but event handler methods require a single argument only."
             );
         }
 
@@ -137,8 +129,8 @@ public class PluginEventHandler implements IEventListener {
 
         if (!Event.class.isAssignableFrom(eventType)) {
             throw new IllegalArgumentException(
-                "Method " + method + " has @SubscribeEvent annotation, " +
-                    "but takes an argument that is not an Event subtype : " + eventType);
+                    "Method " + method + " has @SubscribeEvent annotation, " +
+                            "but takes an argument that is not an Event subtype : " + eventType);
         }
 
         register(eventType, target, real, plugin, bus);
@@ -155,8 +147,8 @@ public class PluginEventHandler implements IEventListener {
 
     private String getUniqueName(Method callback) {
         return String.format("%s.__%s_%s_%s", callback.getDeclaringClass().getPackageName(), callback.getDeclaringClass().getSimpleName(),
-            callback.getName(),
-            callback.getParameterTypes()[0].getSimpleName());
+                callback.getName(),
+                callback.getParameterTypes()[0].getSimpleName());
     }
 
     public Class<?> createWrapper(Method callback) {

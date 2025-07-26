@@ -25,7 +25,9 @@ import java.util.List;
 @Mixin(ChiseledBookShelfBlockEntity.class)
 public abstract class ChiseledBookShelfBlockEntityMixin extends BlockEntityMixin implements IInventoryBridge, Container {
 
-    @Shadow @Final private NonNullList<ItemStack> items;
+    @Shadow
+    @Final
+    private NonNullList<ItemStack> items;
 
     public List<HumanEntity> transaction = new ArrayList<>();
     private int maxStack = 1;

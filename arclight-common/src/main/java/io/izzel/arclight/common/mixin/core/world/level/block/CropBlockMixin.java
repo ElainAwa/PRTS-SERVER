@@ -22,7 +22,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public class CropBlockMixin {
 
     @Redirect(method = "growCrops(Lnet/minecraft/world/level/Level;Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/state/BlockState;)V",
-        at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/Level;setBlock(Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/state/BlockState;I)Z"))
+            at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/Level;setBlock(Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/state/BlockState;I)Z"))
     public boolean arclight$blockGrowGrow(Level world, BlockPos pos, BlockState newState, int flags) {
         return CraftEventFactory.handleBlockGrowEvent(world, pos, newState, flags);
     }
@@ -44,7 +44,7 @@ public class CropBlockMixin {
             int modifier;
             if (block == Blocks.BEETROOTS) {
                 modifier = bridge.bridge$spigotConfig().beetrootModifier;
-            } else if (block ==Blocks.CARROTS) {
+            } else if (block == Blocks.CARROTS) {
                 modifier = bridge.bridge$spigotConfig().carrotModifier;
             } else if (block == Blocks.POTATOES) {
                 modifier = bridge.bridge$spigotConfig().potatoModifier;

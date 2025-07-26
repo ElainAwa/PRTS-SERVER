@@ -5,18 +5,21 @@ import com.google.common.collect.BiMap;
 import org.bukkit.craftbukkit.v.potion.CraftPotionUtil;
 import org.bukkit.potion.PotionData;
 import org.bukkit.potion.PotionType;
-import org.spongepowered.asm.mixin.Final;
-import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Mutable;
-import org.spongepowered.asm.mixin.Overwrite;
-import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.*;
 
 @Mixin(value = CraftPotionUtil.class, remap = false)
 public class CraftPotionUtilMixin {
 
-    @Shadow @Final private static BiMap<PotionType, String> upgradeable;
-    @Shadow @Final private static BiMap<PotionType, String> extendable;
-    @Shadow @Final @Mutable private static BiMap<PotionType, String> regular;
+    @Shadow
+    @Final
+    private static BiMap<PotionType, String> upgradeable;
+    @Shadow
+    @Final
+    private static BiMap<PotionType, String> extendable;
+    @Shadow
+    @Final
+    @Mutable
+    private static BiMap<PotionType, String> regular;
 
     /**
      * @author IzzelAliz

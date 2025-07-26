@@ -1,6 +1,11 @@
 package io.izzel.arclight.common.mixin.core.world.inventory;
 
 import io.izzel.arclight.common.bridge.core.inventory.IInventoryBridge;
+import net.minecraft.core.NonNullList;
+import net.minecraft.world.Container;
+import net.minecraft.world.inventory.ResultContainer;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.crafting.Recipe;
 import org.bukkit.Location;
 import org.bukkit.craftbukkit.v.entity.CraftHumanEntity;
 import org.bukkit.entity.HumanEntity;
@@ -11,11 +16,6 @@ import org.spongepowered.asm.mixin.Shadow;
 
 import java.util.ArrayList;
 import java.util.List;
-import net.minecraft.core.NonNullList;
-import net.minecraft.world.Container;
-import net.minecraft.world.inventory.ResultContainer;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.crafting.Recipe;
 
 @Mixin(ResultContainer.class)
 public abstract class CraftResultInventoryMixin implements IInventoryBridge, Container {
@@ -32,10 +32,12 @@ public abstract class CraftResultInventoryMixin implements IInventoryBridge, Con
     }
 
     @Override
-    public void onOpen(CraftHumanEntity who) { }
+    public void onOpen(CraftHumanEntity who) {
+    }
 
     @Override
-    public void onClose(CraftHumanEntity who) { }
+    public void onClose(CraftHumanEntity who) {
+    }
 
     @Override
     public List<HumanEntity> getViewers() {
@@ -43,10 +45,13 @@ public abstract class CraftResultInventoryMixin implements IInventoryBridge, Con
     }
 
     @Override
-    public InventoryHolder getOwner() { return null; }
+    public InventoryHolder getOwner() {
+        return null;
+    }
 
     @Override
-    public void setOwner(InventoryHolder owner) { }
+    public void setOwner(InventoryHolder owner) {
+    }
 
     @Override
     public int getMaxStackSize() {
@@ -60,11 +65,16 @@ public abstract class CraftResultInventoryMixin implements IInventoryBridge, Con
     }
 
     @Override
-    public Location getLocation() { return null; }
+    public Location getLocation() {
+        return null;
+    }
 
     @Override
-    public Recipe<?> getCurrentRecipe() { return null; }
+    public Recipe<?> getCurrentRecipe() {
+        return null;
+    }
 
     @Override
-    public void setCurrentRecipe(Recipe<?> recipe) { }
+    public void setCurrentRecipe(Recipe<?> recipe) {
+    }
 }

@@ -14,7 +14,9 @@ public class CraftConsoleCommandSenderMixin {
 
     private static final Logger LOGGER = LogManager.getLogger("Console");
 
-    @Shadow @Final protected ConversationTracker conversationTracker;
+    @Shadow
+    @Final
+    protected ConversationTracker conversationTracker;
 
     /**
      * @author IzzelAliz

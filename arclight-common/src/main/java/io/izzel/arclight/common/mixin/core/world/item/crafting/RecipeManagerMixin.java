@@ -74,7 +74,7 @@ public abstract class RecipeManagerMixin implements RecipeManagerBridge {
                     continue;
                 }
                 map.computeIfAbsent(irecipe.getType(), (recipeType) -> new Object2ObjectLinkedOpenHashMap<>())
-                    .putAndMoveToFirst(resourcelocation, irecipe);
+                        .putAndMoveToFirst(resourcelocation, irecipe);
                 builder.put(resourcelocation, irecipe);
             } catch (IllegalArgumentException | JsonParseException jsonparseexception) {
                 LOGGER.error("Parsing error loading recipe {}", resourcelocation, jsonparseexception);

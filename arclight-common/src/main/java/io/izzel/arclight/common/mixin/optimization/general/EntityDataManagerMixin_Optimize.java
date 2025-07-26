@@ -16,7 +16,10 @@ import java.util.concurrent.locks.ReadWriteLock;
 @Mixin(SynchedEntityData.class)
 public class EntityDataManagerMixin_Optimize {
 
-    @Shadow @Final @Mutable private ReadWriteLock lock;
+    @Shadow
+    @Final
+    @Mutable
+    private ReadWriteLock lock;
 
     @Inject(method = "<init>", at = @At("RETURN"))
     private void optimize$dropLock(Entity entityIn, CallbackInfo ci) {

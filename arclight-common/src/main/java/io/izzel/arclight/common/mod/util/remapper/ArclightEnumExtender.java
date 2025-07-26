@@ -5,24 +5,10 @@ import org.apache.logging.log4j.Logger;
 import org.bukkit.NamespacedKey;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
-import org.objectweb.asm.tree.AbstractInsnNode;
-import org.objectweb.asm.tree.ClassNode;
-import org.objectweb.asm.tree.FieldInsnNode;
-import org.objectweb.asm.tree.FieldNode;
-import org.objectweb.asm.tree.InsnList;
-import org.objectweb.asm.tree.InsnNode;
-import org.objectweb.asm.tree.LdcInsnNode;
-import org.objectweb.asm.tree.MethodInsnNode;
-import org.objectweb.asm.tree.MethodNode;
-import org.objectweb.asm.tree.TypeInsnNode;
-import org.objectweb.asm.tree.VarInsnNode;
+import org.objectweb.asm.tree.*;
 
 import java.lang.reflect.Modifier;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Locale;
-import java.util.Set;
+import java.util.*;
 
 import static io.izzel.arclight.common.mod.util.remapper.ArclightRedirectAdapter.loadInt;
 
@@ -113,10 +99,10 @@ public class ArclightEnumExtender {
 
     private static String standardize(String str) {
         return str
-            .replace(':', '_')
-            .replaceAll("\\s+", "_")
-            .replaceAll("\\W", "")
-            .toUpperCase(Locale.ENGLISH);
+                .replace(':', '_')
+                .replaceAll("\\s+", "_")
+                .replaceAll("\\W", "")
+                .toUpperCase(Locale.ENGLISH);
     }
 
     private static Set<String> countEnum(ClassNode node) {

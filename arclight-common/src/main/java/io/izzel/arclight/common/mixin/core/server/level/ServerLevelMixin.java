@@ -21,8 +21,8 @@ import io.izzel.arclight.common.mod.util.DelegateWorldInfo;
 import io.izzel.arclight.common.mod.util.DistValidate;
 import io.izzel.arclight.i18n.ArclightConfig;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.particles.ParticleOptions;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ClientboundLevelParticlesPacket;
@@ -38,11 +38,7 @@ import net.minecraft.world.RandomSequences;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LightningBolt;
-import net.minecraft.world.level.CustomSpawner;
-import net.minecraft.world.level.Explosion;
-import net.minecraft.world.level.ExplosionDamageCalculator;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.LevelAccessor;
+import net.minecraft.world.level.*;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -52,11 +48,7 @@ import net.minecraft.world.level.dimension.LevelStem;
 import net.minecraft.world.level.entity.PersistentEntitySectionManager;
 import net.minecraft.world.level.gameevent.GameEvent;
 import net.minecraft.world.level.saveddata.maps.MapItemSavedData;
-import net.minecraft.world.level.storage.DerivedLevelData;
-import net.minecraft.world.level.storage.DimensionDataStorage;
-import net.minecraft.world.level.storage.LevelStorageSource;
-import net.minecraft.world.level.storage.PrimaryLevelData;
-import net.minecraft.world.level.storage.ServerLevelData;
+import net.minecraft.world.level.storage.*;
 import net.minecraft.world.phys.Vec3;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -382,7 +374,7 @@ public abstract class ServerLevelMixin extends LevelMixin implements ServerWorld
     }
 
     @Inject(method = "explode", cancellable = true, at = @At(value = "INVOKE",
-        target = "Lnet/minecraft/world/level/Explosion;interactsWithBlocks()Z"), locals = LocalCapture.CAPTURE_FAILHARD)
+            target = "Lnet/minecraft/world/level/Explosion;interactsWithBlocks()Z"), locals = LocalCapture.CAPTURE_FAILHARD)
     private void arclight$doExplosion(Entity p_256039_, DamageSource p_255778_, ExplosionDamageCalculator p_256002_, double p_256067_, double p_256370_, double p_256153_, float p_256045_, boolean p_255686_, Level.ExplosionInteraction p_255827_,
                                       CallbackInfoReturnable<Explosion> cir, Explosion explosion) {
         if (((ExplosionBridge) explosion).bridge$wasCancelled()) {

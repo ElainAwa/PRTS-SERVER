@@ -9,11 +9,7 @@ import io.izzel.tools.product.Product2;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.JarURLConnection;
-import java.net.URL;
-import java.net.URLClassLoader;
-import java.net.URLConnection;
-import java.net.URLStreamHandlerFactory;
+import java.net.*;
 import java.security.CodeSource;
 import java.util.concurrent.Callable;
 import java.util.jar.Manifest;

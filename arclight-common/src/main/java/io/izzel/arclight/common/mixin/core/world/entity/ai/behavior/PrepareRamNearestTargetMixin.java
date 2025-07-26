@@ -19,11 +19,11 @@ import java.util.function.Consumer;
 public class PrepareRamNearestTargetMixin {
 
     @Redirect(method = "start(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/world/entity/PathfinderMob;J)V",
-        at = @At(value = "INVOKE", remap = false, target = "Ljava/util/Optional;ifPresent(Ljava/util/function/Consumer;)V"))
+            at = @At(value = "INVOKE", remap = false, target = "Ljava/util/Optional;ifPresent(Ljava/util/function/Consumer;)V"))
     private void arclight$targetEvent(Optional<LivingEntity> instance, Consumer<LivingEntity> action, ServerLevel level, PathfinderMob mob) {
         instance.ifPresent(entity -> {
             var event = CraftEventFactory.callEntityTargetLivingEvent(mob, entity,
-                (entity instanceof ServerPlayer) ? EntityTargetEvent.TargetReason.CLOSEST_PLAYER : EntityTargetEvent.TargetReason.CLOSEST_ENTITY);
+                    (entity instanceof ServerPlayer) ? EntityTargetEvent.TargetReason.CLOSEST_PLAYER : EntityTargetEvent.TargetReason.CLOSEST_ENTITY);
             if (event.isCancelled() || event.getTarget() == null) {
                 return;
             }

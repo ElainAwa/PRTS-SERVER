@@ -22,7 +22,7 @@ public class GlobalClassRepo implements ClassRepo, PluginPatcher.ClassRepo {
     private static final PluginInheritanceProvider REMAPPING = new PluginInheritanceProvider.Remapping(INSTANCE, PROVIDER);
 
     private final LoadingCache<String, ClassNode> cache = CacheBuilder.newBuilder().maximumSize(256)
-        .expireAfterAccess(1, TimeUnit.MINUTES).build(CacheLoader.from(this::findParallel));
+            .expireAfterAccess(1, TimeUnit.MINUTES).build(CacheLoader.from(this::findParallel));
     private final Set<ClassRepo> repos = Collections.newSetFromMap(new ConcurrentHashMap<>());
     private final RuntimeRepo runtimeRepo = new RuntimeRepo();
 
@@ -45,21 +45,21 @@ public class GlobalClassRepo implements ClassRepo, PluginPatcher.ClassRepo {
             return findClass(internalName);
         } else {
             return this.repos.parallelStream()
-                .filter(PluginPatcher.ClassRepo.class::isInstance)
-                .map(PluginPatcher.ClassRepo.class::cast)
-                .map(it -> it.findClass(internalName, parsingOptions))
-                .filter(Objects::nonNull)
-                .findAny()
-                .orElseGet(() -> this.findMinecraft(internalName));
+                    .filter(PluginPatcher.ClassRepo.class::isInstance)
+                    .map(PluginPatcher.ClassRepo.class::cast)
+                    .map(it -> it.findClass(internalName, parsingOptions))
+                    .filter(Objects::nonNull)
+                    .findAny()
+                    .orElseGet(() -> this.findMinecraft(internalName));
         }
     }
 
     private ClassNode findParallel(String internalName) {
         return this.repos.parallelStream()
-            .map(it -> it.findClass(internalName))
-            .filter(Objects::nonNull)
-            .findAny()
-            .orElseGet(() -> this.findMinecraft(internalName));
+                .map(it -> it.findClass(internalName))
+                .filter(Objects::nonNull)
+                .findAny()
+                .orElseGet(() -> this.findMinecraft(internalName));
     }
 
     private ClassNode findMinecraft(String internalName) {

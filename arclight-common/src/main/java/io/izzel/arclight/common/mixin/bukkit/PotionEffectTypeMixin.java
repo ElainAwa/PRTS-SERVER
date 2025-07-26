@@ -12,7 +12,9 @@ import java.util.Arrays;
 @Mixin(value = PotionEffectType.class, remap = false)
 public class PotionEffectTypeMixin {
 
-    @Shadow @Final private static PotionEffectType[] byId;
+    @Shadow
+    @Final
+    private static PotionEffectType[] byId;
 
     /**
      * @author IzzelAliz

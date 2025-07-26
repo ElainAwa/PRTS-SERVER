@@ -11,7 +11,8 @@ import java.util.function.BiConsumer;
 
 public class IntegratedPatcher implements PluginPatcher {
 
-    private static final Map<String, BiConsumer<ClassNode, ClassRepo>> SPECIFIC = new HashMap<>() {};
+    private static final Map<String, BiConsumer<ClassNode, ClassRepo>> SPECIFIC = new HashMap<>() {
+    };
     private static final List<BiConsumer<ClassNode, ClassRepo>> GENERAL = new ArrayList<>();
 
     static {

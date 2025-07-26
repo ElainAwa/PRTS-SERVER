@@ -5,14 +5,7 @@ import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.commons.GeneratorAdapter;
 import org.objectweb.asm.commons.Method;
-import org.objectweb.asm.tree.AbstractInsnNode;
-import org.objectweb.asm.tree.ClassNode;
-import org.objectweb.asm.tree.InsnList;
-import org.objectweb.asm.tree.InsnNode;
-import org.objectweb.asm.tree.MethodInsnNode;
-import org.objectweb.asm.tree.MethodNode;
-import org.objectweb.asm.tree.TypeInsnNode;
-import org.objectweb.asm.tree.VarInsnNode;
+import org.objectweb.asm.tree.*;
 
 import java.util.Locale;
 
@@ -20,7 +13,7 @@ public class WorldEdit {
 
     public static void handleBukkitAdapter(ClassNode node, PluginPatcher.ClassRepo repo) {
         MethodNode standardize = new MethodNode(Opcodes.ACC_PRIVATE | Opcodes.ACC_STATIC | Opcodes.ACC_SYNTHETIC, "patcher$standardize",
-            Type.getMethodDescriptor(Type.getType(String.class), Type.getType(String.class)), null, null);
+                Type.getMethodDescriptor(Type.getType(String.class), Type.getType(String.class)), null, null);
         try {
             GeneratorAdapter adapter = new GeneratorAdapter(standardize, standardize.access, standardize.name, standardize.desc);
             adapter.loadArg(0);
@@ -95,7 +88,7 @@ public class WorldEdit {
 
     public static void handleWatchdog(ClassNode node, PluginPatcher.ClassRepo repo) {
         if (node.interfaces.size() == 1 && node.interfaces.get(0).equals("com/sk89q/worldedit/extension/platform/Watchdog")
-            && node.name.contains("SpigotWatchdog")) {
+                && node.name.contains("SpigotWatchdog")) {
             for (MethodNode method : node.methods) {
                 if (method.name.equals("<init>")) {
                     method.instructions.clear();

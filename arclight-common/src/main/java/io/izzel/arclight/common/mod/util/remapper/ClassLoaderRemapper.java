@@ -17,11 +17,7 @@ import net.md_5.specialsource.RemappingClassAdapter;
 import net.md_5.specialsource.repo.ClassRepo;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.objectweb.asm.ClassReader;
-import org.objectweb.asm.ClassVisitor;
-import org.objectweb.asm.ClassWriter;
-import org.objectweb.asm.Opcodes;
-import org.objectweb.asm.Type;
+import org.objectweb.asm.*;
 import org.objectweb.asm.commons.ClassRemapper;
 import org.objectweb.asm.commons.Remapper;
 import org.objectweb.asm.tree.ClassNode;
@@ -38,13 +34,7 @@ import java.net.URLConnection;
 import java.nio.file.Files;
 import java.security.CodeSigner;
 import java.security.CodeSource;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
+import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -290,14 +280,14 @@ public class ClassLoaderRemapper extends LenientJarRemapper {
 
     private boolean isSecureJar(JarFile jarFile) {
         return this.secureJarInfo.computeIfAbsent(jarFile.getName(), key ->
-            jarFile.stream().anyMatch(it -> {
-                if (it.isDirectory()) return false;
-                String name = it.getName().toUpperCase(Locale.ROOT);
-                return name.startsWith("META-INF") && (name.endsWith(".DSA") ||
-                    name.endsWith(".RSA") ||
-                    name.endsWith(".EC") ||
-                    name.endsWith(".SF"));
-            }));
+                jarFile.stream().anyMatch(it -> {
+                    if (it.isDirectory()) return false;
+                    String name = it.getName().toUpperCase(Locale.ROOT);
+                    return name.startsWith("META-INF") && (name.endsWith(".DSA") ||
+                            name.endsWith(".RSA") ||
+                            name.endsWith(".EC") ||
+                            name.endsWith(".SF"));
+                }));
     }
 
     public Product2<byte[], CodeSource> remapClass(String className, Callable<byte[]> byteSource, URLConnection connection, ArclightRemapConfig config) throws ClassNotFoundException {
@@ -365,7 +355,7 @@ public class ClassLoaderRemapper extends LenientJarRemapper {
         if (repo instanceof ClassRepoWrapper wrapper) {
             config = wrapper.config();
         } else {
-            ArclightMod.LOGGER.warn("No class remap config is provided for class {}, using PLUGIN", node.name.replace('/','.'));
+            ArclightMod.LOGGER.warn("No class remap config is provided for class {}, using PLUGIN", node.name.replace('/', '.'));
             config = ArclightRemapConfig.PLUGIN;
         }
 
@@ -486,7 +476,7 @@ public class ClassLoaderRemapper extends LenientJarRemapper {
             if (o == null || getClass() != o.getClass()) return false;
             WrappedMethod that = (WrappedMethod) o;
             return Objects.equals(name, that.name) &&
-                Arrays.equals(pTypes, that.pTypes);
+                    Arrays.equals(pTypes, that.pTypes);
         }
 
         @Override

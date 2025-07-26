@@ -35,33 +35,33 @@ public class CraftMetaItemMixin implements ItemMetaBridge {
     // @formatter:on
 
     private static final Set<String> EXTEND_TAGS = ImmutableSet.of(
-        "map_is_scaling",
-        "map",
-        "CustomPotionEffects",
-        "Potion",
-        "CustomPotionColor",
-        "SkullOwner",
-        "SkullProfile",
-        "EntityTag",
-        "BlockEntityTag",
-        "title",
-        "author",
-        "pages",
-        "resolved",
-        "generation",
-        "Fireworks",
-        "StoredEnchantments",
-        "Explosion",
-        "Recipes",
-        "BucketVariantTag",
-        "Charged",
-        "ChargedProjectiles",
-        "Effects",
-        "LodestoneDimension",
-        "LodestonePos",
-        "LodestoneTracked",
-        "Items",
-        "instrument"
+            "map_is_scaling",
+            "map",
+            "CustomPotionEffects",
+            "Potion",
+            "CustomPotionColor",
+            "SkullOwner",
+            "SkullProfile",
+            "EntityTag",
+            "BlockEntityTag",
+            "title",
+            "author",
+            "pages",
+            "resolved",
+            "generation",
+            "Fireworks",
+            "StoredEnchantments",
+            "Explosion",
+            "Recipes",
+            "BucketVariantTag",
+            "Charged",
+            "ChargedProjectiles",
+            "Effects",
+            "LodestoneDimension",
+            "LodestonePos",
+            "LodestoneTracked",
+            "Items",
+            "instrument"
     );
 
     @ModifyVariable(method = "<init>(Lnet/minecraft/nbt/CompoundTag;)V", at = @At(value = "INVOKE", target = "Lorg/bukkit/UnsafeValues;getDataVersion()I"))
@@ -76,8 +76,7 @@ public class CraftMetaItemMixin implements ItemMetaBridge {
             // force internal tags to be deserialized into item nbt to avoid their vanilla tags being ignored by Bukkit.
             // e.g. apotheosis:potion_charm{"Potion": "<effect id>"} or minecraft:bread{"Potion": "<effect id>"}
             return false;
-        }
-        else {
+        } else {
             // For items that has corresponding ItemMeta representation in Bukkit,
             // keep their behavior unchanged.
             return handledTags.contains((String) key);

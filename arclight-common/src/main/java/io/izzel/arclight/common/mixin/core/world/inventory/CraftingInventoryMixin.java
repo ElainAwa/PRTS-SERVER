@@ -109,8 +109,8 @@ public abstract class CraftingInventoryMixin implements CraftingInventoryBridge,
     @Override
     public Location getLocation() {
         return this.menu instanceof PosContainerBridge
-            ? ((PosContainerBridge) menu).bridge$getWorldLocation()
-            : ((PlayerEntityBridge) owner).bridge$getBukkitEntity().getLocation();
+                ? ((PosContainerBridge) menu).bridge$getWorldLocation()
+                : ((PlayerEntityBridge) owner).bridge$getBukkitEntity().getLocation();
     }
 
     @Override

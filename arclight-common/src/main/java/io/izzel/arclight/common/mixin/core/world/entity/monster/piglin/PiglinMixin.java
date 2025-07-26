@@ -60,7 +60,7 @@ public abstract class PiglinMixin extends PathfinderMobMixin implements PiglinBr
     }
 
     @Redirect(method = "canReplaceCurrentItem(Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/item/ItemStack;)Z",
-        at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/monster/piglin/PiglinAi;isLovedItem(Lnet/minecraft/world/item/ItemStack;)Z"))
+            at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/monster/piglin/PiglinAi;isLovedItem(Lnet/minecraft/world/item/ItemStack;)Z"))
     private boolean arclight$customLoved(ItemStack stack) {
         return PiglinAi.isLovedItem(stack) || interestItems.contains(stack.getItem()) || allowedBarterItems.contains(stack.getItem());
     }

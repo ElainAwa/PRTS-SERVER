@@ -17,7 +17,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(SculkCatalystBlockEntity.class)
 public abstract class SculkCatalystBlockEntityMixin extends BlockEntityMixin {
 
-    @Shadow @Final private SculkCatalystBlockEntity.CatalystListener catalystListener;
+    @Shadow
+    @Final
+    private SculkCatalystBlockEntity.CatalystListener catalystListener;
 
     @Override
     public void setLevel(Level p_155231_) {

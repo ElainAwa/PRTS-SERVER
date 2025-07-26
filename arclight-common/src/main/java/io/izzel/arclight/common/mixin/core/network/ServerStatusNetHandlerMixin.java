@@ -50,12 +50,12 @@ public class ServerStatusNetHandlerMixin {
         }
         ServerStatus.Players playerSample = new ServerStatus.Players(event.getMaxPlayers(), profiles.size(), (server.hidesOnlinePlayers()) ? Collections.emptyList() : profiles);
         ServerStatus ping = new ServerStatus(
-            CraftChatMessage.fromString(event.getMotd(), true)[0],
-            Optional.of(playerSample),
-            Optional.of(new ServerStatus.Version(server.getServerModName() + " " + server.getServerVersion(), SharedConstants.getCurrentVersion().getProtocolVersion())),
-            (event.icon.value != null) ? Optional.of(new ServerStatus.Favicon(event.icon.value)) : Optional.empty(),
-            server.enforceSecureProfile(),
-            Optional.of(new net.minecraftforge.network.ServerStatusPing())
+                CraftChatMessage.fromString(event.getMotd(), true)[0],
+                Optional.of(playerSample),
+                Optional.of(new ServerStatus.Version(server.getServerModName() + " " + server.getServerVersion(), SharedConstants.getCurrentVersion().getProtocolVersion())),
+                (event.icon.value != null) ? Optional.of(new ServerStatus.Favicon(event.icon.value)) : Optional.empty(),
+                server.enforceSecureProfile(),
+                Optional.of(new net.minecraftforge.network.ServerStatusPing())
         );
         networkManager.send(new ClientboundStatusResponsePacket(ping));
     }

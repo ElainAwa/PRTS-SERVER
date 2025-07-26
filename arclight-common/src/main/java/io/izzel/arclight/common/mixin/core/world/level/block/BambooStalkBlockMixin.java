@@ -21,9 +21,15 @@ import org.spongepowered.asm.mixin.injection.Redirect;
 @Mixin(BambooStalkBlock.class)
 public abstract class BambooStalkBlockMixin extends BlockMixin {
 
-    @Shadow @Final public static EnumProperty<BambooLeaves> LEAVES;
-    @Shadow @Final public static IntegerProperty AGE;
-    @Shadow @Final public static IntegerProperty STAGE;
+    @Shadow
+    @Final
+    public static EnumProperty<BambooLeaves> LEAVES;
+    @Shadow
+    @Final
+    public static IntegerProperty AGE;
+    @Shadow
+    @Final
+    public static IntegerProperty STAGE;
 
     @Redirect(method = "performBonemeal", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/block/state/BlockState;getValue(Lnet/minecraft/world/level/block/state/properties/Property;)Ljava/lang/Comparable;"))
     private <T extends Comparable<T>> T arclight$skipIfCancel(BlockState state, Property<T> property) {
@@ -64,7 +70,7 @@ public abstract class BambooStalkBlockMixin extends BlockMixin {
         int newState = (height < 11 || !(rand.nextFloat() < 0.25F)) && height != 15 ? 0 : 1;
 
         if (CraftEventFactory.handleBlockSpreadEvent(worldIn, posIn, posIn.above(),
-            this.defaultBlockState().setValue(AGE, newAge).setValue(LEAVES, bambooleaves).setValue(STAGE, newState), 3)) {
+                this.defaultBlockState().setValue(AGE, newAge).setValue(LEAVES, bambooleaves).setValue(STAGE, newState), 3)) {
             if (update) {
                 worldIn.setBlock(posIn.below(), blockstate.setValue(LEAVES, BambooLeaves.SMALL), 3);
                 worldIn.setBlock(blockpos, blockstate1.setValue(LEAVES, BambooLeaves.NONE), 3);

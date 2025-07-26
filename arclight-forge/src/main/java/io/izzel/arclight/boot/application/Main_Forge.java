@@ -1,6 +1,5 @@
 package io.izzel.arclight.boot.application;
 
-import cpw.mods.cl.ModuleClassLoader;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -44,7 +43,7 @@ public class Main_Forge {
 
     private static void verifyManifest() throws IOException, URISyntaxException {
         var location = Main_Forge.class.getProtectionDomain().getCodeSource().getLocation();
-        try(JarFile baseArchive = new JarFile(new File(location.toURI()))) {
+        try (JarFile baseArchive = new JarFile(new File(location.toURI()))) {
             var mf = baseArchive.getManifest();
             if (mf == null || mf.getMainAttributes().isEmpty()) {
                 LOGGER.error("Failed to verify completeness for Luminara installer.");

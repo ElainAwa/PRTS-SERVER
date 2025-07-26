@@ -5,10 +5,10 @@ import net.minecraft.world.entity.boss.enderdragon.EnderDragon;
 import net.minecraft.world.entity.boss.enderdragon.phases.DragonPhaseInstance;
 import net.minecraft.world.entity.boss.enderdragon.phases.EnderDragonPhase;
 import net.minecraft.world.entity.boss.enderdragon.phases.EnderDragonPhaseManager;
-import org.slf4j.Logger;
 import org.bukkit.Bukkit;
 import org.bukkit.craftbukkit.v.entity.CraftEnderDragon;
 import org.bukkit.event.entity.EnderDragonChangePhaseEvent;
+import org.slf4j.Logger;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Overwrite;
@@ -36,9 +36,9 @@ public abstract class EnderDragonPhaseManagerMixin {
             }
 
             EnderDragonChangePhaseEvent event = new EnderDragonChangePhaseEvent(
-                (CraftEnderDragon) ((EntityBridge) this.dragon).bridge$getBukkitEntity(),
-                (this.currentPhase == null) ? null : CraftEnderDragon.getBukkitPhase(this.currentPhase.getPhase()),
-                CraftEnderDragon.getBukkitPhase(phaseIn)
+                    (CraftEnderDragon) ((EntityBridge) this.dragon).bridge$getBukkitEntity(),
+                    (this.currentPhase == null) ? null : CraftEnderDragon.getBukkitPhase(this.currentPhase.getPhase()),
+                    CraftEnderDragon.getBukkitPhase(phaseIn)
             );
             Bukkit.getPluginManager().callEvent(event);
             if (event.isCancelled()) {

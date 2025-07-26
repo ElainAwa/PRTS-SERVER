@@ -1,6 +1,5 @@
 package io.izzel.arclight.common.mixin.core.world.entity.animal;
 
-import io.izzel.arclight.common.mixin.core.world.entity.animal.AnimalMixin;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.animal.Panda;
 import net.minecraft.world.entity.item.ItemEntity;
@@ -16,7 +15,9 @@ import java.util.function.Predicate;
 @Mixin(Panda.class)
 public abstract class PandaMixin extends AnimalMixin {
 
-    @Shadow @Final static Predicate<ItemEntity> PANDA_ITEMS;
+    @Shadow
+    @Final
+    static Predicate<ItemEntity> PANDA_ITEMS;
 
     /**
      * @author IzzelAliz

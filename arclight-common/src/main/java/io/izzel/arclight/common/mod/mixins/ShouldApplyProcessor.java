@@ -13,7 +13,7 @@ public class ShouldApplyProcessor {
 
     private static final Logger LOGGER = LogManager.getLogger("Luminara");
     private static final List<Predicate<ClassNode>> PREDICATES = List.of(
-        LoadIfModProcessor::shouldApply
+            LoadIfModProcessor::shouldApply
     );
 
     public static boolean shouldApply(String mixinClass) {

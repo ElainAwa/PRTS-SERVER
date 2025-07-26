@@ -14,18 +14,7 @@ import org.objectweb.asm.Label;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.commons.GeneratorAdapter;
-import org.objectweb.asm.tree.ClassNode;
-import org.objectweb.asm.tree.FieldInsnNode;
-import org.objectweb.asm.tree.FieldNode;
-import org.objectweb.asm.tree.InsnList;
-import org.objectweb.asm.tree.InsnNode;
-import org.objectweb.asm.tree.JumpInsnNode;
-import org.objectweb.asm.tree.LabelNode;
-import org.objectweb.asm.tree.LdcInsnNode;
-import org.objectweb.asm.tree.MethodInsnNode;
-import org.objectweb.asm.tree.MethodNode;
-import org.objectweb.asm.tree.TypeInsnNode;
-import org.objectweb.asm.tree.VarInsnNode;
+import org.objectweb.asm.tree.*;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import org.spongepowered.asm.util.Constants;
 
@@ -58,8 +47,9 @@ public class AsyncCatcher implements Implementer {
     public AsyncCatcher() {
         Gson gson = new GsonBuilder().disableHtmlEscaping().create();
         this.reasons = gson.fromJson(
-            new InputStreamReader(AsyncCatcher.class.getResourceAsStream("/async_catcher.json")),
-            new TypeToken<Map<String, Map<String, String>>>() {}.getType()
+                new InputStreamReader(AsyncCatcher.class.getResourceAsStream("/async_catcher.json")),
+                new TypeToken<Map<String, Map<String, String>>>() {
+                }.getType()
         );
         this.defaultOp = ArclightConfig.spec().getAsyncCatcher().getDefaultOp();
         this.dump = ArclightConfig.spec().getAsyncCatcher().isDump();
@@ -182,8 +172,8 @@ public class AsyncCatcher implements Implementer {
             adapter.getField(Type.getObjectType(classNode.name), "x" + i, types.get(i));
         }
         get.instructions.add(new MethodInsnNode(
-            Modifier.isStatic(methodNode.access) ? Opcodes.INVOKESTATIC : Opcodes.INVOKEVIRTUAL,
-            node.name, bridge.name, bridge.desc
+                Modifier.isStatic(methodNode.access) ? Opcodes.INVOKESTATIC : Opcodes.INVOKEVIRTUAL,
+                node.name, bridge.name, bridge.desc
         ));
         adapter.valueOf(Type.getReturnType(bridge.desc));
         adapter.returnValue();
@@ -238,8 +228,10 @@ public class AsyncCatcher implements Implementer {
             ArclightImplementer.LOGGER.debug(MARKER, "Async " + reason, exception);
         }
         switch (operation) {
-            case NONE: return (CallbackInfoReturnable<T>) NOOP;
-            case EXCEPTION: throw exception;
+            case NONE:
+                return (CallbackInfoReturnable<T>) NOOP;
+            case EXCEPTION:
+                throw exception;
             case BLOCK: {
                 CallbackInfoReturnable<T> cir = new CallbackInfoReturnable<>(reason, true);
                 CompletableFuture<T> future = CompletableFuture.supplyAsync(method, executor);

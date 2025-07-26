@@ -1,12 +1,12 @@
 package io.izzel.arclight.common.mixin.bukkit;
 
+import com.google.common.collect.Lists;
 import com.mojang.brigadier.ParseResults;
 import com.mojang.brigadier.StringReader;
-import com.google.common.collect.Lists;
 import io.izzel.arclight.common.bridge.bukkit.CraftServerBridge;
+import io.izzel.arclight.common.bridge.core.entity.player.ServerPlayerEntityBridge;
 import io.izzel.arclight.common.bridge.core.world.WorldBridge;
 import io.izzel.arclight.common.mod.server.ArclightServer;
-import io.izzel.arclight.common.bridge.core.entity.player.ServerPlayerEntityBridge;
 import jline.console.ConsoleReader;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.server.dedicated.DedicatedPlayerList;
@@ -33,11 +33,7 @@ import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.SimplePluginManager;
 import org.bukkit.scheduler.BukkitWorker;
 import org.spigotmc.SpigotConfig;
-import org.spongepowered.asm.mixin.Final;
-import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Mutable;
-import org.spongepowered.asm.mixin.Overwrite;
-import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.*;
 import org.spongepowered.asm.mixin.gen.Accessor;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -47,7 +43,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.*;
+import java.util.Collections;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -101,8 +100,8 @@ public abstract class CraftServerMixin implements CraftServerBridge {
     public void bridge$setPlayerList(PlayerList playerList) {
         this.playerList = (DedicatedPlayerList) playerList;
         this.playerView = Collections.unmodifiableList(Lists.transform(playerList.players, player ->
-                ((ServerPlayerEntityBridge)player).bridge$getBukkitEntity()
-                ));
+                ((ServerPlayerEntityBridge) player).bridge$getBukkitEntity()
+        ));
     }
 
     /**
@@ -131,7 +130,7 @@ public abstract class CraftServerMixin implements CraftServerBridge {
             stringreader.skip();
         }
         ParseResults<CommandSourceStack> parse = ArclightServer.getMinecraftServer().getCommands()
-            .getDispatcher().parse(stringreader, commandSource);
+                .getDispatcher().parse(stringreader, commandSource);
         CommandEvent event = new CommandEvent(parse);
         if (MinecraftForge.EVENT_BUS.post(event)) {
             return null;

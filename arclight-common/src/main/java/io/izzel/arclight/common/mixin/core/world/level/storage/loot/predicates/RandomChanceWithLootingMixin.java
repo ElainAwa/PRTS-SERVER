@@ -11,8 +11,12 @@ import org.spongepowered.asm.mixin.Shadow;
 @Mixin(LootItemRandomChanceWithLootingCondition.class)
 public class RandomChanceWithLootingMixin {
 
-    @Shadow @Final private float percent;
-    @Shadow @Final private float lootingMultiplier;
+    @Shadow
+    @Final
+    private float percent;
+    @Shadow
+    @Final
+    private float lootingMultiplier;
 
     /**
      * @author IzzelAliz

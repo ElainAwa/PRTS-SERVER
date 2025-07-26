@@ -36,7 +36,9 @@ import java.util.List;
 @Mixin(EnderDragon.class)
 public abstract class EnderDragonMixin extends MobMixin {
 
-    @Shadow @Nullable private EndDragonFight dragonFight;
+    @Shadow
+    @Nullable
+    private EndDragonFight dragonFight;
 
     private final Explosion explosionSource = new Explosion(this.level(), (EnderDragon) (Object) this, null, null, Double.NaN, Double.NaN, Double.NaN, Float.NaN, true, Explosion.BlockInteraction.DESTROY);
 

@@ -15,7 +15,8 @@ import java.util.List;
 @Mixin(StructurePlaceSettings.class)
 public class StructurePlaceSettingsMixin {
 
-    @Shadow private int palette;
+    @Shadow
+    private int palette;
 
     @Inject(method = "<init>", at = @At("RETURN"))
     private void arclight$init(CallbackInfo ci) {

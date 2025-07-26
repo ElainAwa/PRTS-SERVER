@@ -8,13 +8,13 @@ import java.util.stream.Collectors;
 public class Mirrors {
 
     private static final String[] MAVEN_REPO = {
-        "https://arclight.hypertention.cn/",
-        "https://repo.spongepowered.org/maven/"
+            "https://arclight.hypertention.cn/",
+            "https://repo.spongepowered.org/maven/"
     };
 
     private static final String[] MOJANG_MIRROR = {
-        "https://mojmirror.hypertention.cn",
-        "https://piston-meta.mojang.com"
+            "https://mojmirror.hypertention.cn",
+            "https://piston-meta.mojang.com"
     };
 
     private static final String VERSION_MANIFEST = "%s/mc/game/version_manifest.json";
@@ -25,7 +25,7 @@ public class Mirrors {
 
     public static List<Map.Entry<String, String>> getVersionManifest() {
         return Arrays.stream(MOJANG_MIRROR).map(it -> Map.entry(it, VERSION_MANIFEST.formatted(it)))
-            .collect(Collectors.toList());
+                .collect(Collectors.toList());
     }
 
     public static String mapMojangMirror(String url, String mirror) {
@@ -33,9 +33,9 @@ public class Mirrors {
             return url;
         }
         return url.replace("https://launcher.mojang.com", mirror)
-            .replace("https://launchermeta.mojang.com", mirror)
-            .replace("https://piston-meta.mojang.com", mirror)
-            .replace("https://piston-data.mojang.com", mirror);
+                .replace("https://launchermeta.mojang.com", mirror)
+                .replace("https://piston-meta.mojang.com", mirror)
+                .replace("https://piston-data.mojang.com", mirror);
     }
 
     public static boolean isMirrorUrl(String url) {

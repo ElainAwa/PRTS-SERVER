@@ -22,7 +22,8 @@ public class CHandshakePacketMixin {
     private static final String EXTRA_DATA = "extraData";
     private static final Gson GSON = new Gson();
 
-    @Shadow public String hostName;
+    @Shadow
+    public String hostName;
 
     @Redirect(method = "<init>(Lnet/minecraft/network/FriendlyByteBuf;)V", at = @At(value = "INVOKE", target = "Lnet/minecraft/network/FriendlyByteBuf;readUtf(I)Ljava/lang/String;"))
     private String arclight$bungeeHostname(FriendlyByteBuf packetBuffer, int maxLength) {

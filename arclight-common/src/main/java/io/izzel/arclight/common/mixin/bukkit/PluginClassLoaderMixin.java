@@ -85,7 +85,7 @@ public class PluginClassLoaderMixin extends URLClassLoader implements RemappingC
         Objects.requireNonNull(name);
         @SuppressWarnings("unchecked")
         Enumeration<URL>[] tmp = (Enumeration<URL>[]) new Enumeration<?>[2];
-        if (getParent()!= null) {
+        if (getParent() != null) {
             tmp[1] = getParent().getResources(name);
         }
         tmp[0] = findResources(name);

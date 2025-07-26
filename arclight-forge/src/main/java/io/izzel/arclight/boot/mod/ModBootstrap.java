@@ -35,7 +35,8 @@ import java.util.jar.Manifest;
 
 public class ModBootstrap extends AbstractBootstrap {
 
-    public static record ModBoot(Configuration configuration, ClassLoader parent) {}
+    public static record ModBoot(Configuration configuration, ClassLoader parent) {
+    }
 
     private static ModBoot modBoot;
 
@@ -128,7 +129,7 @@ public class ModBootstrap extends AbstractBootstrap {
         var rootField = ModuleClassLoader.class.getDeclaredField("resolvedRoots");
         var resolvedRoots = (Map<String, Object>) Unsafe.getObject(classLoader, Unsafe.objectFieldOffset(rootField));
         var moduleRefCtor = Unsafe.lookup().findConstructor(Class.forName("cpw.mods.cl.JarModuleFinder$JarModuleReference"),
-            MethodType.methodType(void.class, SecureJar.ModuleDataProvider.class));
+                MethodType.methodType(void.class, SecureJar.ModuleDataProvider.class));
         for (var mod : conf.modules()) {
             for (var pk : mod.reference().descriptor().packages()) {
                 packageLookup.put(pk, mod);

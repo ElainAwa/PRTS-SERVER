@@ -27,7 +27,7 @@ public class EndPortalBlockMixin {
     public ServerLevel arclight$enterPortal(MinecraftServer minecraftServer, ResourceKey<Level> dimension, BlockState state, Level worldIn, BlockPos pos, Entity entityIn) {
         ServerLevel world = minecraftServer.getLevel(dimension);
         EntityPortalEnterEvent event = new EntityPortalEnterEvent(((EntityBridge) entityIn).bridge$getBukkitEntity(),
-            new Location(((WorldBridge) worldIn).bridge$getWorld(), pos.getX(), pos.getY(), pos.getZ()));
+                new Location(((WorldBridge) worldIn).bridge$getWorld(), pos.getX(), pos.getY(), pos.getZ()));
         Bukkit.getPluginManager().callEvent(event);
         if (entityIn instanceof ServerPlayer && world != null) {
             ((ServerPlayerEntityBridge) entityIn).bridge$changeDimension(world, PlayerTeleportEvent.TeleportCause.END_PORTAL);

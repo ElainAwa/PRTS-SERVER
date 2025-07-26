@@ -1,10 +1,6 @@
 package io.izzel.arclight.common.mod.server;
 
-import com.google.common.collect.BiMap;
-import com.google.common.collect.HashBiMap;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.*;
 import io.izzel.arclight.api.ArclightVersion;
 import io.izzel.arclight.api.EnumHelper;
 import io.izzel.arclight.api.Unsafe;
@@ -31,7 +27,6 @@ import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.MobCategory;
 import net.minecraft.world.entity.boss.enderdragon.phases.EnderDragonPhase;
-import net.minecraft.world.entity.monster.SpellcasterIllager;
 import net.minecraft.world.entity.npc.VillagerProfession;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
@@ -45,11 +40,7 @@ import net.minecraftforge.fml.CrashReportCallables;
 import net.minecraftforge.registries.ForgeRegistries;
 import net.minecraftforge.registries.ForgeRegistry;
 import net.minecraftforge.registries.IForgeRegistry;
-import org.bukkit.Art;
-import org.bukkit.Material;
-import org.bukkit.NamespacedKey;
-import org.bukkit.Statistic;
-import org.bukkit.World;
+import org.bukkit.*;
 import org.bukkit.block.Biome;
 import org.bukkit.craftbukkit.v.CraftCrashReport;
 import org.bukkit.craftbukkit.v.CraftStatistic;
@@ -59,24 +50,13 @@ import org.bukkit.craftbukkit.v.util.CraftMagicNumbers;
 import org.bukkit.craftbukkit.v.util.CraftNamespacedKey;
 import org.bukkit.craftbukkit.v.util.CraftSpawnCategory;
 import org.bukkit.enchantments.Enchantment;
-import org.bukkit.entity.EnderDragon;
-import org.bukkit.entity.Entity;
-import org.bukkit.entity.EntityType;
-import org.bukkit.entity.Pose;
-import org.bukkit.entity.SpawnCategory;
-import org.bukkit.entity.Spellcaster;
-import org.bukkit.entity.Villager;
+import org.bukkit.entity.*;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.potion.PotionType;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 @SuppressWarnings({"ConstantConditions", "deprecation"})
 public class BukkitRegistry {
@@ -92,11 +72,11 @@ public class BukkitRegistry {
     private static final Map<String, EntityType> ENTITY_NAME_MAP = Unsafe.getStatic(EntityType.class, "NAME_MAP");
     private static final Map<Integer, World.Environment> ENVIRONMENT_MAP = Unsafe.getStatic(World.Environment.class, "lookup");
     static final BiMap<ResourceKey<LevelStem>, World.Environment> DIM_MAP =
-        HashBiMap.create(ImmutableMap.<ResourceKey<LevelStem>, World.Environment>builder()
-            .put(LevelStem.OVERWORLD, World.Environment.NORMAL)
-            .put(LevelStem.NETHER, World.Environment.NETHER)
-            .put(LevelStem.END, World.Environment.THE_END)
-            .build());
+            HashBiMap.create(ImmutableMap.<ResourceKey<LevelStem>, World.Environment>builder()
+                    .put(LevelStem.OVERWORLD, World.Environment.NORMAL)
+                    .put(LevelStem.NETHER, World.Environment.NETHER)
+                    .put(LevelStem.END, World.Environment.THE_END)
+                    .build());
     private static final Map<String, Art> ART_BY_NAME = Unsafe.getStatic(Art.class, "BY_NAME");
     private static final Map<Integer, Art> ART_BY_ID = Unsafe.getStatic(Art.class, "BY_ID");
     private static final BiMap<ResourceLocation, Statistic> STATS = HashBiMap.create(Unsafe.getStatic(CraftStatistic.class, "statistics"));
@@ -342,8 +322,7 @@ public class BukkitRegistry {
                 if (entityType != null) {
                     found = true;
                     ((EntityTypeBridge) (Object) entityType).bridge$setHandle(type);
-                }
-                else ArclightMod.LOGGER.warn("Not found {} in {}", location, EntityType.class);
+                } else ArclightMod.LOGGER.warn("Not found {} in {}", location, EntityType.class);
             }
             if (!found) {
                 String name = ResourceLocationUtil.standardize(location);
@@ -408,8 +387,8 @@ public class BukkitRegistry {
                 String name = ResourceLocationUtil.standardize(location);
                 MobEffectInstance effectInstance = potion.getEffects().isEmpty() ? null : potion.getEffects().get(0);
                 PotionType potionType = EnumHelper.makeEnum(PotionType.class, name, typeId++,
-                    Arrays.asList(PotionEffectType.class, boolean.class, boolean.class),
-                    Arrays.asList(effectInstance == null ? null : PotionEffectType.getById(MobEffect.getId(effectInstance.getEffect())), false, false));
+                        Arrays.asList(PotionEffectType.class, boolean.class, boolean.class),
+                        Arrays.asList(effectInstance == null ? null : PotionEffectType.getById(MobEffect.getId(effectInstance.getEffect())), false, false));
                 newTypes.add(potionType);
                 map.put(potionType, location.toString());
                 ArclightMod.LOGGER.debug("Registered {} as potion type {}", location, potionType);
@@ -522,9 +501,9 @@ public class BukkitRegistry {
 
     private static Set<IForgeRegistry<?>> registries() {
         return ImmutableSet.of(ForgeRegistries.BLOCKS, ForgeRegistries.ITEMS,
-            ForgeRegistries.MOB_EFFECTS, ForgeRegistries.POTIONS,
-            ForgeRegistries.ENTITY_TYPES, ForgeRegistries.BLOCK_ENTITY_TYPES,
-            ForgeRegistries.BIOMES);
+                ForgeRegistries.MOB_EFFECTS, ForgeRegistries.POTIONS,
+                ForgeRegistries.ENTITY_TYPES, ForgeRegistries.BLOCK_ENTITY_TYPES,
+                ForgeRegistries.BIOMES);
     }
 
     public static void unlockRegistries() {

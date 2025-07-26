@@ -20,7 +20,7 @@ import org.spongepowered.asm.mixin.injection.callback.LocalCapture;
 public class DragonEggBlockMixin {
 
     @Inject(method = "teleport", cancellable = true, locals = LocalCapture.CAPTURE_FAILHARD,
-        at = @At(value = "FIELD", target = "Lnet/minecraft/world/level/Level;isClientSide:Z"))
+            at = @At(value = "FIELD", target = "Lnet/minecraft/world/level/Level;isClientSide:Z"))
     public void arclight$blockFromTo(BlockState blockState, Level world, BlockPos blockPos, CallbackInfo ci,
                                      WorldBorder wb, int i, BlockPos pos) {
         org.bukkit.block.Block from = CraftBlock.at(world, blockPos);

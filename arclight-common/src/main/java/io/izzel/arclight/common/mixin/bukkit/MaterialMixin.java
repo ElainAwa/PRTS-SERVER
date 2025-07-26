@@ -19,24 +19,7 @@ import org.bukkit.block.BlockState;
 import org.bukkit.craftbukkit.v.block.CraftBlock;
 import org.bukkit.craftbukkit.v.block.CraftBlockState;
 import org.bukkit.craftbukkit.v.block.CraftBlockStates;
-import org.bukkit.craftbukkit.v.inventory.CraftMetaArmorStand;
-import org.bukkit.craftbukkit.v.inventory.CraftMetaBanner;
-import org.bukkit.craftbukkit.v.inventory.CraftMetaBlockState;
-import org.bukkit.craftbukkit.v.inventory.CraftMetaBook;
-import org.bukkit.craftbukkit.v.inventory.CraftMetaBookSigned;
-import org.bukkit.craftbukkit.v.inventory.CraftMetaCharge;
-import org.bukkit.craftbukkit.v.inventory.CraftMetaCrossbow;
-import org.bukkit.craftbukkit.v.inventory.CraftMetaEnchantedBook;
-import org.bukkit.craftbukkit.v.inventory.CraftMetaFirework;
-import org.bukkit.craftbukkit.v.inventory.CraftMetaItem;
-import org.bukkit.craftbukkit.v.inventory.CraftMetaKnowledgeBook;
-import org.bukkit.craftbukkit.v.inventory.CraftMetaLeatherArmor;
-import org.bukkit.craftbukkit.v.inventory.CraftMetaMap;
-import org.bukkit.craftbukkit.v.inventory.CraftMetaPotion;
-import org.bukkit.craftbukkit.v.inventory.CraftMetaSkull;
-import org.bukkit.craftbukkit.v.inventory.CraftMetaSpawnEgg;
-import org.bukkit.craftbukkit.v.inventory.CraftMetaSuspiciousStew;
-import org.bukkit.craftbukkit.v.inventory.CraftMetaTropicalFishBucket;
+import org.bukkit.craftbukkit.v.inventory.*;
 import org.bukkit.craftbukkit.v.util.CraftMagicNumbers;
 import org.bukkit.craftbukkit.v.util.CraftNamespacedKey;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -65,27 +48,27 @@ public abstract class MaterialMixin implements MaterialBridge {
     // @formatter:on
 
     private static final Map<String, BiFunction<Material, CraftMetaItem, ItemMeta>> TYPES = ImmutableMap
-        .<String, BiFunction<Material, CraftMetaItem, ItemMeta>>builder()
-        .put("ARMOR_STAND", (a, b) -> b instanceof CraftMetaArmorStand ? b : new CraftMetaArmorStand(b))
-        .put("BANNER", (a, b) -> b instanceof CraftMetaBanner ? b : new CraftMetaBanner(b))
-        .put("TILE_ENTITY", (a, b) -> new CraftMetaBlockState(b, a))
-        .put("BOOK", (a, b) -> b != null && b.getClass().equals(CraftMetaBook.class) ? b : new CraftMetaBook(b))
-        .put("BOOK_SIGNED", (a, b) -> b instanceof CraftMetaBookSigned ? b : new CraftMetaBookSigned(b))
-        .put("SKULL", (a, b) -> b instanceof CraftMetaSkull ? b : new CraftMetaSkull(b))
-        .put("LEATHER_ARMOR", (a, b) -> b instanceof CraftMetaLeatherArmor ? b : new CraftMetaLeatherArmor(b))
-        .put("MAP", (a, b) -> b instanceof CraftMetaMap ? b : new CraftMetaMap(b))
-        .put("POTION", (a, b) -> b instanceof CraftMetaPotion ? b : new CraftMetaPotion(b))
-        .put("SPAWN_EGG", (a, b) -> b instanceof CraftMetaSpawnEgg ? b : new CraftMetaSpawnEgg(b))
-        .put("ENCHANTED", (a, b) -> b instanceof CraftMetaEnchantedBook ? b : new CraftMetaEnchantedBook(b))
-        .put("FIREWORK", (a, b) -> b instanceof CraftMetaFirework ? b : new CraftMetaFirework(b))
-        .put("FIREWORK_EFFECT", (a, b) -> b instanceof CraftMetaCharge ? b : new CraftMetaCharge(b))
-        .put("KNOWLEDGE_BOOK", (a, b) -> b instanceof CraftMetaKnowledgeBook ? b : new CraftMetaKnowledgeBook(b))
-        .put("TROPICAL_FISH_BUCKET", (a, b) -> b instanceof CraftMetaTropicalFishBucket ? b : new CraftMetaTropicalFishBucket(b))
-        .put("CROSSBOW", (a, b) -> b instanceof CraftMetaCrossbow ? b : new CraftMetaCrossbow(b))
-        .put("SUSPICIOUS_STEW", (a, b) -> b instanceof CraftMetaSuspiciousStew ? b : new CraftMetaSuspiciousStew(b))
-        .put("UNSPECIFIC", (a, b) -> new CraftMetaItem(b))
-        .put("NULL", (a, b) -> null)
-        .build();
+            .<String, BiFunction<Material, CraftMetaItem, ItemMeta>>builder()
+            .put("ARMOR_STAND", (a, b) -> b instanceof CraftMetaArmorStand ? b : new CraftMetaArmorStand(b))
+            .put("BANNER", (a, b) -> b instanceof CraftMetaBanner ? b : new CraftMetaBanner(b))
+            .put("TILE_ENTITY", (a, b) -> new CraftMetaBlockState(b, a))
+            .put("BOOK", (a, b) -> b != null && b.getClass().equals(CraftMetaBook.class) ? b : new CraftMetaBook(b))
+            .put("BOOK_SIGNED", (a, b) -> b instanceof CraftMetaBookSigned ? b : new CraftMetaBookSigned(b))
+            .put("SKULL", (a, b) -> b instanceof CraftMetaSkull ? b : new CraftMetaSkull(b))
+            .put("LEATHER_ARMOR", (a, b) -> b instanceof CraftMetaLeatherArmor ? b : new CraftMetaLeatherArmor(b))
+            .put("MAP", (a, b) -> b instanceof CraftMetaMap ? b : new CraftMetaMap(b))
+            .put("POTION", (a, b) -> b instanceof CraftMetaPotion ? b : new CraftMetaPotion(b))
+            .put("SPAWN_EGG", (a, b) -> b instanceof CraftMetaSpawnEgg ? b : new CraftMetaSpawnEgg(b))
+            .put("ENCHANTED", (a, b) -> b instanceof CraftMetaEnchantedBook ? b : new CraftMetaEnchantedBook(b))
+            .put("FIREWORK", (a, b) -> b instanceof CraftMetaFirework ? b : new CraftMetaFirework(b))
+            .put("FIREWORK_EFFECT", (a, b) -> b instanceof CraftMetaCharge ? b : new CraftMetaCharge(b))
+            .put("KNOWLEDGE_BOOK", (a, b) -> b instanceof CraftMetaKnowledgeBook ? b : new CraftMetaKnowledgeBook(b))
+            .put("TROPICAL_FISH_BUCKET", (a, b) -> b instanceof CraftMetaTropicalFishBucket ? b : new CraftMetaTropicalFishBucket(b))
+            .put("CROSSBOW", (a, b) -> b instanceof CraftMetaCrossbow ? b : new CraftMetaCrossbow(b))
+            .put("SUSPICIOUS_STEW", (a, b) -> b instanceof CraftMetaSuspiciousStew ? b : new CraftMetaSuspiciousStew(b))
+            .put("UNSPECIFIC", (a, b) -> new CraftMetaItem(b))
+            .put("NULL", (a, b) -> null)
+            .build();
 
     private MaterialPropertySpec.MaterialType arclight$type = MaterialPropertySpec.MaterialType.VANILLA;
     private MaterialPropertySpec arclight$spec;
@@ -288,7 +271,7 @@ public abstract class MaterialMixin implements MaterialBridge {
     @Override
     public boolean bridge$shouldApplyStateFactory() {
         return this.arclight$type != MaterialPropertySpec.MaterialType.VANILLA ||
-            (this.arclight$spec != null && this.arclight$spec.blockStateClass != null);
+                (this.arclight$spec != null && this.arclight$spec.blockStateClass != null);
     }
 
     @SuppressWarnings("unchecked")
@@ -376,7 +359,7 @@ public abstract class MaterialMixin implements MaterialBridge {
                 }
                 for (Constructor<?> constructor : cl.getDeclaredConstructors()) {
                     if (constructor.getParameterTypes().length == 1
-                        && org.bukkit.block.Block.class.isAssignableFrom(constructor.getParameterTypes()[0])) {
+                            && org.bukkit.block.Block.class.isAssignableFrom(constructor.getParameterTypes()[0])) {
                         constructor.setAccessible(true);
                         this.arclight$stateFunc = b -> {
                             try {

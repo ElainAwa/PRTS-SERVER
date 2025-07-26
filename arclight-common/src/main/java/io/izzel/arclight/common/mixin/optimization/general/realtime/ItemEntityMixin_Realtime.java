@@ -11,8 +11,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(ItemEntity.class)
 public class ItemEntityMixin_Realtime {
 
-    @Shadow public int pickupDelay;
-    @Shadow public int age;
+    @Shadow
+    public int pickupDelay;
+    @Shadow
+    public int age;
 
     private int lastTick = ArclightConstants.currentTick - 1;
 

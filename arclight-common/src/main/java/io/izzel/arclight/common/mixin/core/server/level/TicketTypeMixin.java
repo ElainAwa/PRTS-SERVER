@@ -15,6 +15,7 @@ public abstract class TicketTypeMixin implements TicketTypeBridge {
     private static final TicketType<Unit> PLUGIN = TicketType.create("plugin", (a, b) -> 0);
     private static final TicketType<Plugin> PLUGIN_TICKET = TicketType.create("plugin_ticket", Comparator.comparing(it -> it.getClass().getName()));
 
-    @Override @Accessor(value = "timeout")
+    @Override
+    @Accessor(value = "timeout")
     public abstract void bridge$setLifespan(long lifespan);
 }

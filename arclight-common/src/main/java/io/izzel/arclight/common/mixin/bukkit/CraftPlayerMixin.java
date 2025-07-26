@@ -14,7 +14,9 @@ import java.util.Set;
 @Mixin(value = CraftPlayer.class, remap = false)
 public abstract class CraftPlayerMixin extends CraftEntityMixin {
 
-    @Shadow @Final private Set<String> channels;
+    @Shadow
+    @Final
+    private Set<String> channels;
 
     /**
      * @author IzzelAliz

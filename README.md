@@ -1,7 +1,7 @@
 # Luminara
 
- 一个Arclight fork，争取在Arclight上做出更多优化与改进（1.20.1）
- > 使用本服务端过程中出现的任何问题请在本项目Issue反馈，请勿在Arclight项目Issue反馈！
+一个Arclight fork，争取在Arclight上做出更多优化与改进（1.20.1）
+> 使用本服务端过程中出现的任何问题请在本项目Issue反馈，请勿在Arclight项目Issue反馈！
 
 ## ✨ 特性
 
@@ -22,17 +22,20 @@
 ## 📥 下载
 
 ### 稳定版本
+
 - [GitHub Releases](https://github.com/QianMoo0121/Luminara/releases) - 推荐用于生产环境
 
 ### 开发版本
-- [每日构建版本](https://github.com/QianMoo0121/Luminara/actions/workflows/gradle.yml?query=branch%3ATrials) *(需要 GitHub 登录)*
 
+- [每日构建版本](https://github.com/QianMoo0121/Luminara/actions/workflows/gradle.yml?query=branch%3ATrials) *(需要
+  GitHub 登录)*
 
 ### 自行构建
- - 克隆本项目到本地 `git clone -b <分支> https://github.com/QianMoo0121/Luminara.git`
- - 运行 `./gradlew cleanBuild remapSpigotJar idea --no-daemon -i --stacktrace --refresh-dependencies` 进行配置
- - 运行 `./gradlew build collect` 构建项目
- - 构建完成后，jar 文件位于 `./build/libs` 目录下
+
+- 克隆本项目到本地 `git clone -b <分支> https://github.com/QianMoo0121/Luminara.git`
+- 运行 `./gradlew cleanBuild remapSpigotJar idea --no-daemon -i --stacktrace --refresh-dependencies` 进行配置
+- 运行 `./gradlew build collect` 构建项目
+- 构建完成后，jar 文件位于 `./build/libs` 目录下
 
 ## 🚀 安装使用
 
@@ -42,19 +45,21 @@
    java -jar luminara.jar nogui
    ```
    > `nogui` 参数将禁用服务器控制面板
-   
 
 ## 📚 支持与帮助
 
 ### 📖 文档
+
 - [Arclight文档](https://wiki.izzel.io/s/arclight-docs) - 详细的使用指南和配置说明
 
 ### 🐛 问题反馈
+
 - [提交 Bug](https://github.com/QianMoo0121/Luminara/issues/new/choose) - 遇到问题请在这里报告
 - [讨论区](https://github.com/QianMoo0121/Luminara/discussions) - 提问和讨论
 - 请勿将本服务端的问题反馈到Arclight！
 
 ## ✏️ Release 1.0.8 待办事项
+
 - [x] 支持Velocity Modern转发（Port Mohist and *①PCF）
 - [ ] 并入*②MPEM的部分优化项
 - [ ] 支持Adventure库
@@ -63,6 +68,7 @@
 *①PCF：指Proxy Compatible Forge（Velocity代理兼容Forge）模组
 
 *②MPEM：指Moonlit Performance Enhancement Module（月夜性能优化）模组
+
 ## 📄 开源协议
 
 本项目基于 [GPL v3](LICENSE) 协议开源。

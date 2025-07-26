@@ -19,7 +19,10 @@ import java.util.function.Predicate;
 @Mixin(value = Registry.SimpleRegistry.class, remap = false)
 public class Registry_SimpleRegistryMixin<T extends Enum<T> & Keyed> implements SimpleRegistryBridge {
 
-    @Shadow @Final @Mutable private Map<NamespacedKey, T> map;
+    @Shadow
+    @Final
+    @Mutable
+    private Map<NamespacedKey, T> map;
 
     private Runnable arclight$reloadCallback;
 

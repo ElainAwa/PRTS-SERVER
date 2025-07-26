@@ -11,7 +11,8 @@ import org.spongepowered.asm.mixin.injection.Redirect;
 @Mixin(ServerPlayerGameMode.class)
 public class PlayerInteractionManagerMixin_Realtime {
 
-    @Shadow private int gameTicks;
+    @Shadow
+    private int gameTicks;
 
     private int lastTick = ArclightConstants.currentTick - 1;
 

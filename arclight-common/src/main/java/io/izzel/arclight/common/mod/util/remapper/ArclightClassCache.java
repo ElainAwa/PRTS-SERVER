@@ -6,7 +6,9 @@ import cpw.mods.modlauncher.api.LamdbaExceptionUtils;
 import io.izzel.arclight.api.PluginPatcher;
 import io.izzel.arclight.common.mod.ArclightMod;
 import io.izzel.arclight.i18n.ArclightConfig;
-import io.izzel.tools.product.*;
+import io.izzel.tools.product.Product;
+import io.izzel.tools.product.Product3;
+import io.izzel.tools.product.Product5;
 import net.minecraftforge.fml.ModList;
 import org.apache.commons.io.FileUtils;
 import org.apache.logging.log4j.Marker;
@@ -21,16 +23,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
+import java.util.*;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.jar.JarFile;
 
@@ -68,7 +62,7 @@ public abstract class ArclightClassCache implements AutoCloseable {
         private static String currentVersionInfo() {
             var builder = new StringBuilder();
             var arclight = ModList.get().getModContainerById("arclight")
-                .orElseThrow(IllegalStateException::new).getModInfo().getVersion().toString();
+                    .orElseThrow(IllegalStateException::new).getModInfo().getVersion().toString();
             builder.append(arclight);
             builder.append("Arclight class cache").append(", ");
             builder.append("spec=").append(SPEC_VERSION).append(", ");
@@ -76,10 +70,10 @@ public abstract class ArclightClassCache implements AutoCloseable {
             builder.append("patcher=[");
             for (PluginPatcher patcher : ArclightRemapper.INSTANCE.getPatchers()) {
                 builder.append('\0')
-                    .append(patcher.getClass().getName())
-                    .append('\0')
-                    .append(patcher.version())
-                    .append(", ");
+                        .append(patcher.getClass().getName())
+                        .append('\0')
+                        .append(patcher.version())
+                        .append(", ");
             }
             builder.append("]");
             return builder.toString();

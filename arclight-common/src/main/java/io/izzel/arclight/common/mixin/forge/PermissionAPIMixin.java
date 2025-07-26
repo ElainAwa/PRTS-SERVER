@@ -14,7 +14,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(value = PermissionAPI.class, remap = false)
 public class PermissionAPIMixin {
 
-    @Shadow private static IPermissionHandler activeHandler;
+    @Shadow
+    private static IPermissionHandler activeHandler;
 
     @Inject(method = "initializePermissionAPI", at = @At("RETURN"))
     private static void arclight$init(CallbackInfo ci) {

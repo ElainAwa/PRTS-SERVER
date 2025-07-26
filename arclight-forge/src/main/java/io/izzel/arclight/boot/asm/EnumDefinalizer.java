@@ -11,20 +11,20 @@ import java.util.Set;
 public class EnumDefinalizer implements Implementer {
 
     static final Set<String> ENUM = Set.of(
-        "org/bukkit/Material",
-        "org/bukkit/potion/PotionType",
-        "org/bukkit/entity/EntityType",
-        "org/bukkit/entity/Villager$Profession",
-        "org/bukkit/block/Biome",
-        "org/bukkit/Art",
-        "org/bukkit/Statistic",
-        "org/bukkit/inventory/CreativeCategory",
-        "org/bukkit/entity/SpawnCategory",
-        "org/bukkit/entity/EnderDragon$Phase",
-        "org/bukkit/inventory/recipe/CookingBookCategory",
-        "org/bukkit/Fluid",
-        "org/bukkit/entity/Spellcaster$Spell",
-        "org/bukkit/entity/Pose"
+            "org/bukkit/Material",
+            "org/bukkit/potion/PotionType",
+            "org/bukkit/entity/EntityType",
+            "org/bukkit/entity/Villager$Profession",
+            "org/bukkit/block/Biome",
+            "org/bukkit/Art",
+            "org/bukkit/Statistic",
+            "org/bukkit/inventory/CreativeCategory",
+            "org/bukkit/entity/SpawnCategory",
+            "org/bukkit/entity/EnderDragon$Phase",
+            "org/bukkit/inventory/recipe/CookingBookCategory",
+            "org/bukkit/Fluid",
+            "org/bukkit/entity/Spellcaster$Spell",
+            "org/bukkit/entity/Pose"
     );
 
     @Override
@@ -33,7 +33,7 @@ public class EnumDefinalizer implements Implementer {
             var find = false;
             for (FieldNode field : node.fields) {
                 if (Modifier.isStatic(field.access) && Modifier.isFinal(field.access)
-                    && field.name.equals("ENUM$VALUES")) {
+                        && field.name.equals("ENUM$VALUES")) {
                     field.access &= ~Opcodes.ACC_FINAL;
                     ArclightImplementer.LOGGER.debug("Definalize enum class {} values field {}", node.name, field.name);
                     if (find) {

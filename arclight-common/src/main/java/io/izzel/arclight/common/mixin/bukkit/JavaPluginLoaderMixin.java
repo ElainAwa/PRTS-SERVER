@@ -16,12 +16,7 @@ import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.RegisteredListener;
 import org.bukkit.plugin.java.JavaPluginLoader;
 import org.jetbrains.annotations.NotNull;
-import org.objectweb.asm.ClassVisitor;
-import org.objectweb.asm.ClassWriter;
-import org.objectweb.asm.Label;
-import org.objectweb.asm.MethodVisitor;
-import org.objectweb.asm.Opcodes;
-import org.objectweb.asm.Type;
+import org.objectweb.asm.*;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Overwrite;
@@ -33,12 +28,7 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.net.URLClassLoader;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -55,12 +45,12 @@ public abstract class JavaPluginLoaderMixin implements JavaPluginLoaderBridge {
 
     private static final AtomicInteger COUNTER = new AtomicInteger();
     private static final Cache<Method, Class<? extends EventExecutor>> EXECUTOR_CACHE = CacheBuilder.newBuilder()
-        .expireAfterAccess(1, TimeUnit.HOURS)
-        .build();
+            .expireAfterAccess(1, TimeUnit.HOURS)
+            .build();
     private static final String HIDDEN_FORM =
-        Float.parseFloat(System.getProperty("java.class.version")) < 57
-            ? "Ljava/lang/invoke/LambdaForm$Hidden;"
-            : "Ljdk/internal/vm/annotation/Hidden;";
+            Float.parseFloat(System.getProperty("java.class.version")) < 57
+                    ? "Ljava/lang/invoke/LambdaForm$Hidden;"
+                    : "Ljdk/internal/vm/annotation/Hidden;";
 
     /**
      * @author IzzelAliz
@@ -116,15 +106,15 @@ public abstract class JavaPluginLoaderMixin implements JavaPluginLoaderBridge {
                         break;
                     }
                     plugin.getLogger().log(
-                        Level.WARNING,
-                        String.format(
-                            "\"%s\" has registered a listener for %s on method \"%s\", but the event is Deprecated. \"%s\"; please notify the authors %s.",
-                            plugin.getDescription().getFullName(),
-                            clazz.getName(),
-                            method.toGenericString(),
-                            (warning != null && warning.reason().length() != 0) ? warning.reason() : "Server performance will be affected",
-                            Arrays.toString(plugin.getDescription().getAuthors().toArray())),
-                        warningState == Warning.WarningState.ON ? new AuthorNagException(null) : null);
+                            Level.WARNING,
+                            String.format(
+                                    "\"%s\" has registered a listener for %s on method \"%s\", but the event is Deprecated. \"%s\"; please notify the authors %s.",
+                                    plugin.getDescription().getFullName(),
+                                    clazz.getName(),
+                                    method.toGenericString(),
+                                    (warning != null && warning.reason().length() != 0) ? warning.reason() : "Server performance will be affected",
+                                    Arrays.toString(plugin.getDescription().getAuthors().toArray())),
+                            warningState == Warning.WarningState.ON ? new AuthorNagException(null) : null);
                     break;
                 }
             }
@@ -149,11 +139,11 @@ public abstract class JavaPluginLoaderMixin implements JavaPluginLoaderBridge {
         return EXECUTOR_CACHE.get(method, () -> {
             ClassWriter cv = new ClassWriter(ClassWriter.COMPUTE_MAXS);
             cv.visit(Opcodes.V1_8,
-                Opcodes.ACC_SUPER + Opcodes.ACC_SYNTHETIC + Opcodes.ACC_FINAL,
-                Type.getInternalName(method.getDeclaringClass()) + "$$arclight$" + COUNTER.getAndIncrement(),
-                null,
-                Type.getInternalName(Object.class),
-                new String[]{Type.getInternalName(EventExecutor.class)}
+                    Opcodes.ACC_SUPER + Opcodes.ACC_SYNTHETIC + Opcodes.ACC_FINAL,
+                    Type.getInternalName(method.getDeclaringClass()) + "$$arclight$" + COUNTER.getAndIncrement(),
+                    null,
+                    Type.getInternalName(Object.class),
+                    new String[]{Type.getInternalName(EventExecutor.class)}
             );
             cv.visitOuterClass(Type.getInternalName(method.getDeclaringClass()), null, null);
             createConstructor(cv);
@@ -165,10 +155,10 @@ public abstract class JavaPluginLoaderMixin implements JavaPluginLoaderBridge {
 
     private void createConstructor(ClassVisitor cv) {
         MethodVisitor mv = cv.visitMethod(
-            Opcodes.ACC_PRIVATE,
-            "<init>",
-            "()V",
-            null, null);
+                Opcodes.ACC_PRIVATE,
+                "<init>",
+                "()V",
+                null, null);
         mv.visitCode();
         mv.visitVarInsn(Opcodes.ALOAD, 0);
         mv.visitMethodInsn(Opcodes.INVOKESPECIAL, Type.getInternalName(Object.class), "<init>", "()V", false);
@@ -180,10 +170,10 @@ public abstract class JavaPluginLoaderMixin implements JavaPluginLoaderBridge {
     private void createImpl(Method method, Class<? extends Event> eventClass, ClassVisitor cv) {
         String ownerType = Type.getInternalName(method.getDeclaringClass());
         MethodVisitor mv = cv.visitMethod(
-            Opcodes.ACC_PUBLIC,
-            "execute",
-            Type.getMethodDescriptor(Type.VOID_TYPE, Type.getType(Listener.class), Type.getType(Event.class)),
-            null, null
+                Opcodes.ACC_PUBLIC,
+                "execute",
+                Type.getMethodDescriptor(Type.VOID_TYPE, Type.getType(Listener.class), Type.getType(Event.class)),
+                null, null
         );
         mv.visitAnnotation(HIDDEN_FORM, true);
 

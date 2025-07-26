@@ -19,7 +19,9 @@ import org.spongepowered.asm.mixin.Shadow;
 @Mixin(targets = "net.minecraft.world.entity.animal.Turtle$TurtleLayEggGoal")
 public abstract class Turtle_LayEggGoalMixin extends MoveToBlockGoal {
 
-    @Shadow @Final private Turtle turtle;
+    @Shadow
+    @Final
+    private Turtle turtle;
 
     public Turtle_LayEggGoalMixin(PathfinderMob creature, double speedIn, int length) {
         super(creature, speedIn, length);

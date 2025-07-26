@@ -129,7 +129,7 @@ public abstract class ServerPlayerGameModeMixin implements PlayerInteractionMana
             }
             // Spigot start - handle debug stick left click for non-creative
             if (this.player.getMainHandItem().is(net.minecraft.world.item.Items.DEBUG_STICK)
-                && ((net.minecraft.world.item.DebugStickItem) net.minecraft.world.item.Items.DEBUG_STICK).handleInteraction(this.player, this.level.getBlockState(blockPos), this.level, blockPos, false, this.player.getMainHandItem())) {
+                    && ((net.minecraft.world.item.DebugStickItem) net.minecraft.world.item.Items.DEBUG_STICK).handleInteraction(this.player, this.level.getBlockState(blockPos), this.level, blockPos, false, this.player.getMainHandItem())) {
                 this.player.connection.send(new ClientboundBlockUpdatePacket(this.level, blockPos));
                 return;
             }

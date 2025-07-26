@@ -17,16 +17,7 @@ import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.Handle;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
-import org.objectweb.asm.tree.AbstractInsnNode;
-import org.objectweb.asm.tree.ClassNode;
-import org.objectweb.asm.tree.InsnList;
-import org.objectweb.asm.tree.InsnNode;
-import org.objectweb.asm.tree.IntInsnNode;
-import org.objectweb.asm.tree.InvokeDynamicInsnNode;
-import org.objectweb.asm.tree.LdcInsnNode;
-import org.objectweb.asm.tree.MethodInsnNode;
-import org.objectweb.asm.tree.MethodNode;
-import org.objectweb.asm.tree.TypeInsnNode;
+import org.objectweb.asm.tree.*;
 import org.spongepowered.asm.util.Bytecode;
 
 import java.lang.invoke.MethodHandles;
@@ -38,11 +29,7 @@ import java.nio.ByteBuffer;
 import java.security.CodeSource;
 import java.security.ProtectionDomain;
 import java.security.SecureClassLoader;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.ListIterator;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class ArclightRedirectAdapter implements PluginTransformer {
@@ -178,9 +165,9 @@ public class ArclightRedirectAdapter implements PluginTransformer {
             for (AbstractInsnNode insnNode : methodNode.instructions) {
                 if (insnNode instanceof MethodInsnNode from) {
                     if (from.getOpcode() == Opcodes.INVOKESPECIAL
-                        && Objects.equals(from.owner, classNode.superName)
-                        && Objects.equals(from.name, methodNode.name)
-                        && Objects.equals(from.desc, methodNode.desc)) {
+                            && Objects.equals(from.owner, classNode.superName)
+                            && Objects.equals(from.name, methodNode.name)
+                            && Objects.equals(from.desc, methodNode.desc)) {
                         continue;
                     }
                     process(from, methodNode.instructions, remapper, classNode);

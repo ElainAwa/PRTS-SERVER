@@ -26,7 +26,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(net.minecraft.world.entity.npc.AbstractVillager.class)
 public abstract class AbstractVillagerMixin extends PathfinderMobMixin implements IMerchantBridge {
 
-    @Shadow @Final private SimpleContainer inventory;
+    @Shadow
+    @Final
+    private SimpleContainer inventory;
 
     @Inject(method = "<init>", at = @At("RETURN"))
     private void arclight$init(EntityType<? extends net.minecraft.world.entity.npc.AbstractVillager> type, Level worldIn, CallbackInfo ci) {

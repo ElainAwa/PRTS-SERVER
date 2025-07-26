@@ -16,7 +16,8 @@ import org.spongepowered.asm.mixin.injection.Redirect;
 @Mixin(ThrownTrident.class)
 public abstract class ThrownTridentMixin extends AbstractArrowMixin implements TridentEntityBridge {
 
-    @Shadow public ItemStack tridentItem;
+    @Shadow
+    public ItemStack tridentItem;
 
     @Redirect(method = "onHitEntity", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/Level;addFreshEntity(Lnet/minecraft/world/entity/Entity;)Z"))
     private boolean arclight$lightning(Level world, Entity entityIn) {

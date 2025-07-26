@@ -135,7 +135,7 @@ public abstract class LevelMixin implements WorldBridge, LevelWriter {
     }
 
     @Inject(method = "setBlock(Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/state/BlockState;I)Z",
-        at = @At("HEAD"), cancellable = true)
+            at = @At("HEAD"), cancellable = true)
     private void arclight$hooks(BlockPos pos, BlockState newState, int flags, CallbackInfoReturnable<Boolean> cir) {
         if (!processCaptures(pos, newState, flags)) {
             cir.setReturnValue(false);
@@ -199,7 +199,7 @@ public abstract class LevelMixin implements WorldBridge, LevelWriter {
                 generator = getCraftServer().getGenerator(((ServerLevelData) this.getLevelData()).getLevelName());
                 if (generator != null && (Object) this instanceof ServerLevel serverWorld) {
                     org.bukkit.generator.WorldInfo worldInfo = new CraftWorldInfo((ServerLevelData) getLevelData(),
-                        ((ServerWorldBridge) this).bridge$getConvertable(), environment, this.dimensionType());
+                            ((ServerWorldBridge) this).bridge$getConvertable(), environment, this.dimensionType());
                     if (biomeProvider == null && generator != null) {
                         biomeProvider = generator.getDefaultBiomeProvider(worldInfo);
                     }

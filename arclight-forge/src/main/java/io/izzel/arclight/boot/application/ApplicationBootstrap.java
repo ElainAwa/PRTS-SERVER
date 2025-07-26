@@ -45,8 +45,8 @@ public class ApplicationBootstrap extends AbstractBootstrap implements Consumer<
                 args[targetIndex + 1] = "arclightserver";
             }
             ServiceLoader.load(getClass().getModule().getLayer(), Consumer.class).stream()
-                .filter(it -> !it.type().getName().contains("arclight"))
-                .findFirst().orElseThrow().get().accept(args);
+                    .filter(it -> !it.type().getName().contains("arclight"))
+                    .findFirst().orElseThrow().get().accept(args);
         } catch (Exception e) {
             e.printStackTrace();
             LOGGER.error("Fail to launch Luminara.");

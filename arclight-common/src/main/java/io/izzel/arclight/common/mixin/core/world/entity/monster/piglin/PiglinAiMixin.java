@@ -76,7 +76,7 @@ public abstract class PiglinAiMixin {
 
     private static boolean isLovedByPiglin(ItemStack itemstack, Piglin piglin) {
         return isLovedItem(itemstack) || (((PiglinBridge) piglin).bridge$getInterestItems().contains(itemstack.getItem())
-            || ((PiglinBridge) piglin).bridge$getAllowedBarterItems().contains(itemstack.getItem()));
+                || ((PiglinBridge) piglin).bridge$getAllowedBarterItems().contains(itemstack.getItem()));
     }
 
     private static boolean isBarterItem(ItemStack itemstack, Piglin piglin) {

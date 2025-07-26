@@ -28,7 +28,7 @@ public class ArclightJarInJarAdaptor implements IDependencyLocator {
         return delegate.scanMods(loadedMods).stream().filter(it -> {
             var optional = getClass().getModule().getLayer().findModule(it.getModFileInfo().moduleName());
             optional.ifPresent(module -> LOGGER.info("Skip jij dependency {}@{} because Luminara has {}",
-                it.getModFileInfo().moduleName(), it.getModFileInfo().versionString(), module.getDescriptor().toNameAndVersion()));
+                    it.getModFileInfo().moduleName(), it.getModFileInfo().versionString(), module.getDescriptor().toNameAndVersion()));
             return optional.isEmpty();
         }).toList();
     }

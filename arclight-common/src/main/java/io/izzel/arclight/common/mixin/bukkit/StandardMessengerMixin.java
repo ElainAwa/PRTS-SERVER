@@ -1,12 +1,12 @@
 package io.izzel.arclight.common.mixin.bukkit;
 
 import org.bukkit.plugin.messaging.Messenger;
+import org.bukkit.plugin.messaging.StandardMessenger;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.Constant;
 import org.spongepowered.asm.mixin.injection.ModifyConstant;
-import org.bukkit.plugin.messaging.StandardMessenger;
 
-@Mixin(value=StandardMessenger.class, remap = false)
+@Mixin(value = StandardMessenger.class, remap = false)
 public abstract class StandardMessengerMixin implements Messenger {
 
     @ModifyConstant(

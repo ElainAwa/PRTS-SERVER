@@ -14,7 +14,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(NearestAttackableTargetGoal.class)
 public class NearestAttackableTargetGoalMixin extends TargetGoalMixin {
 
-    @Shadow protected LivingEntity target;
+    @Shadow
+    protected LivingEntity target;
 
     @Inject(method = "start", at = @At("HEAD"))
     public void arclight$reason(CallbackInfo ci) {

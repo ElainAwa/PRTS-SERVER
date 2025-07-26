@@ -19,8 +19,12 @@ import java.util.List;
 @Mixin(CompoundContainer.class)
 public abstract class CompoundContainerMixin implements IInventoryBridge, Container {
 
-    @Shadow @Final public Container container1;
-    @Shadow @Final public Container container2;
+    @Shadow
+    @Final
+    public Container container1;
+    @Shadow
+    @Final
+    public Container container2;
     private List<HumanEntity> transactions = new ArrayList<>();
 
     @Override
@@ -53,10 +57,13 @@ public abstract class CompoundContainerMixin implements IInventoryBridge, Contai
     }
 
     @Override
-    public InventoryHolder getOwner() { return null; }
+    public InventoryHolder getOwner() {
+        return null;
+    }
 
     @Override
-    public void setOwner(InventoryHolder owner) { }
+    public void setOwner(InventoryHolder owner) {
+    }
 
     @Override
     public int getMaxStackSize() {
@@ -75,8 +82,11 @@ public abstract class CompoundContainerMixin implements IInventoryBridge, Contai
     }
 
     @Override
-    public Recipe<?> getCurrentRecipe() { return null; }
+    public Recipe<?> getCurrentRecipe() {
+        return null;
+    }
 
     @Override
-    public void setCurrentRecipe(Recipe<?> recipe) { }
+    public void setCurrentRecipe(Recipe<?> recipe) {
+    }
 }

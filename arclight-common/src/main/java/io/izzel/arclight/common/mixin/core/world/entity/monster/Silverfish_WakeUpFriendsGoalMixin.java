@@ -20,8 +20,11 @@ import org.spongepowered.asm.mixin.Shadow;
 @Mixin(targets = "net.minecraft.world.entity.monster.Silverfish$SilverfishWakeUpFriendsGoal")
 public abstract class Silverfish_WakeUpFriendsGoalMixin extends Goal {
 
-    @Shadow private int lookForFriends;
-    @Shadow @Final private Silverfish silverfish;
+    @Shadow
+    private int lookForFriends;
+    @Shadow
+    @Final
+    private Silverfish silverfish;
 
     /**
      * @author IzzelAliz

@@ -1,25 +1,13 @@
 package io.izzel.arclight.forgeinstaller;
 
-import com.google.gson.Gson;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
+import com.google.gson.*;
 import io.izzel.arclight.api.Unsafe;
 
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.Reader;
+import java.io.*;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
-import java.lang.module.Configuration;
-import java.lang.module.ModuleDescriptor;
-import java.lang.module.ModuleFinder;
-import java.lang.module.ModuleReference;
-import java.lang.module.ResolvedModule;
+import java.lang.module.*;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.net.URL;
@@ -30,16 +18,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.security.AccessControlContext;
-import java.util.AbstractMap;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
@@ -97,8 +76,8 @@ public class ForgeInstaller {
                     }
                 } catch (IOException e) {
                     try (URLClassLoader loader = new URLClassLoader(
-                        new URL[]{new File(String.format("forge-%s-%s-installer.jar", installInfo.installer.minecraft, installInfo.installer.forge)).toURI().toURL()},
-                        ForgeInstaller.class.getClassLoader().getParent())) {
+                            new URL[]{new File(String.format("forge-%s-%s-installer.jar", installInfo.installer.minecraft, installInfo.installer.forge)).toURI().toURL()},
+                            ForgeInstaller.class.getClassLoader().getParent())) {
                         Method method = loader.loadClass("net.minecraftforge.installer.SimpleInstaller").getMethod("main", String[].class);
                         method.invoke(null, (Object) new String[]{"--installServer", ".", "--debug"});
                     }
@@ -118,7 +97,8 @@ public class ForgeInstaller {
     }
 
     private record MinecraftData(String mirror, String serverUrl, String serverHash, String mappingUrl,
-                                 String mappingHash) {}
+                                 String mappingHash) {
+    }
 
     @SuppressWarnings("unchecked")
     private static CompletableFuture<Path>[] installForge(InstallInfo info, ExecutorService pool, Consumer<String> logger) {
@@ -144,8 +124,8 @@ public class ForgeInstaller {
                                 var mappingHash = mapping.get("sha1").getAsString();
                                 logger.accept("Minecraft version: %s, server: %s, mappings: %s".formatted(info.installer.minecraft, serverHash, mappingHash));
                                 return new MinecraftData(entry.getKey(),
-                                    Mirrors.mapMojangMirror(serverUrl, entry.getKey()), serverHash,
-                                    Mirrors.mapMojangMirror(mappingUrl, entry.getKey()), mappingHash);
+                                        Mirrors.mapMojangMirror(serverUrl, entry.getKey()), serverHash,
+                                        Mirrors.mapMojangMirror(mappingUrl, entry.getKey()), mappingHash);
                             }
                         }
                     }
@@ -175,8 +155,8 @@ public class ForgeInstaller {
             return stripDownloadMapping(path, logger);
         });
         var serverFuture = minecraftData.thenCompose(data -> reportSupply(pool, logger).apply(
-            new FileDownloader(String.format(data.serverUrl, info.installer.minecraft),
-                String.format("libraries/net/minecraft/server/%1$s/server-%1$s.jar", info.installer.minecraft), data.serverHash)
+                new FileDownloader(String.format(data.serverUrl, info.installer.minecraft),
+                        String.format("libraries/net/minecraft/server/%1$s/server-%1$s.jar", info.installer.minecraft), data.serverHash)
         ));
         return new CompletableFuture[]{installerFuture, serverFuture};
     }
@@ -258,7 +238,7 @@ public class ForgeInstaller {
             if (data.has("MOJMAPS")) {
                 var serverMapping = data.getAsJsonObject("MOJMAPS").get("server").getAsString();
                 ret.put(serverMapping.substring(1, serverMapping.length() - 1),
-                    new AbstractMap.SimpleImmutableEntry<>(minecraftData.mappingHash, minecraftData.mappingUrl));
+                        new AbstractMap.SimpleImmutableEntry<>(minecraftData.mappingHash, minecraftData.mappingUrl));
             }
         }
         return ret;
@@ -334,28 +314,28 @@ public class ForgeInstaller {
                     var split = arg.substring(2).split("=", 2);
                     if (split[0].equals("legacyClassPath")) {
                         split[1] =
-                            Stream.concat(
-                                Stream.concat(Stream.concat(Stream.of(self.toString()), Arrays.stream(split[1].split(File.pathSeparator))), installInfo.libraries.keySet().stream()
-                                    .map(it -> Paths.get("libraries", Util.mavenToPath(it)))
-                                    .peek(it -> {
-                                        var name = it.getFileName().toString();
-                                        if (name.contains("maven-model")) {
-                                            merges.add(name);
-                                        }
-                                    })
-                                    .map(Path::toString)),
-                                Stream.empty()
-                                //Stream.of(self)
-                            ).sorted((a, b) -> {
-                                // damn stupid jpms
-                                if (a.contains("maven-repository-metadata")) {
-                                    return -1;
-                                } else if (b.contains("maven-repository-metadata")) {
-                                    return 1;
-                                } else {
-                                    return 0;
-                                }
-                            }).collect(Collectors.joining(File.pathSeparator));
+                                Stream.concat(
+                                        Stream.concat(Stream.concat(Stream.of(self.toString()), Arrays.stream(split[1].split(File.pathSeparator))), installInfo.libraries.keySet().stream()
+                                                .map(it -> Paths.get("libraries", Util.mavenToPath(it)))
+                                                .peek(it -> {
+                                                    var name = it.getFileName().toString();
+                                                    if (name.contains("maven-model")) {
+                                                        merges.add(name);
+                                                    }
+                                                })
+                                                .map(Path::toString)),
+                                        Stream.empty()
+                                        //Stream.of(self)
+                                ).sorted((a, b) -> {
+                                    // damn stupid jpms
+                                    if (a.contains("maven-repository-metadata")) {
+                                        return -1;
+                                    } else if (b.contains("maven-repository-metadata")) {
+                                        return 1;
+                                    } else {
+                                        return 0;
+                                    }
+                                }).collect(Collectors.joining(File.pathSeparator));
                     } else if (split[0].equals("ignoreList")) {
                         ignores.addAll(Arrays.asList(split[1].split(",")));
                     }
@@ -448,7 +428,8 @@ public class ForgeInstaller {
         return new ParserData(source[0], source[1], all[1]);
     }
 
-    private record ParserData(String module, String packages, String target) {}
+    private record ParserData(String module, String packages, String target) {
+    }
 
     private static void addExtra(List<String> extras, MethodHandle implAddExtraMH, MethodHandle implAddExtraToAllUnnamedMH) {
         extras.forEach(extra -> {

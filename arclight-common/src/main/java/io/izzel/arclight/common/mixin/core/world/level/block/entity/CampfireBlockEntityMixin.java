@@ -33,12 +33,16 @@ import java.util.Optional;
 @Mixin(CampfireBlockEntity.class)
 public abstract class CampfireBlockEntityMixin extends BlockEntityMixin {
 
-    @Shadow @Final private RecipeManager.CachedCheck<Container, CampfireCookingRecipe> quickCheck;
+    @Shadow
+    @Final
+    private RecipeManager.CachedCheck<Container, CampfireCookingRecipe> quickCheck;
 
     @Shadow
     public abstract Optional<CampfireCookingRecipe> getCookableRecipe(ItemStack p_59052_);
 
-    @Shadow @Final public int[] cookingTime;
+    @Shadow
+    @Final
+    public int[] cookingTime;
 
     /**
      * @author IzzelAliz
@@ -88,7 +92,7 @@ public abstract class CampfireBlockEntityMixin extends BlockEntityMixin {
     }
 
     @Inject(method = "placeFood", locals = LocalCapture.CAPTURE_FAILHARD,
-        at = @At(value = "FIELD", target = "Lnet/minecraft/world/level/block/entity/CampfireBlockEntity;cookingProgress:[I"))
+            at = @At(value = "FIELD", target = "Lnet/minecraft/world/level/block/entity/CampfireBlockEntity;cookingProgress:[I"))
     private void arclight$cookStart(Entity p_238285_, ItemStack stack, int p_238287_, CallbackInfoReturnable<Boolean> cir, int i) {
         var event = new CampfireStartEvent(CraftBlock.at(this.level, this.worldPosition), CraftItemStack.asCraftMirror(stack), (CampfireRecipe) ((IRecipeBridge) getCookableRecipe(stack).get()).bridge$toBukkitRecipe());
         Bukkit.getPluginManager().callEvent(event);

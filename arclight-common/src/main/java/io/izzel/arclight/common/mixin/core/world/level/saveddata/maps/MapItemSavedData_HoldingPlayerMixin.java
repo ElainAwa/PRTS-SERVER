@@ -61,7 +61,7 @@ public abstract class MapItemSavedData_HoldingPlayerMixin {
             for (MapCursor cursor : render.cursors) {
                 if (cursor.isVisible()) {
                     icons.add(new MapDecoration(MapDecoration.Type.byIcon(cursor.getRawType()),
-                        cursor.getX(), cursor.getY(), cursor.getDirection(), CraftChatMessage.fromStringOrNull(cursor.getCaption())));
+                            cursor.getX(), cursor.getY(), cursor.getDirection(), CraftChatMessage.fromStringOrNull(cursor.getCaption())));
                 }
             }
         } else {

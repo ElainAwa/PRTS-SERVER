@@ -86,7 +86,7 @@ public class ArclightLocator_Forge implements IModLocator {
     }
 
     private static final Set<String> EXCLUDES = Set.of(
-        "net.minecraft.world.level.block"
+            "net.minecraft.world.level.block"
     );
 
     private JarMetadata excludePackages(SecureJar secureJar, String version) {

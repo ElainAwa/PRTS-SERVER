@@ -12,7 +12,8 @@ import org.spongepowered.asm.mixin.Shadow;
 @Mixin(LevelChunkSection.class)
 public class LevelChunkSectionMixin implements LevelChunkSectionBridge {
 
-    @Shadow private PalettedContainerRO<Holder<Biome>> biomes;
+    @Shadow
+    private PalettedContainerRO<Holder<Biome>> biomes;
 
     public void setBiome(int i, int j, int k, Holder<net.minecraft.world.level.biome.Biome> biome) {
         ((PalettedContainer<Holder<Biome>>) this.biomes).set(i, j, k, biome);

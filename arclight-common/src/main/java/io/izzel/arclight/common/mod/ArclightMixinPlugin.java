@@ -6,104 +6,93 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import io.izzel.arclight.common.mod.mixins.ShouldApplyProcessor;
 import org.objectweb.asm.Opcodes;
-import org.objectweb.asm.tree.AbstractInsnNode;
-import org.objectweb.asm.tree.ClassNode;
-import org.objectweb.asm.tree.FieldNode;
-import org.objectweb.asm.tree.InsnList;
-import org.objectweb.asm.tree.MethodInsnNode;
-import org.objectweb.asm.tree.MethodNode;
-import org.objectweb.asm.tree.VarInsnNode;
+import org.objectweb.asm.tree.*;
 import org.spongepowered.asm.mixin.extensibility.IMixinConfigPlugin;
 import org.spongepowered.asm.mixin.extensibility.IMixinInfo;
 
-import java.util.HashSet;
-import java.util.List;
-import java.util.ListIterator;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 
 public class ArclightMixinPlugin implements IMixinConfigPlugin {
 
     private final Map<String, Map.Entry<List<FieldNode>, List<MethodNode>>> accessTransformer =
-        ImmutableMap.<String, Map.Entry<List<FieldNode>, List<MethodNode>>>builder()
-            .put("net.minecraft.world.level.Level",
-                Maps.immutableEntry(
-                    ImmutableList.of(
-                        new FieldNode(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC, "lastPhysicsProblem", "Lnet/minecraft/core/BlockPos;", null, null)
-                    ),
-                    ImmutableList.of()
-                ))
-            .put("net.minecraft.server.MinecraftServer",
-                Maps.immutableEntry(
-                    ImmutableList.of(
-                        new FieldNode(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC, "currentTick", "I", null, null)
-                    ),
-                    ImmutableList.of(
-                        new MethodNode(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC, "getServer", "()Lnet/minecraft/server/MinecraftServer;", null, null)
-                    )
-                ))
-            .put("net.minecraft.server.level.TicketType",
-                Maps.immutableEntry(
-                    ImmutableList.of(
-                        new FieldNode(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC | Opcodes.ACC_FINAL, "PLUGIN",
-                            "Lnet/minecraft/server/level/TicketType;", null, null),
-                        new FieldNode(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC | Opcodes.ACC_FINAL, "PLUGIN_TICKET",
-                            "Lnet/minecraft/server/level/TicketType;", null, null)
-                    ),
-                    ImmutableList.of()
-                ))
-            .put("net.minecraft.world.level.storage.loot.parameters.LootContextParams",
-                Maps.immutableEntry(
-                    ImmutableList.of(
-                        new FieldNode(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC | Opcodes.ACC_FINAL, "LOOTING_MOD",
-                            "Lnet/minecraft/world/level/storage/loot/parameters/LootContextParam;", null, null)
-                    ),
-                    ImmutableList.of()
-                ))
-            .put("net.minecraft.world.item.BlockItem",
-                Maps.immutableEntry(
-                    ImmutableList.of(),
-                    ImmutableList.of(
-                        new MethodNode(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC, "getBlockState", "(Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/nbt/CompoundTag;)Lnet/minecraft/world/level/block/state/BlockState;", null, null)
-                    )
-                ))
-            .put("net.minecraft.world.entity.decoration.HangingEntity",
-                Maps.immutableEntry(
-                    ImmutableList.of(),
-                    ImmutableList.of(
-                        new MethodNode(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC, "calculateBoundingBox", "(Lnet/minecraft/world/entity/Entity;Lnet/minecraft/core/BlockPos;Lnet/minecraft/core/Direction;II)Lnet/minecraft/world/phys/AABB;", null, null)
-                    )
-                ))
-            .put("net.minecraft.world.entity.decoration.ItemFrame",
-                Maps.immutableEntry(
-                    ImmutableList.of(),
-                    ImmutableList.of(
-                        new MethodNode(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC, "calculateBoundingBox", "(Lnet/minecraft/world/entity/Entity;Lnet/minecraft/core/BlockPos;Lnet/minecraft/core/Direction;II)Lnet/minecraft/world/phys/AABB;", null, null)
-                    )
-                ))
-            .put("net.minecraft.server.commands.ReloadCommand",
-                Maps.immutableEntry(
-                    ImmutableList.of(),
-                    ImmutableList.of(
-                        new MethodNode(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC, "reload", "(Lnet/minecraft/server/MinecraftServer;)V", null, null)
-                    )
-                ))
-            .put("net.minecraft.world.entity.monster.Zombie",
-                Map.entry(
-                    List.of(),
-                    List.of(
-                        new MethodNode(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC, "zombifyVillager", "(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/world/entity/npc/Villager;Lnet/minecraft/core/BlockPos;ZLorg/bukkit/event/entity/CreatureSpawnEvent$SpawnReason;)Lnet/minecraft/world/entity/monster/ZombieVillager;", null, null)
-                    )
-                ))
-            .put("net.minecraft.world.entity.item.FallingBlockEntity",
-                Map.entry(
-                    List.of(),
-                    List.of(
-                        new MethodNode(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC, "fall", "(Lnet/minecraft/world/level/Level;Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/state/BlockState;Lorg/bukkit/event/entity/CreatureSpawnEvent$SpawnReason;)Lnet/minecraft/world/entity/item/FallingBlockEntity;", null, null)
-                    )
-                ))
-            .build();
+            ImmutableMap.<String, Map.Entry<List<FieldNode>, List<MethodNode>>>builder()
+                    .put("net.minecraft.world.level.Level",
+                            Maps.immutableEntry(
+                                    ImmutableList.of(
+                                            new FieldNode(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC, "lastPhysicsProblem", "Lnet/minecraft/core/BlockPos;", null, null)
+                                    ),
+                                    ImmutableList.of()
+                            ))
+                    .put("net.minecraft.server.MinecraftServer",
+                            Maps.immutableEntry(
+                                    ImmutableList.of(
+                                            new FieldNode(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC, "currentTick", "I", null, null)
+                                    ),
+                                    ImmutableList.of(
+                                            new MethodNode(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC, "getServer", "()Lnet/minecraft/server/MinecraftServer;", null, null)
+                                    )
+                            ))
+                    .put("net.minecraft.server.level.TicketType",
+                            Maps.immutableEntry(
+                                    ImmutableList.of(
+                                            new FieldNode(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC | Opcodes.ACC_FINAL, "PLUGIN",
+                                                    "Lnet/minecraft/server/level/TicketType;", null, null),
+                                            new FieldNode(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC | Opcodes.ACC_FINAL, "PLUGIN_TICKET",
+                                                    "Lnet/minecraft/server/level/TicketType;", null, null)
+                                    ),
+                                    ImmutableList.of()
+                            ))
+                    .put("net.minecraft.world.level.storage.loot.parameters.LootContextParams",
+                            Maps.immutableEntry(
+                                    ImmutableList.of(
+                                            new FieldNode(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC | Opcodes.ACC_FINAL, "LOOTING_MOD",
+                                                    "Lnet/minecraft/world/level/storage/loot/parameters/LootContextParam;", null, null)
+                                    ),
+                                    ImmutableList.of()
+                            ))
+                    .put("net.minecraft.world.item.BlockItem",
+                            Maps.immutableEntry(
+                                    ImmutableList.of(),
+                                    ImmutableList.of(
+                                            new MethodNode(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC, "getBlockState", "(Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/nbt/CompoundTag;)Lnet/minecraft/world/level/block/state/BlockState;", null, null)
+                                    )
+                            ))
+                    .put("net.minecraft.world.entity.decoration.HangingEntity",
+                            Maps.immutableEntry(
+                                    ImmutableList.of(),
+                                    ImmutableList.of(
+                                            new MethodNode(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC, "calculateBoundingBox", "(Lnet/minecraft/world/entity/Entity;Lnet/minecraft/core/BlockPos;Lnet/minecraft/core/Direction;II)Lnet/minecraft/world/phys/AABB;", null, null)
+                                    )
+                            ))
+                    .put("net.minecraft.world.entity.decoration.ItemFrame",
+                            Maps.immutableEntry(
+                                    ImmutableList.of(),
+                                    ImmutableList.of(
+                                            new MethodNode(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC, "calculateBoundingBox", "(Lnet/minecraft/world/entity/Entity;Lnet/minecraft/core/BlockPos;Lnet/minecraft/core/Direction;II)Lnet/minecraft/world/phys/AABB;", null, null)
+                                    )
+                            ))
+                    .put("net.minecraft.server.commands.ReloadCommand",
+                            Maps.immutableEntry(
+                                    ImmutableList.of(),
+                                    ImmutableList.of(
+                                            new MethodNode(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC, "reload", "(Lnet/minecraft/server/MinecraftServer;)V", null, null)
+                                    )
+                            ))
+                    .put("net.minecraft.world.entity.monster.Zombie",
+                            Map.entry(
+                                    List.of(),
+                                    List.of(
+                                            new MethodNode(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC, "zombifyVillager", "(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/world/entity/npc/Villager;Lnet/minecraft/core/BlockPos;ZLorg/bukkit/event/entity/CreatureSpawnEvent$SpawnReason;)Lnet/minecraft/world/entity/monster/ZombieVillager;", null, null)
+                                    )
+                            ))
+                    .put("net.minecraft.world.entity.item.FallingBlockEntity",
+                            Map.entry(
+                                    List.of(),
+                                    List.of(
+                                            new MethodNode(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC, "fall", "(Lnet/minecraft/world/level/Level;Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/state/BlockState;Lorg/bukkit/event/entity/CreatureSpawnEvent$SpawnReason;)Lnet/minecraft/world/entity/item/FallingBlockEntity;", null, null)
+                                    )
+                            ))
+                    .build();
 
     // damn spigot
     //private final Map<String, Map<String, String>> fieldRenames = ImmutableMap.<String, Map<String, String>>builder()
@@ -112,25 +101,25 @@ public class ArclightMixinPlugin implements IMixinConfigPlugin {
     //    .build();
 
     private final Set<String> modifyConstructor = ImmutableSet.<String>builder()
-        .add("net.minecraft.world.level.Level")
-        .add("net.minecraft.server.level.ServerLevel")
-        .add("net.minecraft.world.SimpleContainer")
-        .add("net.minecraft.world.level.block.ComposterBlock")
-        .add("net.minecraft.world.level.block.ComposterBlock$EmptyContainer")
-        .add("net.minecraft.world.food.FoodData")
-        .add("net.minecraft.world.inventory.CraftingContainer")
-        .add("net.minecraft.world.inventory.PlayerEnderChestContainer")
-        .add("net.minecraft.world.item.trading.MerchantOffer")
-        .add("net.minecraft.world.inventory.LecternMenu")
-        .add("net.minecraft.server.level.ServerEntity")
-        .add("net.minecraft.network.protocol.game.ServerboundContainerClosePacket")
-        .add("net.minecraft.network.chat.TextColor")
-        .add("net.minecraft.commands.Commands")
-        .add("net.minecraft.world.level.storage.LevelStorageSource.LevelStorageAccess")
-        .add("net.minecraft.network.protocol.game.ClientboundSystemChatPacket")
-        .add("net.minecraft.network.protocol.game.ClientboundSectionBlocksUpdatePacket")
-        .add("net.minecraft.network.protocol.status.ServerStatus")
-        .build();
+            .add("net.minecraft.world.level.Level")
+            .add("net.minecraft.server.level.ServerLevel")
+            .add("net.minecraft.world.SimpleContainer")
+            .add("net.minecraft.world.level.block.ComposterBlock")
+            .add("net.minecraft.world.level.block.ComposterBlock$EmptyContainer")
+            .add("net.minecraft.world.food.FoodData")
+            .add("net.minecraft.world.inventory.CraftingContainer")
+            .add("net.minecraft.world.inventory.PlayerEnderChestContainer")
+            .add("net.minecraft.world.item.trading.MerchantOffer")
+            .add("net.minecraft.world.inventory.LecternMenu")
+            .add("net.minecraft.server.level.ServerEntity")
+            .add("net.minecraft.network.protocol.game.ServerboundContainerClosePacket")
+            .add("net.minecraft.network.chat.TextColor")
+            .add("net.minecraft.commands.Commands")
+            .add("net.minecraft.world.level.storage.LevelStorageSource.LevelStorageAccess")
+            .add("net.minecraft.network.protocol.game.ClientboundSystemChatPacket")
+            .add("net.minecraft.network.protocol.game.ClientboundSectionBlocksUpdatePacket")
+            .add("net.minecraft.network.protocol.status.ServerStatus")
+            .build();
 
     @Override
     public void onLoad(String mixinPackage) {
@@ -256,7 +245,7 @@ public class ArclightMixinPlugin implements IMixinConfigPlugin {
     private void tryTransform(List<FieldNode> fields, FieldNode fieldNode) {
         for (FieldNode field : fields) {
             if (Objects.equals(fieldNode.name, field.name)
-                && Objects.equals(fieldNode.desc, field.desc)) {
+                    && Objects.equals(fieldNode.desc, field.desc)) {
                 fieldNode.access = field.access;
             }
         }
@@ -265,7 +254,7 @@ public class ArclightMixinPlugin implements IMixinConfigPlugin {
     private void tryTransform(List<MethodNode> methods, MethodNode methodNode) {
         for (MethodNode method : methods) {
             if (Objects.equals(methodNode.name, method.name)
-                && Objects.equals(methodNode.desc, method.desc)) {
+                    && Objects.equals(methodNode.desc, method.desc)) {
                 methodNode.access = method.access;
             }
         }

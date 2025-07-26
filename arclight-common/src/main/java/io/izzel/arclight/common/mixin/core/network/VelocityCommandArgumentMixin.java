@@ -18,7 +18,7 @@ import org.spongepowered.asm.mixin.Shadow;
  */
 @Mixin(targets = "net.minecraft.network.protocol.game.ClientboundCommandsPacket$ArgumentNodeStub")
 public class VelocityCommandArgumentMixin {
-    
+
     private static final int MOD_ARGUMENT_INDICATOR = -256;
 
     @Shadow
@@ -46,7 +46,7 @@ public class VelocityCommandArgumentMixin {
         var id = BuiltInRegistries.COMMAND_ARGUMENT_TYPE.getId(typeInfo);
 
         VelocityManager velocityManager = VelocityManager.getInstance();
-        
+
         if (identifier != null && velocityManager.getIntegratedArgumentTypes().contains(identifier.toString())) {
             buffer.writeVarInt(id);
             ((ArgumentTypeInfo) typeInfo).serializeToNetwork(argumentType, buffer);

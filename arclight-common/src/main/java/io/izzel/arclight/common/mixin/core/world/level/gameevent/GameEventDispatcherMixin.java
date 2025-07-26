@@ -21,7 +21,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(GameEventDispatcher.class)
 public class GameEventDispatcherMixin {
 
-    @Shadow @Final private ServerLevel level;
+    @Shadow
+    @Final
+    private ServerLevel level;
 
     private transient int arclight$newRadius;
 
@@ -30,7 +32,7 @@ public class GameEventDispatcherMixin {
         var entity = context.sourceEntity();
         var i = gameEvent.getNotificationRadius();
         GenericGameEvent event = new GenericGameEvent(CraftGameEvent.minecraftToBukkit(gameEvent),
-            new Location(((WorldBridge) this.level).bridge$getWorld(), vec3.x(), vec3.y(), vec3.z()), (entity == null) ? null : ((EntityBridge) entity).bridge$getBukkitEntity(), i, !Bukkit.isPrimaryThread());
+                new Location(((WorldBridge) this.level).bridge$getWorld(), vec3.x(), vec3.y(), vec3.z()), (entity == null) ? null : ((EntityBridge) entity).bridge$getBukkitEntity(), i, !Bukkit.isPrimaryThread());
         Bukkit.getPluginManager().callEvent(event);
         if (event.isCancelled()) {
             ci.cancel();

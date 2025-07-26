@@ -4,12 +4,7 @@ import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.chunk.storage.EntityStorage;
-import net.minecraft.world.level.entity.ChunkEntities;
-import net.minecraft.world.level.entity.EntityAccess;
-import net.minecraft.world.level.entity.EntityPersistentStorage;
-import net.minecraft.world.level.entity.EntitySection;
-import net.minecraft.world.level.entity.EntitySectionStorage;
-import net.minecraft.world.level.entity.PersistentEntitySectionManager;
+import net.minecraft.world.level.entity.*;
 import org.bukkit.craftbukkit.v.event.CraftEventFactory;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
@@ -47,21 +42,22 @@ public abstract class PersistentEntitySectionManagerMixin<T extends EntityAccess
 
     public List<Entity> getEntities(ChunkPos chunkCoordIntPair) {
         return sectionStorage.getExistingSectionsInChunk(chunkCoordIntPair.toLong())
-            .flatMap(EntitySection::getEntities).map(o -> (Entity) o).collect(Collectors.toList());
+                .flatMap(EntitySection::getEntities).map(o -> (Entity) o).collect(Collectors.toList());
     }
 
     public boolean isPending(long cord) {
         return this.chunkLoadStatuses.get(cord) == PersistentEntitySectionManager.ChunkLoadStatus.PENDING;
     }
 
-    @Unique private boolean arclight$fireEvent = false;
+    @Unique
+    private boolean arclight$fireEvent = false;
 
     @Inject(method = "storeChunkSections", locals = LocalCapture.CAPTURE_FAILHARD,
-        at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/entity/EntityPersistentStorage;storeEntities(Lnet/minecraft/world/level/entity/ChunkEntities;)V"))
+            at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/entity/EntityPersistentStorage;storeEntities(Lnet/minecraft/world/level/entity/ChunkEntities;)V"))
     private void arclight$fireUnload(long pos, Consumer<T> consumer, CallbackInfoReturnable<Boolean> cir, @Coerce Object status, List<T> list) {
         if (arclight$fireEvent) {
             CraftEventFactory.callEntitiesUnloadEvent(((EntityStorage) permanentStorage).level, new ChunkPos(pos),
-                list.stream().map(entity -> (Entity) entity).collect(Collectors.toList()));
+                    list.stream().map(entity -> (Entity) entity).collect(Collectors.toList()));
         }
     }
 

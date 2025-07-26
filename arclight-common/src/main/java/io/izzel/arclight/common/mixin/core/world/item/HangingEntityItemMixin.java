@@ -30,7 +30,7 @@ import org.spongepowered.asm.mixin.injection.callback.LocalCapture;
 public class HangingEntityItemMixin {
 
     @Inject(method = "useOn", cancellable = true, locals = LocalCapture.CAPTURE_FAILHARD,
-        at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/decoration/HangingEntity;playPlacementSound()V"))
+            at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/decoration/HangingEntity;playPlacementSound()V"))
     public void arclight$hangingPlace(UseOnContext context, CallbackInfoReturnable<InteractionResult> cir, BlockPos blockPos, Direction direction, BlockPos blockPos1, net.minecraft.world.entity.player.Player playerEntity, ItemStack itemStack, Level world, HangingEntity hangingEntity) {
         if (!DistValidate.isValid(context)) return;
         Player who = (context.getPlayer() == null) ? null : (Player) ((PlayerEntityBridge) context.getPlayer()).bridge$getBukkitEntity();

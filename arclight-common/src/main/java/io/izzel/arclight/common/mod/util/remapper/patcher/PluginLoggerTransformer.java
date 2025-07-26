@@ -16,7 +16,7 @@ public class PluginLoggerTransformer implements PluginTransformer {
         for (var mn : node.methods) {
             for (var insn : mn.instructions) {
                 if (insn.getOpcode() == Opcodes.INVOKESTATIC && insn instanceof MethodInsnNode method
-                    && method.owner.equals("java/util/logging/Logger") && method.name.equals("getLogger")) {
+                        && method.owner.equals("java/util/logging/Logger") && method.name.equals("getLogger")) {
                     method.owner = Type.getInternalName(ArclightPluginLogger.class);
                 }
             }

@@ -33,7 +33,7 @@ public abstract class SynchedEntityDataMixin implements SynchedEntityDataBridge 
     @Inject(method = "set(Lnet/minecraft/network/syncher/EntityDataAccessor;Ljava/lang/Object;Z)V", at = @At("HEAD"))
     private <T> void arclight$syncHealth(EntityDataAccessor<T> key, T value, boolean b, CallbackInfo ci) {
         if (key == LivingEntity.DATA_HEALTH_ID && this.entity instanceof ServerPlayerEntityBridge
-            && ((ServerPlayerEntityBridge) this.entity).bridge$initialized()) {
+                && ((ServerPlayerEntityBridge) this.entity).bridge$initialized()) {
             CraftPlayer player = ((ServerPlayerEntityBridge) this.entity).bridge$getBukkitEntity();
             player.setRealHealth(((Float) value));
         }

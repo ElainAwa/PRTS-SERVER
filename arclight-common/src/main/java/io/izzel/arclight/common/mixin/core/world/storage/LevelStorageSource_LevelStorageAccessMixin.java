@@ -17,7 +17,9 @@ import java.nio.file.Path;
 @Mixin(LevelStorageSource.LevelStorageAccess.class)
 public class LevelStorageSource_LevelStorageAccessMixin implements LevelStorageSourceBridge.LevelStorageAccessBridge {
 
-    @Shadow @Final LevelStorageSource.LevelDirectory levelDirectory;
+    @Shadow
+    @Final
+    LevelStorageSource.LevelDirectory levelDirectory;
 
     public ResourceKey<LevelStem> dimensionType;
 

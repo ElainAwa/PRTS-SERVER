@@ -30,7 +30,7 @@ public abstract class EntityTypeMixin<T extends Entity> implements EntityTypeBri
     // @formatter:on
 
     @Inject(method = "spawn(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/entity/player/Player;Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/entity/MobSpawnType;ZZ)Lnet/minecraft/world/entity/Entity;",
-        at = @At(value = "HEAD"))
+            at = @At(value = "HEAD"))
     private void arclight$spawnReason(ServerLevel worldIn, ItemStack p_20594_, Player p_20595_, BlockPos p_20596_, MobSpawnType p_20597_, boolean p_20598_, boolean p_20599_, CallbackInfoReturnable<T> cir) {
         CreatureSpawnEvent.SpawnReason spawnReason = ((IWorldWriterBridge) worldIn).bridge$getAddEntityReason();
         if (spawnReason == null) {
@@ -39,8 +39,8 @@ public abstract class EntityTypeMixin<T extends Entity> implements EntityTypeBri
     }
 
     @Inject(method = "spawn(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/nbt/CompoundTag;Ljava/util/function/Consumer;Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/entity/MobSpawnType;ZZ)Lnet/minecraft/world/entity/Entity;",
-        cancellable = true, locals = LocalCapture.CAPTURE_FAILHARD, at = @At("RETURN"),
-        slice = @Slice(from = @At(value = "INVOKE", target = "Lnet/minecraft/server/level/ServerLevel;addFreshEntityWithPassengers(Lnet/minecraft/world/entity/Entity;)V")))
+            cancellable = true, locals = LocalCapture.CAPTURE_FAILHARD, at = @At("RETURN"),
+            slice = @Slice(from = @At(value = "INVOKE", target = "Lnet/minecraft/server/level/ServerLevel;addFreshEntityWithPassengers(Lnet/minecraft/world/entity/Entity;)V")))
     private void arclight$returnIfSuccess(ServerLevel p_262704_, CompoundTag p_262603_, Consumer<T> p_262621_, BlockPos p_262672_, MobSpawnType p_262644_, boolean p_262690_, boolean p_262590_, CallbackInfoReturnable<T> cir, T t) {
         if (t != null) {
             cir.setReturnValue(t.isRemoved() ? null : t);

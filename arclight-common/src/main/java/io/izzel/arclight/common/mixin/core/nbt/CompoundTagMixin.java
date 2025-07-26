@@ -13,7 +13,9 @@ import java.util.Map;
 @Mixin(CompoundTag.class)
 public class CompoundTagMixin {
 
-    @Shadow @Final private Map<String, Tag> tags;
+    @Shadow
+    @Final
+    private Map<String, Tag> tags;
 
     /**
      * @author IzzelAliz

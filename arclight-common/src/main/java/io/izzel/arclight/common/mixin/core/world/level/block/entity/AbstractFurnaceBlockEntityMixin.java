@@ -65,8 +65,8 @@ public abstract class AbstractFurnaceBlockEntityMixin extends LockableBlockEntit
     private int maxStack = MAX_STACK;
 
     @Eject(method = "serverTick", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/block/entity/AbstractFurnaceBlockEntity;isLit()Z"),
-        slice = @Slice(from = @At(value = "FIELD", target = "Lnet/minecraft/world/level/block/entity/AbstractFurnaceBlockEntity;litDuration:I"),
-            to = @At(value = "INVOKE", remap = false, target = "Lnet/minecraft/world/item/ItemStack;hasCraftingRemainingItem()Z")))
+            slice = @Slice(from = @At(value = "FIELD", target = "Lnet/minecraft/world/level/block/entity/AbstractFurnaceBlockEntity;litDuration:I"),
+                    to = @At(value = "INVOKE", remap = false, target = "Lnet/minecraft/world/item/ItemStack;hasCraftingRemainingItem()Z")))
     private static boolean arclight$setBurnTime(AbstractFurnaceBlockEntity furnace, CallbackInfo ci) {
         ItemStack itemStack = furnace.getItem(1);
         CraftItemStack fuel = CraftItemStack.asCraftMirror(itemStack);
@@ -169,7 +169,7 @@ public abstract class AbstractFurnaceBlockEntityMixin extends LockableBlockEntit
     private static void arclight$expEvent(ServerLevel level, Vec3 vec3, int amount) {
         if (arclight$capturePlayer != null && arclight$captureAmount != 0) {
             FurnaceExtractEvent event = new FurnaceExtractEvent(((ServerPlayerEntityBridge) arclight$capturePlayer).bridge$getBukkitEntity(),
-                CraftBlock.at(level, arclight$captureFurnace.getBlockPos()), CraftMagicNumbers.getMaterial(arclight$item.getItem()), arclight$captureAmount, amount);
+                    CraftBlock.at(level, arclight$captureFurnace.getBlockPos()), CraftMagicNumbers.getMaterial(arclight$item.getItem()), arclight$captureAmount, amount);
             Bukkit.getPluginManager().callEvent(event);
             amount = event.getExpToDrop();
         }

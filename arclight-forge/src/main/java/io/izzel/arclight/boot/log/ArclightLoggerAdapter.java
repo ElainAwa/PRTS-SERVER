@@ -6,11 +6,7 @@ import org.apache.logging.log4j.spi.LoggerContext;
 
 import java.util.ResourceBundle;
 import java.util.function.Supplier;
-import java.util.logging.Filter;
-import java.util.logging.Handler;
-import java.util.logging.Level;
-import java.util.logging.LogRecord;
-import java.util.logging.Logger;
+import java.util.logging.*;
 
 public class ArclightLoggerAdapter extends CoreLoggerAdapter {
 
@@ -272,7 +268,8 @@ public class ArclightLoggerAdapter extends CoreLoggerAdapter {
         public void setLevel(Level newLevel) throws SecurityException {
             try {
                 logger.setLevel(newLevel);
-            } catch (Throwable ignored) { }
+            } catch (Throwable ignored) {
+            }
         }
 
         @Override
@@ -329,7 +326,8 @@ public class ArclightLoggerAdapter extends CoreLoggerAdapter {
         public void setParent(Logger parent) {
             try {
                 logger.setParent(parent);
-            } catch (Throwable ignored) { }
+            } catch (Throwable ignored) {
+            }
         }
     }
 }

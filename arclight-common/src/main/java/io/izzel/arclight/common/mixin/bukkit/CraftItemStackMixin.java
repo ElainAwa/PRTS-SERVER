@@ -85,10 +85,10 @@ public abstract class CraftItemStackMixin implements CraftItemStackBridge {
             return false;
         }
         return hasItemMeta()
-            ? (that.hasItemMeta()
-            && Objects.equals(handle.getTag(), ((CraftItemStackBridge) (Object) that).bridge$getHandle().getTag())
-            && Objects.equals(((ItemStackBridge) (Object) handle).bridge$getForgeCaps(), ((ItemStackBridge) (Object) ((CraftItemStackBridge) (Object) that).bridge$getHandle()).bridge$getForgeCaps()))
-            : !that.hasItemMeta();
+                ? (that.hasItemMeta()
+                && Objects.equals(handle.getTag(), ((CraftItemStackBridge) (Object) that).bridge$getHandle().getTag())
+                && Objects.equals(((ItemStackBridge) (Object) handle).bridge$getForgeCaps(), ((ItemStackBridge) (Object) ((CraftItemStackBridge) (Object) that).bridge$getHandle()).bridge$getForgeCaps()))
+                : !that.hasItemMeta();
     }
 
     @Inject(method = "hasItemMeta(Lnet/minecraft/world/item/ItemStack;)Z", cancellable = true, at = @At("HEAD"))

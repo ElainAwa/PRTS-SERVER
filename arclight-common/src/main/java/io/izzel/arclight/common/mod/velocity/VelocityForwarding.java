@@ -16,10 +16,10 @@ import javax.crypto.spec.SecretKeySpec;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
+import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.nio.charset.StandardCharsets;
 
 /**
  * Velocity Modern Forwarding implementation for Luminara
@@ -111,7 +111,7 @@ public class VelocityForwarding {
         }
 
         LOGGER.info("Successfully processed Velocity forwarding for player: {} (online-mode: {})",
-                   profile.getName(), velocityManager.getVelocityConfig().isOnlineMode());
+                profile.getName(), velocityManager.getVelocityConfig().isOnlineMode());
         return profile;
     }
 

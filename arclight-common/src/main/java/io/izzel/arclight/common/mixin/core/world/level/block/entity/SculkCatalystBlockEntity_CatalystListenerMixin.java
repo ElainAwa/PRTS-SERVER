@@ -12,7 +12,9 @@ import org.spongepowered.asm.mixin.Shadow;
 @Mixin(SculkCatalystBlockEntity.CatalystListener.class)
 public class SculkCatalystBlockEntity_CatalystListenerMixin implements SculkCatalystListenerBridge {
 
-    @Shadow @Final SculkSpreader sculkSpreader;
+    @Shadow
+    @Final
+    SculkSpreader sculkSpreader;
 
     @Override
     public void bridge$setLevel(Level level) {

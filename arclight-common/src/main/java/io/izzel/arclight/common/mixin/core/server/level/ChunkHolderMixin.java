@@ -63,7 +63,7 @@ public abstract class ChunkHolderMixin implements ChunkHolderBridge {
     }
 
     @Inject(method = "blockChanged", cancellable = true, locals = LocalCapture.CAPTURE_FAILHARD,
-        at = @At(value = "FIELD", ordinal = 0, target = "Lnet/minecraft/server/level/ChunkHolder;changedBlocksPerSection:[Lit/unimi/dsi/fastutil/shorts/ShortSet;"))
+            at = @At(value = "FIELD", ordinal = 0, target = "Lnet/minecraft/server/level/ChunkHolder;changedBlocksPerSection:[Lit/unimi/dsi/fastutil/shorts/ShortSet;"))
     private void arclight$outOfBound(BlockPos pos, CallbackInfo ci, LevelChunk chunk, int i) {
         if (i < 0 || i >= this.changedBlocksPerSection.length) {
             ci.cancel();
@@ -71,7 +71,7 @@ public abstract class ChunkHolderMixin implements ChunkHolderBridge {
     }
 
     @Inject(method = "updateFutures", at = @At(value = "JUMP", opcode = Opcodes.IFEQ, ordinal = 0),
-        locals = LocalCapture.CAPTURE_FAILHARD)
+            locals = LocalCapture.CAPTURE_FAILHARD)
     public void arclight$onChunkUnload(ChunkMap chunkManager, Executor executor, CallbackInfo ci, ChunkStatus chunkStatus,
                                        ChunkStatus chunkStatus1, boolean flag, boolean flag1,
                                        FullChunkStatus locationType, FullChunkStatus locationType1) {
@@ -104,7 +104,7 @@ public abstract class ChunkHolderMixin implements ChunkHolderBridge {
                 LevelChunk chunk = (LevelChunk) either.left().orElse(null);
                 if (chunk != null) {
                     ((ChunkMapBridge) chunkManager).bridge$getCallbackExecutor().execute(
-                        ((ChunkBridge) chunk)::bridge$loadCallback
+                            ((ChunkBridge) chunk)::bridge$loadCallback
                     );
                 }
             }).exceptionally((throwable) -> {

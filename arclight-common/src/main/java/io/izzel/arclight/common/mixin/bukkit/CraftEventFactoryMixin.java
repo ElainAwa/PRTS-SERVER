@@ -16,7 +16,6 @@ import net.minecraft.world.level.LevelAccessor;
 import net.minecraft.world.level.block.entity.SignBlockEntity;
 import net.minecraft.world.level.block.state.properties.NoteBlockInstrument;
 import org.bukkit.Bukkit;
-import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.Sign;
 import org.bukkit.block.sign.Side;
@@ -29,14 +28,7 @@ import org.bukkit.craftbukkit.v.event.CraftEventFactory;
 import org.bukkit.craftbukkit.v.util.CraftMagicNumbers;
 import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
-import org.bukkit.event.block.BlockFadeEvent;
-import org.bukkit.event.block.BlockFormEvent;
-import org.bukkit.event.block.BlockGrowEvent;
-import org.bukkit.event.block.BlockPhysicsEvent;
-import org.bukkit.event.block.BlockRedstoneEvent;
-import org.bukkit.event.block.BlockSpreadEvent;
-import org.bukkit.event.block.EntityBlockFormEvent;
-import org.bukkit.event.block.NotePlayEvent;
+import org.bukkit.event.block.*;
 import org.bukkit.event.entity.EntityChangeBlockEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
@@ -55,8 +47,10 @@ import java.util.Map;
 @Mixin(value = CraftEventFactory.class, remap = false)
 public class CraftEventFactoryMixin {
 
-    @Shadow public static Entity entityDamage;
-    @Shadow public static Block blockDamage;
+    @Shadow
+    public static Entity entityDamage;
+    @Shadow
+    public static Block blockDamage;
 
     @Inject(method = "handleEntityDamageEvent(Lnet/minecraft/world/entity/Entity;Lnet/minecraft/world/damagesource/DamageSource;Ljava/util/Map;Ljava/util/Map;Z)Lorg/bukkit/event/entity/EntityDamageEvent;", at = @At("HEAD"))
     private static void arclight$captureSource(Entity entity, DamageSource source, Map<EntityDamageEvent.DamageModifier, Double> modifiers, Map<EntityDamageEvent.DamageModifier, Function<? super Double, Double>> modifierFunctions, boolean cancelled, CallbackInfoReturnable<EntityDamageEvent> cir) {
@@ -69,8 +63,8 @@ public class CraftEventFactoryMixin {
         }
         if (damageEventBlock != null && blockDamage == null) {
             if (source.is(DamageTypes.CACTUS)
-                || source.is(DamageTypes.SWEET_BERRY_BUSH)
-                || source.is(DamageTypes.HOT_FLOOR)) {
+                    || source.is(DamageTypes.SWEET_BERRY_BUSH)
+                    || source.is(DamageTypes.HOT_FLOOR)) {
                 blockDamage = CraftBlock.at(entity.getCommandSenderWorld(), damageEventBlock);
             }
         }

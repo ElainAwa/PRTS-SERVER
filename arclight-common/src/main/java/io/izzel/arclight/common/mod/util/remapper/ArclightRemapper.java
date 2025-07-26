@@ -15,11 +15,7 @@ import net.md_5.specialsource.provider.ClassLoaderProvider;
 import net.md_5.specialsource.provider.JointProvider;
 import org.apache.commons.io.FileUtils;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.StringReader;
+import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -68,8 +64,8 @@ public class ArclightRemapper {
         this.toBukkitMapping = new JarMapping();
         this.inheritanceMap = new InheritanceMap();
         this.toNmsMapping.loadMappings(
-            new BufferedReader(new InputStreamReader(ArclightRemapper.class.getResourceAsStream("/bukkit_srg.srg"))),
-            null, null, false
+                new BufferedReader(new InputStreamReader(ArclightRemapper.class.getResourceAsStream("/bukkit_srg.srg"))),
+                null, null, false
         );
         // TODO workaround for https://github.com/md-5/SpecialSource/pull/81
         //  remove on update
@@ -78,12 +74,12 @@ public class ArclightRemapper {
         var nextSection = content.substring(i).lines().skip(1).dropWhile(it -> it.startsWith("\t")).findFirst().orElseThrow();
         var nextIndex = content.indexOf(nextSection);
         this.toBukkitMapping.loadMappings(
-            new BufferedReader(new StringReader(content.substring(0, i) + content.substring(nextIndex))),
-            null, null, true
+                new BufferedReader(new StringReader(content.substring(0, i) + content.substring(nextIndex))),
+                null, null, true
         );
         this.toBukkitMapping.loadMappings(
-            new BufferedReader(new StringReader(content.substring(i, nextIndex))),
-            null, null, true
+                new BufferedReader(new StringReader(content.substring(i, nextIndex))),
+                null, null, true
         );
         BiMap<String, String> inverseClassMap = HashBiMap.create(toNmsMapping.classes).inverse();
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(ArclightRemapper.class.getResourceAsStream("/inheritanceMap.txt")))) {

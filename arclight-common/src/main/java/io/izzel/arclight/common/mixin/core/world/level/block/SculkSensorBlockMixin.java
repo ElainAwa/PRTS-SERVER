@@ -46,7 +46,8 @@ public class SculkSensorBlockMixin {
         }
     }
 
-    @Unique private int newCurrent;
+    @Unique
+    private int newCurrent;
 
     @Inject(method = "activate", cancellable = true, at = @At("HEAD"))
     private void arclight$activate(Entity p_222126_, Level level, BlockPos pos, BlockState state, int i, int j, CallbackInfo ci) {

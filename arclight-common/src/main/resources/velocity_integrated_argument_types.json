@@ -7,7 +7,6 @@
     "brigadier:integer",
     "brigadier:long",
     "brigadier:string",
-
     "minecraft:entity",
     "minecraft:game_profile",
     "minecraft:block_pos",
@@ -43,7 +42,6 @@
     "minecraft:dimension",
     "minecraft:gamemode",
     "minecraft:time",
-
     "minecraft:resource_or_tag",
     "minecraft:resource_or_tag_key",
     "minecraft:resource",

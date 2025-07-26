@@ -34,7 +34,7 @@ public class ServerScoreboardMixin {
 
     private List<ServerPlayer> filterPlayer(List<ServerPlayer> list) {
         return list.stream()
-            .filter(it -> ((ServerPlayerEntityBridge) it).bridge$getBukkitEntity().getScoreboard().getHandle() == (Object) this)
-            .collect(Collectors.toList());
+                .filter(it -> ((ServerPlayerEntityBridge) it).bridge$getBukkitEntity().getScoreboard().getHandle() == (Object) this)
+                .collect(Collectors.toList());
     }
 }

@@ -46,7 +46,7 @@ public class ArclightConfig {
     private static void load() throws Exception {
         Path path = Paths.get("arclight.conf");
         CommentedConfigurationNode node = HoconConfigurationLoader.builder().setSource(
-            () -> new BufferedReader(new InputStreamReader(ArclightConfig.class.getResourceAsStream("/META-INF/arclight.conf"), StandardCharsets.UTF_8))
+                () -> new BufferedReader(new InputStreamReader(ArclightConfig.class.getResourceAsStream("/META-INF/arclight.conf"), StandardCharsets.UTF_8))
         ).build().load();
         HoconConfigurationLoader loader = HoconConfigurationLoader.builder().setPath(path).build();
         CommentedConfigurationNode cur = loader.load();

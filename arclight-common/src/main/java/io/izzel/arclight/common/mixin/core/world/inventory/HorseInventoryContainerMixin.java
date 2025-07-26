@@ -36,6 +36,6 @@ public abstract class HorseInventoryContainerMixin extends AbstractContainerMenu
             return bukkitEntity;
         }
         return bukkitEntity = new CraftInventoryView(((PlayerEntityBridge) playerInventory.player).bridge$getBukkitEntity(),
-            ((IInventoryBridge) this.horseContainer).getOwner().getInventory(), (AbstractContainerMenu) (Object) this);
+                ((IInventoryBridge) this.horseContainer).getOwner().getInventory(), (AbstractContainerMenu) (Object) this);
     }
 }

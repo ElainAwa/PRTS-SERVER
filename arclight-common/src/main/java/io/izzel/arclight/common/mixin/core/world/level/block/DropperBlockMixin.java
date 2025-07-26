@@ -26,7 +26,9 @@ import org.spongepowered.asm.mixin.Shadow;
 @Mixin(DropperBlock.class)
 public class DropperBlockMixin {
 
-    @Shadow @Final private static DispenseItemBehavior DISPENSE_BEHAVIOUR;
+    @Shadow
+    @Final
+    private static DispenseItemBehavior DISPENSE_BEHAVIOUR;
 
     /**
      * @author IzzelAliz

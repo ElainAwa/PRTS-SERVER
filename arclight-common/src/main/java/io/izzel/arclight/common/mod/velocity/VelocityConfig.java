@@ -15,7 +15,7 @@ public class VelocityConfig {
 
     public boolean isVelocityForwardingEnabled() {
         return ArclightConfig.spec().getVelocity().isEnabled() &&
-               !getForwardingSecret().isEmpty();
+                !getForwardingSecret().isEmpty();
     }
 
     public boolean isOnlineMode() {

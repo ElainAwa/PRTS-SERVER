@@ -25,13 +25,7 @@ import net.minecraft.core.registries.Registries;
 import net.minecraft.network.protocol.status.ServerStatus;
 import net.minecraft.obfuscate.DontObfuscate;
 import net.minecraft.resources.ResourceKey;
-import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.RegistryLayer;
-import net.minecraft.server.ServerFunctionManager;
-import net.minecraft.server.Services;
-import net.minecraft.server.TickTask;
-import net.minecraft.server.WorldLoader;
-import net.minecraft.server.WorldStem;
+import net.minecraft.server.*;
 import net.minecraft.server.level.ServerChunkCache;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.TicketType;
@@ -69,11 +63,7 @@ import org.bukkit.event.world.WorldLoadEvent;
 import org.bukkit.plugin.PluginLoadOrder;
 import org.slf4j.Logger;
 import org.spigotmc.WatchdogThread;
-import org.spongepowered.asm.mixin.Final;
-import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Overwrite;
-import org.spongepowered.asm.mixin.Shadow;
-import org.spongepowered.asm.mixin.Unique;
+import org.spongepowered.asm.mixin.*;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyArg;
@@ -86,18 +76,9 @@ import java.io.File;
 import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.net.Proxy;
-import java.util.Arrays;
-import java.util.Map;
-import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
+import java.util.*;
+import java.util.concurrent.*;
 import java.util.function.BooleanSupplier;
-import java.util.List;
-import java.util.ArrayList;
 
 @Mixin(MinecraftServer.class)
 public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<TickTask> implements MinecraftServerBridge, ICommandSourceBridge {
@@ -363,7 +344,8 @@ public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<T
         BukkitRegistry.registerEnvironments(this.registryAccess().registryOrThrow(Registries.LEVEL_STEM));
     }
 
-    @Unique private transient ServerLevel arclight$capturedLevel;
+    @Unique
+    private transient ServerLevel arclight$capturedLevel;
 
     @ModifyArg(method = "createLevels", index = 1, at = @At(value = "INVOKE", remap = false, target = "Ljava/util/Map;put(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;"))
     private Object arclight$worldInitCapture(Object value) {
@@ -381,8 +363,8 @@ public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<T
             }
             if (((WorldBridge) serverWorld).bridge$getGenerator() != null) {
                 ((WorldBridge) serverWorld).bridge$getWorld().getPopulators().addAll(
-                    ((WorldBridge) serverWorld).bridge$getGenerator().getDefaultPopulators(
-                        ((WorldBridge) serverWorld).bridge$getWorld()));
+                        ((WorldBridge) serverWorld).bridge$getGenerator().getDefaultPopulators(
+                                ((WorldBridge) serverWorld).bridge$getWorld()));
             }
             Bukkit.getPluginManager().callEvent(new WorldInitEvent(((WorldBridge) serverWorld).bridge$getWorld()));
         }
@@ -437,8 +419,8 @@ public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<T
         boolean flag = saveData.isDebugWorld();
         if (((WorldBridge) serverWorld).bridge$getGenerator() != null) {
             ((WorldBridge) serverWorld).bridge$getWorld().getPopulators().addAll(
-                ((WorldBridge) serverWorld).bridge$getGenerator().getDefaultPopulators(
-                    ((WorldBridge) serverWorld).bridge$getWorld()));
+                    ((WorldBridge) serverWorld).bridge$getGenerator().getDefaultPopulators(
+                            ((WorldBridge) serverWorld).bridge$getWorld()));
         }
         WorldBorder worldborder = serverWorld.getWorldBorder();
         worldborder.applySettings(worldInfo.getWorldBorder());
@@ -553,7 +535,7 @@ public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<T
         if (!saveTasks.isEmpty()) {
             try {
                 CompletableFuture<Void> allTasks = CompletableFuture.allOf(
-                    saveTasks.toArray(new CompletableFuture[0])
+                        saveTasks.toArray(new CompletableFuture[0])
                 );
 
                 int timeoutSeconds = io.izzel.arclight.i18n.ArclightConfig.spec().getAsyncWorldSave().getTimeoutSeconds();
@@ -587,7 +569,6 @@ public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<T
             LOGGER.error("Error saving world {}", level.dimension().location(), e);
         }
     }
-
 
 
     /**

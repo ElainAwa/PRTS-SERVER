@@ -3,7 +3,9 @@ package io.izzel.arclight.boot.application;
 import cpw.mods.cl.ModuleClassLoader;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.objectweb.asm.*;
+import org.objectweb.asm.ClassReader;
+import org.objectweb.asm.ClassWriter;
+import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.*;
 
 import java.io.IOException;
@@ -98,7 +100,7 @@ public class BootstrapTransformer extends ClassLoader {
             var file = className.replace('.', '/').concat(".class");
             try (var inputStream = getResourceAsStream(file)) {
                 if (inputStream == null) {
-                    throw new RuntimeException("getResourceAsStream can't read "+file.substring(file.lastIndexOf('/')));
+                    throw new RuntimeException("getResourceAsStream can't read " + file.substring(file.lastIndexOf('/')));
                 }
                 var bytes = inputStream.readAllBytes();
                 return defineClass(className, bytes, 0, bytes.length, domain);

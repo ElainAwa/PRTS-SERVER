@@ -53,7 +53,7 @@ public class MobEffectMixin {
             playerEntity.getFoodData().eat(event.getFoodLevel() - oldFoodLevel, foodSaturationModifier);
         }
         ((ServerPlayer) playerEntity).connection.send(new ClientboundSetHealthPacket(((ServerPlayerEntityBridge) playerEntity).bridge$getBukkitEntity().getScaledHealth(),
-            playerEntity.getFoodData().getFoodLevel(), playerEntity.getFoodData().getSaturationLevel()));
+                playerEntity.getFoodData().getFoodLevel(), playerEntity.getFoodData().getSaturationLevel()));
 
     }
 }

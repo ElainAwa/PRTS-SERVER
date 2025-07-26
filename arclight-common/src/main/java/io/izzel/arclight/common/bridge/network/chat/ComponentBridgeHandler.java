@@ -20,7 +20,7 @@ public class ComponentBridgeHandler {
     private static final Logger LOGGER = LogManager.getLogger("Luminara");
     private static final ConcurrentMap<Class<?>, Method> METHOD_CACHE = new ConcurrentHashMap<>();
     private static volatile boolean initialized = false;
-    
+
     // Initialize the bridge handler after all classes are loaded
     public static void initialize() {
         if (initialized) return;
@@ -67,7 +67,7 @@ public class ComponentBridgeHandler {
             initialized = true;
         }
     }
-    
+
     // Get siblings from a Component using cached reflection
     @SuppressWarnings("unchecked")
     public static List<Component> getSiblings(Component component) {
@@ -94,7 +94,7 @@ public class ComponentBridgeHandler {
         // Fallback to empty list
         return List.of();
     }
-    
+
     // Create a stream of components (replaces ComponentMixin.stream())
     public static Stream<Component> createStream(Component component) {
         if (component == null) {
@@ -146,9 +146,8 @@ public class ComponentBridgeHandler {
     public static Iterable<Component> asIterable(Component component) {
         return () -> createIterator(component);
     }
-    
 
-    
+
     // Implementation of ITextComponentBridge functionality
     public static class ComponentBridge implements ITextComponentBridge {
         private final Component component;

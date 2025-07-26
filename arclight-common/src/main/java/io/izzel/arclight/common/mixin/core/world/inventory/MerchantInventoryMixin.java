@@ -59,7 +59,8 @@ public abstract class MerchantInventoryMixin implements IInventoryBridge, Contai
     }
 
     @Override
-    public void setOwner(InventoryHolder owner) { }
+    public void setOwner(InventoryHolder owner) {
+    }
 
     @Override
     public int getMaxStackSize() {
@@ -78,7 +79,9 @@ public abstract class MerchantInventoryMixin implements IInventoryBridge, Contai
     }
 
     @Override
-    public Recipe<?> getCurrentRecipe() { return null; }
+    public Recipe<?> getCurrentRecipe() {
+        return null;
+    }
 
     @Override
     public void setCurrentRecipe(Recipe<?> recipe) {

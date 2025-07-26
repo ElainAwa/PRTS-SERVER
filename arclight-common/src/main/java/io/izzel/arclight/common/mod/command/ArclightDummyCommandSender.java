@@ -26,7 +26,7 @@ public class ArclightDummyCommandSender extends ArclightDummyPermissible impleme
     public class Spigot extends CommandSender.Spigot {
         @Override
         public void sendMessage(@NotNull BaseComponent... components) {
-            for (var raw: components) {
+            for (var raw : components) {
                 sendMessage(raw);
             }
         }
@@ -53,14 +53,14 @@ public class ArclightDummyCommandSender extends ArclightDummyPermissible impleme
 
     @Override
     public void sendMessage(@NotNull String s) {
-        for (var msg: CraftChatMessage.fromString(s)) {
+        for (var msg : CraftChatMessage.fromString(s)) {
             stack.sendSystemMessage(msg);
         }
     }
 
     @Override
     public void sendMessage(@NotNull String... strings) {
-        for (var raw: strings) {
+        for (var raw : strings) {
             sendMessage(raw);
         }
     }
