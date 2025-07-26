@@ -259,7 +259,11 @@ public class EntityCleaner {
     private static int cleanupChunkEntities(ServerLevel level, ChunkPos chunkPos,
                                             Map<String, Integer> entityCounts, CleanupStats stats) {
         int cleaned = 0;
-        LevelChunk chunk = level.getChunk(chunkPos.x, chunkPos.z);
+
+        // Check if chunk is loaded to avoid async chunk loading
+        if (!level.hasChunk(chunkPos.x, chunkPos.z)) {
+            return 0; // Skip unloaded chunks
+        }
 
         // Find the most common entity type in this chunk
         String mostCommonType = entityCounts.entrySet().stream()
@@ -271,7 +275,7 @@ public class EntityCleaner {
             // Clean excess entities of the most common type
             List<Entity> entitiesToClean = new ArrayList<>();
 
-            for (Entity entity : chunk.getLevel().getEntitiesOfClass(Entity.class,
+            for (Entity entity : level.getEntitiesOfClass(Entity.class,
                     new net.minecraft.world.phys.AABB(
                             chunkPos.getMinBlockX(), level.getMinBuildHeight(),
                             chunkPos.getMinBlockZ(), chunkPos.getMaxBlockX() + 1,
@@ -391,8 +395,12 @@ public class EntityCleaner {
             }
         }
 
-        // Perform immediate cleanup
-        performEntityCleanup(server);
+        // Ensure cleanup runs on main thread to avoid async chunk access
+        if (server.isSameThread()) {
+            performEntityCleanup(server);
+        } else {
+            server.execute(() -> performEntityCleanup(server));
+        }
     }
 
     public static void cancelScheduledCleanup(net.minecraft.server.MinecraftServer server) {

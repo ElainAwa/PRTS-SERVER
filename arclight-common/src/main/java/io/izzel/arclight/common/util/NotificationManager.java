@@ -56,7 +56,8 @@ public class NotificationManager {
             public void run() {
                 if (remainingSeconds <= 0) {
                     if (onComplete != null) {
-                        onComplete.run();
+                        // Execute onComplete on main thread to avoid async chunk access
+                        server.execute(onComplete);
                     }
                     return;
                 }
@@ -64,7 +65,8 @@ public class NotificationManager {
                 // Send countdown message at specific intervals
                 if (remainingSeconds <= 10 || remainingSeconds % 10 == 0) {
                     String message = messageTemplate.replace("{time}", String.valueOf(remainingSeconds));
-                    broadcastMessage(server, message);
+                    // Execute broadcast on main thread to avoid async player access
+                    server.execute(() -> broadcastMessage(server, message));
                 }
 
                 remainingSeconds--;
