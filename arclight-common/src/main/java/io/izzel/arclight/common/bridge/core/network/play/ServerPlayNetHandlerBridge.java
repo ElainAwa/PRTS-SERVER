@@ -14,4 +14,6 @@ public interface ServerPlayNetHandlerBridge {
     boolean bridge$processedDisconnect();
 
     boolean bridge$isDisconnected();
+
+    int bridge$getLatency();
 }

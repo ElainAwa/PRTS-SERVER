@@ -212,6 +212,11 @@ public abstract class ServerPlayNetHandlerMixin implements ServerPlayNetHandlerB
         return this.processedDisconnect;
     }
 
+    @Override
+    public int bridge$getLatency() {
+        return this.player.latency;
+    }
+
     @Inject(method = "<init>", at = @At("RETURN"))
     private void arclight$init(MinecraftServer server, Connection networkManagerIn, ServerPlayer playerIn, CallbackInfo ci) {
         this.cserver = ((CraftServer) Bukkit.getServer());

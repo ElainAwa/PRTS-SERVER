@@ -120,6 +120,7 @@ public abstract class ServerPlayerMixin extends PlayerMixin implements ServerPla
     @Shadow public boolean wonGame;
     @Shadow public int lastSentExp;
     @Shadow public int containerCounter;
+    @Shadow public int latency;
     public String displayName;
     public Component listName;
     public org.bukkit.Location compassTarget;
@@ -1108,11 +1109,11 @@ public abstract class ServerPlayerMixin extends PlayerMixin implements ServerPla
 
     @Override
     public int bridge$getPing() {
-        return this.connection.latency();
+        return ((ServerPlayNetHandlerBridge) this.connection).bridge$getLatency();
     }
 
     @Override
     public void bridge$updateCommands() {
-        this.server.getCommands().sendCommands(this);
+        this.server.getCommands().sendCommands((ServerPlayer) (Object) this);
     }
 }
