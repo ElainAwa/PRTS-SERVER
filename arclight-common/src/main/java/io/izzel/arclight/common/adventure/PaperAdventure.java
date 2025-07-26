@@ -3,6 +3,7 @@ package io.izzel.arclight.common.adventure;
 import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.chat.SignedMessage;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.serializer.gson.GsonComponentSerializer;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
@@ -21,6 +22,11 @@ public final class PaperAdventure {
     private static final GsonComponentSerializer GSON_SERIALIZER = GsonComponentSerializer.gson();
     private static final LegacyComponentSerializer LEGACY_SERIALIZER = LegacyComponentSerializer.legacySection();
     private static final PlainTextComponentSerializer PLAIN_SERIALIZER = PlainTextComponentSerializer.plainText();
+    private static final MiniMessage MINI_MESSAGE = createMiniMessage();
+
+    private static MiniMessage createMiniMessage() {
+        return MiniMessage.builder().build();
+    }
 
     private PaperAdventure() {
         throw new RuntimeException("PaperAdventure is not to be instantiated!");
@@ -49,6 +55,21 @@ public final class PaperAdventure {
     // Convert Adventure Component to plain text
     public static @NotNull String asPlain(@NotNull Component component) {
         return PLAIN_SERIALIZER.serialize(component);
+    }
+
+    // Convert MiniMessage string to Adventure Component
+    public static @NotNull Component miniMessageToAdventure(@NotNull String miniMessage) {
+        return MINI_MESSAGE.deserialize(miniMessage);
+    }
+
+    // Convert Adventure Component to MiniMessage string
+    public static @NotNull String adventureToMiniMessage(@NotNull Component component) {
+        return MINI_MESSAGE.serialize(component);
+    }
+
+    // Get MiniMessage instance
+    public static @NotNull MiniMessage miniMessage() {
+        return MINI_MESSAGE;
     }
 
     // Resolve component with context

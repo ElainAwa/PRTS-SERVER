@@ -3,6 +3,7 @@ package io.izzel.arclight.common.mixin.bukkit.adventure;
 import io.izzel.arclight.common.adventure.PaperAdventure;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.flattener.ComponentFlattener;
+import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.serializer.gson.GsonComponentSerializer;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.kyori.adventure.text.serializer.plain.PlainComponentSerializer;
@@ -53,5 +54,10 @@ public class CraftMagicNumbersAdventureMixin {
     @Deprecated(forRemoval = true)
     public @NotNull LegacyComponentSerializer legacyComponentSerializer() {
         return LegacyComponentSerializer.legacySection();
+    }
+
+    // MiniMessage serializer
+    public @NotNull MiniMessage miniMessage() {
+        return PaperAdventure.miniMessage();
     }
 }

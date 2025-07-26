@@ -95,6 +95,10 @@ dependencies {
         exclude group: 'org.slf4j'
         exclude group: 'org.checkerframework'
     }
+    implementation("net.kyori:adventure-text-minimessage:4.17.0") {
+        exclude group: 'org.slf4j'
+        exclude group: 'org.checkerframework'
+    }
 
     embed 'net.md-5:bungeecord-chat:1.16-R0.4@jar'
     embed "org.spigotmc:spigot-api:$minecraftVersion-R0.1-SNAPSHOT@jar"
@@ -112,6 +116,14 @@ dependencies {
         exclude group: 'org.checkerframework'
     }
     embed("net.kyori:adventure-text-serializer-plain:4.17.0") {
+        exclude group: 'org.slf4j'
+        exclude group: 'org.checkerframework'
+    }
+    embed("net.kyori:adventure-text-minimessage:4.17.0") {
+        exclude group: 'org.slf4j'
+        exclude group: 'org.checkerframework'
+    }
+    embed("net.kyori:adventure-text-logger-slf4j:4.17.0") {
         exclude group: 'org.slf4j'
         exclude group: 'org.checkerframework'
     }

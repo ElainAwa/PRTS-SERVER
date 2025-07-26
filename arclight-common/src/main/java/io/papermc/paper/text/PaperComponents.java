@@ -2,6 +2,7 @@ package io.papermc.paper.text;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.flattener.ComponentFlattener;
+import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.serializer.gson.GsonComponentSerializer;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.kyori.adventure.text.serializer.plain.PlainComponentSerializer;
@@ -63,5 +64,10 @@ public final class PaperComponents {
     @Deprecated(forRemoval = true)
     public static @NotNull LegacyComponentSerializer legacySectionSerializer() {
         return LegacyComponentSerializer.legacySection();
+    }
+
+    // Get MiniMessage serializer
+    public static @NotNull MiniMessage miniMessage() {
+        return MiniMessage.builder().build();
     }
 }
