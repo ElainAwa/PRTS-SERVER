@@ -46,6 +46,16 @@
    ```
    > `nogui` 参数将禁用服务器控制面板
 
+## ❌ 不兼容
+
+- 与所有的优化模组/插件不兼容
+
+> 已包含MPEM的部分优化
+
+- 与清理模组/插件不兼容
+
+> 已包含实体清理，如果你仍然想用模组/插件来提供实体清理功能，请在arclight.conf关闭实体清理功能
+
 ## 📚 支持与帮助
 
 ### 📖 文档
@@ -60,10 +70,11 @@
 
 ## ✏️ Release 1.0.8 待办事项
 
-- [x] 支持Velocity Modern转发（Port Mohist and *①PCF）
-- [ ] 并入*②MPEM的部分优化项
-- [ ] 支持Adventure库
-- [ ] 使用Paper方法加速初始化世界的速度
+- [x] 1.0.8-PRE1：支持Velocity Modern转发（Port Mohist and *①PCF）
+- [x] 1.0.8-PRE2：并入*②MPEM的部分优化项
+- [ ] 1.0.8-PRE2：更多i18n（打算用AI，我很懒）
+- [ ] 1.0.8-PRE3：支持Adventure库
+- [ ] 1.0.8-PRE4：使用Paper方法加速初始化世界的速度
 
 *①PCF：指Proxy Compatible Forge（Velocity代理兼容Forge）模组
 

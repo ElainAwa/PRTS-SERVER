@@ -1,8 +1,6 @@
 package io.izzel.arclight.boot.application;
 
 import cpw.mods.cl.ModuleClassLoader;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Opcodes;
@@ -18,7 +16,7 @@ import java.security.ProtectionDomain;
  */
 public class BootstrapTransformer extends ClassLoader {
 
-    private static final Logger LOGGER = LogManager.getLogger("Luminara");
+
     private static final String cpwClass = "cpw.mods.bootstraplauncher.BootstrapLauncher";
 
     private final ProtectionDomain domain = getClass().getProtectionDomain();
@@ -116,7 +114,7 @@ public class BootstrapTransformer extends ClassLoader {
      * affect launch process.
      */
     public byte[] transformBootstrapLauncher(InputStream inputStream) throws IOException {
-        LOGGER.info("Transforming cpw.mods.bootstraplauncher.BootstrapLauncher");
+        System.out.println("Transforming cpw.mods.bootstraplauncher.BootstrapLauncher");
         var asmClass = new ClassNode();
         new ClassReader(inputStream).accept(asmClass, 0);
 

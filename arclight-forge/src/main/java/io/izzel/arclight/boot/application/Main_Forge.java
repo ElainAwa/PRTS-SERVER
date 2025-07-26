@@ -1,7 +1,5 @@
 package io.izzel.arclight.boot.application;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 
 import java.io.File;
 import java.io.IOException;
@@ -21,7 +19,6 @@ import java.util.stream.Stream;
 
 public class Main_Forge {
 
-    private static final Logger LOGGER = LogManager.getLogger("Luminara");
 
     public static void main(String[] args) throws Throwable {
         try {
@@ -36,7 +33,7 @@ public class Main_Forge {
             method.invoke(null, (Object) target);
         } catch (Exception e) {
             e.printStackTrace();
-            LOGGER.error("Fail to launch Luminara.");
+            System.err.println("Fail to launch Luminara.");
             System.exit(-1);
         }
     }
@@ -46,9 +43,9 @@ public class Main_Forge {
         try (JarFile baseArchive = new JarFile(new File(location.toURI()))) {
             var mf = baseArchive.getManifest();
             if (mf == null || mf.getMainAttributes().isEmpty()) {
-                LOGGER.error("Failed to verify completeness for Luminara installer.");
-                LOGGER.error("The manifest data is corrupted, is the jar file modified?");
-                LOGGER.error("Cannot proceed, Luminara will exit");
+                System.err.println("Failed to verify completeness for Luminara installer.");
+                System.err.println("The manifest data is corrupted, is the jar file modified?");
+                System.err.println("Cannot proceed, Luminara will exit");
                 throw new IOException("The installer jar file is corrupted");
             }
         }

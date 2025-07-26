@@ -6,3 +6,6 @@ build/
 /.settings/
 .idea
 *.log
+*-test
+arclight-forge.iml
+arclight-common.iml

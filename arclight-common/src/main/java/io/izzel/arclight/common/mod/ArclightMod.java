@@ -1,5 +1,6 @@
 package io.izzel.arclight.common.mod;
 
+import io.izzel.arclight.common.mixin.optimization.general.OptimizationManager;
 import io.izzel.arclight.common.mod.server.event.ArclightEventDispatcherRegistry;
 import io.izzel.arclight.common.mod.util.log.ArclightI18nLogger;
 import io.izzel.arclight.common.mod.velocity.VelocityManager;
@@ -8,6 +9,7 @@ import net.minecraftforge.event.server.ServerAboutToStartEvent;
 import net.minecraftforge.fml.IExtensionPoint;
 import net.minecraftforge.fml.ModList;
 import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import net.minecraftforge.fml.loading.FMLLoader;
 import net.minecraftforge.network.NetworkConstants;
@@ -33,8 +35,13 @@ public class ArclightMod {
         context.registerExtensionPoint(IExtensionPoint.DisplayTest.class,
                 () -> new IExtensionPoint.DisplayTest(() -> NetworkConstants.IGNORESERVERONLY, (a, b) -> true));
 
-        // Register server start event for Velocity initialization
+        context.getModEventBus().addListener(this::onCommonSetup);
+
         MinecraftForge.EVENT_BUS.addListener(this::onServerAboutToStart);
+    }
+
+    private void onCommonSetup(FMLCommonSetupEvent event) {
+        OptimizationManager.initialize(event);
     }
 
     private void onServerAboutToStart(ServerAboutToStartEvent event) {

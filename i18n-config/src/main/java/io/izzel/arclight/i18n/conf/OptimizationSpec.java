@@ -12,11 +12,43 @@ public class OptimizationSpec {
     @Setting("goal-selector-update-interval")
     private int goalSelectorInterval;
 
+    // Entity optimization settings
+    @Setting("entity-optimization")
+    private EntityOptimizationSpec entityOptimization;
+
+    // Chunk optimization settings
+    @Setting("chunk-optimization")
+    private ChunkOptimizationSpec chunkOptimization;
+
+    // Memory optimization settings
+    @Setting("memory-optimization")
+    private MemoryOptimizationSpec memoryOptimization;
+
+    // Async system settings
+    @Setting("async-system")
+    private AsyncSystemSpec asyncSystem;
+
     public boolean isCachePluginClass() {
         return cachePluginClass;
     }
 
     public int getGoalSelectorInterval() {
         return goalSelectorInterval;
+    }
+
+    public EntityOptimizationSpec getEntityOptimization() {
+        return entityOptimization != null ? entityOptimization : new EntityOptimizationSpec();
+    }
+
+    public ChunkOptimizationSpec getChunkOptimization() {
+        return chunkOptimization != null ? chunkOptimization : new ChunkOptimizationSpec();
+    }
+
+    public MemoryOptimizationSpec getMemoryOptimization() {
+        return memoryOptimization != null ? memoryOptimization : new MemoryOptimizationSpec();
+    }
+
+    public AsyncSystemSpec getAsyncSystem() {
+        return asyncSystem != null ? asyncSystem : new AsyncSystemSpec();
     }
 }
