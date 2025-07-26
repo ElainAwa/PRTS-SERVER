@@ -18,10 +18,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(LightningBolt.class)
 public abstract class LightningBoltMixin extends EntityMixin {
 
+    public boolean isSilent = false;
     @Shadow
     private int life;
-
-    public boolean isSilent = false;
 
     @Redirect(method = "tick", at = @At(value = "FIELD", opcode = Opcodes.GETFIELD, ordinal = 0, target = "Lnet/minecraft/world/entity/LightningBolt;life:I"))
     private int arclight$silent(LightningBolt lightningBolt) {

@@ -7,8 +7,6 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
-import net.minecraft.world.phys.AABB;
-import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import org.apache.logging.log4j.LogManager;
@@ -64,10 +62,10 @@ public class AsyncCollisionSystem {
                 try {
                     // Collect all necessary data on main thread
                     EntityCollisionData data = new EntityCollisionData(
-                        entity.getId(),
-                        entity.position(),
-                        entity.getBoundingBox(),
-                        entity.isAlive()
+                            entity.getId(),
+                            entity.position(),
+                            entity.getBoundingBox(),
+                            entity.isAlive()
                     );
                     entityData.add(data);
                 } catch (Exception e) {
@@ -79,10 +77,10 @@ public class AsyncCollisionSystem {
             // Process collision calculations asynchronously with collected data
             if (!entityData.isEmpty()) {
                 MpemThreadManager.runAsync(() -> processCollisionCalculations(entityData))
-                    .exceptionally(throwable -> {
-                        LOGGER.warn("Error in async collision calculations", throwable);
-                        return null;
-                    });
+                        .exceptionally(throwable -> {
+                            LOGGER.warn("Error in async collision calculations", throwable);
+                            return null;
+                        });
             }
         }
     }
@@ -168,21 +166,6 @@ public class AsyncCollisionSystem {
         return initialized && MpemThreadManager.isHealthy();
     }
 
-    // Thread-safe data container for entity collision information
-    private static class EntityCollisionData {
-        final int entityId;
-        final Vec3 position;
-        final AABB boundingBox;
-        final boolean isAlive;
-
-        EntityCollisionData(int entityId, Vec3 position, AABB boundingBox, boolean isAlive) {
-            this.entityId = entityId;
-            this.position = position;
-            this.boundingBox = boundingBox;
-            this.isAlive = isAlive;
-        }
-    }
-
     // Process collision calculations with pre-collected data
     private static void processCollisionCalculations(List<EntityCollisionData> entityData) {
         try {
@@ -208,6 +191,21 @@ public class AsyncCollisionSystem {
             }
         } catch (Exception e) {
             LOGGER.warn("Error in collision calculations", e);
+        }
+    }
+
+    // Thread-safe data container for entity collision information
+    private static class EntityCollisionData {
+        final int entityId;
+        final Vec3 position;
+        final AABB boundingBox;
+        final boolean isAlive;
+
+        EntityCollisionData(int entityId, Vec3 position, AABB boundingBox, boolean isAlive) {
+            this.entityId = entityId;
+            this.position = position;
+            this.boundingBox = boundingBox;
+            this.isAlive = isAlive;
         }
     }
 }

@@ -54,19 +54,19 @@ import java.util.Map;
 @Mixin(value = EnchantmentMenu.class, priority = 39)
 public abstract class EnchantmentContainerMixin extends AbstractContainerMenuMixin implements PosContainerBridge {
 
+    @Shadow @Final public int[] costs;
+    @Shadow @Final public int[] enchantClue;
+    @Shadow @Final public int[] levelClue;
     // @formatter:off
     @Shadow @Final private Container enchantSlots;
     @Shadow @Final private ContainerLevelAccess access;
     @Shadow @Final private RandomSource random;
     @Shadow @Final private DataSlot enchantmentSeed;
-    @Shadow @Final public int[] costs;
-    @Shadow @Final public int[] enchantClue;
-    @Shadow @Final public int[] levelClue;
-    @Shadow protected abstract List<EnchantmentInstance> getEnchantmentList(ItemStack stack, int enchantSlot, int level);
-    // @formatter:on
-
     private CraftInventoryView bukkitEntity = null;
+    // @formatter:on
     private Inventory playerInventory;
+
+    @Shadow protected abstract List<EnchantmentInstance> getEnchantmentList(ItemStack stack, int enchantSlot, int level);
 
     @Inject(method = "<init>(ILnet/minecraft/world/entity/player/Inventory;Lnet/minecraft/world/inventory/ContainerLevelAccess;)V", at = @At("RETURN"))
     public void arclight$init(int id, Inventory playerInventory, ContainerLevelAccess worldPosCallable, CallbackInfo ci) {

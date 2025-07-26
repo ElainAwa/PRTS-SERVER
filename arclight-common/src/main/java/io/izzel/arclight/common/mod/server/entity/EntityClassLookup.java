@@ -48,118 +48,8 @@ import java.util.function.BiFunction;
 
 public class EntityClassLookup {
 
-    public static void init() {
-        var allEntityClasses = new HashSet<Class<?>>();
-        for (var bukkitType : org.bukkit.entity.EntityType.values()) {
-            Class<? extends org.bukkit.entity.Entity> entityClass = bukkitType.getEntityClass();
-            if (entityClass != null && !allEntityClasses.contains(entityClass)) {
-                var next = new LinkedList<Class<?>>();
-                next.add(entityClass);
-                while (!next.isEmpty()) {
-                    Class<?> cl = next.pollFirst();
-                    if (!allEntityClasses.contains(cl)) {
-                        allEntityClasses.add(cl);
-                        for (Class<?> intf : cl.getInterfaces()) {
-                            if (org.bukkit.entity.Entity.class.isAssignableFrom(intf)) {
-                                next.addLast(intf);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        Set<Class<?>> ignored = Set.of(
-                org.bukkit.entity.Explosive.class,
-                org.bukkit.entity.Damageable.class,
-                org.bukkit.entity.NPC.class,
-                org.bukkit.entity.Boss.class,
-                org.bukkit.entity.Breedable.class,
-                org.bukkit.entity.Steerable.class,
-                org.bukkit.entity.Enemy.class,
-                org.bukkit.entity.ComplexLivingEntity.class,
-                org.bukkit.entity.Vehicle.class
-        );
-        boolean error = false;
-        for (Class<?> entityClass : allEntityClasses) {
-            if (ignored.contains(entityClass)) continue;
-            var optional = NMS_TO_BUKKIT.values().stream().filter(c -> c.bukkitClass == entityClass).findAny();
-            if (optional.isEmpty()) {
-                error = true;
-                ArclightMod.LOGGER.error(entityClass + " has no valid entity class mapping");
-            }
-        }
-        if (error) {
-            throw new RuntimeException("Missing valid entity class mapping");
-        }
-    }
-
     private static final Map<Class<?>, EntityClass<?>> nmsClassMap = new ConcurrentHashMap<>();
-
-    @SuppressWarnings("unchecked")
-    public static <T extends Entity> BiFunction<CraftServer, T, org.bukkit.entity.Entity> getConvert(T entity) {
-        return (BiFunction<CraftServer, T, org.bukkit.entity.Entity>) nmsClassMap.computeIfAbsent(entity.getClass(), k -> getEntityTypeData(k, entity.getType())).convert;
-    }
-
-    @SuppressWarnings("unchecked")
-    private static <T extends Entity> EntityClass<T> getEntityTypeData(Class<?> type, EntityType<T> entityType) {
-        EntityClass<?> entityClass = null;
-        for (Class<?> c = type; entityClass == null; c = c.getSuperclass()) {
-            entityClass = NMS_TO_BUKKIT.get(c);
-        }
-        return (EntityClass<T>) Objects.requireNonNull(entityClass, "entityClass");
-    }
-
-    private record EntityClass<T extends Entity>(Class<? extends org.bukkit.entity.Entity> bukkitClass,
-                                                 Class<? extends CraftEntity> implClass,
-                                                 BiFunction<CraftServer, T, org.bukkit.entity.Entity> convert) {
-        private EntityClass {
-            if (!bukkitClass.isAssignableFrom(implClass)) {
-                throw new IllegalArgumentException(bukkitClass + " " + implClass);
-            }
-        }
-    }
-
     private static final Map<Class<?>, EntityClass<?>> NMS_TO_BUKKIT = new HashMap<>();
-
-    private static <U extends V, V extends Entity> void add(Class<? super U> cl, EntityClass<? super V> entityClass) {
-        if (NMS_TO_BUKKIT.put(cl, entityClass) != null) {
-            throw new IllegalStateException("Duplicate " + cl + " mapping");
-        }
-    }
-
-    private static Class<? extends CraftEntity> forName(String name) {
-        try {
-            return Class.forName(CraftEntity.class.getPackageName() + "." + name).asSubclass(CraftEntity.class);
-        } catch (ClassNotFoundException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    @SuppressWarnings("unchecked")
-    private static <T extends Entity> BiFunction<CraftServer, T, org.bukkit.entity.Entity> convert(String name) {
-        try {
-            Class<? extends CraftEntity> cl = forName(name);
-            for (Constructor<?> constructor : cl.getDeclaredConstructors()) {
-                if (constructor.getParameterCount() == 2) {
-                    var pTypes = constructor.getParameterTypes();
-                    if (pTypes[0].equals(CraftServer.class) && Entity.class.isAssignableFrom(pTypes[1])) {
-                        constructor.setAccessible(true);
-                        var lookup = Unsafe.lookup().in(constructor.getDeclaringClass());
-                        return (BiFunction<CraftServer, T, org.bukkit.entity.Entity>) LambdaMetafactory.metafactory(
-                                lookup, "apply",
-                                MethodType.methodType(BiFunction.class),
-                                MethodType.methodType(Object.class, Object.class, Object.class),
-                                lookup.unreflectConstructor(constructor),
-                                lookup.unreflectConstructor(constructor).type()
-                        ).dynamicInvoker().invoke();
-                    }
-                }
-            }
-        } catch (Throwable e) {
-            throw new RuntimeException(e);
-        }
-        throw new RuntimeException("convert");
-    }
 
     static {
         // abstract types
@@ -321,5 +211,114 @@ public class EntityClassLookup {
         add(MinecartSpawner.class, new EntityClass<>(org.bukkit.entity.minecart.SpawnerMinecart.class, forName("CraftMinecartMobSpawner"), convert("CraftMinecartMobSpawner")));
         add(FishingHook.class, new EntityClass<>(org.bukkit.entity.FishHook.class, org.bukkit.craftbukkit.v.entity.CraftFishHook.class, org.bukkit.craftbukkit.v.entity.CraftFishHook::new));
         add(ServerPlayer.class, new EntityClass<>(org.bukkit.entity.Player.class, org.bukkit.craftbukkit.v.entity.CraftPlayer.class, org.bukkit.craftbukkit.v.entity.CraftPlayer::new));
+    }
+
+    public static void init() {
+        var allEntityClasses = new HashSet<Class<?>>();
+        for (var bukkitType : org.bukkit.entity.EntityType.values()) {
+            Class<? extends org.bukkit.entity.Entity> entityClass = bukkitType.getEntityClass();
+            if (entityClass != null && !allEntityClasses.contains(entityClass)) {
+                var next = new LinkedList<Class<?>>();
+                next.add(entityClass);
+                while (!next.isEmpty()) {
+                    Class<?> cl = next.pollFirst();
+                    if (!allEntityClasses.contains(cl)) {
+                        allEntityClasses.add(cl);
+                        for (Class<?> intf : cl.getInterfaces()) {
+                            if (org.bukkit.entity.Entity.class.isAssignableFrom(intf)) {
+                                next.addLast(intf);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        Set<Class<?>> ignored = Set.of(
+                org.bukkit.entity.Explosive.class,
+                org.bukkit.entity.Damageable.class,
+                org.bukkit.entity.NPC.class,
+                org.bukkit.entity.Boss.class,
+                org.bukkit.entity.Breedable.class,
+                org.bukkit.entity.Steerable.class,
+                org.bukkit.entity.Enemy.class,
+                org.bukkit.entity.ComplexLivingEntity.class,
+                org.bukkit.entity.Vehicle.class
+        );
+        boolean error = false;
+        for (Class<?> entityClass : allEntityClasses) {
+            if (ignored.contains(entityClass)) continue;
+            var optional = NMS_TO_BUKKIT.values().stream().filter(c -> c.bukkitClass == entityClass).findAny();
+            if (optional.isEmpty()) {
+                error = true;
+                ArclightMod.LOGGER.error(entityClass + " has no valid entity class mapping");
+            }
+        }
+        if (error) {
+            throw new RuntimeException("Missing valid entity class mapping");
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    public static <T extends Entity> BiFunction<CraftServer, T, org.bukkit.entity.Entity> getConvert(T entity) {
+        return (BiFunction<CraftServer, T, org.bukkit.entity.Entity>) nmsClassMap.computeIfAbsent(entity.getClass(), k -> getEntityTypeData(k, entity.getType())).convert;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <T extends Entity> EntityClass<T> getEntityTypeData(Class<?> type, EntityType<T> entityType) {
+        EntityClass<?> entityClass = null;
+        for (Class<?> c = type; entityClass == null; c = c.getSuperclass()) {
+            entityClass = NMS_TO_BUKKIT.get(c);
+        }
+        return (EntityClass<T>) Objects.requireNonNull(entityClass, "entityClass");
+    }
+
+    private static <U extends V, V extends Entity> void add(Class<? super U> cl, EntityClass<? super V> entityClass) {
+        if (NMS_TO_BUKKIT.put(cl, entityClass) != null) {
+            throw new IllegalStateException("Duplicate " + cl + " mapping");
+        }
+    }
+
+    private static Class<? extends CraftEntity> forName(String name) {
+        try {
+            return Class.forName(CraftEntity.class.getPackageName() + "." + name).asSubclass(CraftEntity.class);
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <T extends Entity> BiFunction<CraftServer, T, org.bukkit.entity.Entity> convert(String name) {
+        try {
+            Class<? extends CraftEntity> cl = forName(name);
+            for (Constructor<?> constructor : cl.getDeclaredConstructors()) {
+                if (constructor.getParameterCount() == 2) {
+                    var pTypes = constructor.getParameterTypes();
+                    if (pTypes[0].equals(CraftServer.class) && Entity.class.isAssignableFrom(pTypes[1])) {
+                        constructor.setAccessible(true);
+                        var lookup = Unsafe.lookup().in(constructor.getDeclaringClass());
+                        return (BiFunction<CraftServer, T, org.bukkit.entity.Entity>) LambdaMetafactory.metafactory(
+                                lookup, "apply",
+                                MethodType.methodType(BiFunction.class),
+                                MethodType.methodType(Object.class, Object.class, Object.class),
+                                lookup.unreflectConstructor(constructor),
+                                lookup.unreflectConstructor(constructor).type()
+                        ).dynamicInvoker().invoke();
+                    }
+                }
+            }
+        } catch (Throwable e) {
+            throw new RuntimeException(e);
+        }
+        throw new RuntimeException("convert");
+    }
+
+    private record EntityClass<T extends Entity>(Class<? extends org.bukkit.entity.Entity> bukkitClass,
+                                                 Class<? extends CraftEntity> implClass,
+                                                 BiFunction<CraftServer, T, org.bukkit.entity.Entity> convert) {
+        private EntityClass {
+            if (!bukkitClass.isAssignableFrom(implClass)) {
+                throw new IllegalArgumentException(bukkitClass + " " + implClass);
+            }
+        }
     }
 }

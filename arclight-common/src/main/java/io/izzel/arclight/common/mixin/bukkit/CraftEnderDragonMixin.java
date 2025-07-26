@@ -16,11 +16,6 @@ import java.util.List;
 @Mixin(value = CraftEnderDragon.class, remap = false)
 public class CraftEnderDragonMixin {
 
-    @Inject(method = "getPhase", at = @At("HEAD"))
-    public void arclight$getPhase(CallbackInfoReturnable<EnderDragon.Phase> cir) {
-        checkAndUpdateDragonPhase();
-    }
-
     @Inject(method = "getBukkitPhase", at = @At("HEAD"))
     private static void arclight$getBukkitPhase(EnderDragonPhase phase, CallbackInfoReturnable<EnderDragon.Phase> cir) {
         checkAndUpdateDragonPhase();
@@ -38,5 +33,10 @@ public class CraftEnderDragonMixin {
             }
             EnumHelper.addEnums(EnderDragon.Phase.class, newTypes);
         }
+    }
+
+    @Inject(method = "getPhase", at = @At("HEAD"))
+    public void arclight$getPhase(CallbackInfoReturnable<EnderDragon.Phase> cir) {
+        checkAndUpdateDragonPhase();
     }
 }

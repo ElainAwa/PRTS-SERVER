@@ -19,11 +19,15 @@ import org.spongepowered.asm.mixin.Shadow;
 @Mixin(VineBlock.class)
 public abstract class VineBlockMixin extends BlockMixin {
 
+    @Shadow @Final public static BooleanProperty UP;
+
     // @formatter:off
     @Shadow public static BooleanProperty getPropertyForFace(Direction side) { return null; }
-    @Shadow protected abstract boolean canSpread(BlockGetter blockReader, BlockPos pos);
+
     @Shadow public static boolean isAcceptableNeighbour(BlockGetter blockReader, BlockPos worldIn, Direction neighborPos) { return false; }
-    @Shadow @Final public static BooleanProperty UP;
+
+    @Shadow protected abstract boolean canSpread(BlockGetter blockReader, BlockPos pos);
+
     @Shadow protected abstract boolean canSupportAtFace(BlockGetter blockReader, BlockPos pos, Direction direction);
     @Shadow protected abstract boolean hasHorizontalConnection(BlockState state);
     @Shadow protected abstract BlockState copyRandomFaces(BlockState state, BlockState state2, RandomSource rand);

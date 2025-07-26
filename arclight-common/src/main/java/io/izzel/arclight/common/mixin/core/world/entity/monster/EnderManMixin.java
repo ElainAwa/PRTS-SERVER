@@ -19,11 +19,11 @@ import javax.annotation.Nullable;
 @Mixin(EnderMan.class)
 public abstract class EnderManMixin extends PathfinderMobMixin implements EndermanEntityBridge {
 
-    // @formatter:off
-    @Shadow private int targetChangeTime;
     @Shadow @Final private static EntityDataAccessor<Boolean> DATA_CREEPY;
     @Shadow @Final private static EntityDataAccessor<Boolean> DATA_STARED_AT;
     @Shadow @Final private static AttributeModifier SPEED_MODIFIER_ATTACKING;
+    // @formatter:off
+    @Shadow private int targetChangeTime;
     // @formatter:on
 
     @Override

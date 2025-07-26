@@ -7,9 +7,9 @@ import org.spongepowered.asm.mixin.Shadow;
 @Mixin(Ocelot.class)
 public abstract class OcelotMixin extends AnimalMixin {
 
-    // @formatter:off
-    @Shadow abstract boolean isTrusting();
+    public boolean spawnBonus = true;
     // @formatter:on
 
-    public boolean spawnBonus = true;
+    // @formatter:off
+    @Shadow abstract boolean isTrusting();
 }

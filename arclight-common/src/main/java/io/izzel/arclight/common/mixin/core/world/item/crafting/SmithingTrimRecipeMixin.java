@@ -15,11 +15,11 @@ import org.spongepowered.asm.mixin.Shadow;
 @Mixin(SmithingTrimRecipe.class)
 public class SmithingTrimRecipeMixin implements IRecipeBridge {
 
-    // @formatter:off
-    @Shadow @Final private ResourceLocation id;
     @Shadow @Final Ingredient template;
     @Shadow @Final Ingredient base;
     @Shadow @Final Ingredient addition;
+    // @formatter:off
+    @Shadow @Final private ResourceLocation id;
     // @formatter:on
 
     @Override

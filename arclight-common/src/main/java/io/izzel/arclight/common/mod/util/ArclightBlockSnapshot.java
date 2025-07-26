@@ -13,12 +13,12 @@ public class ArclightBlockSnapshot extends CraftBlock {
         this.blockState = current ? blockSnapshot.getCurrentBlock() : blockSnapshot.getReplacedBlock();
     }
 
+    public static ArclightBlockSnapshot fromBlockSnapshot(BlockSnapshot blockSnapshot, boolean current) {
+        return new ArclightBlockSnapshot(blockSnapshot, current);
+    }
+
     @Override
     public BlockState getNMS() {
         return blockState;
-    }
-
-    public static ArclightBlockSnapshot fromBlockSnapshot(BlockSnapshot blockSnapshot, boolean current) {
-        return new ArclightBlockSnapshot(blockSnapshot, current);
     }
 }

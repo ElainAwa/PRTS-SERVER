@@ -35,9 +35,7 @@ import java.util.jar.Manifest;
 
 public class ModBootstrap extends AbstractBootstrap {
 
-    public static record ModBoot(Configuration configuration, ClassLoader parent) {
-    }
-
+    private static final Set<String> EXCLUDES = Set.of("org/apache/maven/artifact/repository/metadata");
     private static ModBoot modBoot;
 
     static void run() {
@@ -72,6 +70,30 @@ public class ModBootstrap extends AbstractBootstrap {
             modBoot = null;
         } catch (Throwable t) {
             throw new RuntimeException(t);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void load(Path[] file) throws Throwable {
+        var classLoader = (ModuleClassLoader) ModBootstrap.class.getClassLoader();
+        var secureJar = SecureJar.from((path, base) -> EXCLUDES.stream().noneMatch(path::startsWith), file);
+        var configurationField = ModuleClassLoader.class.getDeclaredField("configuration");
+        var confOffset = Unsafe.objectFieldOffset(configurationField);
+        var oldConf = (Configuration) Unsafe.getObject(classLoader, confOffset);
+        var conf = oldConf.resolveAndBind(JarModuleFinder.of(secureJar), ModuleFinder.of(), List.of(secureJar.name()));
+        modBoot = new ModBoot(conf, classLoader);
+        Unsafe.putObjectVolatile(classLoader, confOffset, conf);
+        var pkgField = ModuleClassLoader.class.getDeclaredField("packageLookup");
+        var packageLookup = (Map<String, ResolvedModule>) Unsafe.getObject(classLoader, Unsafe.objectFieldOffset(pkgField));
+        var rootField = ModuleClassLoader.class.getDeclaredField("resolvedRoots");
+        var resolvedRoots = (Map<String, Object>) Unsafe.getObject(classLoader, Unsafe.objectFieldOffset(rootField));
+        var moduleRefCtor = Unsafe.lookup().findConstructor(Class.forName("cpw.mods.cl.JarModuleFinder$JarModuleReference"),
+                MethodType.methodType(void.class, SecureJar.ModuleDataProvider.class));
+        for (var mod : conf.modules()) {
+            for (var pk : mod.reference().descriptor().packages()) {
+                packageLookup.put(pk, mod);
+            }
+            resolvedRoots.put(mod.name(), moduleRefCtor.invokeWithArguments(new JarModuleDataProvider((Jar) secureJar)));
         }
     }
 
@@ -112,30 +134,7 @@ public class ModBootstrap extends AbstractBootstrap {
         map.put(plugin.name(), plugin);
     }
 
-    private static final Set<String> EXCLUDES = Set.of("org/apache/maven/artifact/repository/metadata");
-
-    @SuppressWarnings("unchecked")
-    private static void load(Path[] file) throws Throwable {
-        var classLoader = (ModuleClassLoader) ModBootstrap.class.getClassLoader();
-        var secureJar = SecureJar.from((path, base) -> EXCLUDES.stream().noneMatch(path::startsWith), file);
-        var configurationField = ModuleClassLoader.class.getDeclaredField("configuration");
-        var confOffset = Unsafe.objectFieldOffset(configurationField);
-        var oldConf = (Configuration) Unsafe.getObject(classLoader, confOffset);
-        var conf = oldConf.resolveAndBind(JarModuleFinder.of(secureJar), ModuleFinder.of(), List.of(secureJar.name()));
-        modBoot = new ModBoot(conf, classLoader);
-        Unsafe.putObjectVolatile(classLoader, confOffset, conf);
-        var pkgField = ModuleClassLoader.class.getDeclaredField("packageLookup");
-        var packageLookup = (Map<String, ResolvedModule>) Unsafe.getObject(classLoader, Unsafe.objectFieldOffset(pkgField));
-        var rootField = ModuleClassLoader.class.getDeclaredField("resolvedRoots");
-        var resolvedRoots = (Map<String, Object>) Unsafe.getObject(classLoader, Unsafe.objectFieldOffset(rootField));
-        var moduleRefCtor = Unsafe.lookup().findConstructor(Class.forName("cpw.mods.cl.JarModuleFinder$JarModuleReference"),
-                MethodType.methodType(void.class, SecureJar.ModuleDataProvider.class));
-        for (var mod : conf.modules()) {
-            for (var pk : mod.reference().descriptor().packages()) {
-                packageLookup.put(pk, mod);
-            }
-            resolvedRoots.put(mod.name(), moduleRefCtor.invokeWithArguments(new JarModuleDataProvider((Jar) secureJar)));
-        }
+    public static record ModBoot(Configuration configuration, ClassLoader parent) {
     }
 
     private record JarModuleDataProvider(Jar jar) implements SecureJar.ModuleDataProvider {

@@ -45,14 +45,13 @@ import java.util.function.BooleanSupplier;
 @Mixin(HopperBlockEntity.class)
 public abstract class HopperBlockEntityMixin extends LockableBlockEntityMixin {
 
+    public List<HumanEntity> transaction = new ArrayList<>();
     // @formatter:off
     @Shadow private NonNullList<ItemStack> items;
-    @Shadow public abstract void setItem(int index, ItemStack stack);
-    @Shadow private static boolean tryMoveItems(Level p_155579_, BlockPos p_155580_, BlockState p_155581_, HopperBlockEntity p_155582_, BooleanSupplier p_155583_) { return false; }
+    private int maxStack = MAX_STACK;
     // @formatter:on
 
-    public List<HumanEntity> transaction = new ArrayList<>();
-    private int maxStack = MAX_STACK;
+    @Shadow private static boolean tryMoveItems(Level p_155579_, BlockPos p_155580_, BlockState p_155581_, HopperBlockEntity p_155582_, BooleanSupplier p_155583_) { return false; }
 
     @Redirect(method = "pushItemsTick", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/block/entity/HopperBlockEntity;tryMoveItems(Lnet/minecraft/world/level/Level;Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/world/level/block/entity/HopperBlockEntity;Ljava/util/function/BooleanSupplier;)Z"))
     private static boolean arclight$hopperCheck(Level level, BlockPos pos, BlockState state, HopperBlockEntity hopper, BooleanSupplier flag) {
@@ -143,6 +142,8 @@ public abstract class HopperBlockEntityMixin extends LockableBlockEntityMixin {
         var containerBlock = CraftBlock.at(level, blockPos.above());
         cir.setReturnValue(runHopperInventorySearchEvent(container, hopperBlock, containerBlock, HopperInventorySearchEvent.ContainerType.SOURCE));
     }
+
+    @Shadow public abstract void setItem(int index, ItemStack stack);
 
     @Override
     public List<ItemStack> getContents() {

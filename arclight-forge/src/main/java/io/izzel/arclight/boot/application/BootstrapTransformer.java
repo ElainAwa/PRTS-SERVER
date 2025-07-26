@@ -21,6 +21,10 @@ public class BootstrapTransformer extends ClassLoader {
 
     private final ProtectionDomain domain = getClass().getProtectionDomain();
 
+    public BootstrapTransformer(ClassLoader appClassLoader) {
+        super("arclight_bootstrap", appClassLoader);
+    }
+
     @SuppressWarnings({"unused", "unchecked"})
     public static void onInvoke$BootstrapLauncher(String[] args, ModuleClassLoader moduleCl) {
         try {
@@ -30,10 +34,6 @@ public class BootstrapTransformer extends ClassLoader {
         } catch (ReflectiveOperationException e) {
             throw new RuntimeException(e);
         }
-    }
-
-    public BootstrapTransformer(ClassLoader appClassLoader) {
-        super("arclight_bootstrap", appClassLoader);
     }
 
     /*

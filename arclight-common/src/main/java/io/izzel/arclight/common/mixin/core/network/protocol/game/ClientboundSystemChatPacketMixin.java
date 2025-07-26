@@ -12,6 +12,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(ClientboundSystemChatPacket.class)
 public class ClientboundSystemChatPacketMixin {
 
+    private String content;
+
     public void arclight$constructor(Component content, boolean overlay) {
         throw new RuntimeException();
     }
@@ -28,8 +30,6 @@ public class ClientboundSystemChatPacketMixin {
     private void arclight$init(Component content, boolean overlay, CallbackInfo ci) {
         this.content = Component.Serializer.toJson(content);
     }
-
-    private String content;
 
     public String content() {
         return content;

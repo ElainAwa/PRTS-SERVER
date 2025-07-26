@@ -53,33 +53,44 @@ import java.util.logging.Logger;
 @Mixin(value = CraftServer.class, remap = false)
 public abstract class CraftServerMixin implements CraftServerBridge {
 
+    @Shadow public int reloadCount;
+    @Shadow public boolean ignoreVanillaPermissions;
+    @Shadow @Final protected DedicatedServer console;
+    @Shadow @Final @Mutable protected DedicatedPlayerList playerList;
     // @formatter:off
     @Shadow @Final private CraftCommandMap commandMap;
     @Shadow @Final private SimplePluginManager pluginManager;
     @Shadow @Final private SimpleHelpMap helpMap;
-    @Shadow protected abstract void enablePlugin(Plugin plugin);
-    @Shadow protected abstract void loadCustomPermissions();
-    @Shadow @Final protected DedicatedServer console;
     @Shadow @Final @Mutable private String serverName;
-    @Shadow @Final @Mutable protected DedicatedPlayerList playerList;
     @Shadow @Final @Mutable private List<CraftPlayer> playerView;
     @Shadow @Final private Map<String, World> worlds;
-    @Shadow public int reloadCount;
     @Shadow private YamlConfiguration configuration;
-    @Shadow protected abstract File getConfigFile();
     @Shadow private YamlConfiguration commandsConfiguration;
-    @Shadow protected abstract File getCommandsConfigFile();
     @Shadow@Final private Logger logger;
-    @Shadow public abstract void reloadData();
     @Shadow private boolean overrideAllCommandBlockCommands;
-    @Shadow public boolean ignoreVanillaPermissions;
-    @Shadow public abstract CraftScheduler getScheduler();
-    @Shadow public abstract Logger getLogger();
-    @Shadow public abstract void loadPlugins();
-    @Shadow public abstract void enablePlugins(PluginLoadOrder type);
-    @Shadow public abstract PluginManager getPluginManager();
     @Shadow@Final private String serverVersion;
+
+    @Shadow protected abstract void enablePlugin(Plugin plugin);
+
+    @Shadow protected abstract void loadCustomPermissions();
+
+    @Shadow protected abstract File getConfigFile();
+
+    @Shadow protected abstract File getCommandsConfigFile();
+
+    @Shadow public abstract void reloadData();
+
+    @Shadow public abstract CraftScheduler getScheduler();
+
+    @Shadow public abstract Logger getLogger();
+
     @Accessor("logger") @Mutable public abstract void setLogger(Logger logger);
+
+    @Shadow public abstract void loadPlugins();
+
+    @Shadow public abstract void enablePlugins(PluginLoadOrder type);
+
+    @Shadow public abstract PluginManager getPluginManager();
     // @formatter:on
 
     @Inject(method = "<init>", at = @At("RETURN"))

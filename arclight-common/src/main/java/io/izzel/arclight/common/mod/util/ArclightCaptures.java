@@ -24,7 +24,33 @@ import java.util.Stack;
 
 public class ArclightCaptures {
 
+    /**
+     * Indicates that next BlockBreakEvent is fired directly by ServerPlayerGameMode#destroyBlock
+     * and need to be captured as primary event.
+     *
+     * @see net.minecraft.server.level.ServerPlayerGameMode#destroyBlock(BlockPos)
+     */
+    public static boolean isPrimaryEvent = false;
+    public static Stack<BlockBreakEventContext> blockBreakEventStack = new Stack<>();
     private static Entity entityChangeBlock;
+    private static String quitMessage;
+    private static Direction placeEventDirection;
+    private static InteractionHand placeEventHand;
+    private static TreeType treeType;
+    private static transient AbstractContainerMenu arclight$capturedContainer;
+    private static transient Entity damageEventEntity;
+    private static transient BlockPos damageEventBlock;
+    private static transient Player containerOwner;
+    private static transient CraftPortalEvent craftPortalEvent;
+    private static transient Entity endPortalEntity;
+    private static transient boolean spawnPortal;
+    private static transient WorldLoader.DataLoadContext dataLoadContext;
+    private static transient BlockEntity tickingBlockEntity;
+    private static ServerLevel tickingLevel;
+    private static BlockPos tickingPosition;
+    private static Entity tickingEntity;
+    private static EntityPotionEffectEvent.Cause effectCause;
+    private static BlockPos spreadPos;
 
     public static void captureEntityChangeBlock(Entity entity) {
         entityChangeBlock = entity;
@@ -37,15 +63,6 @@ public class ArclightCaptures {
             entityChangeBlock = null;
         }
     }
-
-    /**
-     * Indicates that next BlockBreakEvent is fired directly by ServerPlayerGameMode#destroyBlock
-     * and need to be captured as primary event.
-     *
-     * @see net.minecraft.server.level.ServerPlayerGameMode#destroyBlock(BlockPos)
-     */
-    public static boolean isPrimaryEvent = false;
-    public static Stack<BlockBreakEventContext> blockBreakEventStack = new Stack<>();
 
     public static void captureNextBlockBreakEventAsPrimaryEvent() {
         // fix #674, some mod will implement their own "destroyBlock(...)"
@@ -106,8 +123,6 @@ public class ArclightCaptures {
         }
     }
 
-    private static String quitMessage;
-
     public static void captureQuitMessage(String quitMessage) {
         ArclightCaptures.quitMessage = quitMessage;
     }
@@ -119,8 +134,6 @@ public class ArclightCaptures {
             quitMessage = null;
         }
     }
-
-    private static Direction placeEventDirection;
 
     public static void capturePlaceEventDirection(Direction direction) {
         ArclightCaptures.placeEventDirection = direction;
@@ -134,8 +147,6 @@ public class ArclightCaptures {
         }
     }
 
-    private static InteractionHand placeEventHand;
-
     public static void capturePlaceEventHand(InteractionHand hand) {
         ArclightCaptures.placeEventHand = hand;
     }
@@ -147,8 +158,6 @@ public class ArclightCaptures {
             placeEventHand = null;
         }
     }
-
-    private static TreeType treeType;
 
     public static void captureTreeType(TreeType treeType) {
         ArclightCaptures.treeType = treeType;
@@ -162,8 +171,6 @@ public class ArclightCaptures {
         }
     }
 
-    private static transient AbstractContainerMenu arclight$capturedContainer;
-
     public static void captureWorkbenchContainer(AbstractContainerMenu container) {
         arclight$capturedContainer = container;
     }
@@ -175,8 +182,6 @@ public class ArclightCaptures {
             arclight$capturedContainer = null;
         }
     }
-
-    private static transient Entity damageEventEntity;
 
     public static void captureDamageEventEntity(Entity entity) {
         damageEventEntity = entity;
@@ -190,8 +195,6 @@ public class ArclightCaptures {
         }
     }
 
-    private static transient BlockPos damageEventBlock;
-
     public static void captureDamageEventBlock(BlockPos blockState) {
         damageEventBlock = blockState;
     }
@@ -203,8 +206,6 @@ public class ArclightCaptures {
             damageEventBlock = null;
         }
     }
-
-    private static transient Player containerOwner;
 
     public static void captureContainerOwner(Player entity) {
         containerOwner = entity;
@@ -218,8 +219,6 @@ public class ArclightCaptures {
         containerOwner = null;
     }
 
-    private static transient CraftPortalEvent craftPortalEvent;
-
     public static void captureCraftPortalEvent(CraftPortalEvent event) {
         craftPortalEvent = event;
     }
@@ -231,9 +230,6 @@ public class ArclightCaptures {
             craftPortalEvent = null;
         }
     }
-
-    private static transient Entity endPortalEntity;
-    private static transient boolean spawnPortal;
 
     public static void captureEndPortalEntity(Entity entity, boolean portal) {
         endPortalEntity = entity;
@@ -253,8 +249,6 @@ public class ArclightCaptures {
         }
     }
 
-    private static transient WorldLoader.DataLoadContext dataLoadContext;
-
     public static void captureDataLoadContext(WorldLoader.DataLoadContext context) {
         dataLoadContext = context;
     }
@@ -266,8 +260,6 @@ public class ArclightCaptures {
             dataLoadContext = null;
         }
     }
-
-    private static transient BlockEntity tickingBlockEntity;
 
     public static void captureTickingBlockEntity(BlockEntity entity) {
         tickingBlockEntity = entity;
@@ -281,9 +273,6 @@ public class ArclightCaptures {
     public static <T extends BlockEntity> T getTickingBlockEntity() {
         return (T) tickingBlockEntity;
     }
-
-    private static ServerLevel tickingLevel;
-    private static BlockPos tickingPosition;
 
     public static void captureTickingBlock(ServerLevel level, BlockPos pos) {
         tickingLevel = level;
@@ -303,8 +292,6 @@ public class ArclightCaptures {
         tickingPosition = null;
     }
 
-    private static Entity tickingEntity;
-
     public static void captureTickingEntity(Entity entity) {
         tickingEntity = entity;
     }
@@ -317,8 +304,6 @@ public class ArclightCaptures {
         tickingEntity = null;
     }
 
-    private static EntityPotionEffectEvent.Cause effectCause;
-
     public static void captureEffectCause(EntityPotionEffectEvent.Cause cause) {
         effectCause = cause;
     }
@@ -330,8 +315,6 @@ public class ArclightCaptures {
             effectCause = null;
         }
     }
-
-    private static BlockPos spreadPos;
 
     public static void captureSpreadSource(BlockPos source) {
         spreadPos = source.immutable();

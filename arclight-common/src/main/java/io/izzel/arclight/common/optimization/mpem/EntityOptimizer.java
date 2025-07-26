@@ -19,6 +19,23 @@ import java.util.concurrent.ConcurrentHashMap;
 public class EntityOptimizer {
     private static final Map<Entity, Long> inactiveEntities = new WeakHashMap<>();
     private static final Map<Entity, Boolean> activeEntities = new ConcurrentHashMap<>();
+    // Entity type sets for filtering
+    private static final Set<String> ALWAYS_TICKING_ENTITIES = ConcurrentHashMap.newKeySet();
+    private static final Set<String> BOSS_ENTITIES = ConcurrentHashMap.newKeySet();
+
+    static {
+        // Initialize always ticking entities
+        ALWAYS_TICKING_ENTITIES.add("minecraft:player");
+        ALWAYS_TICKING_ENTITIES.add("minecraft:item");
+        ALWAYS_TICKING_ENTITIES.add("minecraft:experience_orb");
+        ALWAYS_TICKING_ENTITIES.add("minecraft:painting");
+        ALWAYS_TICKING_ENTITIES.add("minecraft:item_frame");
+
+        // Initialize boss entities
+        BOSS_ENTITIES.add("minecraft:ender_dragon");
+        BOSS_ENTITIES.add("minecraft:wither");
+        BOSS_ENTITIES.add("minecraft:elder_guardian");
+    }
 
     @SubscribeEvent
     public static void onEntityJoin(EntityJoinLevelEvent event) {
@@ -168,23 +185,5 @@ public class EntityOptimizer {
 
         String entityType = entity.getType().toString();
         return BOSS_ENTITIES.contains(entityType);
-    }
-
-    // Entity type sets for filtering
-    private static final Set<String> ALWAYS_TICKING_ENTITIES = ConcurrentHashMap.newKeySet();
-    private static final Set<String> BOSS_ENTITIES = ConcurrentHashMap.newKeySet();
-
-    static {
-        // Initialize always ticking entities
-        ALWAYS_TICKING_ENTITIES.add("minecraft:player");
-        ALWAYS_TICKING_ENTITIES.add("minecraft:item");
-        ALWAYS_TICKING_ENTITIES.add("minecraft:experience_orb");
-        ALWAYS_TICKING_ENTITIES.add("minecraft:painting");
-        ALWAYS_TICKING_ENTITIES.add("minecraft:item_frame");
-
-        // Initialize boss entities
-        BOSS_ENTITIES.add("minecraft:ender_dragon");
-        BOSS_ENTITIES.add("minecraft:wither");
-        BOSS_ENTITIES.add("minecraft:elder_guardian");
     }
 }

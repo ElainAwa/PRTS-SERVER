@@ -26,14 +26,13 @@ import java.util.List;
 @Mixin(TransientCraftingContainer.class)
 public abstract class CraftingInventoryMixin implements CraftingInventoryBridge, Container {
 
+    @Shadow @Final public AbstractContainerMenu menu;
+    public List<HumanEntity> transaction = new ArrayList<>();
+    // @formatter:on
+    public Container resultInventory;
     // @formatter:off
     @Shadow @Final private NonNullList<ItemStack> items;
-    @Shadow @Final public AbstractContainerMenu menu;
-    // @formatter:on
-
-    public List<HumanEntity> transaction = new ArrayList<>();
     private Recipe<?> currentRecipe;
-    public Container resultInventory;
     private Player owner;
     private InventoryHolder bukkitOwner;
     private int maxStack = MAX_STACK;

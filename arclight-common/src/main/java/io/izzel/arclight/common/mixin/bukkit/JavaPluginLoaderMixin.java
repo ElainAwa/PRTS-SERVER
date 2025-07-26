@@ -37,12 +37,6 @@ import java.util.logging.Level;
 @Mixin(value = JavaPluginLoader.class, remap = false)
 public abstract class JavaPluginLoaderMixin implements JavaPluginLoaderBridge {
 
-    // @formatter:off
-    @Shadow @Final Server server;
-    @Invoker("setClass") public abstract void bridge$setClass(final String name, final Class<?> clazz);
-    @Accessor("loaders") public abstract List<URLClassLoader> bridge$getLoaders();
-    // @formatter:on
-
     private static final AtomicInteger COUNTER = new AtomicInteger();
     private static final Cache<Method, Class<? extends EventExecutor>> EXECUTOR_CACHE = CacheBuilder.newBuilder()
             .expireAfterAccess(1, TimeUnit.HOURS)
@@ -51,6 +45,13 @@ public abstract class JavaPluginLoaderMixin implements JavaPluginLoaderBridge {
             Float.parseFloat(System.getProperty("java.class.version")) < 57
                     ? "Ljava/lang/invoke/LambdaForm$Hidden;"
                     : "Ljdk/internal/vm/annotation/Hidden;";
+    // @formatter:on
+    // @formatter:off
+    @Shadow @Final Server server;
+
+    @Invoker("setClass") public abstract void bridge$setClass(final String name, final Class<?> clazz);
+
+    @Accessor("loaders") public abstract List<URLClassLoader> bridge$getLoaders();
 
     /**
      * @author IzzelAliz

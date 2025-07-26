@@ -16,6 +16,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class DistValidate {
 
     private static final Marker MARKER = MarkerManager.getMarker("EXT_LOGIC");
+    private static final Map<Class<?>, Boolean> SEEN_CLASSES = new ConcurrentHashMap<>();
 
     public static boolean isValid(UseOnContext context) {
         return context != null && isValid(context.getLevel());
@@ -36,8 +37,6 @@ public class DistValidate {
         return cl == ServerLevel.class || cl == WorldGenRegion.class
                 || isLogicWorld(cl);
     }
-
-    private static final Map<Class<?>, Boolean> SEEN_CLASSES = new ConcurrentHashMap<>();
 
     private static boolean isLogicWorld(Class<?> cl) {
         return SEEN_CLASSES.computeIfAbsent(cl, c -> {

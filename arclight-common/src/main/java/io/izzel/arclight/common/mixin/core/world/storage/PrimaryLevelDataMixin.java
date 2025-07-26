@@ -34,17 +34,18 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(PrimaryLevelData.class)
 public abstract class PrimaryLevelDataMixin implements WorldInfoBridge {
 
-    // @formatter:off
-    @Shadow public abstract String getLevelName();
+    @Shadow public LevelSettings settings;
+    public ServerLevel world;
+    public Registry<LevelStem> customDimensions;
     @Shadow private boolean thundering;
     @Shadow private boolean raining;
-    @Shadow public abstract boolean isDifficultyLocked();
-    @Shadow public LevelSettings settings;
     @Shadow @Final private Lifecycle worldGenSettingsLifecycle;
     // @formatter:on
 
-    public ServerLevel world;
-    public Registry<LevelStem> customDimensions;
+    // @formatter:off
+    @Shadow public abstract String getLevelName();
+
+    @Shadow public abstract boolean isDifficultyLocked();
 
     @Redirect(method = "setTagData", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/levelgen/WorldGenSettings;encode(Lcom/mojang/serialization/DynamicOps;Lnet/minecraft/world/level/levelgen/WorldOptions;Lnet/minecraft/core/RegistryAccess;)Lcom/mojang/serialization/DataResult;"))
     private <T extends Tag> DataResult<T> arclight$customDim(DynamicOps<T> ops, WorldOptions options, RegistryAccess registry) {

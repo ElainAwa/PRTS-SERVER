@@ -30,26 +30,34 @@ import java.util.Map;
 @Mixin(AreaEffectCloud.class)
 public abstract class AreaEffectCloudEntityMixin extends EntityMixin implements AreaEffectCloudEntityBridge {
 
-    // @formatter:off
-    @Shadow private boolean fixedColor;
     @Shadow @Final private static EntityDataAccessor<Integer> DATA_COLOR;
     @Shadow public List<MobEffectInstance> effects;
-    @Shadow private Potion potion;
-    @Shadow public abstract void setPotion(Potion potionIn);
-    @Shadow public abstract boolean isWaiting();
-    @Shadow public abstract float getRadius();
-    @Shadow public abstract ParticleOptions getParticle();
-    @Shadow public abstract int getColor();
     @Shadow public int waitTime;
-    @Shadow private int duration;
-    @Shadow protected abstract void setWaiting(boolean ignoreRadius);
     @Shadow public float radiusPerTick;
-    @Shadow public abstract void setRadius(float radiusIn);
-    @Shadow @Final private Map<Entity, Integer> victims;
     @Shadow public int reapplicationDelay;
-    @Shadow @Nullable public abstract LivingEntity getOwner();
     @Shadow public float radiusOnUse;
     @Shadow public int durationOnUse;
+    // @formatter:off
+    @Shadow private boolean fixedColor;
+    @Shadow private Potion potion;
+    @Shadow private int duration;
+    @Shadow @Final private Map<Entity, Integer> victims;
+
+    @Shadow public abstract void setPotion(Potion potionIn);
+
+    @Shadow public abstract boolean isWaiting();
+
+    @Shadow protected abstract void setWaiting(boolean ignoreRadius);
+
+    @Shadow public abstract float getRadius();
+
+    @Shadow public abstract void setRadius(float radiusIn);
+
+    @Shadow public abstract ParticleOptions getParticle();
+
+    @Shadow public abstract int getColor();
+
+    @Shadow @Nullable public abstract LivingEntity getOwner();
     // @formatter:on
 
     /**

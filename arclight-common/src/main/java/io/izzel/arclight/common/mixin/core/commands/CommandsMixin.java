@@ -29,10 +29,13 @@ import java.util.Map;
 @Mixin(Commands.class)
 public abstract class CommandsMixin {
 
+    @Mutable @Shadow @Final private CommandDispatcher<CommandSourceStack> dispatcher;
+
     // @formatter:off
     @Shadow public abstract int performCommand(ParseResults<CommandSourceStack> p_242844_, String p_242841_);
+
     @Shadow public abstract int performPrefixedCommand(CommandSourceStack p_230958_, String p_230959_);
-    @Mutable @Shadow @Final private CommandDispatcher<CommandSourceStack> dispatcher;
+
     @Shadow protected abstract void fillUsableCommands(CommandNode<CommandSourceStack> rootCommandSource, CommandNode<SharedSuggestionProvider> rootSuggestion, CommandSourceStack source, Map<CommandNode<CommandSourceStack>, CommandNode<SharedSuggestionProvider>> commandNodeToSuggestionNode);
     // @formatter:on
 

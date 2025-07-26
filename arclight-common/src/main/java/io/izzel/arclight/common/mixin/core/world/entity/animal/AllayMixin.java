@@ -25,10 +25,11 @@ public abstract class AllayMixin extends MobMixin {
 
     // @formatter:off
     @Shadow @Final private static EntityDataAccessor<Boolean> DATA_CAN_DUPLICATE;
-    @Shadow private void shadow$duplicateAllay() {}
-    // @formatter:on
-
     public boolean forceDancing = false;
+    // @formatter:on
+    private transient Allay arclight$duplicate;
+
+    @Shadow private void shadow$duplicateAllay() {}
 
     public void setCanDuplicate(boolean canDuplicate) {
         this.entityData.set(DATA_CAN_DUPLICATE, canDuplicate);
@@ -54,8 +55,6 @@ public abstract class AllayMixin extends MobMixin {
             cir.setReturnValue(false);
         }
     }
-
-    private transient Allay arclight$duplicate;
 
     @Redirect(method = "duplicateAllay", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/Level;addFreshEntity(Lnet/minecraft/world/entity/Entity;)Z"))
     private boolean arclight$captureDuplicate(Level instance, Entity entity) {

@@ -17,13 +17,6 @@ public class ArclightInterfaceInvokerGen implements PluginTransformer {
     public static final ArclightInterfaceInvokerGen INSTANCE = new ArclightInterfaceInvokerGen();
     private static final String PREFIX = "net/minecraft/";
 
-    @Override
-    public void handleClass(ClassNode node, ClassLoaderRemapper remapper, ArclightRemapConfig config) {
-        if (config.remap()) {
-            generate(node, remapper, GlobalClassRepo.inheritanceProvider());
-        }
-    }
-
     private static void generate(ClassNode classNode, ClassLoaderRemapper remapper, InheritanceProvider inheritanceProvider) {
         if (shouldGenerate(classNode.name, inheritanceProvider)) {
             HashSet<Map.Entry<String, String>> set = new HashSet<>();
@@ -88,6 +81,13 @@ public class ArclightInterfaceInvokerGen implements PluginTransformer {
         }
         for (MethodNode methodNode : classNode.methods) {
             set.add(Maps.immutableEntry(methodNode.name, methodNode.desc));
+        }
+    }
+
+    @Override
+    public void handleClass(ClassNode node, ClassLoaderRemapper remapper, ArclightRemapConfig config) {
+        if (config.remap()) {
+            generate(node, remapper, GlobalClassRepo.inheritanceProvider());
         }
     }
 }

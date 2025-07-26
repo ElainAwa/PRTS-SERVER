@@ -17,6 +17,11 @@ import org.spongepowered.asm.mixin.injection.callback.LocalCapture;
 @Mixin(net.minecraft.world.entity.animal.Sheep.class)
 public abstract class SheepMixin extends AnimalMixin {
 
+    @Inject(method = "makeContainer", locals = LocalCapture.CAPTURE_FAILHARD, at = @At("RETURN"))
+    private static void arclight$resultInv(DyeColor color, DyeColor color1, CallbackInfoReturnable<CraftingContainer> cir, CraftingContainer craftingInventory) {
+        ((CraftingInventoryBridge) craftingInventory).bridge$setResultInventory(new ResultContainer());
+    }
+
     @Inject(method = "shear", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/animal/Sheep;spawnAtLocation(Lnet/minecraft/world/level/ItemLike;I)Lnet/minecraft/world/entity/item/ItemEntity;"))
     private void arclight$forceDrop(CallbackInfo ci) {
         forceDrops = true;
@@ -34,10 +39,5 @@ public abstract class SheepMixin extends AnimalMixin {
         if (event.isCancelled()) {
             ci.cancel();
         }
-    }
-
-    @Inject(method = "makeContainer", locals = LocalCapture.CAPTURE_FAILHARD, at = @At("RETURN"))
-    private static void arclight$resultInv(DyeColor color, DyeColor color1, CallbackInfoReturnable<CraftingContainer> cir, CraftingContainer craftingInventory) {
-        ((CraftingInventoryBridge) craftingInventory).bridge$setResultInventory(new ResultContainer());
     }
 }

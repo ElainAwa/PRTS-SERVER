@@ -83,68 +83,22 @@ import java.util.function.BooleanSupplier;
 @Mixin(MinecraftServer.class)
 public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<TickTask> implements MinecraftServerBridge, ICommandSourceBridge {
 
-    // @formatter:off
-    @Shadow private int tickCount;
-    @Shadow protected abstract boolean initServer() throws IOException;
-    @Shadow protected long nextTickTime;
-    @Shadow private ServerStatus status;
-    @Shadow @Nullable private String motd;
-    @Shadow private volatile boolean running;
-    @Shadow private long lastOverloadWarning;
+    private static final ExecutorService ASYNC_SAVE_EXECUTOR = Executors.newCachedThreadPool(r -> {
+        Thread thread = new Thread(r, "Async-World-Save-Thread");
+        thread.setDaemon(true);
+        return thread;
+    });
+    private static final int TPS = 20;
+    private static final int TICK_TIME = 1000000000 / TPS;
+    private static final int SAMPLE_INTERVAL = 100;
     @Shadow @Final static Logger LOGGER;
-    @Shadow public abstract void tickServer(BooleanSupplier hasTimeLeft);
-    @Shadow protected abstract boolean haveTime();
-    @Shadow private boolean mayHaveDelayedTasks;
-    @Shadow private long delayedTasksMaxNextTickTime;
-    @Shadow protected abstract void waitUntilNextTick();
-    @Shadow private volatile boolean isReady;
-    @Shadow protected abstract void onServerCrash(CrashReport report);
-    @Shadow public abstract File getServerDirectory();
-    @Shadow private boolean stopped;
-    @Shadow public abstract void stopServer();
-    @Shadow public abstract void onServerExit();
-    @Shadow public abstract Commands getCommands();
-    @Shadow private ProfilerFiller profiler;
-    @Shadow protected abstract void updateMobSpawningFlags();
-    @Shadow public abstract ServerLevel overworld();
+    private static int currentTick = (int) (System.currentTimeMillis() / 50);
+    public final double[] recentTps = new double[3];
+    private final Object stopLock = new Object();
     @Shadow @Final public Map<ResourceKey<Level>, ServerLevel> levels;
-    @Shadow protected abstract void setupDebugLevel(WorldData p_240778_1_);
-    @Shadow protected WorldData worldData;
-    @Shadow(remap = false) @Deprecated public abstract void markWorldsDirty();
-    @Shadow private static void setInitialSpawn(ServerLevel p_177897_, ServerLevelData p_177898_, boolean p_177899_, boolean p_177900_) { }
-    @Shadow public abstract boolean isSpawningMonsters();
-    @Shadow public abstract boolean isSpawningAnimals();
-    @Shadow protected abstract void startMetricsRecordingTick();
-    @Shadow protected abstract void endMetricsRecordingTick();
-    @Shadow public abstract SystemReport fillSystemReport(SystemReport p_177936_);
-    @Shadow private float averageTickTime;
-    @Shadow @Final private PackRepository packRepository;
-    @Shadow public abstract boolean isDedicatedServer();
-    @Shadow public abstract int getFunctionCompilationLevel();
     @Shadow @Final public Executor executor;
-    @Shadow public abstract RegistryAccess.Frozen registryAccess();
     @Shadow public MinecraftServer.ReloadableResources resources;
-    @Shadow private static DataPackConfig getSelectedPacks(PackRepository p_129818_) { return null; }
-    @Shadow public abstract PlayerList getPlayerList();
-    @Shadow @Final private ServerFunctionManager functionManager;
-    @Shadow public abstract boolean enforceSecureProfile();
-    @Shadow @Final protected Services services;
-    @Shadow private static CrashReport constructOrExtractCrashReport(Throwable p_206569_) { return null; }
-    @Shadow @Final private StructureTemplateManager structureTemplateManager;
-    @Shadow private boolean debugCommandProfilerDelayStart;
-    @Shadow @Nullable private MinecraftServer.TimeProfiler debugCommandProfiler;
-    @Shadow public abstract LayeredRegistryAccess<RegistryLayer> registries();
-    @Shadow protected abstract ServerStatus buildServerStatus();
-    @Shadow @Nullable private ServerStatus.Favicon statusIcon;
-    @Shadow protected abstract Optional<ServerStatus.Favicon> loadStatusIcon();
-    // @formatter:on
-
-    public MinecraftServerMixin(String name) {
-        super(name);
-    }
-
     public WorldLoader.DataLoadContext worldLoader;
-    private boolean forceTicks;
     public CraftServer server;
     public OptionSet options;
     public ConsoleCommandSender console;
@@ -152,19 +106,101 @@ public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<T
     public java.util.Queue<Runnable> processQueue = new java.util.concurrent.ConcurrentLinkedQueue<>();
     public int autosavePeriod;
     public Commands vanillaCommandDispatcher;
+    @Shadow protected long nextTickTime;
+    @Shadow protected WorldData worldData;
+    @Shadow @Final protected Services services;
+    // @formatter:off
+    @Shadow private int tickCount;
+    @Shadow private ServerStatus status;
+    @Shadow @Nullable private String motd;
+    @Shadow private volatile boolean running;
+    @Shadow private long lastOverloadWarning;
+    @Shadow private boolean mayHaveDelayedTasks;
+    @Shadow private long delayedTasksMaxNextTickTime;
+    @Shadow private volatile boolean isReady;
+    @Shadow private boolean stopped;
+    @Shadow private ProfilerFiller profiler;
+    @Shadow private float averageTickTime;
+    @Shadow @Final private PackRepository packRepository;
+    @Shadow @Final private ServerFunctionManager functionManager;
+    @Shadow @Final private StructureTemplateManager structureTemplateManager;
+    @Shadow private boolean debugCommandProfilerDelayStart;
+    @Shadow @Nullable private MinecraftServer.TimeProfiler debugCommandProfiler;
+    @Shadow @Nullable private ServerStatus.Favicon statusIcon;
+    private boolean forceTicks;
     private boolean hasStopped = false;
-    private final Object stopLock = new Object();
-    private static final ExecutorService ASYNC_SAVE_EXECUTOR = Executors.newCachedThreadPool(r -> {
-        Thread thread = new Thread(r, "Async-World-Save-Thread");
-        thread.setDaemon(true);
-        return thread;
-    });
+    @Unique
+    private transient ServerLevel arclight$capturedLevel;
+    public MinecraftServerMixin(String name) {
+        super(name);
+    }
 
-    private static final int TPS = 20;
-    private static final int TICK_TIME = 1000000000 / TPS;
-    private static final int SAMPLE_INTERVAL = 100;
-    private static int currentTick = (int) (System.currentTimeMillis() / 50);
-    public final double[] recentTps = new double[3];
+    @Shadow private static void setInitialSpawn(ServerLevel p_177897_, ServerLevelData p_177898_, boolean p_177899_, boolean p_177900_) { }
+
+    @Shadow private static DataPackConfig getSelectedPacks(PackRepository p_129818_) { return null; }
+
+    @Shadow private static CrashReport constructOrExtractCrashReport(Throwable p_206569_) { return null; }
+
+    private static double calcTps(double avg, double exp, double tps) {
+        return (avg * exp) + (tps * (1 - exp));
+    }
+
+    private static MinecraftServer getServer() {
+        return Bukkit.getServer() instanceof CraftServer ? ((CraftServer) Bukkit.getServer()).getServer() : null;
+    }
+
+    @Shadow protected abstract boolean initServer() throws IOException;
+
+    @Shadow public abstract void tickServer(BooleanSupplier hasTimeLeft);
+
+    @Shadow protected abstract boolean haveTime();
+
+    @Shadow protected abstract void waitUntilNextTick();
+
+    @Shadow protected abstract void onServerCrash(CrashReport report);
+    // @formatter:on
+
+    @Shadow public abstract File getServerDirectory();
+
+    @Shadow public abstract void stopServer();
+
+    @Shadow public abstract void onServerExit();
+
+    @Shadow public abstract Commands getCommands();
+
+    @Shadow protected abstract void updateMobSpawningFlags();
+
+    @Shadow public abstract ServerLevel overworld();
+
+    @Shadow protected abstract void setupDebugLevel(WorldData p_240778_1_);
+
+    @Shadow(remap = false) @Deprecated public abstract void markWorldsDirty();
+
+    @Shadow public abstract boolean isSpawningMonsters();
+
+    @Shadow public abstract boolean isSpawningAnimals();
+
+    @Shadow protected abstract void startMetricsRecordingTick();
+
+    @Shadow protected abstract void endMetricsRecordingTick();
+
+    @Shadow public abstract SystemReport fillSystemReport(SystemReport p_177936_);
+
+    @Shadow public abstract boolean isDedicatedServer();
+
+    @Shadow public abstract int getFunctionCompilationLevel();
+
+    @Shadow public abstract RegistryAccess.Frozen registryAccess();
+
+    @Shadow public abstract PlayerList getPlayerList();
+
+    @Shadow public abstract boolean enforceSecureProfile();
+
+    @Shadow public abstract LayeredRegistryAccess<RegistryLayer> registries();
+
+    @Shadow protected abstract ServerStatus buildServerStatus();
+
+    @Shadow protected abstract Optional<ServerStatus.Favicon> loadStatusIcon();
 
     public boolean hasStopped() {
         synchronized (stopLock) {
@@ -283,10 +319,6 @@ public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<T
         }
     }
 
-    private static double calcTps(double avg, double exp, double tps) {
-        return (avg * exp) + (tps * (1 - exp));
-    }
-
     @Inject(method = "stopServer", cancellable = true, at = @At("HEAD"))
     public void arclight$setStopped(CallbackInfo ci) {
         synchronized (stopLock) {
@@ -343,9 +375,6 @@ public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<T
     private void arclight$registerEnv(ChunkProgressListener p_240787_1_, CallbackInfo ci) {
         BukkitRegistry.registerEnvironments(this.registryAccess().registryOrThrow(Registries.LEVEL_STEM));
     }
-
-    @Unique
-    private transient ServerLevel arclight$capturedLevel;
 
     @ModifyArg(method = "createLevels", index = 1, at = @At(value = "INVOKE", remap = false, target = "Ljava/util/Map;put(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;"))
     private Object arclight$worldInitCapture(Object value) {
@@ -570,7 +599,6 @@ public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<T
         }
     }
 
-
     /**
      * Shutdown async save executor
      */
@@ -647,10 +675,6 @@ public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<T
 
     public boolean isDebugging() {
         return false;
-    }
-
-    private static MinecraftServer getServer() {
-        return Bukkit.getServer() instanceof CraftServer ? ((CraftServer) Bukkit.getServer()).getServer() : null;
     }
 }
 

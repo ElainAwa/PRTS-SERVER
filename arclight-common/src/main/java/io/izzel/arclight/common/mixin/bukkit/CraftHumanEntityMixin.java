@@ -24,11 +24,17 @@ public abstract class CraftHumanEntityMixin extends CraftEntity {
 
     // @formatter:off
     @Shadow private CraftInventoryPlayer inventory;
-    @Shadow public abstract Player getHandle();
-    // @formatter:on
-
     public CraftHumanEntityMixin(CraftServer server, Entity entity) {
         super(server, entity);
+    }
+    // @formatter:on
+
+    @Shadow public abstract Player getHandle();
+
+    @Override
+    public void setHandle(Entity entity) {
+        super.setHandle(entity);
+        this.inventory = new CraftInventoryPlayer(((Player) entity).getInventory());
     }
 
     @Redirect(method = "<init>", at = @At(value = "NEW", target = "org/bukkit/permissions/PermissibleBase"))
@@ -48,11 +54,5 @@ public abstract class CraftHumanEntityMixin extends CraftEntity {
     @Inject(method = "getOpenInventory", at = @At("RETURN"))
     private void arclight$resetPlayer(CallbackInfoReturnable<InventoryView> cir) {
         ArclightCaptures.resetContainerOwner();
-    }
-
-    @Override
-    public void setHandle(Entity entity) {
-        super.setHandle(entity);
-        this.inventory = new CraftInventoryPlayer(((Player) entity).getInventory());
     }
 }

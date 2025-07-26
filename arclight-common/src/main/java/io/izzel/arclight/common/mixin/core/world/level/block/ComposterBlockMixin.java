@@ -36,14 +36,6 @@ public abstract class ComposterBlockMixin {
     @Shadow static BlockState empty(@Nullable Entity p_270236_, BlockState p_270873_, LevelAccessor p_270963_, BlockPos p_270211_) { return null; }
     // @formatter:on
 
-    @SuppressWarnings({"InvalidMemberReference", "UnresolvedMixinReference", "MixinAnnotationTarget", "InvalidInjectorMethodSignature"})
-    @Redirect(method = "getContainer", at = @At(value = "NEW", target = "()Lnet/minecraft/world/level/block/ComposterBlock$EmptyContainer;"))
-    public ComposterBlock.EmptyContainer arclight$newEmpty(BlockState blockState, LevelAccessor world, BlockPos blockPos) {
-        ComposterBlock.EmptyContainer inventory = new ComposterBlock.EmptyContainer();
-        ((IInventoryBridge) inventory).setOwner(new CraftBlockInventoryHolder(world, blockPos, inventory));
-        return inventory;
-    }
-
     /**
      * @author IzzelAliz
      * @reason
@@ -92,5 +84,13 @@ public abstract class ComposterBlockMixin {
             }
             return blockstate;
         }
+    }
+
+    @SuppressWarnings({"InvalidMemberReference", "UnresolvedMixinReference", "MixinAnnotationTarget", "InvalidInjectorMethodSignature"})
+    @Redirect(method = "getContainer", at = @At(value = "NEW", target = "()Lnet/minecraft/world/level/block/ComposterBlock$EmptyContainer;"))
+    public ComposterBlock.EmptyContainer arclight$newEmpty(BlockState blockState, LevelAccessor world, BlockPos blockPos) {
+        ComposterBlock.EmptyContainer inventory = new ComposterBlock.EmptyContainer();
+        ((IInventoryBridge) inventory).setOwner(new CraftBlockInventoryHolder(world, blockPos, inventory));
+        return inventory;
     }
 }

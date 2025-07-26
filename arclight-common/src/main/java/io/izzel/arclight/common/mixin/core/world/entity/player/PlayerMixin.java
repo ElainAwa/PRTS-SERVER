@@ -83,49 +83,77 @@ import java.util.Optional;
 @Mixin(net.minecraft.world.entity.player.Player.class)
 public abstract class PlayerMixin extends LivingEntityMixin implements PlayerEntityBridge, IForgePlayer {
 
-    // @formatter:off
-    @Shadow public abstract String getScoreboardName();
-    @Shadow @Final private Abilities abilities;
-    @Shadow public abstract float getAttackStrengthScale(float adjustTicks);
-    @Shadow public abstract void resetAttackStrengthTicker();
-    @Shadow public abstract SoundSource getSoundSource();
-    @Shadow public abstract float getSpeed();
-    @Shadow public abstract void sweepAttack();
-    @Shadow public abstract void crit(Entity entityHit);
-    @Shadow public abstract void magicCrit(Entity entityHit);
-    @Shadow public abstract void awardStat(ResourceLocation p_195067_1_, int p_195067_2_);
-    @Shadow public abstract void causeFoodExhaustion(float exhaustion);
-    @Shadow private long timeEntitySatOnShoulder;
-    @Shadow public abstract void setShoulderEntityRight(CompoundTag tag);
-    @Shadow public abstract void setShoulderEntityLeft(CompoundTag tag);
-    @Shadow public abstract CompoundTag getShoulderEntityRight();
-    @Shadow public abstract CompoundTag getShoulderEntityLeft();
     @Shadow public int experienceLevel;
-    @Shadow @Final private Inventory inventory;
     @Shadow public AbstractContainerMenu containerMenu;
     @Shadow @Final public InventoryMenu inventoryMenu;
-    @Shadow public abstract void awardStat(Stat<?> stat);
-    @Shadow public abstract void awardStat(ResourceLocation stat);
-    @Shadow public abstract Component getDisplayName();
-    @Shadow public abstract HumanoidArm getMainArm();
     @Shadow public float experienceProgress;
     @Shadow public int totalExperience;
-    @Shadow protected FoodData foodData;
-    @Shadow protected boolean isImmobile() { return false; }
-    @Shadow public abstract Scoreboard getScoreboard();
-    @Shadow protected PlayerEnderChestContainer enderChestInventory;
-    @Shadow public abstract Either<net.minecraft.world.entity.player.Player.BedSleepingProblem, Unit> startSleepInBed(BlockPos at);
     @Shadow public int sleepCounter;
-    @Shadow public abstract GameProfile getGameProfile();
-    @Shadow public abstract Inventory getInventory();
-    @Shadow public abstract Abilities getAbilities();
-    @Shadow public abstract void setLastDeathLocation(Optional<GlobalPos> p_219750_);
-    @Shadow public abstract Optional<GlobalPos> getLastDeathLocation();
-    @Shadow public abstract void setRemainingFireTicks(int p_36353_);
-    // @formatter:on
-
     public boolean fauxSleeping;
     public int oldLevel;
+    @Shadow protected FoodData foodData;
+    @Shadow protected PlayerEnderChestContainer enderChestInventory;
+    protected transient boolean arclight$forceSleep;
+    @Shadow @Final private Abilities abilities;
+    @Shadow private long timeEntitySatOnShoulder;
+    @Shadow @Final private Inventory inventory;
+    private EntityExhaustionEvent.ExhaustionReason arclight$exhaustReason;
+
+    // @formatter:off
+    @Shadow public abstract String getScoreboardName();
+
+    @Shadow public abstract float getAttackStrengthScale(float adjustTicks);
+
+    @Shadow public abstract void resetAttackStrengthTicker();
+
+    @Shadow public abstract SoundSource getSoundSource();
+
+    @Shadow public abstract float getSpeed();
+
+    @Shadow public abstract void sweepAttack();
+
+    @Shadow public abstract void crit(Entity entityHit);
+
+    @Shadow public abstract void magicCrit(Entity entityHit);
+
+    @Shadow public abstract void awardStat(ResourceLocation p_195067_1_, int p_195067_2_);
+
+    @Shadow public abstract void causeFoodExhaustion(float exhaustion);
+
+    @Shadow public abstract CompoundTag getShoulderEntityRight();
+
+    @Shadow public abstract void setShoulderEntityRight(CompoundTag tag);
+
+    @Shadow public abstract CompoundTag getShoulderEntityLeft();
+
+    @Shadow public abstract void setShoulderEntityLeft(CompoundTag tag);
+
+    @Shadow public abstract void awardStat(Stat<?> stat);
+
+    @Shadow public abstract void awardStat(ResourceLocation stat);
+
+    @Shadow public abstract Component getDisplayName();
+
+    @Shadow public abstract HumanoidArm getMainArm();
+
+    @Shadow protected boolean isImmobile() { return false; }
+
+    @Shadow public abstract Scoreboard getScoreboard();
+
+    @Shadow public abstract Either<net.minecraft.world.entity.player.Player.BedSleepingProblem, Unit> startSleepInBed(BlockPos at);
+
+    @Shadow public abstract GameProfile getGameProfile();
+
+    @Shadow public abstract Inventory getInventory();
+    // @formatter:on
+
+    @Shadow public abstract Abilities getAbilities();
+
+    @Shadow public abstract Optional<GlobalPos> getLastDeathLocation();
+
+    @Shadow public abstract void setLastDeathLocation(Optional<GlobalPos> p_219750_);
+
+    @Shadow public abstract void setRemainingFireTicks(int p_36353_);
 
     @Inject(method = "<init>", at = @At("RETURN"))
     private void arclight$init(CallbackInfo ci) {
@@ -410,8 +438,6 @@ public abstract class PlayerMixin extends LivingEntityMixin implements PlayerEnt
         }
     }
 
-    protected transient boolean arclight$forceSleep;
-
     public Either<net.minecraft.world.entity.player.Player.BedSleepingProblem, Unit> startSleepInBed(BlockPos at, boolean force) {
         this.arclight$forceSleep = force;
         try {
@@ -565,8 +591,6 @@ public abstract class PlayerMixin extends LivingEntityMixin implements PlayerEnt
             this.foodData.addExhaustion(event.getExhaustion());
         }
     }
-
-    private EntityExhaustionEvent.ExhaustionReason arclight$exhaustReason;
 
     public void applyExhaustion(float f, EntityExhaustionEvent.ExhaustionReason reason) {
         bridge$pushExhaustReason(reason);

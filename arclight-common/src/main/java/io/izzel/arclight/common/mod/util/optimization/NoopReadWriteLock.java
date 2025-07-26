@@ -12,6 +12,10 @@ public class NoopReadWriteLock implements ReadWriteLock {
     private static final NoopReadWriteLock INSTANCE = new NoopReadWriteLock();
     private static final NoopLock LOCK = new NoopLock();
 
+    public static ReadWriteLock instance() {
+        return INSTANCE;
+    }
+
     @NotNull
     @Override
     public Lock readLock() {
@@ -22,10 +26,6 @@ public class NoopReadWriteLock implements ReadWriteLock {
     @Override
     public Lock writeLock() {
         return LOCK;
-    }
-
-    public static ReadWriteLock instance() {
-        return INSTANCE;
     }
 
     private static class NoopLock implements Lock {

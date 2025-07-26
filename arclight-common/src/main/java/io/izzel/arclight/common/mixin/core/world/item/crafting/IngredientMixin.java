@@ -12,12 +12,13 @@ import javax.annotation.Nullable;
 @Mixin(Ingredient.class)
 public abstract class IngredientMixin implements IngredientBridge {
 
+    public boolean exact;
+
     // @formatter:off
     @Shadow public abstract boolean isEmpty();
-    @Shadow public abstract ItemStack[] getItems();
     // @formatter:on
 
-    public boolean exact;
+    @Shadow public abstract ItemStack[] getItems();
 
     /**
      * @author IzzelAliz

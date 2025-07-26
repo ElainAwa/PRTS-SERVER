@@ -20,6 +20,40 @@ import java.util.function.Supplier;
 
 public record FileDownloader(String url, String target, String hash) implements Supplier<Path> {
 
+    static InputStream read(String url) throws IOException {
+        return redirect(new URL(url));
+    }
+
+    private static InputStream redirect(URL url) throws IOException {
+        return redirect(url, new HashSet<>());
+    }
+
+    private static InputStream redirect(URL url, Set<String> history) throws IOException {
+        if (history.contains(url.toString())) {
+            StringJoiner joiner = new StringJoiner("\n        ");
+            joiner.add("");
+            history.forEach(joiner::add);
+            throw new RuntimeException("Redirect error " + joiner);
+        } else {
+            history.add(url.toString());
+        }
+        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+        connection.setInstanceFollowRedirects(false);
+        connection.setReadTimeout(15000);
+        connection.setConnectTimeout(15000);
+        int responseCode = connection.getResponseCode();
+        if (responseCode == HttpURLConnection.HTTP_OK) {
+            return connection.getInputStream();
+        } else if (responseCode == HttpURLConnection.HTTP_MOVED_PERM || responseCode == HttpURLConnection.HTTP_MOVED_TEMP) {
+            String location = URLDecoder.decode(connection.getHeaderField("Location"), StandardCharsets.UTF_8);
+            return redirect(new URL(url, location));
+        } else if (responseCode == HttpURLConnection.HTTP_NOT_FOUND || responseCode == HttpURLConnection.HTTP_FORBIDDEN) {
+            throw new RuntimeException("Not found " + url);
+        } else {
+            throw new RemoteException("Http " + responseCode + " " + url);
+        }
+    }
+
     @Override
     public Path get() {
         try {
@@ -61,40 +95,6 @@ public record FileDownloader(String url, String target, String hash) implements 
         } catch (Exception e) {
             Unsafe.throwException(e);
             return null;
-        }
-    }
-
-    static InputStream read(String url) throws IOException {
-        return redirect(new URL(url));
-    }
-
-    private static InputStream redirect(URL url) throws IOException {
-        return redirect(url, new HashSet<>());
-    }
-
-    private static InputStream redirect(URL url, Set<String> history) throws IOException {
-        if (history.contains(url.toString())) {
-            StringJoiner joiner = new StringJoiner("\n        ");
-            joiner.add("");
-            history.forEach(joiner::add);
-            throw new RuntimeException("Redirect error " + joiner);
-        } else {
-            history.add(url.toString());
-        }
-        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-        connection.setInstanceFollowRedirects(false);
-        connection.setReadTimeout(15000);
-        connection.setConnectTimeout(15000);
-        int responseCode = connection.getResponseCode();
-        if (responseCode == HttpURLConnection.HTTP_OK) {
-            return connection.getInputStream();
-        } else if (responseCode == HttpURLConnection.HTTP_MOVED_PERM || responseCode == HttpURLConnection.HTTP_MOVED_TEMP) {
-            String location = URLDecoder.decode(connection.getHeaderField("Location"), StandardCharsets.UTF_8);
-            return redirect(new URL(url, location));
-        } else if (responseCode == HttpURLConnection.HTTP_NOT_FOUND || responseCode == HttpURLConnection.HTTP_FORBIDDEN) {
-            throw new RuntimeException("Not found " + url);
-        } else {
-            throw new RemoteException("Http " + responseCode + " " + url);
         }
     }
 }

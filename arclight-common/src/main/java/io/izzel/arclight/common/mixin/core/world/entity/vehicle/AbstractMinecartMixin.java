@@ -32,35 +32,45 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(AbstractMinecart.class)
 public abstract class AbstractMinecartMixin extends EntityMixin implements IForgeAbstractMinecart {
 
-    // @formatter:off
-    @Shadow public abstract void setHurtDir(int rollingDirection);
-    @Shadow public abstract int getHurtDir();
-    @Shadow public abstract void setHurtTime(int rollingAmplitude);
-    @Shadow public abstract void setDamage(float damage);
-    @Shadow public abstract float getDamage();
-    @Shadow public abstract void destroy(DamageSource source);
-    @Shadow public abstract int getHurtTime();
+    public boolean slowWhenEmpty = true;
+    public double maxSpeed = 0.4D;
     @Shadow private int lSteps;
     @Shadow private double lx;
     @Shadow private double ly;
     @Shadow private double lz;
     @Shadow private double lyr;
     @Shadow private double lxr;
-    @Shadow protected abstract void moveAlongTrack(BlockPos pos, BlockState state);
-    @Shadow public abstract void activateMinecart(int x, int y, int z, boolean receivingPower);
     @Shadow private boolean flipped;
-    @Shadow public abstract AbstractMinecart.Type getMinecartType();
     @Shadow private boolean onRails;
-    // @formatter:on
-
-    public boolean slowWhenEmpty = true;
     private double derailedX = 0.5;
     private double derailedY = 0.5;
     private double derailedZ = 0.5;
     private double flyingX = 0.95;
     private double flyingY = 0.95;
     private double flyingZ = 0.95;
-    public double maxSpeed = 0.4D;
+    private transient Location arclight$prevLocation;
+
+    @Shadow public abstract int getHurtDir();
+    // @formatter:on
+
+    // @formatter:off
+    @Shadow public abstract void setHurtDir(int rollingDirection);
+
+    @Shadow public abstract float getDamage();
+
+    @Shadow public abstract void setDamage(float damage);
+
+    @Shadow public abstract void destroy(DamageSource source);
+
+    @Shadow public abstract int getHurtTime();
+
+    @Shadow public abstract void setHurtTime(int rollingAmplitude);
+
+    @Shadow protected abstract void moveAlongTrack(BlockPos pos, BlockState state);
+
+    @Shadow public abstract void activateMinecart(int x, int y, int z, boolean receivingPower);
+
+    @Shadow public abstract AbstractMinecart.Type getMinecartType();
 
     @Inject(method = "<init>(Lnet/minecraft/world/entity/EntityType;Lnet/minecraft/world/level/Level;)V", at = @At("RETURN"))
     private void arclight$init(EntityType<?> type, Level worldIn, CallbackInfo ci) {
@@ -116,8 +126,6 @@ public abstract class AbstractMinecartMixin extends EntityMixin implements IForg
         }
         return true;
     }
-
-    private transient Location arclight$prevLocation;
 
     @Inject(method = "tick", at = @At("HEAD"))
     private void arclight$storePrevLocation(CallbackInfo ci) {

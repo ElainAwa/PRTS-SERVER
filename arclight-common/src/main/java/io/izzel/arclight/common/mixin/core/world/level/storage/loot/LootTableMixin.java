@@ -29,9 +29,10 @@ import java.util.List;
 @Mixin(LootTable.class)
 public abstract class LootTableMixin implements LootTableBridge {
 
+    @Shadow @Final static Logger LOGGER;
     // @formatter:off
     @Shadow @Final @Nullable private ResourceLocation randomSequence;
-    @Shadow @Final static Logger LOGGER;
+
     @Shadow protected abstract ObjectArrayList<ItemStack> getRandomItems(LootContext p_230923_);
     @Shadow protected abstract List<Integer> getAvailableSlots(Container p_230920_, RandomSource p_230921_);
     @Shadow protected abstract void shuffleAndSplitItems(ObjectArrayList<ItemStack> p_230925_, int p_230926_, RandomSource p_230927_);

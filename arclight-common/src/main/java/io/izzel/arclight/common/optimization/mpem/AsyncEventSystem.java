@@ -15,10 +15,10 @@ import java.util.concurrent.atomic.AtomicLong;
 public class AsyncEventSystem {
     private static final Logger LOGGER = LogManager.getLogger("Luminara-AsyncEvent");
     private static final AtomicBoolean initialized = new AtomicBoolean(false);
-    private static ExecutorService asyncExecutor;
-    private static ScheduledExecutorService scheduledExecutor;
     private static final Map<Class<? extends Event>, EventTypeInfo> eventTypeInfos = new ConcurrentHashMap<>();
     private static final AtomicLong totalAsyncTasks = new AtomicLong(0);
+    private static ExecutorService asyncExecutor;
+    private static ScheduledExecutorService scheduledExecutor;
 
     public static void initialize() {
         if (initialized.getAndSet(true)) return;
@@ -184,11 +184,11 @@ public class AsyncEventSystem {
     }
 
     private static class EventTypeInfo {
+        final AtomicInteger failedCount = new AtomicInteger(0);
+        final AtomicInteger successCount = new AtomicInteger(0);
         volatile boolean async;
         volatile boolean healthy = true;
         volatile boolean isClientEvent = false;
-        final AtomicInteger failedCount = new AtomicInteger(0);
-        final AtomicInteger successCount = new AtomicInteger(0);
 
         EventTypeInfo(boolean async) {
             this.async = async;

@@ -33,14 +33,16 @@ import java.util.Optional;
 @Mixin(RecipeManager.class)
 public abstract class RecipeManagerMixin implements RecipeManagerBridge {
 
+    @Shadow @Final private static Logger LOGGER;
     // @formatter:off
     @Shadow public Map<RecipeType<?>, Map<ResourceLocation, Recipe<?>>> recipes;
-    @Shadow protected abstract <C extends Container, T extends Recipe<C>> Map<ResourceLocation, T> byType(RecipeType<T> p_44055_);
     @Shadow private boolean hasErrors;
-    @Shadow @Final private static Logger LOGGER;
-    @Shadow(remap = false) public static Recipe<?> fromJson(ResourceLocation recipeId, JsonObject json, ICondition.IContext context) { return null; }
     @Shadow private Map<ResourceLocation, Recipe<?>> byName;
     @Shadow(remap = false) @Final private ICondition.IContext context;
+
+    @Shadow(remap = false) public static Recipe<?> fromJson(ResourceLocation recipeId, JsonObject json, ICondition.IContext context) { return null; }
+
+    @Shadow protected abstract <C extends Container, T extends Recipe<C>> Map<ResourceLocation, T> byType(RecipeType<T> p_44055_);
     // @formatter:on
 
     /**

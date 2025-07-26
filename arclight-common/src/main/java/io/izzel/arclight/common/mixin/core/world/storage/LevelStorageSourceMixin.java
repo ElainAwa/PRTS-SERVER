@@ -20,10 +20,12 @@ public abstract class LevelStorageSourceMixin implements LevelStorageSourceBridg
 
     // pdc implemented as WorldSavedData
 
+    @Shadow @Final private DirectoryValidator worldDirValidator;
+
     // @formatter:off
     @Shadow public abstract LevelStorageSource.LevelStorageAccess createAccess(String saveName) throws IOException;
+
     @Shadow protected abstract Path getLevelPath(String p_289974_);
-    @Shadow @Final private DirectoryValidator worldDirValidator;
     // @formatter:on
 
     public LevelStorageSource.LevelStorageAccess validateAndCreateAccess(String s, ResourceKey<LevelStem> dimensionType) throws IOException, ContentValidationException {

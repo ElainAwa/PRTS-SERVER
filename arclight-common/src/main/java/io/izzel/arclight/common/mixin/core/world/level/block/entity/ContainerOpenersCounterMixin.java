@@ -16,14 +16,16 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(ContainerOpenersCounter.class)
 public abstract class ContainerOpenersCounterMixin {
 
+    public boolean opened;
     // @formatter:off
     @Shadow private int openCount;
+
     @Shadow protected abstract void onOpen(Level p_155460_, BlockPos p_155461_, BlockState p_155462_);
+
     @Shadow protected abstract void onClose(Level p_155473_, BlockPos p_155474_, BlockState p_155475_);
-    @Shadow protected abstract void openerCountChanged(Level p_155463_, BlockPos p_155464_, BlockState p_155465_, int p_155466_, int p_155467_);
     // @formatter:on
 
-    public boolean opened;
+    @Shadow protected abstract void openerCountChanged(Level p_155463_, BlockPos p_155464_, BlockState p_155465_, int p_155466_, int p_155467_);
 
     public void onAPIOpen(Level world, BlockPos blockposition, BlockState iblockdata) {
         onOpen(world, blockposition, iblockdata);

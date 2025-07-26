@@ -21,16 +21,16 @@ import java.nio.file.Path;
 @Mixin(RegionFileStorage.class)
 public abstract class RegionFileCacheMixin implements RegionFileCacheBridge {
 
+    private transient boolean arclight$existOnly;
+    // @formatter:on
+
     // @formatter:off
     @Shadow protected abstract RegionFile getRegionFile(ChunkPos pos) throws IOException;
-    // @formatter:on
 
     private RegionFile loadFile(ChunkPos pos, boolean existsOnly) throws IOException {
         this.arclight$existOnly = existsOnly;
         return getRegionFile(pos);
     }
-
-    private transient boolean arclight$existOnly;
 
     @Inject(method = "getRegionFile", cancellable = true, locals = LocalCapture.CAPTURE_FAILHARD,
             at = @At(value = "NEW", target = "net/minecraft/world/level/chunk/storage/RegionFile"))

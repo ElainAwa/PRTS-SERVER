@@ -21,12 +21,6 @@ public abstract class SculkCatalystBlockEntityMixin extends BlockEntityMixin {
     @Final
     private SculkCatalystBlockEntity.CatalystListener catalystListener;
 
-    @Override
-    public void setLevel(Level p_155231_) {
-        super.setLevel(p_155231_);
-        ((SculkCatalystListenerBridge) this.catalystListener).bridge$setLevel(p_155231_);
-    }
-
     @Inject(method = "serverTick", at = @At("HEAD"))
     private static void arclight$overrideSource(Level p_222780_, BlockPos p_222781_, BlockState p_222782_, SculkCatalystBlockEntity blockEntity, CallbackInfo ci) {
         CraftEventFactory.sourceBlockOverride = blockEntity.getBlockPos();
@@ -35,6 +29,12 @@ public abstract class SculkCatalystBlockEntityMixin extends BlockEntityMixin {
     @Inject(method = "serverTick", at = @At("RETURN"))
     private static void arclight$resetSource(Level p_222780_, BlockPos p_222781_, BlockState p_222782_, SculkCatalystBlockEntity blockEntity, CallbackInfo ci) {
         CraftEventFactory.sourceBlockOverride = null;
+    }
+
+    @Override
+    public void setLevel(Level p_155231_) {
+        super.setLevel(p_155231_);
+        ((SculkCatalystListenerBridge) this.catalystListener).bridge$setLevel(p_155231_);
     }
 
     @Inject(method = "load", at = @At("HEAD"))

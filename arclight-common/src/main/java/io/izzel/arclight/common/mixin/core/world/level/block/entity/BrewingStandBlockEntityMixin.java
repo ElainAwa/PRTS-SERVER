@@ -36,11 +36,10 @@ import java.util.List;
 @Mixin(BrewingStandBlockEntity.class)
 public abstract class BrewingStandBlockEntityMixin extends LockableBlockEntityMixin {
 
+    public List<HumanEntity> transaction = new ArrayList<>();
+    // @formatter:on
     // @formatter:off
     @Shadow private NonNullList<ItemStack> items;
-    // @formatter:on
-
-    public List<HumanEntity> transaction = new ArrayList<>();
     private int maxStack = MAX_STACK;
 
     @Eject(method = "serverTick", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/item/ItemStack;shrink(I)V"))

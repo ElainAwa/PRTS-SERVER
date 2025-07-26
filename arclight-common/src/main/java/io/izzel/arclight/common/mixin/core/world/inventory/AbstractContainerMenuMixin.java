@@ -39,36 +39,53 @@ import static net.minecraft.world.inventory.AbstractContainerMenu.getQuickCraftP
 @Mixin(AbstractContainerMenu.class)
 public abstract class AbstractContainerMenuMixin implements ContainerBridge {
 
-    // @formatter:off
-    @Shadow public void broadcastChanges() {}
+    @Shadow @Final public int containerId;
+    @Shadow public NonNullList<Slot> slots;
+    public boolean checkReachable = true;
     @Shadow private int quickcraftStatus;
-    @Shadow protected abstract void resetQuickCraft();
     @Shadow private int quickcraftType;
     @Shadow @Final private Set<Slot> quickcraftSlots;
-    @Shadow public abstract boolean canDragTo(Slot slotIn);
-    @Shadow public abstract ItemStack quickMoveStack(Player playerIn, int index);
-    @Shadow public abstract boolean canTakeItemForPickAll(ItemStack stack, Slot slotIn);
-    @Shadow @Final public int containerId;
-    @Shadow public abstract Slot getSlot(int slotId);
-    @Shadow public static int getQuickcraftHeader(int clickedButton) { return 0; }
-    @Shadow public static int getQuickcraftType(int eventButton) { return 0; }
-    @Shadow public static boolean isValidQuickcraftType(int dragModeIn, Player player) { return false; }
-    @Shadow public static boolean canItemQuickReplace(@Nullable Slot slotIn, ItemStack stack, boolean stackSizeMatters) { return false; }
-    @Shadow protected abstract boolean moveItemStackTo(ItemStack stack, int startIndex, int endIndex, boolean reverseDirection);
     @Shadow @Final @javax.annotation.Nullable private MenuType<?> menuType;
     @Shadow private ItemStack remoteCarried;
-    @Shadow public abstract ItemStack getCarried();
     @Shadow @javax.annotation.Nullable private ContainerSynchronizer synchronizer;
+    private InventoryView bukkitView;
+    private Component title;
+
+    @Shadow public static int getQuickcraftHeader(int clickedButton) { return 0; }
+
+    @Shadow public static int getQuickcraftType(int eventButton) { return 0; }
+
+    @Shadow public static boolean isValidQuickcraftType(int dragModeIn, Player player) { return false; }
+
+    @Shadow public static boolean canItemQuickReplace(@Nullable Slot slotIn, ItemStack stack, boolean stackSizeMatters) { return false; }
+
+    // @formatter:off
+    @Shadow public void broadcastChanges() {}
+
+    @Shadow protected abstract void resetQuickCraft();
+
+    @Shadow public abstract boolean canDragTo(Slot slotIn);
+
+    @Shadow public abstract ItemStack quickMoveStack(Player playerIn, int index);
+
+    @Shadow public abstract boolean canTakeItemForPickAll(ItemStack stack, Slot slotIn);
+
+    @Shadow public abstract Slot getSlot(int slotId);
+
+    @Shadow protected abstract boolean moveItemStackTo(ItemStack stack, int startIndex, int endIndex, boolean reverseDirection);
+
+    @Shadow public abstract ItemStack getCarried();
+
     @Shadow public abstract void setCarried(ItemStack p_150439_);
-    @Shadow public NonNullList<Slot> slots;
+
     @Shadow protected abstract SlotAccess createCarriedSlotAccess();
-    @Shadow public abstract void sendAllDataToRemote();
-    @Shadow public abstract int incrementStateId();
-    @Shadow protected abstract boolean tryItemClickBehaviourOverride(Player p_249615_, ClickAction p_250300_, Slot p_249384_, ItemStack p_251073_, ItemStack p_252026_);
     // @formatter:on
 
-    public boolean checkReachable = true;
-    private InventoryView bukkitView;
+    @Shadow public abstract void sendAllDataToRemote();
+
+    @Shadow public abstract int incrementStateId();
+
+    @Shadow protected abstract boolean tryItemClickBehaviourOverride(Player p_249615_, ClickAction p_250300_, Slot p_249384_, ItemStack p_251073_, ItemStack p_252026_);
 
     public InventoryView getBukkitView() {
         if (bukkitView == null) {
@@ -85,8 +102,6 @@ public abstract class AbstractContainerMenuMixin implements ContainerBridge {
         ((IInventoryBridge) ((CraftInventory) destination.getTopInventory()).getInventory()).onOpen(player);
         ((IInventoryBridge) ((CraftInventory) destination.getBottomInventory()).getInventory()).onOpen(player);
     }
-
-    private Component title;
 
     public Component getTitle() {
         if (this.title == null) {

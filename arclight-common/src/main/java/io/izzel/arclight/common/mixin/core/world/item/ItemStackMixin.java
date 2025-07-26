@@ -35,15 +35,32 @@ import java.util.function.Consumer;
 @Mixin(ItemStack.class)
 public abstract class ItemStackMixin extends CapabilityProvider<ItemStack> implements ItemStackBridge {
 
+    private static final Logger LOG = LogManager.getLogger("Arclight");
     // @formatter:off
     @Shadow @Deprecated private Item item;
     @Shadow private int count;
     @Shadow(remap = false) private CompoundTag capNBT;
-    @Mutable @Shadow(remap = false) @Final private net.minecraft.core.Holder.Reference<Item> delegate;
     // @formatter:on
+    @Mutable @Shadow(remap = false) @Final private net.minecraft.core.Holder.Reference<Item> delegate;
 
     protected ItemStackMixin(Class<ItemStack> baseClass) {
         super(baseClass);
+    }
+
+    @Redirect(method = "isSameItemSameTags", at = @At(value = "INVOKE", remap = false, target = "Ljava/util/Objects;equals(Ljava/lang/Object;Ljava/lang/Object;)Z"))
+    private static boolean arclight$lenientItemMatch(Object a, Object b) {
+        if (ArclightConfig.spec().getCompat().isLenientItemTagMatch()) {
+            var tagA = (CompoundTag) a;
+            var tagB = (CompoundTag) b;
+            if (tagB != null) {
+                var tmp = tagA;
+                tagA = tagB;
+                tagB = tmp;
+            }
+            return tagA == null || (tagA.isEmpty() ? (tagB == null || tagB.isEmpty()) : tagA.equals(tagB));
+        } else {
+            return Objects.equals(a, b);
+        }
     }
 
     @Override
@@ -58,8 +75,6 @@ public abstract class ItemStackMixin extends CapabilityProvider<ItemStack> imple
             this.deserializeCaps(caps);
         }
     }
-
-    private static final Logger LOG = LogManager.getLogger("Arclight");
 
     public void convertStack(int version) {
         if (0 < version && version < CraftMagicNumbers.INSTANCE.getDataVersion()) {
@@ -100,21 +115,5 @@ public abstract class ItemStackMixin extends CapabilityProvider<ItemStack> imple
     public void setItem(Item item) {
         this.item = item;
         this.delegate = ForgeRegistries.ITEMS.getDelegateOrThrow(item);
-    }
-
-    @Redirect(method = "isSameItemSameTags", at = @At(value = "INVOKE", remap = false, target = "Ljava/util/Objects;equals(Ljava/lang/Object;Ljava/lang/Object;)Z"))
-    private static boolean arclight$lenientItemMatch(Object a, Object b) {
-        if (ArclightConfig.spec().getCompat().isLenientItemTagMatch()) {
-            var tagA = (CompoundTag) a;
-            var tagB = (CompoundTag) b;
-            if (tagB != null) {
-                var tmp = tagA;
-                tagA = tagB;
-                tagB = tmp;
-            }
-            return tagA == null || (tagA.isEmpty() ? (tagB == null || tagB.isEmpty()) : tagA.equals(tagB));
-        } else {
-            return Objects.equals(a, b);
-        }
     }
 }

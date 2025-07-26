@@ -24,8 +24,10 @@ import java.util.List;
 @Mixin(AbstractMinecartContainer.class)
 public abstract class AbstractMinecartContainerMixin extends AbstractMinecartMixin implements IInventoryBridge, Container {
 
+    public List<HumanEntity> transaction;
     @Shadow
     private NonNullList<ItemStack> itemStacks;
+    private int maxStack;
 
     @Inject(method = "<init>(Lnet/minecraft/world/entity/EntityType;Lnet/minecraft/world/level/Level;)V", at = @At("RETURN"))
     private void arclight$init(EntityType<?> type, Level world, CallbackInfo ci) {
@@ -40,9 +42,6 @@ public abstract class AbstractMinecartContainerMixin extends AbstractMinecartMix
         maxStack = MAX_STACK;
         transaction = new ArrayList<>();
     }
-
-    public List<HumanEntity> transaction;
-    private int maxStack;
 
     @Override
     public List<ItemStack> getContents() {

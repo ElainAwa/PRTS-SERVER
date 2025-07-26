@@ -39,16 +39,22 @@ import java.util.function.Supplier;
 @Mixin(ChunkMap.class)
 public abstract class ChunkMapMixin implements ChunkMapBridge {
 
-    // @formatter:off
-    @Shadow @Nullable protected abstract ChunkHolder getUpdatingChunkIfPresent(long chunkPosIn);
-    @Shadow protected abstract Iterable<ChunkHolder> getChunks();
-    @Shadow protected abstract void tick();
+    public final ArclightCallbackExecutor callbackExecutor = new ArclightCallbackExecutor();
     @Shadow @Mutable public ChunkGenerator generator;
     @Shadow @Final public ServerLevel level;
     @Shadow @Final @Mutable private RandomState randomState;
+
+    // @formatter:off
+    @Shadow @Nullable protected abstract ChunkHolder getUpdatingChunkIfPresent(long chunkPosIn);
+
+    @Shadow protected abstract Iterable<ChunkHolder> getChunks();
+
+    @Shadow protected abstract void tick();
+
     @Invoker("tick") public abstract void bridge$tick(BooleanSupplier hasMoreTime);
-    @Invoker("setViewDistance") public abstract void bridge$setViewDistance(int i);
     // @formatter:on
+
+    @Invoker("setViewDistance") public abstract void bridge$setViewDistance(int i);
 
     @Inject(method = "<init>", at = @At("RETURN"))
     private void arclight$updateRandom(ServerLevel p_214836_, LevelStorageSource.LevelStorageAccess p_214837_, DataFixer p_214838_, StructureTemplateManager p_214839_, Executor p_214840_, BlockableEventLoop p_214841_, LightChunkGetter p_214842_, ChunkGenerator p_214843_, ChunkProgressListener p_214844_, ChunkStatusUpdateListener p_214845_, Supplier p_214846_, int p_214847_, boolean p_214848_, CallbackInfo ci) {
@@ -59,8 +65,6 @@ public abstract class ChunkMapMixin implements ChunkMapBridge {
     private ResourceKey<LevelStem> arclight$useTypeKey(ServerLevel serverWorld) {
         return ((WorldBridge) serverWorld).bridge$getTypeKey();
     }
-
-    public final ArclightCallbackExecutor callbackExecutor = new ArclightCallbackExecutor();
 
     @Override
     public ArclightCallbackExecutor bridge$getCallbackExecutor() {

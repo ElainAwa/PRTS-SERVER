@@ -24,6 +24,7 @@ public class CHandshakePacketMixin {
 
     @Shadow
     public String hostName;
+    private transient String arclight$host;
 
     @Redirect(method = "<init>(Lnet/minecraft/network/FriendlyByteBuf;)V", at = @At(value = "INVOKE", target = "Lnet/minecraft/network/FriendlyByteBuf;readUtf(I)Ljava/lang/String;"))
     private String arclight$bungeeHostname(FriendlyByteBuf packetBuffer, int maxLength) {
@@ -87,8 +88,6 @@ public class CHandshakePacketMixin {
             return NetworkConstants.NETVERSION;
         }
     }
-
-    private transient String arclight$host;
 
     @Inject(method = "<init>(Lnet/minecraft/network/FriendlyByteBuf;)V", at = @At("RETURN"))
     private void arclight$writeBack(FriendlyByteBuf p_179801_, CallbackInfo ci) {

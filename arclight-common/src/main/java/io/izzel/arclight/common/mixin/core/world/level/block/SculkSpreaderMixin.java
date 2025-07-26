@@ -15,11 +15,11 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(SculkSpreader.class)
 public abstract class SculkSpreaderMixin implements SculkSpreaderBridge {
 
-    // @formatter:off
-    @Shadow public abstract boolean isWorldGeneration();
+    private transient Level arclight$level;
     // @formatter:on
 
-    private transient Level arclight$level;
+    // @formatter:off
+    @Shadow public abstract boolean isWorldGeneration();
 
     @Override
     public void bridge$setLevel(Level level) {

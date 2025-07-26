@@ -14,10 +14,6 @@ import org.spongepowered.asm.mixin.Shadow;
 @Mixin(InventoryCarrier.class)
 public interface InventoryCarrierMixin {
 
-    // @formatter:off
-    @Shadow SimpleContainer getInventory();
-    // @formatter:on
-
     /**
      * @author IzzelAliz
      * @reason
@@ -48,4 +44,8 @@ public interface InventoryCarrierMixin {
         }
 
     }
+    // @formatter:on
+
+    // @formatter:off
+    @Shadow SimpleContainer getInventory();
 }

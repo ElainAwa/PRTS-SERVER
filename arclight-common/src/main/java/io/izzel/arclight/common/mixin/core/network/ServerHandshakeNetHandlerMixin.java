@@ -35,11 +35,10 @@ public class ServerHandshakeNetHandlerMixin {
     private static final Gson gson = new Gson();
     private static final HashMap<InetAddress, Long> throttleTracker = new HashMap<>();
     private static int throttleCounter = 0;
-
+    @Shadow @Final private static Component IGNORE_STATUS_REASON;
     // @formatter:off
     @Shadow @Final private Connection connection;
     @Shadow @Final private MinecraftServer server;
-    @Shadow @Final private static Component IGNORE_STATUS_REASON;
     // @formatter:on
 
     /**

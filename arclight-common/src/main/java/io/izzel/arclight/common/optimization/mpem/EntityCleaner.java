@@ -23,19 +23,16 @@ import java.util.regex.Pattern;
 
 public class EntityCleaner {
     private static final Logger LOGGER = LogManager.getLogger("Luminara-MPEM-EntityCleaner");
-    private static long lastCleanTime = 0;
     private static final int CLEAN_INTERVAL_TICKS = 12000; // 10 minutes
-
     // Entity type patterns for filtering (similar to EClean's regex support)
     private static final Map<String, Pattern> entityPatterns = new ConcurrentHashMap<>();
     private static final Set<String> protectedEntityTypes = ConcurrentHashMap.newKeySet();
-
     // Chunk density tracking
     private static final Map<ChunkPos, Map<String, Integer>> chunkEntityCounts = new ConcurrentHashMap<>();
-
+    private static final AtomicBoolean cleanupInProgress = new AtomicBoolean(false);
+    private static long lastCleanTime = 0;
     // Cleanup scheduling
     private static ScheduledFuture<?> scheduledCleanup = null;
-    private static final AtomicBoolean cleanupInProgress = new AtomicBoolean(false);
 
     static {
         // Initialize protected entity types (entities that should never be cleaned)

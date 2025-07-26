@@ -27,6 +27,7 @@ public class ArclightRemapper {
     public static final ArclightRemapper INSTANCE;
     public static final File DUMP;
     public static final Function<byte[], byte[]> SWITCH_TABLE_FIXER;
+    private static long pkgOffset, clOffset, mdOffset, fdOffset, mapOffset;
 
     static {
         ArclightI18nLogger.getLogger("Arclight").info("loading-mapping");
@@ -51,9 +52,21 @@ public class ArclightRemapper {
         }
     }
 
+    static {
+        try {
+            pkgOffset = Unsafe.objectFieldOffset(JarMapping.class.getField("packages"));
+            clOffset = Unsafe.objectFieldOffset(JarMapping.class.getField("classes"));
+            mdOffset = Unsafe.objectFieldOffset(JarMapping.class.getField("methods"));
+            fdOffset = Unsafe.objectFieldOffset(JarMapping.class.getField("fields"));
+            mapOffset = Unsafe.objectFieldOffset(JarMapping.class.getDeclaredField("inheritanceMap"));
+        } catch (NoSuchFieldException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public final InheritanceMap inheritanceMap;
     private final JarMapping toNmsMapping;
     private final JarMapping toBukkitMapping;
-    public final InheritanceMap inheritanceMap;
     private final List<PluginTransformer> transformerList = new ArrayList<>();
     private final JarRemapper toBukkitRemapper;
     private final JarRemapper toNmsRemapper;
@@ -121,20 +134,6 @@ public class ArclightRemapper {
 
     public List<PluginPatcher> getPatchers() {
         return patchers;
-    }
-
-    private static long pkgOffset, clOffset, mdOffset, fdOffset, mapOffset;
-
-    static {
-        try {
-            pkgOffset = Unsafe.objectFieldOffset(JarMapping.class.getField("packages"));
-            clOffset = Unsafe.objectFieldOffset(JarMapping.class.getField("classes"));
-            mdOffset = Unsafe.objectFieldOffset(JarMapping.class.getField("methods"));
-            fdOffset = Unsafe.objectFieldOffset(JarMapping.class.getField("fields"));
-            mapOffset = Unsafe.objectFieldOffset(JarMapping.class.getDeclaredField("inheritanceMap"));
-        } catch (NoSuchFieldException e) {
-            e.printStackTrace();
-        }
     }
 
     private JarMapping copyOf(JarMapping mapping) {

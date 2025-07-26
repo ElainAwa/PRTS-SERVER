@@ -20,10 +20,13 @@ import javax.annotation.Nullable;
 @Mixin(Projectile.class)
 public abstract class ProjectileMixin extends EntityMixin {
 
+    private boolean hitCancelled = false;
+
     // @formatter:off
     @Shadow @Nullable public abstract Entity getOwner();
-    @Shadow protected void onHit(HitResult result) { }
     // @formatter:on
+
+    @Shadow protected void onHit(HitResult result) { }
 
     @Inject(method = "setOwner", at = @At("RETURN"))
     private void arclight$updateSource(Entity entityIn, CallbackInfo ci) {
@@ -34,8 +37,6 @@ public abstract class ProjectileMixin extends EntityMixin {
             }
         }
     }
-
-    private boolean hitCancelled = false;
 
     @Inject(method = "onHitBlock", cancellable = true, at = @At("HEAD"))
     private void arclight$cancelBlockHit(BlockHitResult result, CallbackInfo ci) {

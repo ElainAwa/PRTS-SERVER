@@ -32,14 +32,17 @@ import java.util.Optional;
 @Mixin(Animal.class)
 public abstract class AnimalMixin extends AgeableMobMixin implements AnimalEntityBridge {
 
+    @Shadow public int inLove;
+    public ItemStack breedItem;
+    private transient int arclight$loveTime;
+
     // @formatter:off
     @Shadow public InteractionResult mobInteract(Player playerIn, InteractionHand hand) { return null; }
-    @Shadow public int inLove;
-    @Shadow public abstract void resetLove();
-    @Shadow @Nullable public abstract ServerPlayer getLoveCause();
     // @formatter:on
 
-    public ItemStack breedItem;
+    @Shadow public abstract void resetLove();
+
+    @Shadow @Nullable public abstract ServerPlayer getLoveCause();
 
     /**
      * @author IzzelAliz
@@ -59,8 +62,6 @@ public abstract class AnimalMixin extends AgeableMobMixin implements AnimalEntit
             arclight$loveTime = event.getTicksInLove();
         }
     }
-
-    private transient int arclight$loveTime;
 
     @Inject(method = "setInLove(Lnet/minecraft/world/entity/player/Player;)V", at = @At(value = "FIELD", shift = At.Shift.AFTER, target = "Lnet/minecraft/world/entity/animal/Animal;inLove:I"))
     private void arclight$inLove(Player player, CallbackInfo ci) {

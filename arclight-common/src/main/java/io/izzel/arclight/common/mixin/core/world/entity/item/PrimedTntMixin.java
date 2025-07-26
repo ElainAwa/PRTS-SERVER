@@ -20,13 +20,14 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(PrimedTnt.class)
 public abstract class PrimedTntMixin extends EntityMixin {
 
-    // @formatter:off
-    @Shadow public abstract int getFuse();
-    @Shadow public abstract void setFuse(int p_32086_);
-    // @formatter:on
-
     public float yield;
     public boolean isIncendiary;
+    // @formatter:on
+
+    // @formatter:off
+    @Shadow public abstract int getFuse();
+
+    @Shadow public abstract void setFuse(int p_32086_);
 
     @Inject(method = "<init>(Lnet/minecraft/world/entity/EntityType;Lnet/minecraft/world/level/Level;)V", at = @At("RETURN"))
     private void arclight$init(EntityType<? extends PrimedTnt> type, Level worldIn, CallbackInfo ci) {

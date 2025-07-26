@@ -19,9 +19,8 @@ public class VelocityManager {
 
     private static final Logger LOGGER = ArclightI18nLogger.getLogger("Luminara-Velocity");
     private static VelocityManager instance;
-
-    private VelocityForwarding velocityForwarding;
     private final List<String> integratedArgumentTypes = new ArrayList<>();
+    private VelocityForwarding velocityForwarding;
 
     private VelocityManager() {
         loadIntegratedArgumentTypes();

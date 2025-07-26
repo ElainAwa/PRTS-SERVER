@@ -22,6 +22,7 @@ public class RemappingURLClassLoader extends URLClassLoader implements Remapping
 
     // Sample using remap config
     public ArclightRemapConfig config = new ArclightRemapConfig(RemappingClassLoader.needRemap(this));
+    private ClassLoaderRemapper remapper;
 
     public RemappingURLClassLoader(URL[] urls, ClassLoader parent) {
         super(urls, RemappingClassLoader.tryRedirect(parent));
@@ -91,8 +92,6 @@ public class RemappingURLClassLoader extends URLClassLoader implements Remapping
         }
         return result;
     }
-
-    private ClassLoaderRemapper remapper;
 
     @Override
     public ClassLoaderRemapper getRemapper() {

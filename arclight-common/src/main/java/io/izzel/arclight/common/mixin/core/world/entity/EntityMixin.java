@@ -90,132 +90,20 @@ import java.util.*;
 @Mixin(Entity.class)
 public abstract class EntityMixin implements InternalEntityBridge, EntityBridge, ICommandSourceBridge {
 
-    // @formatter:off
-    @Shadow private float yRot;
-    @Shadow public abstract Level level();
-    @Shadow protected int boardingCooldown;
-    @Shadow private float xRot;
-    @Shadow public abstract float getYRot();
-    @Shadow public abstract float getXRot();
-    @Shadow public abstract void setYRot(float p_146923_);
-    @Shadow public abstract void setXRot(float p_146927_);
-    @Shadow public int remainingFireTicks;
-    @Shadow public abstract Pose getPose();
-    @Shadow public abstract String getScoreboardName();
-    @Shadow protected abstract void handleNetherPortal();
-    @Shadow public abstract boolean fireImmune();
-    @Shadow public abstract boolean hurt(DamageSource source, float amount);
-    @Shadow public abstract void setSecondsOnFire(int seconds);
-    @Shadow public boolean horizontalCollision;
-    @Shadow protected abstract Vec3 collide(Vec3 vec);
-    @Shadow public int tickCount;
-    @Shadow private Entity vehicle;
-    @Shadow public abstract boolean isSwimming();
-    @Shadow public abstract boolean isAlive();
-    @Shadow public abstract void unRide();
-    @Shadow @Final protected SynchedEntityData entityData;
+    private static final int CURRENT_LEVEL = 2;
     @Shadow @Final private static EntityDataAccessor<Integer> DATA_AIR_SUPPLY_ID;
-    @Shadow @Nullable public abstract MinecraftServer getServer();
-    @Shadow public abstract Vec3 getDeltaMovement();
-    @Shadow public abstract EntityType<?> getType();
-    @Shadow @Final protected RandomSource random;
-    @Shadow public abstract float getBbWidth();
-    @Shadow public abstract float getBbHeight();
-    @Shadow public abstract boolean isInvisible();
-    @Shadow public abstract boolean isInvulnerableTo(DamageSource source);
+    @Shadow public int remainingFireTicks;
+    @Shadow public boolean horizontalCollision;
+    @Shadow public int tickCount;
     @Shadow public int invulnerableTime;
-    @Shadow public abstract void playSound(SoundEvent soundIn, float volume, float pitch);
-    @Shadow public abstract void teleportTo(double x, double y, double z);
-    @Shadow @Nullable public abstract ItemEntity spawnAtLocation(ItemStack stack);
-    @Shadow public abstract SynchedEntityData getEntityData();
-    @Shadow public void tick() {}
-    @Shadow public abstract AABB getBoundingBox();
-    @Shadow(remap = false) public abstract Collection<ItemEntity> captureDrops();
-    @Shadow(remap = false) public abstract Collection<ItemEntity> captureDrops(Collection<ItemEntity> value);
-    @Shadow public abstract BlockPos blockPosition();
-    @Shadow protected boolean onGround;
-    @Shadow public abstract boolean isInWater();
-    @Shadow public abstract boolean isPassenger();
     @Shadow public float fallDistance;
-    @Shadow public abstract boolean isSprinting();
     @Shadow public float walkDist;
     @Shadow public float walkDistO;
-    @Shadow public abstract boolean isAlliedTo(Entity entityIn);
-    @Shadow public abstract void setDeltaMovement(Vec3 motionIn);
-    @Shadow public abstract double distanceToSqr(Entity entityIn);
-    @Shadow protected UUID uuid;
-    @Shadow protected abstract void markHurt();
-    @Shadow public abstract void ejectPassengers();
-    @Shadow public abstract boolean hasCustomName();
-    @Shadow public abstract void setPos(double x, double y, double z);
-    @Shadow protected abstract void setRot(float yaw, float pitch);
     @Shadow public double xo;
     @Shadow public double yo;
     @Shadow public double zo;
-    @Shadow public abstract boolean isNoGravity();
-    @Shadow protected abstract void checkInsideBlocks();
     @Shadow public float yRotO;
-    @Shadow public abstract boolean isVehicle();
-    @Shadow public abstract boolean hasPassenger(Entity entityIn);
-    @Shadow public abstract void setDeltaMovement(double x, double y, double z);
-    @Shadow public abstract void move(MoverType typeIn, Vec3 pos);
-    @Shadow @Nullable public abstract Entity getVehicle();
-    @Shadow @Nullable public abstract Team getTeam();
-    @Shadow public abstract void clearFire();
-    @Shadow public abstract void setSharedFlag(int flag, boolean set);
-    @Shadow public abstract void moveTo(double x, double y, double z, float yaw, float pitch);
-    @Shadow public abstract int getId();
-    @Shadow @Nullable public abstract Component getCustomName();
-    @Shadow public abstract void doEnchantDamageEffects(LivingEntity entityLivingBaseIn, Entity entityIn);
-    @Shadow @Nullable public abstract Entity changeDimension(ServerLevel world);
-    @Shadow public abstract boolean isPassengerOfSameVehicle(Entity entityIn);
-    @Shadow public abstract boolean isInvulnerable();
-    @Shadow public abstract double getX();
-    @Shadow public abstract double getZ();
-    @Shadow public abstract double getY();
-    @Shadow public abstract double getEyeY();
-    @Shadow public abstract Vec3 position();
-    @Shadow(remap = false) public abstract void revive();
-    @Shadow public abstract boolean isPushable();
-    @Shadow protected abstract void removeAfterChangingDimensions();
-    @Shadow protected BlockPos portalEntrancePos;
-    @Shadow protected abstract Vec3 getRelativePortalPosition(Direction.Axis axis, BlockUtil.FoundRectangle result);
-    @Shadow public abstract EntityDimensions getDimensions(Pose poseIn);
-    @Shadow protected abstract boolean updateInWaterStateAndDoFluidPushing();
-    @Shadow public abstract boolean isInLava();
-    @Shadow public abstract void lavaHurt();
-    @Shadow protected boolean firstTick;
-    @Shadow public abstract boolean isSilent();
-    @Shadow public abstract void setInvisible(boolean invisible);
     @Shadow public ImmutableList<Entity> passengers;
-    @Shadow public abstract boolean isRemoved();
-    @Shadow public void remove(Entity.RemovalReason p_146834_) {}
-    @Shadow public abstract void discard();
-    @Shadow protected abstract void unsetRemoved();
-    @Shadow public abstract double getY(double p_20228_);
-    @Shadow public abstract void gameEvent(GameEvent p_146853_, @org.jetbrains.annotations.Nullable Entity p_146854_);
-    @Shadow public abstract void setTicksFrozen(int p_146918_);
-    @Shadow public abstract void setSharedFlagOnFire(boolean p_146869_);
-    @Shadow public abstract int getMaxAirSupply();
-    @Shadow public abstract int getAirSupply();
-    @Shadow public abstract void gameEvent(GameEvent p_146851_);
-    @Shadow protected abstract SoundEvent getSwimSound();
-    @Shadow protected abstract SoundEvent getSwimSplashSound();
-    @Shadow protected abstract SoundEvent getSwimHighSpeedSplashSound();
-    @Shadow public abstract boolean isShiftKeyDown();
-    @Shadow public abstract DamageSources damageSources();
-    @Shadow @Nullable public abstract Entity getFirstPassenger();
-    @Shadow public abstract boolean teleportTo(ServerLevel p_265257_, double p_265407_, double p_265727_, double p_265410_, Set<RelativeMovement> p_265083_, float p_265573_, float p_265094_);
-    @Shadow public abstract boolean isSpectator();
-    @Shadow public abstract SoundSource getSoundSource();
-    @Shadow public abstract int getPortalCooldown();
-    @Shadow public abstract void checkBelowWorld();
-    // @formatter:on
-
-    @Shadow
-    protected abstract void setLevel(Level p_285201_);
-
-    private static final int CURRENT_LEVEL = 2;
     public boolean persist = true;
     public boolean generation;
     public boolean valid;
@@ -225,8 +113,219 @@ public abstract class EntityMixin implements InternalEntityBridge, EntityBridge,
     public BlockPos lastLavaContact;
     public int maxAirTicks = getDefaultMaxAirSupply();
     public boolean visibleByDefault = true;
-
+    @Shadow protected int boardingCooldown;
+    @Shadow @Final protected SynchedEntityData entityData;
+    @Shadow @Final protected RandomSource random;
+    @Shadow protected boolean onGround;
+    @Shadow protected UUID uuid;
+    @Shadow protected BlockPos portalEntrancePos;
+    @Shadow protected boolean firstTick;
+    // @formatter:off
+    @Shadow private float yRot;
+    @Shadow private float xRot;
+    @Shadow private Entity vehicle;
     private CraftEntity bukkitEntity;
+    private transient PositionImpl arclight$tpPos;
+
+    private static boolean isLevelAtLeast(CompoundTag tag, int level) {
+        return tag.contains("Bukkit.updateLevel") && tag.getInt("Bukkit.updateLevel") >= level;
+    }
+
+    @Shadow public abstract Level level();
+
+    @Shadow public abstract float getYRot();
+
+    @Shadow public abstract void setYRot(float p_146923_);
+
+    @Shadow public abstract float getXRot();
+
+    @Shadow public abstract void setXRot(float p_146927_);
+
+    @Shadow public abstract Pose getPose();
+
+    @Shadow public abstract String getScoreboardName();
+
+    @Shadow protected abstract void handleNetherPortal();
+
+    @Shadow public abstract boolean fireImmune();
+
+    @Shadow public abstract boolean hurt(DamageSource source, float amount);
+
+    @Shadow public abstract void setSecondsOnFire(int seconds);
+
+    @Shadow protected abstract Vec3 collide(Vec3 vec);
+
+    @Shadow public abstract boolean isSwimming();
+
+    @Shadow public abstract boolean isAlive();
+
+    @Shadow public abstract void unRide();
+
+    @Shadow @Nullable public abstract MinecraftServer getServer();
+
+    @Shadow public abstract Vec3 getDeltaMovement();
+
+    @Shadow public abstract void setDeltaMovement(Vec3 motionIn);
+
+    @Shadow public abstract EntityType<?> getType();
+
+    @Shadow public abstract float getBbWidth();
+
+    @Shadow public abstract float getBbHeight();
+
+    @Shadow public abstract boolean isInvisible();
+
+    @Shadow public abstract void setInvisible(boolean invisible);
+
+    @Shadow public abstract boolean isInvulnerableTo(DamageSource source);
+
+    @Shadow public abstract void playSound(SoundEvent soundIn, float volume, float pitch);
+
+    @Shadow public abstract void teleportTo(double x, double y, double z);
+
+    @Shadow @Nullable public abstract ItemEntity spawnAtLocation(ItemStack stack);
+
+    @Shadow public abstract SynchedEntityData getEntityData();
+
+    @Shadow public void tick() {}
+
+    @Shadow public abstract AABB getBoundingBox();
+
+    @Shadow(remap = false) public abstract Collection<ItemEntity> captureDrops();
+
+    @Shadow(remap = false) public abstract Collection<ItemEntity> captureDrops(Collection<ItemEntity> value);
+
+    @Shadow public abstract BlockPos blockPosition();
+
+    @Shadow public abstract boolean isInWater();
+
+    @Shadow public abstract boolean isPassenger();
+
+    @Shadow public abstract boolean isSprinting();
+
+    @Shadow public abstract boolean isAlliedTo(Entity entityIn);
+
+    @Shadow public abstract double distanceToSqr(Entity entityIn);
+
+    @Shadow protected abstract void markHurt();
+
+    @Shadow public abstract void ejectPassengers();
+
+    @Shadow public abstract boolean hasCustomName();
+
+    @Shadow public abstract void setPos(double x, double y, double z);
+
+    @Shadow protected abstract void setRot(float yaw, float pitch);
+
+    @Shadow public abstract boolean isNoGravity();
+
+    @Shadow protected abstract void checkInsideBlocks();
+
+    @Shadow public abstract boolean isVehicle();
+
+    @Shadow public abstract boolean hasPassenger(Entity entityIn);
+
+    @Shadow public abstract void setDeltaMovement(double x, double y, double z);
+
+    @Shadow public abstract void move(MoverType typeIn, Vec3 pos);
+
+    @Shadow @Nullable public abstract Entity getVehicle();
+
+    @Shadow @Nullable public abstract Team getTeam();
+
+    @Shadow public abstract void clearFire();
+
+    @Shadow public abstract void setSharedFlag(int flag, boolean set);
+
+    @Shadow public abstract void moveTo(double x, double y, double z, float yaw, float pitch);
+
+    @Shadow public abstract int getId();
+
+    @Shadow @Nullable public abstract Component getCustomName();
+
+    @Shadow public abstract void doEnchantDamageEffects(LivingEntity entityLivingBaseIn, Entity entityIn);
+
+    @Shadow @Nullable public abstract Entity changeDimension(ServerLevel world);
+
+    @Shadow public abstract boolean isPassengerOfSameVehicle(Entity entityIn);
+
+    @Shadow public abstract boolean isInvulnerable();
+
+    @Shadow public abstract double getX();
+
+    @Shadow public abstract double getZ();
+
+    @Shadow public abstract double getY();
+
+    @Shadow public abstract double getEyeY();
+
+    @Shadow public abstract Vec3 position();
+
+    @Shadow(remap = false) public abstract void revive();
+
+    @Shadow public abstract boolean isPushable();
+
+    @Shadow protected abstract void removeAfterChangingDimensions();
+
+    @Shadow protected abstract Vec3 getRelativePortalPosition(Direction.Axis axis, BlockUtil.FoundRectangle result);
+
+    @Shadow public abstract EntityDimensions getDimensions(Pose poseIn);
+
+    @Shadow protected abstract boolean updateInWaterStateAndDoFluidPushing();
+
+    @Shadow public abstract boolean isInLava();
+
+    @Shadow public abstract void lavaHurt();
+
+    @Shadow public abstract boolean isSilent();
+
+    @Shadow public abstract boolean isRemoved();
+
+    @Shadow public void remove(Entity.RemovalReason p_146834_) {}
+
+    @Shadow public abstract void discard();
+
+    @Shadow protected abstract void unsetRemoved();
+
+    @Shadow public abstract double getY(double p_20228_);
+
+    @Shadow public abstract void gameEvent(GameEvent p_146853_, @org.jetbrains.annotations.Nullable Entity p_146854_);
+
+    @Shadow public abstract void setTicksFrozen(int p_146918_);
+
+    @Shadow public abstract void setSharedFlagOnFire(boolean p_146869_);
+
+    @Shadow public abstract int getMaxAirSupply();
+    // @formatter:on
+
+    @Shadow public abstract int getAirSupply();
+
+    @Shadow public abstract void gameEvent(GameEvent p_146851_);
+
+    @Shadow protected abstract SoundEvent getSwimSound();
+
+    @Shadow protected abstract SoundEvent getSwimSplashSound();
+
+    @Shadow protected abstract SoundEvent getSwimHighSpeedSplashSound();
+
+    @Shadow public abstract boolean isShiftKeyDown();
+
+    @Shadow public abstract DamageSources damageSources();
+
+    @Shadow @Nullable public abstract Entity getFirstPassenger();
+
+    @Shadow public abstract boolean teleportTo(ServerLevel p_265257_, double p_265407_, double p_265727_, double p_265410_, Set<RelativeMovement> p_265083_, float p_265573_, float p_265094_);
+
+    @Shadow public abstract boolean isSpectator();
+
+    @Shadow public abstract SoundSource getSoundSource();
+
+    @Shadow public abstract int getPortalCooldown();
+
+    @Shadow public abstract void checkBelowWorld();
+
+    @Shadow
+    protected abstract void setLevel(Level p_285201_);
 
     public CraftEntity getBukkitEntity() {
         return internal$getBukkitEntity();
@@ -513,7 +612,6 @@ public abstract class EntityMixin implements InternalEntityBridge, EntityBridge,
             cir.setReturnValue(false);
     }
 
-
     @Inject(method = "saveWithoutId", at = @At(value = "INVOKE_ASSIGN", ordinal = 1, target = "Lnet/minecraft/nbt/CompoundTag;put(Ljava/lang/String;Lnet/minecraft/nbt/Tag;)Lnet/minecraft/nbt/Tag;"))
     public void arclight$writeWithoutTypeId$InfiniteValueCheck(CompoundTag compound, CallbackInfoReturnable<CompoundTag> cir) {
         if (Float.isNaN(this.getYRot())) {
@@ -550,10 +648,6 @@ public abstract class EntityMixin implements InternalEntityBridge, EntityBridge,
         if (this.bukkitEntity != null) {
             this.bukkitEntity.storeBukkitValues(compound);
         }
-    }
-
-    private static boolean isLevelAtLeast(CompoundTag tag, int level) {
-        return tag.contains("Bukkit.updateLevel") && tag.getInt("Bukkit.updateLevel") >= level;
     }
 
     @Inject(method = "load", at = @At(value = "RETURN"))
@@ -837,8 +931,6 @@ public abstract class EntityMixin implements InternalEntityBridge, EntityBridge,
     public int bridge$getRideCooldown() {
         return this.boardingCooldown;
     }
-
-    private transient PositionImpl arclight$tpPos;
 
     public Entity teleportTo(ServerLevel world, PositionImpl blockPos) {
         arclight$tpPos = blockPos;

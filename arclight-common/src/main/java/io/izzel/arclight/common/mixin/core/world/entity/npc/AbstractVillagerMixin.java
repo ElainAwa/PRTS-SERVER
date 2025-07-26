@@ -29,13 +29,12 @@ public abstract class AbstractVillagerMixin extends PathfinderMobMixin implement
     @Shadow
     @Final
     private SimpleContainer inventory;
+    private CraftMerchant craftMerchant;
 
     @Inject(method = "<init>", at = @At("RETURN"))
     private void arclight$init(EntityType<? extends net.minecraft.world.entity.npc.AbstractVillager> type, Level worldIn, CallbackInfo ci) {
         ((IInventoryBridge) this.inventory).setOwner((InventoryHolder) this.getBukkitEntity());
     }
-
-    private CraftMerchant craftMerchant;
 
     @Override
     public CraftMerchant bridge$getCraftMerchant() {

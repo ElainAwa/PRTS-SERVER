@@ -19,6 +19,14 @@ public class ArclightLocale {
 
     private static ArclightLocale instance;
 
+    static {
+        try {
+            init();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     private final String current, fallback;
     private final CommentedConfigurationNode node;
 
@@ -26,39 +34,6 @@ public class ArclightLocale {
         this.current = current;
         this.fallback = fallback;
         this.node = node;
-    }
-
-    public String getCurrent() {
-        return current;
-    }
-
-    public String getFallback() {
-        return fallback;
-    }
-
-    public CommentedConfigurationNode getNode() {
-        return node;
-    }
-
-    public String format(String node, Object... args) {
-        return MessageFormat.format(get(node), args);
-    }
-
-    public String get(String path) {
-        return getOption(path).orElse(path);
-    }
-
-    public Optional<String> getOption(String path) {
-        CommentedConfigurationNode node = this.node.getNode((Object[]) path.split("\\."));
-        if (node.getValueType() == ValueType.LIST) {
-            StringJoiner joiner = new StringJoiner("\n");
-            for (CommentedConfigurationNode configurationNode : node.getChildrenList()) {
-                joiner.add(configurationNode.getString());
-            }
-            return Optional.ofNullable(joiner.toString());
-        } else {
-            return Optional.ofNullable(node.getString());
-        }
     }
 
     public static void info(String path, Object... args) {
@@ -118,11 +93,36 @@ public class ArclightLocale {
         return locale.getLanguage().toLowerCase(Locale.ROOT) + "_" + locale.getCountry().toLowerCase(Locale.ROOT);
     }
 
-    static {
-        try {
-            init();
-        } catch (Exception e) {
-            throw new RuntimeException(e);
+    public String getCurrent() {
+        return current;
+    }
+
+    public String getFallback() {
+        return fallback;
+    }
+
+    public CommentedConfigurationNode getNode() {
+        return node;
+    }
+
+    public String format(String node, Object... args) {
+        return MessageFormat.format(get(node), args);
+    }
+
+    public String get(String path) {
+        return getOption(path).orElse(path);
+    }
+
+    public Optional<String> getOption(String path) {
+        CommentedConfigurationNode node = this.node.getNode((Object[]) path.split("\\."));
+        if (node.getValueType() == ValueType.LIST) {
+            StringJoiner joiner = new StringJoiner("\n");
+            for (CommentedConfigurationNode configurationNode : node.getChildrenList()) {
+                joiner.add(configurationNode.getString());
+            }
+            return Optional.ofNullable(joiner.toString());
+        } else {
+            return Optional.ofNullable(node.getString());
         }
     }
 }

@@ -27,11 +27,24 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Mixin(RedStoneOreBlock.class)
 public abstract class RedstoneOreBlockMixin {
 
-    // @formatter:off
-    @Shadow private static void interact(BlockState state, Level world, BlockPos pos) { }
+    private static transient Entity arclight$entity;
     // @formatter:on
 
-    private static transient Entity arclight$entity;
+    // @formatter:off
+    @Shadow private static void interact(BlockState state, Level world, BlockPos pos) { }
+
+    private static void interact(BlockState blockState, Level world, BlockPos blockPos, Entity entity) {
+        arclight$entity = entity;
+        interact(blockState, world, blockPos);
+    }
+
+    @Inject(method = "interact", cancellable = true, at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/Level;setBlock(Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/state/BlockState;I)Z"))
+    private static void arclight$entityChangeBlock(BlockState blockState, Level world, BlockPos blockPos, CallbackInfo ci) {
+        if (!CraftEventFactory.callEntityChangeBlockEvent(arclight$entity, blockPos, blockState.setValue(RedStoneOreBlock.LIT, true))) {
+            ci.cancel();
+        }
+        arclight$entity = null;
+    }
 
     @Inject(method = "attack", at = @At(value = "HEAD"))
     public void arclight$interact1(BlockState state, Level worldIn, BlockPos pos, Player player, CallbackInfo ci) {
@@ -67,18 +80,5 @@ public abstract class RedstoneOreBlockMixin {
         if (CraftEventFactory.callBlockFadeEvent(worldIn, pos, state.setValue(RedStoneOreBlock.LIT, false)).isCancelled()) {
             ci.cancel();
         }
-    }
-
-    private static void interact(BlockState blockState, Level world, BlockPos blockPos, Entity entity) {
-        arclight$entity = entity;
-        interact(blockState, world, blockPos);
-    }
-
-    @Inject(method = "interact", cancellable = true, at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/Level;setBlock(Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/state/BlockState;I)Z"))
-    private static void arclight$entityChangeBlock(BlockState blockState, Level world, BlockPos blockPos, CallbackInfo ci) {
-        if (!CraftEventFactory.callEntityChangeBlockEvent(arclight$entity, blockPos, blockState.setValue(RedStoneOreBlock.LIT, true))) {
-            ci.cancel();
-        }
-        arclight$entity = null;
     }
 }

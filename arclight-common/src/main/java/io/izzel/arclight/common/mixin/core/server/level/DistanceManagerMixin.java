@@ -25,14 +25,18 @@ import java.util.function.Consumer;
 @Mixin(DistanceManager.class)
 public abstract class DistanceManagerMixin implements TicketManagerBridge {
 
+    @Shadow @Final public Long2ObjectOpenHashMap<SortedArraySet<Ticket<?>>> tickets;
     // @formatter:off
     @Shadow private long ticketTickCounter;
     @Shadow @Final private DistanceManager.ChunkTicketTracker ticketTracker;
-    @Shadow protected abstract SortedArraySet<Ticket<?>> getTickets(long p_229848_1_);
-    @Shadow private static int getTicketLevelAt(SortedArraySet<Ticket<?>> p_229844_0_) { return 0; }
-    @Shadow @Final public Long2ObjectOpenHashMap<SortedArraySet<Ticket<?>>> tickets;
-    @Shadow abstract TickingTracker tickingTracker();
     @Shadow(remap = false) @Final private Long2ObjectOpenHashMap<SortedArraySet<Ticket<?>>> forcedTickets;
+
+    @Shadow private static int getTicketLevelAt(SortedArraySet<Ticket<?>> p_229844_0_) { return 0; }
+
+    @Shadow protected abstract SortedArraySet<Ticket<?>> getTickets(long p_229848_1_);
+
+    @Shadow abstract TickingTracker tickingTracker();
+
     @Invoker("purgeStaleTickets") public abstract void bridge$tick();
     // @formatter:on
 

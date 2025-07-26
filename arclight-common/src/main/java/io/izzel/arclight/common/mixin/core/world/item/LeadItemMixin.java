@@ -30,16 +30,6 @@ public class LeadItemMixin {
 
     private static InteractionHand arclight$hand;
 
-    @Inject(method = "useOn", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/item/LeadItem;bindPlayerMobs(Lnet/minecraft/world/entity/player/Player;Lnet/minecraft/world/level/Level;Lnet/minecraft/core/BlockPos;)Lnet/minecraft/world/InteractionResult;"))
-    private void arclight$captureHand(UseOnContext p_42834_, CallbackInfoReturnable<InteractionResult> cir) {
-        arclight$hand = p_42834_.getHand();
-    }
-
-    @Inject(method = "useOn", at = @At(value = "INVOKE", shift = At.Shift.AFTER, target = "Lnet/minecraft/world/item/LeadItem;bindPlayerMobs(Lnet/minecraft/world/entity/player/Player;Lnet/minecraft/world/level/Level;Lnet/minecraft/core/BlockPos;)Lnet/minecraft/world/InteractionResult;"))
-    private void arclight$resetHand(UseOnContext p_42834_, CallbackInfoReturnable<InteractionResult> cir) {
-        arclight$hand = p_42834_.getHand();
-    }
-
     /**
      * @author IzzelAliz
      * @reason
@@ -74,5 +64,15 @@ public class LeadItemMixin {
         }
 
         return flag ? InteractionResult.SUCCESS : InteractionResult.PASS;
+    }
+
+    @Inject(method = "useOn", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/item/LeadItem;bindPlayerMobs(Lnet/minecraft/world/entity/player/Player;Lnet/minecraft/world/level/Level;Lnet/minecraft/core/BlockPos;)Lnet/minecraft/world/InteractionResult;"))
+    private void arclight$captureHand(UseOnContext p_42834_, CallbackInfoReturnable<InteractionResult> cir) {
+        arclight$hand = p_42834_.getHand();
+    }
+
+    @Inject(method = "useOn", at = @At(value = "INVOKE", shift = At.Shift.AFTER, target = "Lnet/minecraft/world/item/LeadItem;bindPlayerMobs(Lnet/minecraft/world/entity/player/Player;Lnet/minecraft/world/level/Level;Lnet/minecraft/core/BlockPos;)Lnet/minecraft/world/InteractionResult;"))
+    private void arclight$resetHand(UseOnContext p_42834_, CallbackInfoReturnable<InteractionResult> cir) {
+        arclight$hand = p_42834_.getHand();
     }
 }

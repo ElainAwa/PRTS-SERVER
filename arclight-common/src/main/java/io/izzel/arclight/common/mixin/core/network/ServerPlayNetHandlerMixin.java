@@ -111,16 +111,20 @@ import java.util.stream.Collectors;
 @Mixin(ServerGamePacketListenerImpl.class)
 public abstract class ServerPlayNetHandlerMixin implements ServerPlayNetHandlerBridge {
 
-    // @formatter:off
-    @Shadow @Final private MinecraftServer server;
+    private static final int SURVIVAL_PLACE_DISTANCE_SQUARED = 6 * 6;
+    private static final int CREATIVE_PLACE_DISTANCE_SQUARED = 7 * 7;
+    private static final ResourceLocation CUSTOM_REGISTER = new ResourceLocation("register");
+    private static final ResourceLocation CUSTOM_UNREGISTER = new ResourceLocation("unregister");
+    @Shadow @Final private static Logger LOGGER;
     @Shadow public ServerPlayer player;
     @Shadow @Final public Connection connection;
-    @Shadow public abstract void onDisconnect(Component reason);
+    public boolean processedDisconnect;
+    // @formatter:off
+    @Shadow @Final private MinecraftServer server;
     @Shadow private Entity lastVehicle;
     @Shadow private double vehicleFirstGoodX;
     @Shadow private double vehicleFirstGoodY;
     @Shadow private double vehicleFirstGoodZ;
-    @Shadow protected abstract boolean isSingleplayerOwner();
     @Shadow private double vehicleLastGoodX;
     @Shadow private double vehicleLastGoodY;
     @Shadow private double vehicleLastGoodZ;
@@ -129,49 +133,24 @@ public abstract class ServerPlayNetHandlerMixin implements ServerPlayNetHandlerB
     @Shadow private int knownMovePacketCount;
     @Shadow private Vec3 awaitingPositionFromClient;
     @Shadow private int tickCount;
-    @Shadow public abstract void resetPosition();
     @Shadow private int awaitingTeleportTime;
-    @Shadow public abstract void teleport(double x, double y, double z, float yaw, float pitch);
     @Shadow private double firstGoodX;
     @Shadow private double firstGoodY;
     @Shadow private double firstGoodZ;
-    @Shadow @Final private static Logger LOGGER;
     @Shadow private double lastGoodX;
     @Shadow private double lastGoodY;
     @Shadow private double lastGoodZ;
     @Shadow private boolean clientIsFloating;
     @Shadow private int awaitingTeleport;
-    @Shadow public abstract void send(Packet<?> packetIn);
     @Shadow private int chatSpamTickCount;
     @Shadow private int dropSpamTickCount;
-    @Shadow protected abstract boolean noBlocksAround(Entity p_241162_1_);
-    @Shadow private static double clampHorizontal(double p_143610_) { return 0; }
-    @Shadow private static double clampVertical(double p_143654_) { return 0; }
-    @Shadow private static boolean containsInvalidValues(double p_143664_, double p_143665_, double p_143666_, float p_143667_, float p_143668_) { return false; }
     @Shadow @Final @Mutable private FutureChain chatMessageChain;
-    @Shadow protected abstract void updateBookPages(List<FilteredText> p_143635_, UnaryOperator<String> p_143636_, ItemStack p_143637_);
-    @Shadow public abstract void ackBlockChangesUpTo(int p_215202_);
-    @Shadow private static boolean isChatMessageIllegal(String p_215215_) { return false; }
-    @Shadow protected abstract CompletableFuture<FilteredText> filterTextPacket(String p_243213_);
-    @Shadow protected abstract ParseResults<CommandSourceStack> parseCommand(String p_242938_);
-    @Shadow protected abstract void detectRateSpam();
-    @Shadow protected abstract Optional<LastSeenMessages> tryHandleChat(String p_251364_, Instant p_248959_, LastSeenMessages.Update p_249613_);
-    @Shadow protected abstract PlayerChatMessage getSignedMessage(ServerboundChatPacket p_251061_, LastSeenMessages p_250566_) throws SignedMessageChain.DecodeException;
-    @Shadow protected abstract void handleMessageDecodeFailure(SignedMessageChain.DecodeException p_252068_);
-    @Shadow protected abstract Map<String, PlayerChatMessage> collectSignedArguments(ServerboundChatCommandPacket p_249441_, SignableCommand<?> p_250039_, LastSeenMessages p_249207_) throws SignedMessageChain.DecodeException;
-    @Shadow protected abstract boolean isPlayerCollidingWithAnythingNew(LevelReader p_289008_, AABB p_288986_, double p_288990_, double p_288991_, double p_288967_);
-    // @formatter:on
-
-    private static final int SURVIVAL_PLACE_DISTANCE_SQUARED = 6 * 6;
-    private static final int CREATIVE_PLACE_DISTANCE_SQUARED = 7 * 7;
     private CraftServer cserver;
-    public boolean processedDisconnect;
     private int allowedPlayerTicks;
     private int dropCount;
     private int lastTick;
     private volatile int lastBookTick;
     private int lastDropTick;
-
     private double lastPosX;
     private double lastPosY;
     private double lastPosZ;
@@ -179,6 +158,50 @@ public abstract class ServerPlayNetHandlerMixin implements ServerPlayNetHandlerB
     private float lastYaw;
     private boolean justTeleported;
     private boolean hasMoved;
+    private int limitedPackets;
+    private long lastLimitedPacket = -1;
+    // @formatter:on
+    private transient PlayerTeleportEvent.TeleportCause arclight$cause;
+
+    @Shadow private static double clampHorizontal(double p_143610_) { return 0; }
+
+    @Shadow private static double clampVertical(double p_143654_) { return 0; }
+
+    @Shadow private static boolean containsInvalidValues(double p_143664_, double p_143665_, double p_143666_, float p_143667_, float p_143668_) { return false; }
+
+    @Shadow private static boolean isChatMessageIllegal(String p_215215_) { return false; }
+
+    @Shadow public abstract void onDisconnect(Component reason);
+
+    @Shadow protected abstract boolean isSingleplayerOwner();
+
+    @Shadow public abstract void resetPosition();
+
+    @Shadow public abstract void teleport(double x, double y, double z, float yaw, float pitch);
+
+    @Shadow public abstract void send(Packet<?> packetIn);
+
+    @Shadow protected abstract boolean noBlocksAround(Entity p_241162_1_);
+
+    @Shadow protected abstract void updateBookPages(List<FilteredText> p_143635_, UnaryOperator<String> p_143636_, ItemStack p_143637_);
+
+    @Shadow public abstract void ackBlockChangesUpTo(int p_215202_);
+
+    @Shadow protected abstract CompletableFuture<FilteredText> filterTextPacket(String p_243213_);
+
+    @Shadow protected abstract ParseResults<CommandSourceStack> parseCommand(String p_242938_);
+
+    @Shadow protected abstract void detectRateSpam();
+
+    @Shadow protected abstract Optional<LastSeenMessages> tryHandleChat(String p_251364_, Instant p_248959_, LastSeenMessages.Update p_249613_);
+
+    @Shadow protected abstract PlayerChatMessage getSignedMessage(ServerboundChatPacket p_251061_, LastSeenMessages p_250566_) throws SignedMessageChain.DecodeException;
+
+    @Shadow protected abstract void handleMessageDecodeFailure(SignedMessageChain.DecodeException p_252068_);
+
+    @Shadow protected abstract Map<String, PlayerChatMessage> collectSignedArguments(ServerboundChatCommandPacket p_249441_, SignableCommand<?> p_250039_, LastSeenMessages p_249207_) throws SignedMessageChain.DecodeException;
+
+    @Shadow protected abstract boolean isPlayerCollidingWithAnythingNew(LevelReader p_289008_, AABB p_288986_, double p_288990_, double p_288991_, double p_288967_);
 
     public CraftPlayer getCraftPlayer() {
         return (this.player == null) ? null : ((ServerPlayerEntityBridge) this.player).bridge$getBukkitEntity();
@@ -433,6 +456,12 @@ public abstract class ServerPlayNetHandlerMixin implements ServerPlayNetHandlerB
         }
         this.lastBookTick = ArclightConstants.currentTick;
     }
+
+    // So, what is SPIGOT-4706 exactly?
+    // @Inject(method = "handleUseItemOn", at = @At(value = "INVOKE", target = "Lnet/minecraft/server/level/ServerPlayerGameMode;useItemOn(Lnet/minecraft/server/level/ServerPlayer;Lnet/minecraft/world/level/Level;Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/InteractionHand;Lnet/minecraft/world/phys/BlockHitResult;)Lnet/minecraft/world/InteractionResult;"))
+    // private void arclight$checkDistance(ServerboundUseItemOnPacket packetIn, CallbackInfo ci) {
+    //     this.player.stopUsingItem();
+    // }
 
     /**
      * @author IzzelAliz
@@ -758,15 +787,6 @@ public abstract class ServerPlayNetHandlerMixin implements ServerPlayNetHandlerB
             ci.cancel();
         }
     }
-
-    // So, what is SPIGOT-4706 exactly?
-    // @Inject(method = "handleUseItemOn", at = @At(value = "INVOKE", target = "Lnet/minecraft/server/level/ServerPlayerGameMode;useItemOn(Lnet/minecraft/server/level/ServerPlayer;Lnet/minecraft/world/level/Level;Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/InteractionHand;Lnet/minecraft/world/phys/BlockHitResult;)Lnet/minecraft/world/InteractionResult;"))
-    // private void arclight$checkDistance(ServerboundUseItemOnPacket packetIn, CallbackInfo ci) {
-    //     this.player.stopUsingItem();
-    // }
-
-    private int limitedPackets;
-    private long lastLimitedPacket = -1;
 
     private boolean checkLimit(long timestamp) {
         if (lastLimitedPacket != -1 && timestamp - lastLimitedPacket < 30 && limitedPackets++ >= 4) {
@@ -1732,9 +1752,6 @@ public abstract class ServerPlayNetHandlerMixin implements ServerPlayNetHandlerB
         }
     }
 
-    private static final ResourceLocation CUSTOM_REGISTER = new ResourceLocation("register");
-    private static final ResourceLocation CUSTOM_UNREGISTER = new ResourceLocation("unregister");
-
     @Inject(method = "handleCustomPayload", at = @At(value = "INVOKE", remap = false, target = "Lnet/minecraftforge/network/NetworkHooks;onCustomPayload(Lnet/minecraftforge/network/ICustomPacket;Lnet/minecraft/network/Connection;)Z"))
     private void arclight$customPayload(ServerboundCustomPayloadPacket packet, CallbackInfo ci) {
         var readerIndex = packet.data.readerIndex();
@@ -1888,8 +1905,6 @@ public abstract class ServerPlayNetHandlerMixin implements ServerPlayNetHandlerB
     public void teleport(Location dest) {
         this.internalTeleport(dest.getX(), dest.getY(), dest.getZ(), dest.getYaw(), dest.getPitch(), Collections.emptySet());
     }
-
-    private transient PlayerTeleportEvent.TeleportCause arclight$cause;
 
     @Override
     public void bridge$pushTeleportCause(PlayerTeleportEvent.TeleportCause cause) {

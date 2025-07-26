@@ -40,13 +40,6 @@ import java.util.function.Function;
 @Mixin(value = Material.class, remap = false)
 public abstract class MaterialMixin implements MaterialBridge {
 
-    // @formatter:off
-    @Shadow @Mutable @Final private NamespacedKey key;
-    @Shadow @Mutable @Final private Constructor<? extends MaterialData> ctor;
-    @Shadow @Mutable @Final public Class<?> data;
-    @Shadow public abstract boolean isBlock();
-    // @formatter:on
-
     private static final Map<String, BiFunction<Material, CraftMetaItem, ItemMeta>> TYPES = ImmutableMap
             .<String, BiFunction<Material, CraftMetaItem, ItemMeta>>builder()
             .put("ARMOR_STAND", (a, b) -> b instanceof CraftMetaArmorStand ? b : new CraftMetaArmorStand(b))
@@ -69,10 +62,42 @@ public abstract class MaterialMixin implements MaterialBridge {
             .put("UNSPECIFIC", (a, b) -> new CraftMetaItem(b))
             .put("NULL", (a, b) -> null)
             .build();
-
+    @Shadow @Mutable @Final public Class<?> data;
+    // @formatter:off
+    @Shadow @Mutable @Final private NamespacedKey key;
+    @Shadow @Mutable @Final private Constructor<? extends MaterialData> ctor;
+    // @formatter:on
     private MaterialPropertySpec.MaterialType arclight$type = MaterialPropertySpec.MaterialType.VANILLA;
     private MaterialPropertySpec arclight$spec;
     private boolean arclight$block = false, arclight$item = false;
+    private Function<CraftMetaItem, ItemMeta> arclight$metaFunc;
+    private Function<CraftBlock, BlockState> arclight$stateFunc;
+
+    private static int tryGetMaxStackSize(Item item) {
+        try {
+            return item.getMaxStackSize(new ItemStack(item));
+        } catch (Throwable t) {
+            try {
+                return item.getMaxStackSize();
+            } catch (Throwable t1) {
+                return 64;
+            }
+        }
+    }
+
+    private static int tryGetDurability(Item item) {
+        try {
+            return item.getMaxDamage(new ItemStack(item));
+        } catch (Throwable t) {
+            try {
+                return item.getMaxDamage();
+            } catch (Throwable t1) {
+                return 0;
+            }
+        }
+    }
+
+    @Shadow public abstract boolean isBlock();
 
     @Override
     public void bridge$setBlock() {
@@ -220,8 +245,6 @@ public abstract class MaterialMixin implements MaterialBridge {
         return arclight$type;
     }
 
-    private Function<CraftMetaItem, ItemMeta> arclight$metaFunc;
-
     @Override
     public Function<CraftMetaItem, ItemMeta> bridge$itemMetaFactory() {
         return arclight$metaFunc;
@@ -231,8 +254,6 @@ public abstract class MaterialMixin implements MaterialBridge {
     public void bridge$setItemMetaFactory(Function<CraftMetaItem, ItemMeta> func) {
         this.arclight$metaFunc = func;
     }
-
-    private Function<CraftBlock, BlockState> arclight$stateFunc;
 
     @Override
     public Function<CraftBlock, BlockState> bridge$blockStateFactory() {
@@ -453,29 +474,5 @@ public abstract class MaterialMixin implements MaterialBridge {
             candidate = CraftMetaItem::new;
         }
         return candidate;
-    }
-
-    private static int tryGetMaxStackSize(Item item) {
-        try {
-            return item.getMaxStackSize(new ItemStack(item));
-        } catch (Throwable t) {
-            try {
-                return item.getMaxStackSize();
-            } catch (Throwable t1) {
-                return 64;
-            }
-        }
-    }
-
-    private static int tryGetDurability(Item item) {
-        try {
-            return item.getMaxDamage(new ItemStack(item));
-        } catch (Throwable t) {
-            try {
-                return item.getMaxDamage();
-            } catch (Throwable t1) {
-                return 0;
-            }
-        }
     }
 }

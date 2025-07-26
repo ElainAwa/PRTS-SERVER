@@ -25,11 +25,10 @@ import java.util.List;
 @Mixin(ChiseledBookShelfBlockEntity.class)
 public abstract class ChiseledBookShelfBlockEntityMixin extends BlockEntityMixin implements IInventoryBridge, Container {
 
+    public List<HumanEntity> transaction = new ArrayList<>();
     @Shadow
     @Final
     private NonNullList<ItemStack> items;
-
-    public List<HumanEntity> transaction = new ArrayList<>();
     private int maxStack = 1;
 
     @Override
@@ -57,13 +56,13 @@ public abstract class ChiseledBookShelfBlockEntityMixin extends BlockEntityMixin
     }
 
     @Override
-    public void setMaxStackSize(int size) {
-        maxStack = size;
+    public int getMaxStackSize() {
+        return maxStack;
     }
 
     @Override
-    public int getMaxStackSize() {
-        return maxStack;
+    public void setMaxStackSize(int size) {
+        maxStack = size;
     }
 
     @Override

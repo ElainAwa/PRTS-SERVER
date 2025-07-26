@@ -30,6 +30,13 @@ import java.util.jar.JarFile;
 
 public abstract class ArclightClassCache implements AutoCloseable {
 
+    private static final Marker MARKER = MarkerManager.getMarker("CLCACHE");
+    private static final ArclightClassCache INSTANCE = new Impl();
+
+    public static ArclightClassCache instance() {
+        return INSTANCE;
+    }
+
     public abstract CacheSegment makeSegment(URLConnection connection) throws IOException;
 
     public abstract void save() throws IOException;
@@ -43,13 +50,6 @@ public abstract class ArclightClassCache implements AutoCloseable {
         void save() throws IOException;
     }
 
-    private static final Marker MARKER = MarkerManager.getMarker("CLCACHE");
-    private static final ArclightClassCache INSTANCE = new Impl();
-
-    public static ArclightClassCache instance() {
-        return INSTANCE;
-    }
-
     private static class Impl extends ArclightClassCache {
 
         private static final int SPEC_VERSION = 2;
@@ -58,26 +58,6 @@ public abstract class ArclightClassCache implements AutoCloseable {
         private final ConcurrentHashMap<String, JarSegment> map = new ConcurrentHashMap<>();
         private final Path basePath = Paths.get(".arclight/class_cache");
         private ScheduledExecutorService executor;
-
-        private static String currentVersionInfo() {
-            var builder = new StringBuilder();
-            var arclight = ModList.get().getModContainerById("arclight")
-                    .orElseThrow(IllegalStateException::new).getModInfo().getVersion().toString();
-            builder.append(arclight);
-            builder.append("Arclight class cache").append(", ");
-            builder.append("spec=").append(SPEC_VERSION).append(", ");
-            builder.append("arclight=").append(arclight).append(", ");
-            builder.append("patcher=[");
-            for (PluginPatcher patcher : ArclightRemapper.INSTANCE.getPatchers()) {
-                builder.append('\0')
-                        .append(patcher.getClass().getName())
-                        .append('\0')
-                        .append(patcher.version())
-                        .append(", ");
-            }
-            builder.append("]");
-            return builder.toString();
-        }
 
         public Impl() {
             if (!enabled) return;
@@ -143,6 +123,26 @@ public abstract class ArclightClassCache implements AutoCloseable {
             Runtime.getRuntime().addShutdownHook(thread);
         }
 
+        private static String currentVersionInfo() {
+            var builder = new StringBuilder();
+            var arclight = ModList.get().getModContainerById("arclight")
+                    .orElseThrow(IllegalStateException::new).getModInfo().getVersion().toString();
+            builder.append(arclight);
+            builder.append("Arclight class cache").append(", ");
+            builder.append("spec=").append(SPEC_VERSION).append(", ");
+            builder.append("arclight=").append(arclight).append(", ");
+            builder.append("patcher=[");
+            for (PluginPatcher patcher : ArclightRemapper.INSTANCE.getPatchers()) {
+                builder.append('\0')
+                        .append(patcher.getClass().getName())
+                        .append('\0')
+                        .append(patcher.version())
+                        .append(", ");
+            }
+            builder.append("]");
+            return builder.toString();
+        }
+
         @Override
         public CacheSegment makeSegment(URLConnection connection) throws IOException {
             if (enabled && connection instanceof JarURLConnection) {
@@ -167,6 +167,22 @@ public abstract class ArclightClassCache implements AutoCloseable {
             if (enabled) {
                 save();
                 executor.shutdownNow();
+            }
+        }
+
+        private static class EmptySegment implements CacheSegment {
+
+            @Override
+            public Optional<byte[]> findByName(String name, ArclightRemapConfig config) {
+                return Optional.empty();
+            }
+
+            @Override
+            public void addToCache(String name, byte[] value, ArclightRemapConfig config) {
+            }
+
+            @Override
+            public void save() {
             }
         }
 
@@ -255,22 +271,6 @@ public abstract class ArclightClassCache implements AutoCloseable {
                         rangeMap.put(name, Product.of(off, len, cfg));
                     }
                 }
-            }
-        }
-
-        private static class EmptySegment implements CacheSegment {
-
-            @Override
-            public Optional<byte[]> findByName(String name, ArclightRemapConfig config) {
-                return Optional.empty();
-            }
-
-            @Override
-            public void addToCache(String name, byte[] value, ArclightRemapConfig config) {
-            }
-
-            @Override
-            public void save() {
             }
         }
     }

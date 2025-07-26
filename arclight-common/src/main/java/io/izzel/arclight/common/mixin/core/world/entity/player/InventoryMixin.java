@@ -27,13 +27,13 @@ public abstract class InventoryMixin implements Container, IInventoryBridge, Pla
     @Shadow @Final public NonNullList<ItemStack> items;
     @Shadow @Final public NonNullList<ItemStack> offhand;
     @Shadow @Final public NonNullList<ItemStack> armor;
-    @Shadow @Final private List<NonNullList<ItemStack>> compartments;
     @Shadow @Final public Player player;
-    @Shadow protected abstract boolean hasRemainingSpaceForItem(ItemStack stack1, ItemStack stack2);
-    // @formatter:on
-
     public List<HumanEntity> transaction = new ArrayList<>();
+    @Shadow @Final private List<NonNullList<ItemStack>> compartments;
+    // @formatter:on
     private int maxStack = -1;
+
+    @Shadow protected abstract boolean hasRemainingSpaceForItem(ItemStack stack1, ItemStack stack2);
 
     public int canHold(ItemStack stack) {
         int remains = stack.getCount();

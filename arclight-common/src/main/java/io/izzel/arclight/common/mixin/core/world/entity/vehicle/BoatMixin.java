@@ -21,16 +21,17 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Mixin(Boat.class)
 public abstract class BoatMixin extends EntityMixin {
 
-    // @formatter:off
-    @Shadow public abstract float getDamage();
-    @Shadow public abstract void setDamage(float damageTaken);
-    // @formatter:on
-
     public double maxSpeed = 0.4D;
     public double occupiedDeceleration = 0.2D;
+    // @formatter:on
     public double unoccupiedDeceleration = -1;
     public boolean landBoats = false;
     private Location lastLocation;
+
+    // @formatter:off
+    @Shadow public abstract float getDamage();
+
+    @Shadow public abstract void setDamage(float damageTaken);
 
     @Inject(method = "hurt", cancellable = true, at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/vehicle/Boat;setHurtDir(I)V"))
     private void arclight$damageVehicle(DamageSource source, float amount, CallbackInfoReturnable<Boolean> cir) {

@@ -28,18 +28,22 @@ import java.util.Optional;
 @Mixin(PortalForcer.class)
 public abstract class PortalForcerMixin implements TeleporterBridge {
 
+    @Shadow @Final protected ServerLevel level;
+    private transient int arclight$searchRadius = -1;
+    private transient BlockStateListPopulator arclight$populator;
+    // @formatter:on
+    private transient Entity arclight$entity;
+    private transient int arclight$createRadius = -1;
+
     // @formatter:off
     @Shadow public abstract Optional<BlockUtil.FoundRectangle> createPortal(BlockPos pos, Direction.Axis axis);
-    @Shadow @Final protected ServerLevel level;
+
     @Shadow public abstract Optional<BlockUtil.FoundRectangle> findPortalAround(BlockPos p_192986_, boolean p_192987_, WorldBorder p_192988_);
-    // @formatter:on
 
     @ModifyVariable(method = "findPortalAround", index = 5, at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/ai/village/poi/PoiManager;ensureLoadedAndValid(Lnet/minecraft/world/level/LevelReader;Lnet/minecraft/core/BlockPos;I)V"))
     private int arclight$useSearchRadius(int i) {
         return this.arclight$searchRadius == -1 ? i : this.arclight$searchRadius;
     }
-
-    private transient int arclight$searchRadius = -1;
 
     public Optional<BlockUtil.FoundRectangle> findPortalAround(BlockPos pos, WorldBorder worldBorder, int searchRadius) {
         this.arclight$searchRadius = searchRadius;
@@ -97,10 +101,6 @@ public abstract class PortalForcerMixin implements TeleporterBridge {
             this.arclight$populator.updateList();
         }
     }
-
-    private transient BlockStateListPopulator arclight$populator;
-    private transient Entity arclight$entity;
-    private transient int arclight$createRadius = -1;
 
     public Optional<BlockUtil.FoundRectangle> createPortal(BlockPos pos, Direction.Axis axis, Entity entity, int createRadius) {
         this.arclight$entity = entity;

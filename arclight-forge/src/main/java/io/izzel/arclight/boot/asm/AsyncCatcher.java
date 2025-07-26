@@ -57,6 +57,58 @@ public class AsyncCatcher implements Implementer {
         this.classLoader = Thread.currentThread().getContextClassLoader();
     }
 
+    static String getReturnAccessor(org.objectweb.asm.Type returnType) {
+        if (returnType.getSort() == org.objectweb.asm.Type.OBJECT || returnType.getSort() == org.objectweb.asm.Type.ARRAY) {
+            return "getReturnValue";
+        }
+        return String.format("getReturnValue%s", returnType.getDescriptor());
+    }
+
+    static String getReturnDescriptor(org.objectweb.asm.Type returnType) {
+        if (returnType.getSort() == org.objectweb.asm.Type.OBJECT || returnType.getSort() == org.objectweb.asm.Type.ARRAY) {
+            return String.format("()%s", Constants.OBJECT_DESC);
+        }
+        return String.format("()%s", returnType.getDescriptor());
+    }
+
+    @SuppressWarnings("unchecked")
+    public static <T> CallbackInfoReturnable<T> checkOp(Supplier<T> method, AsyncCatcherSpec.Operation operation, String reason, Executor executor) throws Throwable {
+        if (INSTANCE.warn) {
+            ArclightImplementer.LOGGER.warn(MARKER, "Async " + reason);
+        }
+        IllegalStateException exception = new IllegalStateException("Asynchronous " + reason + "!");
+        if (INSTANCE.dump) {
+            ArclightImplementer.LOGGER.debug(MARKER, "Async " + reason, exception);
+        }
+        switch (operation) {
+            case NONE:
+                return (CallbackInfoReturnable<T>) NOOP;
+            case EXCEPTION:
+                throw exception;
+            case BLOCK: {
+                CallbackInfoReturnable<T> cir = new CallbackInfoReturnable<>(reason, true);
+                CompletableFuture<T> future = CompletableFuture.supplyAsync(method, executor);
+                try {
+                    cir.setReturnValue(future.get(5, TimeUnit.SECONDS));
+                } catch (TimeoutException e) {
+                    var thread = ((Supplier<Thread>) executor).get();
+                    var ex = new Exception("Server thread");
+                    ex.setStackTrace(thread.getStackTrace());
+                    ArclightImplementer.LOGGER.error(MARKER, "Async catcher timeout", ex);
+                    throw e;
+                }
+                return cir;
+            }
+            case DISPATCH: {
+                executor.execute(method::get);
+                CallbackInfoReturnable<T> cir = new CallbackInfoReturnable<>(reason, true);
+                cir.cancel();
+                return cir;
+            }
+        }
+        throw new IllegalStateException("how this can happen?");
+    }
+
     @Override
     public boolean processClass(ClassNode node, ILaunchPluginService.ITransformerLoader transformerLoader) {
         Map<String, String> map = reasons.get(node.name);
@@ -202,57 +254,5 @@ public class AsyncCatcher implements Implementer {
         node.methods.add(ret);
         ArclightImplementer.LOGGER.debug(MARKER, "Bridge method {}/{}{} created", node.name, ret.name, ret.desc);
         return ret;
-    }
-
-    static String getReturnAccessor(org.objectweb.asm.Type returnType) {
-        if (returnType.getSort() == org.objectweb.asm.Type.OBJECT || returnType.getSort() == org.objectweb.asm.Type.ARRAY) {
-            return "getReturnValue";
-        }
-        return String.format("getReturnValue%s", returnType.getDescriptor());
-    }
-
-    static String getReturnDescriptor(org.objectweb.asm.Type returnType) {
-        if (returnType.getSort() == org.objectweb.asm.Type.OBJECT || returnType.getSort() == org.objectweb.asm.Type.ARRAY) {
-            return String.format("()%s", Constants.OBJECT_DESC);
-        }
-        return String.format("()%s", returnType.getDescriptor());
-    }
-
-    @SuppressWarnings("unchecked")
-    public static <T> CallbackInfoReturnable<T> checkOp(Supplier<T> method, AsyncCatcherSpec.Operation operation, String reason, Executor executor) throws Throwable {
-        if (INSTANCE.warn) {
-            ArclightImplementer.LOGGER.warn(MARKER, "Async " + reason);
-        }
-        IllegalStateException exception = new IllegalStateException("Asynchronous " + reason + "!");
-        if (INSTANCE.dump) {
-            ArclightImplementer.LOGGER.debug(MARKER, "Async " + reason, exception);
-        }
-        switch (operation) {
-            case NONE:
-                return (CallbackInfoReturnable<T>) NOOP;
-            case EXCEPTION:
-                throw exception;
-            case BLOCK: {
-                CallbackInfoReturnable<T> cir = new CallbackInfoReturnable<>(reason, true);
-                CompletableFuture<T> future = CompletableFuture.supplyAsync(method, executor);
-                try {
-                    cir.setReturnValue(future.get(5, TimeUnit.SECONDS));
-                } catch (TimeoutException e) {
-                    var thread = ((Supplier<Thread>) executor).get();
-                    var ex = new Exception("Server thread");
-                    ex.setStackTrace(thread.getStackTrace());
-                    ArclightImplementer.LOGGER.error(MARKER, "Async catcher timeout", ex);
-                    throw e;
-                }
-                return cir;
-            }
-            case DISPATCH: {
-                executor.execute(method::get);
-                CallbackInfoReturnable<T> cir = new CallbackInfoReturnable<>(reason, true);
-                cir.cancel();
-                return cir;
-            }
-        }
-        throw new IllegalStateException("how this can happen?");
     }
 }

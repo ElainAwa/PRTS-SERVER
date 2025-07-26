@@ -17,13 +17,15 @@ import javax.annotation.Nullable;
 @Mixin(AgeableMob.class)
 public abstract class AgeableMobMixin extends PathfinderMobMixin implements AgeableEntityBridge {
 
+    public boolean ageLocked;
+
     // @formatter:off
     @Shadow public abstract boolean isBaby();
+
     @Shadow @Nullable public abstract AgeableMob getBreedOffspring(ServerLevel world, AgeableMob mate);
-    @Shadow public abstract void setAge(int age);
     // @formatter:on
 
-    public boolean ageLocked;
+    @Shadow public abstract void setAge(int age);
 
     @Inject(method = "addAdditionalSaveData", at = @At("RETURN"))
     private void arclight$writeAgeLocked(CompoundTag compound, CallbackInfo ci) {

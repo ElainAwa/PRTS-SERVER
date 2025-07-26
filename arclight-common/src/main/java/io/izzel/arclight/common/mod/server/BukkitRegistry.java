@@ -61,6 +61,12 @@ import java.util.*;
 @SuppressWarnings({"ConstantConditions", "deprecation"})
 public class BukkitRegistry {
 
+    static final BiMap<ResourceKey<LevelStem>, World.Environment> DIM_MAP =
+            HashBiMap.create(ImmutableMap.<ResourceKey<LevelStem>, World.Environment>builder()
+                    .put(LevelStem.OVERWORLD, World.Environment.NORMAL)
+                    .put(LevelStem.NETHER, World.Environment.NETHER)
+                    .put(LevelStem.END, World.Environment.THE_END)
+                    .build());
     private static final List<Class<?>> MAT_CTOR = ImmutableList.of(int.class);
     private static final List<Class<?>> ENTITY_CTOR = ImmutableList.of(String.class, Class.class, int.class);
     private static final List<Class<?>> ENV_CTOR = ImmutableList.of(int.class);
@@ -71,12 +77,6 @@ public class BukkitRegistry {
     private static final Map<Material, Block> MATERIAL_BLOCK = Unsafe.getStatic(CraftMagicNumbers.class, "MATERIAL_BLOCK");
     private static final Map<String, EntityType> ENTITY_NAME_MAP = Unsafe.getStatic(EntityType.class, "NAME_MAP");
     private static final Map<Integer, World.Environment> ENVIRONMENT_MAP = Unsafe.getStatic(World.Environment.class, "lookup");
-    static final BiMap<ResourceKey<LevelStem>, World.Environment> DIM_MAP =
-            HashBiMap.create(ImmutableMap.<ResourceKey<LevelStem>, World.Environment>builder()
-                    .put(LevelStem.OVERWORLD, World.Environment.NORMAL)
-                    .put(LevelStem.NETHER, World.Environment.NETHER)
-                    .put(LevelStem.END, World.Environment.THE_END)
-                    .build());
     private static final Map<String, Art> ART_BY_NAME = Unsafe.getStatic(Art.class, "BY_NAME");
     private static final Map<Integer, Art> ART_BY_ID = Unsafe.getStatic(Art.class, "BY_ID");
     private static final BiMap<ResourceLocation, Statistic> STATS = HashBiMap.create(Unsafe.getStatic(CraftStatistic.class, "statistics"));

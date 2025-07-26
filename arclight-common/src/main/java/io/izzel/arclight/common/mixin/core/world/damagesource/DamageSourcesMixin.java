@@ -17,12 +17,12 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(DamageSources.class)
 public abstract class DamageSourcesMixin implements DamageSourcesBridge {
 
+    public DamageSource melting;
+    // @formatter:on
+    public DamageSource poison;
+
     // @formatter:off
     @Shadow protected abstract DamageSource source(ResourceKey<DamageType> p_270957_);
-    // @formatter:on
-
-    public DamageSource melting;
-    public DamageSource poison;
 
     @Inject(method = "<init>", at = @At("RETURN"))
     private void arclight$init(RegistryAccess p_270740_, CallbackInfo ci) {

@@ -20,11 +20,39 @@ import java.lang.invoke.MethodType;
 
 public class ArclightForgePermissible extends PermissibleBase {
 
+    private static final MethodHandle H_handler, H_newNode;
+
+    static {
+        try {
+            H_handler = Unsafe.lookup().findStaticGetter(PermissionAPI.class, "activeHandler", IPermissionHandler.class);
+            H_newNode = Unsafe.lookup().findConstructor(PermissionNode.class, MethodType.methodType(void.class, String.class, PermissionType.class, PermissionNode.PermissionResolver.class, PermissionDynamicContextKey[].class));
+        } catch (Throwable t) {
+            throw new RuntimeException(t);
+        }
+    }
+
     private final CraftHumanEntity player;
 
     public ArclightForgePermissible(@Nullable ServerOperator opable) {
         super(opable);
         this.player = (CraftHumanEntity) opable;
+    }
+
+    private static IPermissionHandler getHandler() {
+        try {
+            return (IPermissionHandler) H_handler.invokeExact();
+        } catch (Throwable e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <T> PermissionNode<T> newNode(String nodeName, PermissionNode.PermissionResolver<T> defaultResolver, PermissionDynamicContextKey... dynamics) {
+        try {
+            return (PermissionNode<T>) H_newNode.invokeExact(nodeName, PermissionTypes.BOOLEAN, defaultResolver, dynamics);
+        } catch (Throwable e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @Override
@@ -44,34 +72,6 @@ public class ArclightForgePermissible extends PermissibleBase {
             return getHandler().getPermission(player, node);
         } else {
             return getHandler().getOfflinePermission(player.getUniqueId(), node);
-        }
-    }
-
-    private static final MethodHandle H_handler, H_newNode;
-
-    private static IPermissionHandler getHandler() {
-        try {
-            return (IPermissionHandler) H_handler.invokeExact();
-        } catch (Throwable e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    @SuppressWarnings("unchecked")
-    private static <T> PermissionNode<T> newNode(String nodeName, PermissionNode.PermissionResolver<T> defaultResolver, PermissionDynamicContextKey... dynamics) {
-        try {
-            return (PermissionNode<T>) H_newNode.invokeExact(nodeName, PermissionTypes.BOOLEAN, defaultResolver, dynamics);
-        } catch (Throwable e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    static {
-        try {
-            H_handler = Unsafe.lookup().findStaticGetter(PermissionAPI.class, "activeHandler", IPermissionHandler.class);
-            H_newNode = Unsafe.lookup().findConstructor(PermissionNode.class, MethodType.methodType(void.class, String.class, PermissionType.class, PermissionNode.PermissionResolver.class, PermissionDynamicContextKey[].class));
-        } catch (Throwable t) {
-            throw new RuntimeException(t);
         }
     }
 }

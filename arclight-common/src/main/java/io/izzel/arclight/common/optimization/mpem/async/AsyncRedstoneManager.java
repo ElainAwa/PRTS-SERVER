@@ -15,8 +15,8 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class AsyncRedstoneManager {
     private static final Logger LOGGER = LogManager.getLogger("Luminara-MPEM-AsyncRedstone");
-    private static boolean initialized = false;
     private static final ConcurrentLinkedQueue<RedstoneUpdate> pendingUpdates = new ConcurrentLinkedQueue<>();
+    private static boolean initialized = false;
 
     public static void initialize() {
         if (initialized) return;

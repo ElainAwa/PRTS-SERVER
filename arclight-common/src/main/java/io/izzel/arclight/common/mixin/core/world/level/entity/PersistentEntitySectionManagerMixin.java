@@ -25,12 +25,15 @@ import java.util.stream.Collectors;
 @Mixin(PersistentEntitySectionManager.class)
 public abstract class PersistentEntitySectionManagerMixin<T extends EntityAccess> {
 
+    @Shadow @Final EntitySectionStorage<T> sectionStorage;
+    @Shadow @Final private EntityPersistentStorage<T> permanentStorage;
+    @Shadow @Final private Long2ObjectMap<PersistentEntitySectionManager.ChunkLoadStatus> chunkLoadStatuses;
+    @Unique
+    private boolean arclight$fireEvent = false;
+    // @formatter:on
+
     // @formatter:off
     @Shadow public abstract void close() throws IOException;
-    @Shadow @Final private EntityPersistentStorage<T> permanentStorage;
-    @Shadow @Final EntitySectionStorage<T> sectionStorage;
-    @Shadow @Final private Long2ObjectMap<PersistentEntitySectionManager.ChunkLoadStatus> chunkLoadStatuses;
-    // @formatter:on
 
     public void close(boolean save) throws IOException {
         if (save) {
@@ -48,9 +51,6 @@ public abstract class PersistentEntitySectionManagerMixin<T extends EntityAccess
     public boolean isPending(long cord) {
         return this.chunkLoadStatuses.get(cord) == PersistentEntitySectionManager.ChunkLoadStatus.PENDING;
     }
-
-    @Unique
-    private boolean arclight$fireEvent = false;
 
     @Inject(method = "storeChunkSections", locals = LocalCapture.CAPTURE_FAILHARD,
             at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/entity/EntityPersistentStorage;storeEntities(Lnet/minecraft/world/level/entity/ChunkEntities;)V"))

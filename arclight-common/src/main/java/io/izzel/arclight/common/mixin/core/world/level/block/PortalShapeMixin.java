@@ -41,18 +41,34 @@ import java.util.List;
 @Mixin(PortalShape.class)
 public abstract class PortalShapeMixin implements PortalSizeBridge {
 
+    List<BlockState> blocks = new ArrayList<>();
     // @formatter:off
     @Shadow @Final private LevelAccessor level;
-    @Shadow public abstract void shadow$createPortalBlocks();
     @Shadow @Final private Direction.Axis axis;
     @Shadow @Nullable private BlockPos bottomLeft;
     @Shadow private int height;
     @Shadow @Final private Direction rightDir;
     @Shadow @Final private int width;
-    @Shadow public static PortalInfo createPortalInfo(ServerLevel p_259301_, BlockUtil.FoundRectangle p_259931_, Direction.Axis p_259901_, Vec3 p_259630_, Entity p_259166_, Vec3 p_260043_, float p_259853_, float p_259667_) { return null; }
+    private transient boolean arclight$ret;
     // @formatter:on
 
-    List<BlockState> blocks = new ArrayList<>();
+    @Shadow public static PortalInfo createPortalInfo(ServerLevel p_259301_, BlockUtil.FoundRectangle p_259931_, Direction.Axis p_259901_, Vec3 p_259630_, Entity p_259166_, Vec3 p_260043_, float p_259853_, float p_259667_) { return null; }
+
+    @SuppressWarnings("ConstantConditions")
+    @Redirect(method = "createPortalInfo", at = @At(value = "NEW", target = "net/minecraft/world/level/portal/PortalInfo"))
+    private static PortalInfo arclight$setPortalInfo(Vec3 pos, Vec3 motion, float rotationYaw, float rotationPitch, ServerLevel world) {
+        PortalInfo portalInfo = new PortalInfo(pos, motion, rotationYaw, rotationPitch);
+        ((PortalInfoBridge) portalInfo).bridge$setWorld(world);
+        ((PortalInfoBridge) portalInfo).bridge$setPortalEventInfo(ArclightCaptures.getCraftPortalEvent());
+        return portalInfo;
+    }
+
+    private static PortalInfo createPortalInfo(ServerLevel world, BlockUtil.FoundRectangle result, Direction.Axis axis, Vec3 offsetVector, Entity entity, Vec3 motion, float rotationYaw, float rotationPitch, CraftPortalEvent event) {
+        ArclightCaptures.captureCraftPortalEvent(event);
+        return createPortalInfo(world, result, axis, offsetVector, entity, motion, rotationYaw, rotationPitch);
+    }
+
+    @Shadow public abstract void shadow$createPortalBlocks();
 
     @Redirect(method = "getDistanceUntilEdgeAboveFrame", at = @At(value = "INVOKE", ordinal = 0, target = "Lnet/minecraft/world/level/block/state/BlockBehaviour$StatePredicate;test(Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/world/level/BlockGetter;Lnet/minecraft/core/BlockPos;)Z"))
     private boolean arclight$captureBlock(BlockBehaviour.StatePredicate predicate, net.minecraft.world.level.block.state.BlockState p_test_1_, BlockGetter p_test_2_, BlockPos pos) {
@@ -80,8 +96,6 @@ public abstract class PortalShapeMixin implements PortalSizeBridge {
         }
     }
 
-    private transient boolean arclight$ret;
-
     public boolean createPortalBlocks() {
         this.shadow$createPortalBlocks();
         return arclight$ret;
@@ -90,19 +104,5 @@ public abstract class PortalShapeMixin implements PortalSizeBridge {
     @Override
     public boolean bridge$createPortal() {
         return createPortalBlocks();
-    }
-
-    @SuppressWarnings("ConstantConditions")
-    @Redirect(method = "createPortalInfo", at = @At(value = "NEW", target = "net/minecraft/world/level/portal/PortalInfo"))
-    private static PortalInfo arclight$setPortalInfo(Vec3 pos, Vec3 motion, float rotationYaw, float rotationPitch, ServerLevel world) {
-        PortalInfo portalInfo = new PortalInfo(pos, motion, rotationYaw, rotationPitch);
-        ((PortalInfoBridge) portalInfo).bridge$setWorld(world);
-        ((PortalInfoBridge) portalInfo).bridge$setPortalEventInfo(ArclightCaptures.getCraftPortalEvent());
-        return portalInfo;
-    }
-
-    private static PortalInfo createPortalInfo(ServerLevel world, BlockUtil.FoundRectangle result, Direction.Axis axis, Vec3 offsetVector, Entity entity, Vec3 motion, float rotationYaw, float rotationPitch, CraftPortalEvent event) {
-        ArclightCaptures.captureCraftPortalEvent(event);
-        return createPortalInfo(world, result, axis, offsetVector, entity, motion, rotationYaw, rotationPitch);
     }
 }

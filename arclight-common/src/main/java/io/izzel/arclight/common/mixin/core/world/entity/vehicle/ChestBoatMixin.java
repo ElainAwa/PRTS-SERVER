@@ -18,10 +18,9 @@ import java.util.List;
 @Mixin(ChestBoat.class)
 public abstract class ChestBoatMixin extends BoatMixin implements IInventoryBridge, Container {
 
+    public List<HumanEntity> transaction = new ArrayList<>();
     @Shadow
     private NonNullList<ItemStack> itemStacks;
-
-    public List<HumanEntity> transaction = new ArrayList<>();
     private int maxStack = MAX_STACK;
 
     @Override

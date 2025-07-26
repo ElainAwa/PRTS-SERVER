@@ -6,13 +6,13 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.phys.Vec3;
-
-import java.util.ArrayList;
-import java.util.List;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+
+import java.util.ArrayList;
+import java.util.List;
 
 
 public class AsyncAIManager {
@@ -58,10 +58,10 @@ public class AsyncAIManager {
                     try {
                         // Collect necessary data on main thread
                         MobAIData data = new MobAIData(
-                            mob.getId(),
-                            mob.position(),
-                            mob.getType().toString(),
-                            mob.getRandom().nextFloat()
+                                mob.getId(),
+                                mob.position(),
+                                mob.getType().toString(),
+                                mob.getRandom().nextFloat()
                         );
                         mobData.add(data);
                     } catch (Exception e) {
@@ -74,10 +74,10 @@ public class AsyncAIManager {
             // Process AI calculations asynchronously with collected data
             if (!mobData.isEmpty()) {
                 MpemThreadManager.runAsync(() -> processAICalculations(mobData))
-                    .exceptionally(throwable -> {
-                        LOGGER.warn("Error in async AI calculations", throwable);
-                        return null;
-                    });
+                        .exceptionally(throwable -> {
+                            LOGGER.warn("Error in async AI calculations", throwable);
+                            return null;
+                        });
             }
         }
     }
@@ -119,21 +119,6 @@ public class AsyncAIManager {
         return initialized && MpemThreadManager.isHealthy();
     }
 
-    // Thread-safe data container for mob AI information
-    private static class MobAIData {
-        final int mobId;
-        final Vec3 position;
-        final String mobType;
-        final float randomValue;
-
-        MobAIData(int mobId, Vec3 position, String mobType, float randomValue) {
-            this.mobId = mobId;
-            this.position = position;
-            this.mobType = mobType;
-            this.randomValue = randomValue;
-        }
-    }
-
     // Process AI calculations with pre-collected data (thread-safe)
     private static void processAICalculations(List<MobAIData> mobData) {
         try {
@@ -158,6 +143,21 @@ public class AsyncAIManager {
             }
         } catch (Exception e) {
             LOGGER.warn("Error in AI calculations", e);
+        }
+    }
+
+    // Thread-safe data container for mob AI information
+    private static class MobAIData {
+        final int mobId;
+        final Vec3 position;
+        final String mobType;
+        final float randomValue;
+
+        MobAIData(int mobId, Vec3 position, String mobType, float randomValue) {
+            this.mobId = mobId;
+            this.position = position;
+            this.mobType = mobType;
+            this.randomValue = randomValue;
         }
     }
 }

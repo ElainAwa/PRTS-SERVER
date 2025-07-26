@@ -91,27 +91,72 @@ import java.util.concurrent.Executor;
 @Mixin(ServerLevel.class)
 public abstract class ServerLevelMixin extends LevelMixin implements ServerWorldBridge {
 
-    // @formatter:off
-    @Shadow public abstract boolean addFreshEntity(Entity entityIn);
-    @Shadow public abstract boolean addWithUUID(Entity entityIn);
-    @Shadow public abstract <T extends ParticleOptions> int sendParticles(T type, double posX, double posY, double posZ, int particleCount, double xOffset, double yOffset, double zOffset, double speed);
-    @Shadow protected abstract boolean sendParticles(ServerPlayer player, boolean longDistance, double posX, double posY, double posZ, Packet<?> packet);
-    @Shadow @Nonnull public abstract MinecraftServer shadow$getServer();
-    @Shadow @Final private List<ServerPlayer> players;
-    @Shadow public abstract ServerChunkCache getChunkSource();
-    @Shadow protected abstract void wakeUpAllPlayers();
-    @Shadow @Final private ServerChunkCache chunkSource;
     @Shadow @Final public static BlockPos END_SPAWN_POINT;
     @Shadow @Final public ServerLevelData serverLevelData;
-    @Shadow @Final private PersistentEntitySectionManager<Entity> entityManager;
-    @Shadow public abstract DimensionDataStorage getDataStorage();
-    // @formatter:on
-
     @SuppressWarnings({"FieldCanBeLocal", "unused"})
     public PrimaryLevelData K; // Stupid CraftBukkit patch.
     public LevelStorageSource.LevelStorageAccess convertable;
     public UUID uuid;
     public ResourceKey<LevelStem> typeKey;
+    @Shadow @Final private List<ServerPlayer> players;
+    @Shadow @Final private ServerChunkCache chunkSource;
+    @Shadow @Final private PersistentEntitySectionManager<Entity> entityManager;
+    private transient boolean arclight$force;
+    private transient LightningStrikeEvent.Cause arclight$cause;
+    private transient CreatureSpawnEvent.SpawnReason arclight$reason;
+    private transient boolean arclight$timeSkipCancelled;
+    // @formatter:on
+
+    /**
+     * @author IzzelAliz
+     * @reason
+     */
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    @Overwrite
+    public static void makeObsidianPlatform(ServerLevel world) {
+        BlockPos blockpos = END_SPAWN_POINT;
+        int i = blockpos.getX();
+        int j = blockpos.getY() - 2;
+        int k = blockpos.getZ();
+        BlockStateListPopulator blockList = new BlockStateListPopulator(world);
+        BlockPos.betweenClosed(i - 2, j + 1, k - 2, i + 2, j + 3, k + 2).forEach((pos) -> {
+            blockList.setBlock(pos, Blocks.AIR.defaultBlockState(), 3);
+        });
+        BlockPos.betweenClosed(i - 2, j, k - 2, i + 2, j, k + 2).forEach((pos) -> {
+            blockList.setBlock(pos, Blocks.OBSIDIAN.defaultBlockState(), 3);
+        });
+        if (!DistValidate.isValid(world)) {
+            blockList.updateList();
+            ArclightCaptures.getEndPortalEntity();
+            return;
+        }
+        CraftWorld bworld = ((WorldBridge) world).bridge$getWorld();
+        boolean spawnPortal = ArclightCaptures.getEndPortalSpawn();
+        Entity entity = ArclightCaptures.getEndPortalEntity();
+        PortalCreateEvent portalEvent = new PortalCreateEvent((List) blockList.getList(), bworld, entity == null ? null : ((EntityBridge) entity).bridge$getBukkitEntity(), PortalCreateEvent.CreateReason.END_PLATFORM);
+        portalEvent.setCancelled(!spawnPortal);
+        Bukkit.getPluginManager().callEvent(portalEvent);
+        if (!portalEvent.isCancelled()) {
+            blockList.updateList();
+        }
+    }
+
+    // @formatter:off
+    @Shadow public abstract boolean addFreshEntity(Entity entityIn);
+
+    @Shadow public abstract boolean addWithUUID(Entity entityIn);
+
+    @Shadow public abstract <T extends ParticleOptions> int sendParticles(T type, double posX, double posY, double posZ, int particleCount, double xOffset, double yOffset, double zOffset, double speed);
+
+    @Shadow protected abstract boolean sendParticles(ServerPlayer player, boolean longDistance, double posX, double posY, double posZ, Packet<?> packet);
+
+    @Shadow @Nonnull public abstract MinecraftServer shadow$getServer();
+
+    @Shadow public abstract ServerChunkCache getChunkSource();
+
+    @Shadow protected abstract void wakeUpAllPlayers();
+
+    @Shadow public abstract DimensionDataStorage getDataStorage();
 
     @Override
     public ResourceKey<LevelStem> getTypeKey() {
@@ -282,8 +327,6 @@ public abstract class ServerLevelMixin extends LevelMixin implements ServerWorld
         }
     }
 
-    private transient boolean arclight$force;
-
     @Redirect(method = "sendParticles(Lnet/minecraft/core/particles/ParticleOptions;DDDIDDDD)I", at = @At(value = "INVOKE", target = "Lnet/minecraft/server/level/ServerLevel;sendParticles(Lnet/minecraft/server/level/ServerPlayer;ZDDDLnet/minecraft/network/protocol/Packet;)Z"))
     public boolean arclight$particleVisible(ServerLevel serverWorld, ServerPlayer player, boolean longDistance, double posX, double posY, double posZ, Packet<?> packet) {
         return this.sendParticles(player, arclight$force, posX, posY, posZ, packet);
@@ -299,8 +342,6 @@ public abstract class ServerLevelMixin extends LevelMixin implements ServerWorld
         return this.sendParticles(type, posX, posY, posZ, particleCount, xOffset, yOffset, zOffset, speed, force);
     }
 
-    private transient LightningStrikeEvent.Cause arclight$cause;
-
     @Override
     public void bridge$pushStrikeLightningCause(LightningStrikeEvent.Cause cause) {
         this.arclight$cause = cause;
@@ -310,8 +351,6 @@ public abstract class ServerLevelMixin extends LevelMixin implements ServerWorld
     public void bridge$strikeLightning(LightningBolt entity, LightningStrikeEvent.Cause cause) {
         strikeLightning(entity, cause);
     }
-
-    private transient CreatureSpawnEvent.SpawnReason arclight$reason;
 
     @Inject(method = "addEntity", cancellable = true, at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/entity/PersistentEntitySectionManager;addNewEntity(Lnet/minecraft/world/level/entity/EntityAccess;)Z"))
     private void arclight$addEntityEvent(Entity entityIn, CallbackInfoReturnable<Boolean> cir) {
@@ -425,8 +464,6 @@ public abstract class ServerLevelMixin extends LevelMixin implements ServerWorld
         }
     }
 
-    private transient boolean arclight$timeSkipCancelled;
-
     @Redirect(method = "tick", at = @At(value = "INVOKE", target = "Lnet/minecraft/server/level/ServerLevel;wakeUpAllPlayers()V"))
     private void arclight$notWakeIfCancelled(ServerLevel world) {
         if (!arclight$timeSkipCancelled) {
@@ -438,40 +475,6 @@ public abstract class ServerLevelMixin extends LevelMixin implements ServerWorld
     @Override
     public ServerLevel bridge$getMinecraftWorld() {
         return (ServerLevel) (Object) this;
-    }
-
-    /**
-     * @author IzzelAliz
-     * @reason
-     */
-    @SuppressWarnings({"unchecked", "rawtypes"})
-    @Overwrite
-    public static void makeObsidianPlatform(ServerLevel world) {
-        BlockPos blockpos = END_SPAWN_POINT;
-        int i = blockpos.getX();
-        int j = blockpos.getY() - 2;
-        int k = blockpos.getZ();
-        BlockStateListPopulator blockList = new BlockStateListPopulator(world);
-        BlockPos.betweenClosed(i - 2, j + 1, k - 2, i + 2, j + 3, k + 2).forEach((pos) -> {
-            blockList.setBlock(pos, Blocks.AIR.defaultBlockState(), 3);
-        });
-        BlockPos.betweenClosed(i - 2, j, k - 2, i + 2, j, k + 2).forEach((pos) -> {
-            blockList.setBlock(pos, Blocks.OBSIDIAN.defaultBlockState(), 3);
-        });
-        if (!DistValidate.isValid(world)) {
-            blockList.updateList();
-            ArclightCaptures.getEndPortalEntity();
-            return;
-        }
-        CraftWorld bworld = ((WorldBridge) world).bridge$getWorld();
-        boolean spawnPortal = ArclightCaptures.getEndPortalSpawn();
-        Entity entity = ArclightCaptures.getEndPortalEntity();
-        PortalCreateEvent portalEvent = new PortalCreateEvent((List) blockList.getList(), bworld, entity == null ? null : ((EntityBridge) entity).bridge$getBukkitEntity(), PortalCreateEvent.CreateReason.END_PLATFORM);
-        portalEvent.setCancelled(!spawnPortal);
-        Bukkit.getPluginManager().callEvent(portalEvent);
-        if (!portalEvent.isCancelled()) {
-            blockList.updateList();
-        }
     }
 
     @ModifyVariable(method = "tickBlock", ordinal = 0, argsOnly = true, at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/block/state/BlockState;tick(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/core/BlockPos;Lnet/minecraft/util/RandomSource;)V"))

@@ -30,9 +30,78 @@ public class DelegateWorldInfo extends PrimaryLevelData {
         this.serverLevelData = serverLevelData;
     }
 
+    public static DelegateWorldInfo wrap(ServerLevelData data) {
+        return new DelegateWorldInfo(worldSettings(data), generatorSettings(data), specialWorldProperty(data), lifecycle(data), data);
+    }
+
+    private static LevelSettings worldSettings(ServerLevelData data) {
+        data = resolveDelegate(data);
+
+        if (data instanceof WorldInfoBridge bridged) {
+            return bridged.bridge$getWorldSettings();
+        }
+
+        if (data instanceof WorldData p) {
+            return p.getLevelSettings();
+        }
+
+        return new LevelSettings(data.getLevelName(), data.getGameType(), data.isHardcore(), data.getDifficulty(),
+                data.getAllowCommands(), data.getGameRules(), WorldDataConfiguration.DEFAULT);
+    }
+
+    private static WorldOptions generatorSettings(ServerLevelData data) {
+        data = resolveDelegate(data);
+
+        if (data instanceof WorldData p) {
+            return p.worldGenOptions();
+        }
+
+        return WorldOptions.defaultWithRandomSeed();
+    }
+
+    private static SpecialWorldProperty specialWorldProperty(ServerLevelData data) {
+        data = resolveDelegate(data);
+
+        if (data instanceof WorldData d) {
+            return (d.isFlatWorld() ?
+                    SpecialWorldProperty.FLAT :
+                    (d.isDebugWorld() ?
+                            SpecialWorldProperty.DEBUG :
+                            SpecialWorldProperty.NONE));
+        }
+
+        return SpecialWorldProperty.NONE;
+    }
+
+    private static Lifecycle lifecycle(ServerLevelData data) {
+        data = resolveDelegate(data);
+        if (data instanceof WorldInfoBridge bridged) {
+            return bridged.bridge$getLifecycle();
+        }
+
+        if (data instanceof WorldData p) {
+            return p.worldGenSettingsLifecycle();
+        }
+
+        return Lifecycle.stable();
+    }
+
+    private static ServerLevelData resolveDelegate(ServerLevelData data) {
+        if (data instanceof DerivedWorldInfoBridge bridged) {
+            return resolveDelegate(bridged.bridge$getDelegate());
+        }
+
+        return data;
+    }
+
     @Override
     public int getXSpawn() {
         return serverLevelData.getXSpawn();
+    }
+
+    @Override
+    public void setXSpawn(int x) {
+        serverLevelData.setXSpawn(x);
     }
 
     @Override
@@ -41,8 +110,18 @@ public class DelegateWorldInfo extends PrimaryLevelData {
     }
 
     @Override
+    public void setYSpawn(int y) {
+        serverLevelData.setYSpawn(y);
+    }
+
+    @Override
     public int getZSpawn() {
         return serverLevelData.getZSpawn();
+    }
+
+    @Override
+    public void setZSpawn(int z) {
+        serverLevelData.setZSpawn(z);
     }
 
     @Override
@@ -51,13 +130,28 @@ public class DelegateWorldInfo extends PrimaryLevelData {
     }
 
     @Override
+    public void setSpawnAngle(float angle) {
+        serverLevelData.setSpawnAngle(angle);
+    }
+
+    @Override
     public long getGameTime() {
         return serverLevelData.getGameTime();
     }
 
     @Override
+    public void setGameTime(long time) {
+        serverLevelData.setGameTime(time);
+    }
+
+    @Override
     public long getDayTime() {
         return serverLevelData.getDayTime();
+    }
+
+    @Override
+    public void setDayTime(long time) {
+        serverLevelData.setDayTime(time);
     }
 
     @Override
@@ -81,63 +175,13 @@ public class DelegateWorldInfo extends PrimaryLevelData {
     }
 
     @Override
-    public int getThunderTime() {
-        return serverLevelData.getThunderTime();
-    }
-
-    @Override
-    public boolean isRaining() {
-        return serverLevelData.isRaining();
-    }
-
-    @Override
-    public int getRainTime() {
-        return serverLevelData.getRainTime();
-    }
-
-    @Override
-    public GameType getGameType() {
-        return serverLevelData.getGameType();
-    }
-
-    @Override
-    public void setXSpawn(int x) {
-        serverLevelData.setXSpawn(x);
-    }
-
-    @Override
-    public void setYSpawn(int y) {
-        serverLevelData.setYSpawn(y);
-    }
-
-    @Override
-    public void setZSpawn(int z) {
-        serverLevelData.setZSpawn(z);
-    }
-
-    @Override
-    public void setSpawnAngle(float angle) {
-        serverLevelData.setSpawnAngle(angle);
-    }
-
-    @Override
-    public void setGameTime(long time) {
-        serverLevelData.setGameTime(time);
-    }
-
-    @Override
-    public void setDayTime(long time) {
-        serverLevelData.setDayTime(time);
-    }
-
-    @Override
-    public void setSpawn(BlockPos spawnPoint, float angle) {
-        serverLevelData.setSpawn(spawnPoint, angle);
-    }
-
-    @Override
     public void setThundering(boolean thunderingIn) {
         serverLevelData.setThundering(thunderingIn);
+    }
+
+    @Override
+    public int getThunderTime() {
+        return serverLevelData.getThunderTime();
     }
 
     @Override
@@ -146,8 +190,18 @@ public class DelegateWorldInfo extends PrimaryLevelData {
     }
 
     @Override
+    public boolean isRaining() {
+        return serverLevelData.isRaining();
+    }
+
+    @Override
     public void setRaining(boolean isRaining) {
         serverLevelData.setRaining(isRaining);
+    }
+
+    @Override
+    public int getRainTime() {
+        return serverLevelData.getRainTime();
     }
 
     @Override
@@ -156,8 +210,18 @@ public class DelegateWorldInfo extends PrimaryLevelData {
     }
 
     @Override
+    public GameType getGameType() {
+        return serverLevelData.getGameType();
+    }
+
+    @Override
     public void setGameType(GameType type) {
         serverLevelData.setGameType(type);
+    }
+
+    @Override
+    public void setSpawn(BlockPos spawnPoint, float angle) {
+        serverLevelData.setSpawn(spawnPoint, angle);
     }
 
     @Override
@@ -244,69 +308,5 @@ public class DelegateWorldInfo extends PrimaryLevelData {
     @Override
     public void fillCrashReportCategory(CrashReportCategory crashReportCategory, LevelHeightAccessor levelHeightAccessor) {
         serverLevelData.fillCrashReportCategory(crashReportCategory, levelHeightAccessor);
-    }
-
-    public static DelegateWorldInfo wrap(ServerLevelData data) {
-        return new DelegateWorldInfo(worldSettings(data), generatorSettings(data), specialWorldProperty(data), lifecycle(data), data);
-    }
-
-    private static LevelSettings worldSettings(ServerLevelData data) {
-        data = resolveDelegate(data);
-
-        if (data instanceof WorldInfoBridge bridged) {
-            return bridged.bridge$getWorldSettings();
-        }
-
-        if (data instanceof WorldData p) {
-            return p.getLevelSettings();
-        }
-
-        return new LevelSettings(data.getLevelName(), data.getGameType(), data.isHardcore(), data.getDifficulty(),
-                data.getAllowCommands(), data.getGameRules(), WorldDataConfiguration.DEFAULT);
-    }
-
-    private static WorldOptions generatorSettings(ServerLevelData data) {
-        data = resolveDelegate(data);
-
-        if (data instanceof WorldData p) {
-            return p.worldGenOptions();
-        }
-
-        return WorldOptions.defaultWithRandomSeed();
-    }
-
-    private static SpecialWorldProperty specialWorldProperty(ServerLevelData data) {
-        data = resolveDelegate(data);
-
-        if (data instanceof WorldData d) {
-            return (d.isFlatWorld() ?
-                    SpecialWorldProperty.FLAT :
-                    (d.isDebugWorld() ?
-                            SpecialWorldProperty.DEBUG :
-                            SpecialWorldProperty.NONE));
-        }
-
-        return SpecialWorldProperty.NONE;
-    }
-
-    private static Lifecycle lifecycle(ServerLevelData data) {
-        data = resolveDelegate(data);
-        if (data instanceof WorldInfoBridge bridged) {
-            return bridged.bridge$getLifecycle();
-        }
-
-        if (data instanceof WorldData p) {
-            return p.worldGenSettingsLifecycle();
-        }
-
-        return Lifecycle.stable();
-    }
-
-    private static ServerLevelData resolveDelegate(ServerLevelData data) {
-        if (data instanceof DerivedWorldInfoBridge bridged) {
-            return resolveDelegate(bridged.bridge$getDelegate());
-        }
-
-        return data;
     }
 }

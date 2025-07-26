@@ -51,18 +51,23 @@ public class ArclightLoggerAdapter extends CoreLoggerAdapter {
         }
 
         @Override
+        public void setResourceBundle(ResourceBundle bundle) {
+            logger.setResourceBundle(bundle);
+        }
+
+        @Override
         public String getResourceBundleName() {
             return logger.getResourceBundleName();
         }
 
         @Override
-        public void setFilter(Filter newFilter) throws SecurityException {
-            logger.setFilter(newFilter);
+        public Filter getFilter() {
+            return logger.getFilter();
         }
 
         @Override
-        public Filter getFilter() {
-            return logger.getFilter();
+        public void setFilter(Filter newFilter) throws SecurityException {
+            logger.setFilter(newFilter);
         }
 
         @Override
@@ -265,16 +270,16 @@ public class ArclightLoggerAdapter extends CoreLoggerAdapter {
         }
 
         @Override
+        public Level getLevel() {
+            return logger.getLevel();
+        }
+
+        @Override
         public void setLevel(Level newLevel) throws SecurityException {
             try {
                 logger.setLevel(newLevel);
             } catch (Throwable ignored) {
             }
-        }
-
-        @Override
-        public Level getLevel() {
-            return logger.getLevel();
         }
 
         @Override
@@ -303,18 +308,13 @@ public class ArclightLoggerAdapter extends CoreLoggerAdapter {
         }
 
         @Override
-        public void setUseParentHandlers(boolean useParentHandlers) {
-            logger.setUseParentHandlers(useParentHandlers);
-        }
-
-        @Override
         public boolean getUseParentHandlers() {
             return logger.getUseParentHandlers();
         }
 
         @Override
-        public void setResourceBundle(ResourceBundle bundle) {
-            logger.setResourceBundle(bundle);
+        public void setUseParentHandlers(boolean useParentHandlers) {
+            logger.setUseParentHandlers(useParentHandlers);
         }
 
         @Override

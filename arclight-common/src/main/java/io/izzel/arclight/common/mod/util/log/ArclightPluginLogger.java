@@ -20,16 +20,16 @@ public class ArclightPluginLogger extends PluginLogger {
         logger = JUL_MANAGER.getLogger(prefix == null ? context.getName() : prefix);
     }
 
-    @Override
-    public void log(LogRecord logRecord) {
-        logger.log(logRecord);
-    }
-
     public static Logger getLogger(String name) {
         return JUL_MANAGER.getLogger(name);
     }
 
     public static Logger getLogger(String name, String rb) {
         return JUL_MANAGER.getLogger(name);
+    }
+
+    @Override
+    public void log(LogRecord logRecord) {
+        logger.log(logRecord);
     }
 }

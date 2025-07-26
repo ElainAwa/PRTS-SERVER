@@ -52,16 +52,15 @@ import java.util.List;
 @Mixin(AbstractFurnaceBlockEntity.class)
 public abstract class AbstractFurnaceBlockEntityMixin extends LockableBlockEntityMixin implements AbstractFurnaceTileEntityBridge {
 
+    private static AbstractFurnaceBlockEntity arclight$captureFurnace;
+    private static Player arclight$capturePlayer;
+    private static ItemStack arclight$item;
+    private static int arclight$captureAmount;
+    public List<HumanEntity> transaction = new ArrayList<>();
     // @formatter:off
     @Shadow protected NonNullList<ItemStack> items;
-    @Shadow protected abstract int getBurnDuration(ItemStack stack);
-    @Shadow protected abstract boolean isLit();
-    @Shadow @Final private Object2IntOpenHashMap<ResourceLocation> recipesUsed;
-    @Shadow public abstract List<Recipe<?>> getRecipesToAwardAndPopExperience(ServerLevel p_154996_, Vec3 p_154997_);
-    @Shadow protected abstract boolean canBurn(RegistryAccess p_266924_, @org.jetbrains.annotations.Nullable Recipe<?> p_155006_, NonNullList<ItemStack> p_155007_, int p_155008_);
     // @formatter:on
-
-    public List<HumanEntity> transaction = new ArrayList<>();
+    @Shadow @Final private Object2IntOpenHashMap<ResourceLocation> recipesUsed;
     private int maxStack = MAX_STACK;
 
     @Eject(method = "serverTick", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/block/entity/AbstractFurnaceBlockEntity;isLit()Z"),
@@ -92,6 +91,25 @@ public abstract class AbstractFurnaceBlockEntityMixin extends LockableBlockEntit
             }
         }
     }
+
+    @Redirect(method = "createExperience", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/ExperienceOrb;award(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/world/phys/Vec3;I)V"))
+    private static void arclight$expEvent(ServerLevel level, Vec3 vec3, int amount) {
+        if (arclight$capturePlayer != null && arclight$captureAmount != 0) {
+            FurnaceExtractEvent event = new FurnaceExtractEvent(((ServerPlayerEntityBridge) arclight$capturePlayer).bridge$getBukkitEntity(),
+                    CraftBlock.at(level, arclight$captureFurnace.getBlockPos()), CraftMagicNumbers.getMaterial(arclight$item.getItem()), arclight$captureAmount, amount);
+            Bukkit.getPluginManager().callEvent(event);
+            amount = event.getExpToDrop();
+        }
+        ExperienceOrb.award(level, vec3, amount);
+    }
+
+    @Shadow protected abstract int getBurnDuration(ItemStack stack);
+
+    @Shadow protected abstract boolean isLit();
+
+    @Shadow public abstract List<Recipe<?>> getRecipesToAwardAndPopExperience(ServerLevel p_154996_, Vec3 p_154997_);
+
+    @Shadow protected abstract boolean canBurn(RegistryAccess p_266924_, @org.jetbrains.annotations.Nullable Recipe<?> p_155006_, NonNullList<ItemStack> p_155007_, int p_155008_);
 
     /**
      * @author IzzelAliz
@@ -137,11 +155,6 @@ public abstract class AbstractFurnaceBlockEntityMixin extends LockableBlockEntit
         }
     }
 
-    private static AbstractFurnaceBlockEntity arclight$captureFurnace;
-    private static Player arclight$capturePlayer;
-    private static ItemStack arclight$item;
-    private static int arclight$captureAmount;
-
     public List<Recipe<?>> getRecipesToAwardAndPopExperience(ServerLevel world, Vec3 vec, BlockPos pos, Player entity, ItemStack itemStack, int amount) {
         try {
             arclight$item = itemStack;
@@ -163,17 +176,6 @@ public abstract class AbstractFurnaceBlockEntityMixin extends LockableBlockEntit
     @Override
     public List<Recipe<?>> bridge$dropExp(ServerPlayer entity, ItemStack itemStack, int amount) {
         return getRecipesToAwardAndPopExperience(entity.serverLevel(), entity.position(), this.worldPosition, entity, itemStack, amount);
-    }
-
-    @Redirect(method = "createExperience", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/ExperienceOrb;award(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/world/phys/Vec3;I)V"))
-    private static void arclight$expEvent(ServerLevel level, Vec3 vec3, int amount) {
-        if (arclight$capturePlayer != null && arclight$captureAmount != 0) {
-            FurnaceExtractEvent event = new FurnaceExtractEvent(((ServerPlayerEntityBridge) arclight$capturePlayer).bridge$getBukkitEntity(),
-                    CraftBlock.at(level, arclight$captureFurnace.getBlockPos()), CraftMagicNumbers.getMaterial(arclight$item.getItem()), arclight$captureAmount, amount);
-            Bukkit.getPluginManager().callEvent(event);
-            amount = event.getExpToDrop();
-        }
-        ExperienceOrb.award(level, vec3, amount);
     }
 
     @Override

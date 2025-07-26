@@ -22,12 +22,13 @@ import java.util.List;
 @Mixin(net.minecraft.world.entity.monster.Slime.class)
 public abstract class SlimeMixin extends MobMixin {
 
+    private transient List<LivingEntity> arclight$slimes;
+
     // @formatter:off
     @Shadow public abstract int getSize();
-    @Shadow public abstract EntityType<? extends net.minecraft.world.entity.monster.Slime> getType();
     // @formatter:on
 
-    private transient List<LivingEntity> arclight$slimes;
+    @Shadow public abstract EntityType<? extends net.minecraft.world.entity.monster.Slime> getType();
 
     /**
      * @author IzzelAliz

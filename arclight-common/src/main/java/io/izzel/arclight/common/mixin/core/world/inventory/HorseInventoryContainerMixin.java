@@ -18,12 +18,11 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(HorseInventoryMenu.class)
 public abstract class HorseInventoryContainerMixin extends AbstractContainerMenuMixin {
 
+    CraftInventoryView bukkitEntity;
+    // @formatter:on
+    Inventory playerInventory;
     // @formatter:off
     @Shadow @Final private Container horseContainer;
-    // @formatter:on
-
-    CraftInventoryView bukkitEntity;
-    Inventory playerInventory;
 
     @Inject(method = "<init>", at = @At("RETURN"))
     public void arclight$init(int id, Inventory playerInventory, Container horseInventory, AbstractHorse horse, CallbackInfo ci) {

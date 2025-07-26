@@ -23,6 +23,8 @@ import org.spongepowered.asm.mixin.injection.callback.LocalCapture;
 @Mixin(CrossbowItem.class)
 public class CrossbowItemMixin {
 
+    private static transient boolean arclight$capturedBoolean;
+
     @Inject(method = "shootProjectile", cancellable = true, locals = LocalCapture.CAPTURE_FAILHARD, at = @At(value = "INVOKE", target = "Lnet/minecraft/world/item/ItemStack;hurtAndBreak(ILnet/minecraft/world/entity/LivingEntity;Ljava/util/function/Consumer;)V"))
     private static void arclight$entityShoot(Level worldIn, LivingEntity shooter, InteractionHand handIn, ItemStack crossbow, ItemStack projectile, float soundPitch, boolean isCreativeMode, float velocity, float inaccuracy, float projectileAngle, CallbackInfo ci,
                                              boolean flag, Projectile proj) {
@@ -37,8 +39,6 @@ public class CrossbowItemMixin {
         }
         arclight$capturedBoolean = event.getProjectile() == ((EntityBridge) proj).bridge$getBukkitEntity();
     }
-
-    private static transient boolean arclight$capturedBoolean;
 
     @Eject(method = "shootProjectile", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/Level;addFreshEntity(Lnet/minecraft/world/entity/Entity;)Z"))
     private static boolean arclight$addEntity(Level world, Entity entityIn, CallbackInfo ci, Level worldIn, LivingEntity shooter) {

@@ -50,8 +50,8 @@ public class ArclightContainer {
     private static class ContainerInvWrapper implements Container, IInventoryBridge {
 
         private final AbstractContainerMenu container;
-        private InventoryHolder owner;
         private final List<HumanEntity> viewers = new ArrayList<>();
+        private InventoryHolder owner;
 
         public ContainerInvWrapper(AbstractContainerMenu container, Player owner) {
             this.container = container;
@@ -102,6 +102,10 @@ public class ArclightContainer {
         }
 
         @Override
+        public void setMaxStackSize(int size) {
+        }
+
+        @Override
         public void setChanged() {
         }
 
@@ -146,10 +150,6 @@ public class ArclightContainer {
         @Override
         public void setOwner(InventoryHolder owner) {
             this.owner = owner;
-        }
-
-        @Override
-        public void setMaxStackSize(int size) {
         }
 
         @Override

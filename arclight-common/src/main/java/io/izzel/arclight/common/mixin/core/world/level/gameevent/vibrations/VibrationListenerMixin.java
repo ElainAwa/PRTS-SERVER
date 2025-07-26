@@ -22,9 +22,11 @@ import java.util.Optional;
 @Mixin(VibrationSystem.Listener.class)
 public abstract class VibrationListenerMixin {
 
+    @Shadow @Final private VibrationSystem system;
+
     // @formatter:off
     @Shadow private static boolean isOccluded(Level p_223776_, Vec3 p_223777_, Vec3 p_223778_) { return false; }
-    @Shadow @Final private VibrationSystem system;
+
     @Shadow protected abstract void scheduleVibration(ServerLevel p_282037_, VibrationSystem.Data p_283229_, GameEvent p_281778_, GameEvent.Context p_283344_, Vec3 p_281758_, Vec3 p_282990_);
     // @formatter:on
 

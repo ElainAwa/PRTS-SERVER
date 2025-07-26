@@ -29,11 +29,6 @@ import java.util.Set;
 @Mixin(value = CraftMetaItem.class, remap = false)
 public class CraftMetaItemMixin implements ItemMetaBridge {
 
-    // @formatter:off
-    @Shadow(remap = false) @Final private Map<String, Tag> unhandledTags;
-    @Shadow(remap = false) private CompoundTag internalTag;
-    // @formatter:on
-
     private static final Set<String> EXTEND_TAGS = ImmutableSet.of(
             "map_is_scaling",
             "map",
@@ -63,6 +58,11 @@ public class CraftMetaItemMixin implements ItemMetaBridge {
             "Items",
             "instrument"
     );
+    // @formatter:off
+    @Shadow(remap = false) @Final private Map<String, Tag> unhandledTags;
+    // @formatter:on
+    @Shadow(remap = false) private CompoundTag internalTag;
+    private CompoundTag forgeCaps;
 
     @ModifyVariable(method = "<init>(Lnet/minecraft/nbt/CompoundTag;)V", at = @At(value = "INVOKE", target = "Lorg/bukkit/UnsafeValues;getDataVersion()I"))
     private CompoundTag arclight$provideTag(CompoundTag tag) {
@@ -82,8 +82,6 @@ public class CraftMetaItemMixin implements ItemMetaBridge {
             return handledTags.contains((String) key);
         }
     }
-
-    private CompoundTag forgeCaps;
 
     @Override
     public CompoundTag bridge$getForgeCaps() {

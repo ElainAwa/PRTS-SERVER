@@ -81,111 +81,189 @@ import java.util.function.Consumer;
 @Mixin(LivingEntity.class)
 public abstract class LivingEntityMixin extends EntityMixin implements LivingEntityBridge {
 
-    // @formatter:off
-    @Shadow public abstract float getMaxHealth();
-    @Shadow public abstract void heal(float healAmount);
-    @Shadow public abstract float getHealth();
-    @Shadow public abstract void setHealth(float health);
-    @Shadow public abstract float getYHeadRot();
-    @Shadow protected int lastHurtByPlayerTime;
-    @Shadow protected abstract boolean shouldDropExperience();
-    @Shadow protected abstract boolean isAlwaysExperienceDropper();
+    @Shadow @Final public static EntityDataAccessor<Float> DATA_HEALTH_ID;
+    @Shadow @Final public static EntityDataAccessor<Integer> DATA_ARROW_COUNT_ID;
+    @Shadow @Final private static EntityDataAccessor<Integer> DATA_EFFECT_COLOR_ID;
+    @Shadow @Final private static EntityDataAccessor<Boolean> DATA_EFFECT_AMBIENCE_ID;
     @Shadow public net.minecraft.world.entity.player.Player lastHurtByPlayer;
     @Shadow public int deathTime;
-    @Shadow protected boolean dead;
-    @Shadow public abstract AttributeInstance getAttribute(Attribute attribute);
     @Shadow public boolean effectsDirty;
-    @Shadow public abstract boolean removeEffect(MobEffect effectIn);
-    @Shadow public abstract boolean removeAllEffects();
-    @Shadow @Final public static EntityDataAccessor<Float> DATA_HEALTH_ID;
-    @Shadow public abstract boolean hasEffect(MobEffect potionIn);
-    @Shadow public abstract boolean isSleeping();
-    @Shadow public abstract void stopSleeping();
-    @Shadow protected int noActionTime;
-    @Shadow public abstract net.minecraft.world.item.ItemStack getItemBySlot(EquipmentSlot slotIn);
-    @Shadow public abstract boolean isDamageSourceBlocked(DamageSource damageSourceIn);
-    @Shadow protected abstract void hurtCurrentlyUsedShield(float damage);
-    @Shadow protected abstract void blockUsingShield(LivingEntity entityIn);
     @Shadow public float lastHurt;
     @Shadow public int hurtDuration;
     @Shadow public int hurtTime;
-    @Shadow public abstract void setLastHurtByMob(@Nullable LivingEntity livingBase);
-    @Shadow @Nullable protected abstract SoundEvent getDeathSound();
-    @Shadow protected abstract float getSoundVolume();
-    @Shadow public abstract float getVoicePitch();
-    @Shadow public abstract void die(DamageSource cause);
-    @Shadow protected abstract void playHurtSound(DamageSource source);
-    @Shadow private DamageSource lastDamageSource;
-    @Shadow private long lastDamageStamp;
-    @Shadow protected abstract float getDamageAfterArmorAbsorb(DamageSource source, float damage);
-    @Shadow public abstract net.minecraft.world.item.ItemStack getItemInHand(InteractionHand hand);
-    @Shadow @Nullable public abstract MobEffectInstance getEffect(MobEffect potionIn);
-    @Shadow protected abstract float getDamageAfterMagicAbsorb(DamageSource source, float damage);
-    @Shadow public abstract float getAbsorptionAmount();
-    @Shadow public abstract void setAbsorptionAmount(float amount);
-    @Shadow public abstract CombatTracker getCombatTracker();
-    @Shadow @Final private AttributeMap attributes;
-    @Shadow public abstract boolean onClimbable();
-    @Shadow protected ItemStack useItem;
-    @Shadow public abstract void take(Entity entityIn, int quantity);
-    @Shadow protected abstract void dropAllDeathLoot(DamageSource damageSourceIn);
-    @Shadow public abstract ItemStack getMainHandItem();
-    @Shadow public abstract void setSprinting(boolean sprinting);
-    @Shadow public abstract void setLastHurtMob(Entity entityIn);
-    @Shadow public abstract void setItemInHand(InteractionHand hand, ItemStack stack);
-    @Shadow @Nullable public abstract LivingEntity getKillCredit();
-    @Shadow protected int deathScore;
-    @Shadow public abstract Collection<MobEffectInstance> getActiveEffects();
-    @Shadow public abstract void setArrowCount(int count);
     @Shadow @Nullable public LivingEntity lastHurtByMob;
     @Shadow public CombatTracker combatTracker;
-    @Shadow public abstract ItemStack getOffhandItem();
-    @Shadow public abstract RandomSource getRandom();
-    @Shadow public abstract Optional<BlockPos> getSleepingPos();
-    @Shadow @Final private static EntityDataAccessor<Integer> DATA_EFFECT_COLOR_ID;
-    @Shadow @Final private static EntityDataAccessor<Boolean> DATA_EFFECT_AMBIENCE_ID;
     @Shadow @Final public Map<MobEffect, MobEffectInstance> activeEffects;
-    @Shadow protected abstract void onEffectRemoved(MobEffectInstance effect);
-    @Shadow protected abstract void updateInvisibilityStatus();
-    @Shadow public abstract boolean canBeAffected(MobEffectInstance potioneffectIn);
-    @Shadow @Nullable public abstract MobEffectInstance removeEffectNoUpdate(@Nullable MobEffect potioneffectin);
-    @Shadow protected abstract void createWitherRose(@Nullable LivingEntity entitySource);
-    @Shadow public abstract double getAttributeValue(Attribute attribute);
-    @Shadow protected abstract void hurtArmor(DamageSource damageSource, float damage);
-    @Shadow public abstract boolean isDeadOrDying();
-    @Shadow public abstract int getArrowCount();
-    @Shadow @Final public static EntityDataAccessor<Integer> DATA_ARROW_COUNT_ID;
-    @Shadow public abstract void setItemSlot(EquipmentSlot slotIn, ItemStack stack);
-    @Shadow protected abstract void onEffectUpdated(MobEffectInstance p_147192_, boolean p_147193_, @org.jetbrains.annotations.Nullable Entity p_147194_);
-    @Shadow protected abstract void onEffectAdded(MobEffectInstance p_147190_, @org.jetbrains.annotations.Nullable Entity p_147191_);
-    @Shadow public abstract void knockback(double p_147241_, double p_147242_, double p_147243_);
-    @Shadow public abstract boolean canAttack(LivingEntity p_21171_);
-    @Shadow public abstract boolean hasLineOfSight(Entity p_147185_);
-    @Shadow protected abstract void hurtHelmet(DamageSource p_147213_, float p_147214_);
-    @Shadow public abstract void stopUsingItem();
-    @Shadow protected abstract boolean doesEmitEquipEvent(EquipmentSlot p_217035_);
-    @Shadow protected abstract void verifyEquippedItem(ItemStack p_181123_);
-    @Shadow public abstract boolean wasExperienceConsumed();
-    @Shadow public abstract int getExperienceReward();
-    @Shadow @Nullable protected abstract SoundEvent getHurtSound(DamageSource p_21239_);
-    @Shadow protected abstract SoundEvent getFallDamageSound(int p_21313_);
-    @Shadow protected abstract SoundEvent getDrinkingSound(ItemStack p_21174_);
-    @Shadow public abstract SoundEvent getEatingSound(ItemStack p_21202_);
-    @Shadow public abstract InteractionHand getUsedItemHand();
     @Shadow @Final public WalkAnimationState walkAnimation;
     @Shadow public int invulnerableDuration;
-    @Shadow public abstract void indicateDamage(double p_270514_, double p_270826_);
-    @Shadow public static EquipmentSlot getEquipmentSlotForItem(ItemStack p_147234_) { return null; }
-    @Shadow protected abstract void actuallyHurt(DamageSource p_21240_, float p_21241_);
-    @Shadow protected abstract void updateGlowingStatus();
-    // @formatter:on
-
     public int expToDrop;
     public boolean forceDrops;
     public CraftAttributeMap craftAttributes;
     public boolean collides;
     public boolean bukkitPickUpLoot;
     public Set<UUID> collidableExemptions = new HashSet<>();
+    @Shadow protected int lastHurtByPlayerTime;
+    @Shadow protected boolean dead;
+    @Shadow protected int noActionTime;
+    @Shadow protected ItemStack useItem;
+    @Shadow protected int deathScore;
+    @Shadow private DamageSource lastDamageSource;
+    @Shadow private long lastDamageStamp;
+    @Shadow @Final private AttributeMap attributes;
+    private boolean isTickingEffects = false;
+    private List<Map.Entry<Either<MobEffectInstance, MobEffect>, EntityPotionEffectEvent.Cause>> effectsToProcess = Lists.newArrayList();
+    private transient EntityPotionEffectEvent.Action arclight$action;
+    private transient boolean arclight$damageResult;
+    private transient EntityRegainHealthEvent.RegainReason arclight$regainReason;
+    private transient EntityPotionEffectEvent.Cause arclight$cause;
+
+    @Shadow public static EquipmentSlot getEquipmentSlotForItem(ItemStack p_147234_) { return null; }
+
+    // @formatter:off
+    @Shadow public abstract float getMaxHealth();
+
+    @Shadow public abstract void heal(float healAmount);
+
+    @Shadow public abstract float getHealth();
+
+    @Shadow public abstract void setHealth(float health);
+
+    @Shadow public abstract float getYHeadRot();
+
+    @Shadow protected abstract boolean shouldDropExperience();
+
+    @Shadow protected abstract boolean isAlwaysExperienceDropper();
+
+    @Shadow public abstract AttributeInstance getAttribute(Attribute attribute);
+
+    @Shadow public abstract boolean removeEffect(MobEffect effectIn);
+
+    @Shadow public abstract boolean removeAllEffects();
+
+    @Shadow public abstract boolean hasEffect(MobEffect potionIn);
+
+    @Shadow public abstract boolean isSleeping();
+
+    @Shadow public abstract void stopSleeping();
+
+    @Shadow public abstract net.minecraft.world.item.ItemStack getItemBySlot(EquipmentSlot slotIn);
+
+    @Shadow public abstract boolean isDamageSourceBlocked(DamageSource damageSourceIn);
+
+    @Shadow protected abstract void hurtCurrentlyUsedShield(float damage);
+
+    @Shadow protected abstract void blockUsingShield(LivingEntity entityIn);
+
+    @Shadow public abstract void setLastHurtByMob(@Nullable LivingEntity livingBase);
+
+    @Shadow @Nullable protected abstract SoundEvent getDeathSound();
+
+    @Shadow protected abstract float getSoundVolume();
+
+    @Shadow public abstract float getVoicePitch();
+
+    @Shadow public abstract void die(DamageSource cause);
+
+    @Shadow protected abstract void playHurtSound(DamageSource source);
+
+    @Shadow protected abstract float getDamageAfterArmorAbsorb(DamageSource source, float damage);
+
+    @Shadow public abstract net.minecraft.world.item.ItemStack getItemInHand(InteractionHand hand);
+
+    @Shadow @Nullable public abstract MobEffectInstance getEffect(MobEffect potionIn);
+
+    @Shadow protected abstract float getDamageAfterMagicAbsorb(DamageSource source, float damage);
+
+    @Shadow public abstract float getAbsorptionAmount();
+
+    @Shadow public abstract void setAbsorptionAmount(float amount);
+
+    @Shadow public abstract CombatTracker getCombatTracker();
+
+    @Shadow public abstract boolean onClimbable();
+
+    @Shadow public abstract void take(Entity entityIn, int quantity);
+
+    @Shadow protected abstract void dropAllDeathLoot(DamageSource damageSourceIn);
+
+    @Shadow public abstract ItemStack getMainHandItem();
+
+    @Shadow public abstract void setSprinting(boolean sprinting);
+
+    @Shadow public abstract void setLastHurtMob(Entity entityIn);
+
+    @Shadow public abstract void setItemInHand(InteractionHand hand, ItemStack stack);
+
+    @Shadow @Nullable public abstract LivingEntity getKillCredit();
+
+    @Shadow public abstract Collection<MobEffectInstance> getActiveEffects();
+
+    @Shadow public abstract ItemStack getOffhandItem();
+
+    @Shadow public abstract RandomSource getRandom();
+
+    @Shadow public abstract Optional<BlockPos> getSleepingPos();
+
+    @Shadow protected abstract void onEffectRemoved(MobEffectInstance effect);
+
+    @Shadow protected abstract void updateInvisibilityStatus();
+
+    @Shadow public abstract boolean canBeAffected(MobEffectInstance potioneffectIn);
+
+    @Shadow @Nullable public abstract MobEffectInstance removeEffectNoUpdate(@Nullable MobEffect potioneffectin);
+
+    @Shadow protected abstract void createWitherRose(@Nullable LivingEntity entitySource);
+
+    @Shadow public abstract double getAttributeValue(Attribute attribute);
+
+    @Shadow protected abstract void hurtArmor(DamageSource damageSource, float damage);
+
+    @Shadow public abstract boolean isDeadOrDying();
+
+    @Shadow public abstract int getArrowCount();
+
+    @Shadow public abstract void setArrowCount(int count);
+
+    @Shadow public abstract void setItemSlot(EquipmentSlot slotIn, ItemStack stack);
+
+    @Shadow protected abstract void onEffectUpdated(MobEffectInstance p_147192_, boolean p_147193_, @org.jetbrains.annotations.Nullable Entity p_147194_);
+
+    @Shadow protected abstract void onEffectAdded(MobEffectInstance p_147190_, @org.jetbrains.annotations.Nullable Entity p_147191_);
+
+    @Shadow public abstract void knockback(double p_147241_, double p_147242_, double p_147243_);
+
+    @Shadow public abstract boolean canAttack(LivingEntity p_21171_);
+
+    @Shadow public abstract boolean hasLineOfSight(Entity p_147185_);
+
+    @Shadow protected abstract void hurtHelmet(DamageSource p_147213_, float p_147214_);
+
+    @Shadow public abstract void stopUsingItem();
+    // @formatter:on
+
+    @Shadow protected abstract boolean doesEmitEquipEvent(EquipmentSlot p_217035_);
+
+    @Shadow protected abstract void verifyEquippedItem(ItemStack p_181123_);
+
+    @Shadow public abstract boolean wasExperienceConsumed();
+
+    @Shadow public abstract int getExperienceReward();
+
+    @Shadow @Nullable protected abstract SoundEvent getHurtSound(DamageSource p_21239_);
+
+    @Shadow protected abstract SoundEvent getFallDamageSound(int p_21313_);
+
+    @Shadow protected abstract SoundEvent getDrinkingSound(ItemStack p_21174_);
+
+    @Shadow public abstract SoundEvent getEatingSound(ItemStack p_21202_);
+
+    @Shadow public abstract InteractionHand getUsedItemHand();
+
+    @Shadow public abstract void indicateDamage(double p_270514_, double p_270826_);
+
+    @Shadow protected abstract void actuallyHurt(DamageSource p_21240_, float p_21241_);
+
+    @Shadow protected abstract void updateGlowingStatus();
 
     @Redirect(method = "<init>", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/LivingEntity;setHealth(F)V"))
     private void arclight$muteHealth(LivingEntity entity, float health) {
@@ -241,9 +319,6 @@ public abstract class LivingEntityMixin extends EntityMixin implements LivingEnt
             bridge$setExpToDrop(0);
         }
     }
-
-    private boolean isTickingEffects = false;
-    private List<Map.Entry<Either<MobEffectInstance, MobEffect>, EntityPotionEffectEvent.Cause>> effectsToProcess = Lists.newArrayList();
 
     /**
      * @author IzzelAliz
@@ -448,8 +523,6 @@ public abstract class LivingEntityMixin extends EntityMixin implements LivingEnt
         arclight$action = EntityPotionEffectEvent.Action.CLEARED;
     }
 
-    private transient EntityPotionEffectEvent.Action arclight$action;
-
     @Override
     public EntityPotionEffectEvent.Action bridge$getAndResetAction() {
         try {
@@ -652,8 +725,6 @@ public abstract class LivingEntityMixin extends EntityMixin implements LivingEnt
         ci.cancel();
     }
 
-    private transient boolean arclight$damageResult;
-
     protected boolean damageEntity0(DamageSource damagesource, float f) {
         if (!this.isInvulnerableTo(damagesource)) {
             final boolean human = (Object) this instanceof net.minecraft.world.entity.player.Player;
@@ -816,8 +887,6 @@ public abstract class LivingEntityMixin extends EntityMixin implements LivingEnt
         return arclight$damageResult = false; // CraftBukkit
     }
 
-    private transient EntityRegainHealthEvent.RegainReason arclight$regainReason;
-
     public void heal(float healAmount, EntityRegainHealthEvent.RegainReason regainReason) {
         bridge$pushHealReason(regainReason);
         this.heal(healAmount);
@@ -843,8 +912,6 @@ public abstract class LivingEntityMixin extends EntityMixin implements LivingEnt
     public void arclight$resetReason(float healAmount, CallbackInfo ci) {
         arclight$regainReason = null;
     }
-
-    private transient EntityPotionEffectEvent.Cause arclight$cause;
 
     public boolean removeEffect(MobEffect effect, EntityPotionEffectEvent.Cause cause) {
         bridge$pushEffectCause(cause);
@@ -941,25 +1008,6 @@ public abstract class LivingEntityMixin extends EntityMixin implements LivingEnt
     @Redirect(method = "createWitherRose", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/Level;setBlock(Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/state/BlockState;I)Z"))
     private boolean arclight$fireWitherRoseForm(Level instance, BlockPos pPos, BlockState pNewState, int pFlags) {
         return CraftEventFactory.handleBlockFormEvent(instance, pPos, pNewState, 3, (Entity) (Object) this);
-    }
-
-    // https://github.com/IzzelAliz/Arclight/issues/831
-    @Mixin(value = LivingEntity.class, priority = 1500)
-    public static class ObscureApiCompat {
-
-        @Redirect(method = "getDamageAfterArmorAbsorb", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/LivingEntity;hurtArmor(Lnet/minecraft/world/damagesource/DamageSource;F)V"))
-        private void arclight$muteDamageArmor(LivingEntity entity, DamageSource damageSource, float damage) {
-        }
-    }
-
-    // https://github.com/IzzelAliz/Arclight/issues/811
-    @Mixin(value = LivingEntity.class, priority = 1500)
-    public static class ApotheosisCompatMixin {
-
-        @Redirect(method = "getDamageAfterMagicAbsorb", require = 0, at = @At(value = "INVOKE", ordinal = 0, target = "Lnet/minecraft/world/entity/LivingEntity;hasEffect(Lnet/minecraft/world/effect/MobEffect;)Z"))
-        public boolean arclight$mutePotion(LivingEntity livingEntity, MobEffect potionIn) {
-            return false;
-        }
     }
 
     @Redirect(method = "travel", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/LivingEntity;setSharedFlag(IZ)V"))
@@ -1132,5 +1180,24 @@ public abstract class LivingEntityMixin extends EntityMixin implements LivingEnt
     @Override
     public void bridge$playEquipSound(EquipmentSlot slot, ItemStack oldItem, ItemStack newItem, boolean silent) {
         this.equipEventAndSound(slot, oldItem, newItem, silent);
+    }
+
+    // https://github.com/IzzelAliz/Arclight/issues/831
+    @Mixin(value = LivingEntity.class, priority = 1500)
+    public static class ObscureApiCompat {
+
+        @Redirect(method = "getDamageAfterArmorAbsorb", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/LivingEntity;hurtArmor(Lnet/minecraft/world/damagesource/DamageSource;F)V"))
+        private void arclight$muteDamageArmor(LivingEntity entity, DamageSource damageSource, float damage) {
+        }
+    }
+
+    // https://github.com/IzzelAliz/Arclight/issues/811
+    @Mixin(value = LivingEntity.class, priority = 1500)
+    public static class ApotheosisCompatMixin {
+
+        @Redirect(method = "getDamageAfterMagicAbsorb", require = 0, at = @At(value = "INVOKE", ordinal = 0, target = "Lnet/minecraft/world/entity/LivingEntity;hasEffect(Lnet/minecraft/world/effect/MobEffect;)Z"))
+        public boolean arclight$mutePotion(LivingEntity livingEntity, MobEffect potionIn) {
+            return false;
+        }
     }
 }

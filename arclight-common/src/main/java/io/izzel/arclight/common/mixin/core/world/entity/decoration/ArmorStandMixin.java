@@ -39,9 +39,10 @@ public abstract class ArmorStandMixin extends LivingEntityMixin {
 
     // @formatter:off
     @Shadow private boolean invisible;
-    @Shadow public abstract ItemStack getItemBySlot(net.minecraft.world.entity.EquipmentSlot slotIn);
     @Shadow @Final private NonNullList<ItemStack> handItems;
     @Shadow @Final private NonNullList<ItemStack> armorItems;
+
+    @Shadow public abstract ItemStack getItemBySlot(net.minecraft.world.entity.EquipmentSlot slotIn);
     // @formatter:on
 
     @Override

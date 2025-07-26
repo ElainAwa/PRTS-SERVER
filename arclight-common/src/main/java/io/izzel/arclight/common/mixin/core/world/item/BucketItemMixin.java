@@ -34,10 +34,16 @@ import org.spongepowered.asm.mixin.injection.callback.LocalCapture;
 @Mixin(BucketItem.class)
 public abstract class BucketItemMixin {
 
+    private transient org.bukkit.inventory.@Nullable ItemStack arclight$captureItem;
+    private transient Direction arclight$direction;
+    // @formatter:on
+    private transient BlockPos arclight$click;
+    private transient InteractionHand arclight$hand;
+
     // @formatter:off
     @Shadow public abstract boolean emptyContents(@Nullable Player player, Level worldIn, BlockPos posIn, @javax.annotation.Nullable BlockHitResult rayTrace);
+
     @Shadow(remap = false) public abstract boolean emptyContents(@Nullable Player p_150716_, Level p_150717_, BlockPos p_150718_, @Nullable BlockHitResult p_150719_, @Nullable ItemStack container);
-    // @formatter:on
 
     @Inject(method = "use", cancellable = true, locals = LocalCapture.CAPTURE_FAILHARD, at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/block/BucketPickup;pickupBlock(Lnet/minecraft/world/level/LevelAccessor;Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/state/BlockState;)Lnet/minecraft/world/item/ItemStack;"))
     private void arclight$bucketFill(Level worldIn, Player playerIn, InteractionHand handIn, CallbackInfoReturnable<InteractionResultHolder<ItemStack>> cir, ItemStack stack, BlockHitResult result) {
@@ -69,8 +75,6 @@ public abstract class BucketItemMixin {
         arclight$click = null;
     }
 
-    private transient org.bukkit.inventory.@Nullable ItemStack arclight$captureItem;
-
     @ModifyArg(method = "use", index = 2, at = @At(value = "INVOKE", target = "Lnet/minecraft/world/item/ItemUtils;createFilledResult(Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/entity/player/Player;Lnet/minecraft/world/item/ItemStack;)Lnet/minecraft/world/item/ItemStack;"))
     private ItemStack arclight$useEventItem(ItemStack itemStack) {
         return arclight$captureItem == null ? itemStack : CraftItemStack.asNMSCopy(arclight$captureItem);
@@ -87,10 +91,6 @@ public abstract class BucketItemMixin {
             arclight$click = null;
         }
     }
-
-    private transient Direction arclight$direction;
-    private transient BlockPos arclight$click;
-    private transient InteractionHand arclight$hand;
 
     @Inject(method = "emptyContents(Lnet/minecraft/world/entity/player/Player;Lnet/minecraft/world/level/Level;Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/phys/BlockHitResult;Lnet/minecraft/world/item/ItemStack;)Z", cancellable = true, at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/dimension/DimensionType;ultraWarm()Z"))
     private void arclight$bucketEmpty(Player player, Level worldIn, BlockPos posIn, BlockHitResult rayTrace, ItemStack stack, CallbackInfoReturnable<Boolean> cir) {

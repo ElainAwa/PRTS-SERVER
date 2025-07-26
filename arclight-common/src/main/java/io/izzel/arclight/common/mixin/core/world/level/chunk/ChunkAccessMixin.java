@@ -36,20 +36,22 @@ import java.util.Map;
 @Mixin(ChunkAccess.class)
 public abstract class ChunkAccessMixin implements BlockGetter, BiomeManager.NoiseBiomeSource, ChunkAccessBridge {
 
-    // @formatter:off
-    @Shadow public abstract void setUnsaved(boolean p_62094_);
-    @Shadow public abstract int getMinBuildHeight();
-    @Shadow public abstract int getHeight();
-    @Shadow public boolean isUnsaved() { return false; }
-    @Shadow @Final protected LevelChunkSection[] sections;
-    @Shadow @Final protected Map<BlockPos, CompoundTag> pendingBlockEntities;
-    @Shadow @Final protected ChunkPos chunkPos;
-    // @formatter:on
-
-
     private static final CraftPersistentDataTypeRegistry DATA_TYPE_REGISTRY = new CraftPersistentDataTypeRegistry();
     public DirtyCraftPersistentDataContainer persistentDataContainer = new DirtyCraftPersistentDataContainer(DATA_TYPE_REGISTRY);
     public Registry<Biome> biomeRegistry;
+    @Shadow @Final protected LevelChunkSection[] sections;
+    @Shadow @Final protected Map<BlockPos, CompoundTag> pendingBlockEntities;
+    @Shadow @Final protected ChunkPos chunkPos;
+
+    @Shadow public abstract int getMinBuildHeight();
+    // @formatter:on
+
+    @Shadow public abstract int getHeight();
+
+    @Shadow public boolean isUnsaved() { return false; }
+
+    // @formatter:off
+    @Shadow public abstract void setUnsaved(boolean p_62094_);
 
     @Inject(method = "<init>", at = @At("RETURN"))
     private void arclight$init(ChunkPos p_187621_, UpgradeData p_187622_, LevelHeightAccessor p_187623_, Registry<Biome> registry, long p_187625_, LevelChunkSection[] p_187626_, BlendingData p_187627_, CallbackInfo ci) {

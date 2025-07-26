@@ -15,11 +15,11 @@ public class ConnectionMixin implements NetworkManagerBridge {
 
     @Shadow
     public Channel channel;
-    @Shadow
-    private SocketAddress address;
     public java.util.UUID spoofedUUID;
     public com.mojang.authlib.properties.Property[] spoofedProfile;
     public String hostname;
+    @Shadow
+    private SocketAddress address;
 
     @Override
     public UUID bridge$getSpoofedUUID() {

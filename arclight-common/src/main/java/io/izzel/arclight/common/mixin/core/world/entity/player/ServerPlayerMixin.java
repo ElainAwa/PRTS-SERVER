@@ -114,47 +114,12 @@ public abstract class ServerPlayerMixin extends PlayerMixin implements ServerPla
 
     // @formatter:off
     @Shadow @Final public MinecraftServer server;
-    @Shadow protected abstract int getCoprime(int p_205735_1_);
     @Shadow @Final public ServerPlayerGameMode gameMode;
     @Shadow public ServerGamePacketListenerImpl connection;
-    @Shadow public abstract boolean isSpectator();
-    @Shadow public abstract void resetStat(Stat<?> stat);
-    @Shadow public abstract void closeContainer();
-    @Shadow public abstract void setCamera(Entity entityToSpectate);
     @Shadow public boolean isChangingDimension;
-    @Shadow public abstract ServerLevel serverLevel();
     @Shadow public boolean wonGame;
-    @Shadow private boolean seenCredits;
-    @Shadow @Nullable private Vec3 enteredNetherPosition;
-    @Shadow public abstract void triggerDimensionChangeTriggers(ServerLevel p_213846_1_);
     @Shadow public int lastSentExp;
-    @Shadow private float lastSentHealth;
-    @Shadow private int lastSentFood;
     @Shadow public int containerCounter;
-    @Shadow(remap = false) private String language;
-    @Shadow public abstract void teleportTo(ServerLevel newWorld, double x, double y, double z, float yaw, float pitch);
-    @Shadow public abstract void giveExperiencePoints(int p_195068_1_);
-    @Shadow private ResourceKey<Level> respawnDimension;
-    @Shadow @Nullable public abstract BlockPos getRespawnPosition();
-    @Shadow public abstract float getRespawnAngle();
-    @Shadow protected abstract void tellNeutralMobsThatIDied();
-    @Shadow protected abstract void createEndPlatform(ServerLevel p_242110_1_, BlockPos p_242110_2_);
-    @Shadow public abstract boolean isCreative();
-    @Shadow protected abstract boolean bedBlocked(BlockPos p_241156_1_, Direction p_241156_2_);
-    @Shadow protected abstract boolean bedInRange(BlockPos p_241147_1_, Direction p_241147_2_);
-    @Shadow(remap = false) private boolean hasTabListName;
-    @Shadow(remap = false) private Component tabListDisplayName;
-    @Shadow public abstract void resetFallDistance();
-    @Shadow public abstract void shadow$nextContainerCounter();
-    @Shadow public abstract void initMenu(AbstractContainerMenu p_143400_);
-    @Shadow public abstract boolean teleportTo(ServerLevel p_265564_, double p_265424_, double p_265680_, double p_265312_, Set<RelativeMovement> p_265192_, float p_265059_, float p_265266_);
-    @Shadow @Nullable private BlockPos respawnPosition;
-    @Shadow public abstract void sendSystemMessage(Component p_215097_);
-    @Shadow private float respawnAngle;
-    @Shadow private boolean respawnForced;
-    @Shadow public abstract void setServerLevel(ServerLevel p_284971_);
-    // @formatter:on
-
     public String displayName;
     public Component listName;
     public org.bukkit.Location compassTarget;
@@ -169,10 +134,69 @@ public abstract class ServerPlayerMixin extends PlayerMixin implements ServerPla
     public long timeOffset = 0;
     public boolean relativeTime = true;
     public WeatherType weather = null;
+    public String locale = "en_us";
+    @Shadow private boolean seenCredits;
+    @Shadow @Nullable private Vec3 enteredNetherPosition;
+    @Shadow private float lastSentHealth;
+    @Shadow private int lastSentFood;
+    @Shadow(remap = false) private String language;
+    @Shadow private ResourceKey<Level> respawnDimension;
+    @Shadow(remap = false) private boolean hasTabListName;
+    @Shadow(remap = false) private Component tabListDisplayName;
+    @Shadow @Nullable private BlockPos respawnPosition;
+    @Shadow private float respawnAngle;
+    @Shadow private boolean respawnForced;
     private float pluginRainPosition;
     private float pluginRainPositionPrevious;
-    public String locale = "en_us";
     private boolean arclight$initialized = false;
+    private transient PlayerTeleportEvent.TeleportCause arclight$cause;
+    private transient BlockStateListPopulator arclight$populator;
+    private transient PlayerSpawnChangeEvent.Cause arclight$spawnChangeCause;
+
+    @Shadow protected abstract int getCoprime(int p_205735_1_);
+    // @formatter:on
+
+    @Shadow public abstract boolean isSpectator();
+
+    @Shadow public abstract void resetStat(Stat<?> stat);
+
+    @Shadow public abstract void closeContainer();
+
+    @Shadow public abstract void setCamera(Entity entityToSpectate);
+
+    @Shadow public abstract ServerLevel serverLevel();
+
+    @Shadow public abstract void triggerDimensionChangeTriggers(ServerLevel p_213846_1_);
+
+    @Shadow public abstract void teleportTo(ServerLevel newWorld, double x, double y, double z, float yaw, float pitch);
+
+    @Shadow public abstract void giveExperiencePoints(int p_195068_1_);
+
+    @Shadow @Nullable public abstract BlockPos getRespawnPosition();
+
+    @Shadow public abstract float getRespawnAngle();
+
+    @Shadow protected abstract void tellNeutralMobsThatIDied();
+
+    @Shadow protected abstract void createEndPlatform(ServerLevel p_242110_1_, BlockPos p_242110_2_);
+
+    @Shadow public abstract boolean isCreative();
+
+    @Shadow protected abstract boolean bedBlocked(BlockPos p_241156_1_, Direction p_241156_2_);
+
+    @Shadow protected abstract boolean bedInRange(BlockPos p_241147_1_, Direction p_241147_2_);
+
+    @Shadow public abstract void resetFallDistance();
+
+    @Shadow public abstract void shadow$nextContainerCounter();
+
+    @Shadow public abstract void initMenu(AbstractContainerMenu p_143400_);
+
+    @Shadow public abstract boolean teleportTo(ServerLevel p_265564_, double p_265424_, double p_265680_, double p_265312_, Set<RelativeMovement> p_265192_, float p_265059_, float p_265266_);
+
+    @Shadow public abstract void sendSystemMessage(Component p_215097_);
+
+    @Shadow public abstract void setServerLevel(ServerLevel p_284971_);
 
     @Inject(method = "<init>", at = @At("RETURN"))
     public void arclight$init(CallbackInfo ci) {
@@ -441,8 +465,6 @@ public abstract class ServerPlayerMixin extends PlayerMixin implements ServerPla
         return changeDimension(world);
     }
 
-    private transient PlayerTeleportEvent.TeleportCause arclight$cause;
-
     public boolean teleportTo(ServerLevel worldserver, double d0, double d1, double d2, Set<RelativeMovement> set, float f, float f1, PlayerTeleportEvent.TeleportCause cause) {
         this.arclight$cause = cause;
         return this.teleportTo(worldserver, d0, d1, d2, set, f, f1);
@@ -596,8 +618,6 @@ public abstract class ServerPlayerMixin extends PlayerMixin implements ServerPla
         }
         return optional1;
     }
-
-    private transient BlockStateListPopulator arclight$populator;
 
     @Inject(method = "createEndPlatform", at = @At("HEAD"))
     private void arclight$playerCreatePortalBegin(ServerLevel level, BlockPos pos, CallbackInfo ci) {
@@ -939,8 +959,6 @@ public abstract class ServerPlayerMixin extends PlayerMixin implements ServerPla
     public boolean isImmobile() {
         return super.isImmobile() || !this.getBukkitEntity().isOnline();
     }
-
-    private transient PlayerSpawnChangeEvent.Cause arclight$spawnChangeCause;
 
     @Override
     public void bridge$pushChangeSpawnCause(PlayerSpawnChangeEvent.Cause cause) {

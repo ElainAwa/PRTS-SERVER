@@ -1,9 +1,9 @@
 package io.izzel.arclight.common.mod;
 
-import io.izzel.arclight.common.optimization.mpem.OptimizationManager;
 import io.izzel.arclight.common.mod.server.event.ArclightEventDispatcherRegistry;
 import io.izzel.arclight.common.mod.util.log.ArclightI18nLogger;
 import io.izzel.arclight.common.mod.velocity.VelocityManager;
+import io.izzel.arclight.common.optimization.mpem.OptimizationManager;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.server.ServerAboutToStartEvent;
 import net.minecraftforge.fml.IExtensionPoint;
@@ -40,6 +40,10 @@ public class ArclightMod {
         MinecraftForge.EVENT_BUS.addListener(this::onServerAboutToStart);
     }
 
+    public static boolean isModLoaded(String modid) {
+        return ModList.get() != null ? ModList.get().isLoaded(modid) : FMLLoader.getLoadingModList().getModFileById(modid) != null;
+    }
+
     private void onCommonSetup(FMLCommonSetupEvent event) {
         OptimizationManager.initialize(event);
     }
@@ -70,9 +74,5 @@ public class ArclightMod {
         public void println(@Nullable Object x) {
             logger.log(level, String.valueOf(x));
         }
-    }
-
-    public static boolean isModLoaded(String modid) {
-        return ModList.get() != null ? ModList.get().isLoaded(modid) : FMLLoader.getLoadingModList().getModFileById(modid) != null;
     }
 }

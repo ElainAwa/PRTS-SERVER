@@ -96,10 +96,6 @@ public class ForgeInstaller {
         });
     }
 
-    private record MinecraftData(String mirror, String serverUrl, String serverHash, String mappingUrl,
-                                 String mappingHash) {
-    }
-
     @SuppressWarnings("unchecked")
     private static CompletableFuture<Path>[] installForge(InstallInfo info, ExecutorService pool, Consumer<String> logger) {
         var minecraftData = CompletableFuture.supplyAsync(() -> {
@@ -428,9 +424,6 @@ public class ForgeInstaller {
         return new ParserData(source[0], source[1], all[1]);
     }
 
-    private record ParserData(String module, String packages, String target) {
-    }
-
     private static void addExtra(List<String> extras, MethodHandle implAddExtraMH, MethodHandle implAddExtraToAllUnnamedMH) {
         extras.forEach(extra -> {
             ParserData data = parseModuleExtra(extra);
@@ -527,5 +520,12 @@ public class ForgeInstaller {
                 throw new RuntimeException(throwable);
             }
         }))));
+    }
+
+    private record MinecraftData(String mirror, String serverUrl, String serverHash, String mappingUrl,
+                                 String mappingHash) {
+    }
+
+    private record ParserData(String module, String packages, String target) {
     }
 }

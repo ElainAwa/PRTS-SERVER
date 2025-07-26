@@ -16,11 +16,10 @@ import java.util.List;
 @Mixin(ChestBlockEntity.class)
 public abstract class ChestBlockEntityMixin extends LockableBlockEntityMixin {
 
+    public List<HumanEntity> transaction = new ArrayList<>();
+    // @formatter:on
     // @formatter:off
     @Shadow private NonNullList<ItemStack> items;
-    // @formatter:on
-
-    public List<HumanEntity> transaction = new ArrayList<>();
     private int maxStack = IInventoryBridge.MAX_STACK;
 
     @Override

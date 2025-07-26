@@ -41,6 +41,10 @@ public class PluginClassLoaderMixin extends URLClassLoader implements RemappingC
 
     private ClassLoaderRemapper remapper;
 
+    public PluginClassLoaderMixin(URL[] urls) {
+        super(urls);
+    }
+
     @Override
     public ClassLoaderRemapper getRemapper() {
         if (remapper == null) {
@@ -52,10 +56,6 @@ public class PluginClassLoaderMixin extends URLClassLoader implements RemappingC
     @Override
     public ArclightRemapConfig getRemapConfig() {
         return ArclightRemapConfig.PLUGIN;
-    }
-
-    public PluginClassLoaderMixin(URL[] urls) {
-        super(urls);
     }
 
     /**

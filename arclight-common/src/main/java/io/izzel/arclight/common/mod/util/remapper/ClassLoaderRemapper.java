@@ -45,7 +45,7 @@ public class ClassLoaderRemapper extends LenientJarRemapper {
     private static final Logger LOGGER = LogManager.getLogger("Arclight");
     private static final String PREFIX = "net/minecraft/";
     private static final String REPLACED_NAME = Type.getInternalName(ArclightReflectionHandler.class);
-
+    private static final AtomicInteger COUNTER = new AtomicInteger();
     private final JarMapping toBukkitMapping;
     private final JarRemapper toBukkitRemapper;
     private final ClassLoader classLoader;
@@ -53,6 +53,10 @@ public class ClassLoaderRemapper extends LenientJarRemapper {
     private final Class<?> generatedHandlerClass;
     private final GeneratedHandlerAdapter generatedHandlerAdapter;
     private final Map<String, Boolean> secureJarInfo = new ConcurrentHashMap<>();
+    // BiMap: srg -> bukkit
+    private final Map<String, BiMap<Field, String>> cacheFields = new ConcurrentHashMap<>();
+    private final Map<String, Map.Entry<Map<Method, String>, Map<WrappedMethod, Method>>> cacheMethods = new ConcurrentHashMap<>();
+    private final Map<String, Boolean> cacheRemap = new ConcurrentHashMap<>();
 
     public ClassLoaderRemapper(JarMapping jarMapping, JarMapping toBukkitMapping, ClassLoader classLoader) {
         super(jarMapping);
@@ -66,6 +70,25 @@ public class ClassLoaderRemapper extends LenientJarRemapper {
         this.generatedHandler = Type.getInternalName(generatedHandlerClass);
         this.generatedHandlerAdapter = new GeneratedHandlerAdapter(REPLACED_NAME, generatedHandler);
         GlobalClassRepo.INSTANCE.addRepo(new ClassLoaderRepo(this.classLoader));
+    }
+
+    private static byte[] dump(byte[] bytes) {
+        try {
+            if (ArclightRemapper.DUMP != null) {
+                String className = new ClassReader(bytes).getClassName() + ".class";
+                int index = className.lastIndexOf('/');
+                if (index != -1) {
+                    File file = new File(ArclightRemapper.DUMP, className.substring(0, index));
+                    file.mkdirs();
+                    Files.write(file.toPath().resolve(className.substring(index + 1)), bytes);
+                } else {
+                    Files.write(ArclightRemapper.DUMP.toPath().resolve(className), bytes);
+                }
+            }
+        } catch (Exception e) {
+            LOGGER.error("Failed to dump class " + new ClassReader(bytes).getClassName(), e);
+        }
+        return bytes;
     }
 
     public ClassLoader getClassLoader() {
@@ -91,11 +114,6 @@ public class ClassLoaderRemapper extends LenientJarRemapper {
     public Class<?> getGeneratedHandlerClass() {
         return generatedHandlerClass;
     }
-
-    // BiMap: srg -> bukkit
-    private final Map<String, BiMap<Field, String>> cacheFields = new ConcurrentHashMap<>();
-    private final Map<String, Map.Entry<Map<Method, String>, Map<WrappedMethod, Method>>> cacheMethods = new ConcurrentHashMap<>();
-    private final Map<String, Boolean> cacheRemap = new ConcurrentHashMap<>();
 
     private Map.Entry<Map<Method, String>, Map<WrappedMethod, Method>> getMethods(Class<?> cl, String internalName) {
         return cacheMethods.computeIfAbsent(internalName, k -> this.tryGetMethods(cl));
@@ -369,8 +387,6 @@ public class ClassLoaderRemapper extends LenientJarRemapper {
         return dump(wr.toByteArray());
     }
 
-    private static final AtomicInteger COUNTER = new AtomicInteger();
-
     private Class<?> generateReflectionHandler() {
         try {
             ClassNode node = MixinService.getService().getBytecodeProvider().getClassNode(Type.getInternalName(ArclightReflectionHandler.class));
@@ -485,24 +501,5 @@ public class ClassLoaderRemapper extends LenientJarRemapper {
             result = 31 * result + Arrays.hashCode(pTypes);
             return result;
         }
-    }
-
-    private static byte[] dump(byte[] bytes) {
-        try {
-            if (ArclightRemapper.DUMP != null) {
-                String className = new ClassReader(bytes).getClassName() + ".class";
-                int index = className.lastIndexOf('/');
-                if (index != -1) {
-                    File file = new File(ArclightRemapper.DUMP, className.substring(0, index));
-                    file.mkdirs();
-                    Files.write(file.toPath().resolve(className.substring(index + 1)), bytes);
-                } else {
-                    Files.write(ArclightRemapper.DUMP.toPath().resolve(className), bytes);
-                }
-            }
-        } catch (Exception e) {
-            LOGGER.error("Failed to dump class " + new ClassReader(bytes).getClassName(), e);
-        }
-        return bytes;
     }
 }

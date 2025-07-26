@@ -27,14 +27,13 @@ import java.security.NoSuchAlgorithmException;
  */
 public class VelocityForwarding {
 
-    private static final Logger LOGGER = LogManager.getLogger("Luminara-Velocity");
-    private static final int SUPPORTED_FORWARDING_VERSION = 1;
     public static final int MODERN_FORWARDING_WITH_KEY = 2;
     public static final int MODERN_FORWARDING_WITH_KEY_V2 = 3;
     public static final int MODERN_LAZY_SESSION = 4;
     public static final byte MAX_SUPPORTED_FORWARDING_VERSION = MODERN_LAZY_SESSION;
     public static final ResourceLocation PLAYER_INFO_CHANNEL = new ResourceLocation("velocity", "player_info");
-
+    private static final Logger LOGGER = LogManager.getLogger("Luminara-Velocity");
+    private static final int SUPPORTED_FORWARDING_VERSION = 1;
     private final String forwardingSecret;
 
     public VelocityForwarding(String forwardingSecret) {

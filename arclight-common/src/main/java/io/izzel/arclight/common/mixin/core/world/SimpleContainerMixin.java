@@ -20,15 +20,13 @@ import java.util.List;
 @Mixin(SimpleContainer.class)
 public abstract class SimpleContainerMixin implements Container, IInventoryBridge {
 
+    private static final int MAX_STACK = 64;
+    // @formatter:on
     // @formatter:off
     @Shadow @Final public NonNullList<ItemStack> items;
-    // @formatter:on
-
-    private static final int MAX_STACK = 64;
-
     public List<HumanEntity> transaction = new ArrayList<>();
-    private int maxStack = MAX_STACK;
     protected InventoryHolder bukkitOwner;
+    private int maxStack = MAX_STACK;
 
     public void arclight$constructor(int numSlots) {
         throw new RuntimeException();

@@ -24,9 +24,9 @@ public class ArclightImplementer implements ILaunchPluginService {
     private static final EnumSet<Phase> NOT_TODAY = EnumSet.noneOf(Phase.class);
 
     private final Map<String, Implementer> implementers = new HashMap<>();
+    private final boolean logger;
     private volatile Consumer<String[]> auditAcceptor;
     private ITransformerLoader transformerLoader;
-    private final boolean logger;
 
     public ArclightImplementer() {
         this(detectTransformLogger());
@@ -42,6 +42,17 @@ public class ArclightImplementer implements ILaunchPluginService {
             System.setProperty("log4j.jul.LoggerAdapter", "io.izzel.arclight.boot.log.ArclightLoggerAdapter");
         }
         return transformLogger;
+    }
+
+    public static void loadArgs(InsnList list, MethodNode methodNode, Type[] types, int i) {
+        if (!Modifier.isStatic(methodNode.access)) {
+            list.add(new VarInsnNode(Opcodes.ALOAD, i));
+            i += 1;
+        }
+        for (Type type : types) {
+            list.add(new VarInsnNode(type.getOpcode(Opcodes.ILOAD), i));
+            i += type.getSize();
+        }
     }
 
     @Override
@@ -103,16 +114,5 @@ public class ArclightImplementer implements ILaunchPluginService {
     @Override
     public boolean processClass(Phase phase, ClassNode classNode, Type classType) {
         throw new IllegalStateException("Outdated ModLauncher");
-    }
-
-    public static void loadArgs(InsnList list, MethodNode methodNode, Type[] types, int i) {
-        if (!Modifier.isStatic(methodNode.access)) {
-            list.add(new VarInsnNode(Opcodes.ALOAD, i));
-            i += 1;
-        }
-        for (Type type : types) {
-            list.add(new VarInsnNode(type.getOpcode(Opcodes.ILOAD), i));
-            i += type.getSize();
-        }
     }
 }

@@ -21,6 +21,20 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(SculkSensorBlock.class)
 public class SculkSensorBlockMixin {
 
+    @Unique
+    private int newCurrent;
+
+    @Inject(method = "deactivate", cancellable = true, at = @At("HEAD"))
+    private static void arclight$deactivate(Level level, BlockPos pos, BlockState state, CallbackInfo ci) {
+        BlockRedstoneEvent eventRedstone = new BlockRedstoneEvent(CraftBlock.at(level, pos), state.getValue(SculkSensorBlock.POWER), 0);
+        Bukkit.getPluginManager().callEvent(eventRedstone);
+
+        if (eventRedstone.getNewCurrent() > 0) {
+            level.setBlock(pos, state.setValue(SculkSensorBlock.POWER, eventRedstone.getNewCurrent()), 3);
+            ci.cancel();
+        }
+    }
+
     @Inject(method = "stepOn", cancellable = true, at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/Level;getBlockEntity(Lnet/minecraft/core/BlockPos;)Lnet/minecraft/world/level/block/entity/BlockEntity;"))
     private void arclight$stepOn(Level level, BlockPos pos, BlockState p_222134_, Entity entity, CallbackInfo ci) {
         org.bukkit.event.Cancellable cancellable;
@@ -34,20 +48,6 @@ public class SculkSensorBlockMixin {
             ci.cancel();
         }
     }
-
-    @Inject(method = "deactivate", cancellable = true, at = @At("HEAD"))
-    private static void arclight$deactivate(Level level, BlockPos pos, BlockState state, CallbackInfo ci) {
-        BlockRedstoneEvent eventRedstone = new BlockRedstoneEvent(CraftBlock.at(level, pos), state.getValue(SculkSensorBlock.POWER), 0);
-        Bukkit.getPluginManager().callEvent(eventRedstone);
-
-        if (eventRedstone.getNewCurrent() > 0) {
-            level.setBlock(pos, state.setValue(SculkSensorBlock.POWER, eventRedstone.getNewCurrent()), 3);
-            ci.cancel();
-        }
-    }
-
-    @Unique
-    private int newCurrent;
 
     @Inject(method = "activate", cancellable = true, at = @At("HEAD"))
     private void arclight$activate(Entity p_222126_, Level level, BlockPos pos, BlockState state, int i, int j, CallbackInfo ci) {

@@ -19,6 +19,8 @@ import org.spongepowered.asm.mixin.injection.callback.LocalCapture;
 @Mixin(DragonEggBlock.class)
 public class DragonEggBlockMixin {
 
+    private transient BlockPos arclight$toBlock;
+
     @Inject(method = "teleport", cancellable = true, locals = LocalCapture.CAPTURE_FAILHARD,
             at = @At(value = "FIELD", target = "Lnet/minecraft/world/level/Level;isClientSide:Z"))
     public void arclight$blockFromTo(BlockState blockState, Level world, BlockPos blockPos, CallbackInfo ci,
@@ -33,8 +35,6 @@ public class DragonEggBlockMixin {
             arclight$toBlock = new BlockPos(event.getToBlock().getX(), event.getToBlock().getY(), event.getToBlock().getZ());
         }
     }
-
-    private transient BlockPos arclight$toBlock;
 
     @ModifyVariable(method = "teleport", ordinal = 1, name = "blockpos", at = @At(value = "JUMP", opcode = Opcodes.IFEQ, ordinal = 2))
     public BlockPos arclight$setPos(BlockPos pos) {

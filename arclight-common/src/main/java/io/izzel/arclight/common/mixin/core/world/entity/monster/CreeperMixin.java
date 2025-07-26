@@ -32,10 +32,16 @@ public abstract class CreeperMixin extends PathfinderMobMixin implements Creeper
     // @formatter:off
     @Shadow @Final private static EntityDataAccessor<Boolean> DATA_IS_POWERED;
     @Shadow public int explosionRadius;
-    @Shadow protected abstract void spawnLingeringCloud();
     @Shadow private int swell;
+
+    @Shadow protected abstract void spawnLingeringCloud();
+
     @Shadow public abstract boolean isPowered();
     // @formatter:on
+
+    public void setPowered(boolean power) {
+        this.entityData.set(DATA_IS_POWERED, power);
+    }
 
     @Inject(method = "thunderHit", cancellable = true, at = @At(value = "FIELD", target = "Lnet/minecraft/world/entity/monster/Creeper;entityData:Lnet/minecraft/network/syncher/SynchedEntityData;"))
     private void arclight$lightningBolt(ServerLevel world, LightningBolt lightningBolt, CallbackInfo ci) {
@@ -69,10 +75,6 @@ public abstract class CreeperMixin extends PathfinderMobMixin implements Creeper
     private void arclight$creeperCloud(CallbackInfo ci, Collection<MobEffectInstance> collection, AreaEffectCloud areaeffectcloudentity) {
         areaeffectcloudentity.setOwner((Creeper) (Object) this);
         ((WorldBridge) this.level()).bridge$pushAddEntityReason(CreatureSpawnEvent.SpawnReason.EXPLOSION);
-    }
-
-    public void setPowered(boolean power) {
-        this.entityData.set(DATA_IS_POWERED, power);
     }
 
     @Override

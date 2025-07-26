@@ -26,6 +26,9 @@ import static java.lang.Class.forName;
 
 public class ArclightLocator_Forge implements IModLocator {
 
+    private static final Set<String> EXCLUDES = Set.of(
+            "net.minecraft.world.level.block"
+    );
     private final IModFile arclight;
 
     public ArclightLocator_Forge() {
@@ -84,10 +87,6 @@ public class ArclightLocator_Forge implements IModLocator {
             throw new RuntimeException(e);
         }
     }
-
-    private static final Set<String> EXCLUDES = Set.of(
-            "net.minecraft.world.level.block"
-    );
 
     private JarMetadata excludePackages(SecureJar secureJar, String version) {
         secureJar.getPackages().removeIf(it -> EXCLUDES.stream().anyMatch(it::startsWith));

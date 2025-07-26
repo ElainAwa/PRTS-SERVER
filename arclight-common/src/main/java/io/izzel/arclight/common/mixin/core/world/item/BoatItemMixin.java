@@ -35,12 +35,12 @@ public abstract class BoatItemMixin extends Item {
     // @formatter:off
     @Shadow @Final private static Predicate<Entity> ENTITY_PREDICATE;
     @Shadow @Final private Boat.Type type;
-    @Shadow protected abstract Boat getBoat(Level p_220017_, HitResult p_220018_);
-    // @formatter:on
-
     public BoatItemMixin(Properties properties) {
         super(properties);
     }
+    // @formatter:on
+
+    @Shadow protected abstract Boat getBoat(Level p_220017_, HitResult p_220018_);
 
     /**
      * @author IzzelAliz

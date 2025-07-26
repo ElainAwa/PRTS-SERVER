@@ -30,15 +30,15 @@ public abstract class FoodDataMixin implements FoodStatsBridge {
 
     // @formatter:off
     @Shadow public int foodLevel;
-    @Shadow public abstract void eat(int foodLevelIn, float foodSaturationModifier);
     @Shadow public float saturationLevel;
-    @Shadow private int lastFoodLevel;
-    // @formatter:on
-
-    private Player entityhuman;
     public int saturatedRegenRate = 10;
     public int unsaturatedRegenRate = 80;
+    // @formatter:on
     public int starvationRate = 80;
+    @Shadow private int lastFoodLevel;
+    private Player entityhuman;
+
+    @Shadow public abstract void eat(int foodLevelIn, float foodSaturationModifier);
 
     public void arclight$constructor() {
         throw new RuntimeException();

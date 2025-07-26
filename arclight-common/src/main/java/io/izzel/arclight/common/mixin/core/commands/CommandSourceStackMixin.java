@@ -31,16 +31,16 @@ public abstract class CommandSourceStackMixin implements CommandSourceBridge {
 
     // @formatter:off
     @Shadow @Final @Mutable public CommandSource source;
-    @Shadow public abstract ServerLevel getLevel();
+    public CommandNode currentCommand;
     @Shadow @Final private int permissionLevel;
     // @formatter:on
+
+    @Shadow public abstract ServerLevel getLevel();
 
     @Override
     public void bridge$setSource(CommandSource source) {
         this.source = source;
     }
-
-    public CommandNode currentCommand;
 
     @SuppressWarnings({"rawtypes", "unchecked"})
     @Inject(method = "hasPermission", cancellable = true, at = @At("HEAD"))

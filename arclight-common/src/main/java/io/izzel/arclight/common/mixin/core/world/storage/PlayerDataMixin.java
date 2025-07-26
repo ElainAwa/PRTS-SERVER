@@ -22,9 +22,9 @@ import java.io.FileInputStream;
 @Mixin(PlayerDataStorage.class)
 public class PlayerDataMixin implements PlayerDataBridge {
 
+    @Shadow @Final private static Logger LOGGER;
     // @formatter:off
     @Shadow @Final private File playerDir;
-    @Shadow @Final private static Logger LOGGER;
     // @formatter:on
 
     @Inject(method = "load", at = @At(value = "INVOKE", target = "Lnet/minecraft/nbt/NbtUtils;getDataVersion(Lnet/minecraft/nbt/CompoundTag;I)I"))

@@ -22,8 +22,10 @@ public abstract class ItemEntityMixin_ActivationRange extends EntityMixin_Activa
     @Shadow public int pickupDelay;
     @Shadow public int age;
     @Shadow(remap = false) public int lifespan;
-    @Shadow public abstract ItemStack getItem();
+    private int lastTick = ArclightConstants.currentTick - 1;
     // @formatter:on
+
+    @Shadow public abstract ItemStack getItem();
 
     @Inject(method = "<init>(Lnet/minecraft/world/entity/EntityType;Lnet/minecraft/world/level/Level;)V", at = @At("RETURN"))
     private void activationRange$init(EntityType<? extends ItemEntity> entityType, Level world, CallbackInfo ci) {
@@ -38,8 +40,6 @@ public abstract class ItemEntityMixin_ActivationRange extends EntityMixin_Activa
             this.lifespan = ((WorldBridge) this.level()).bridge$spigotConfig().itemDespawnRate;
         }
     }
-
-    private int lastTick = ArclightConstants.currentTick - 1;
 
     @Override
     public void inactiveTick() {

@@ -27,18 +27,24 @@ import java.util.List;
 @Mixin(WitherBoss.class)
 public abstract class WitherBossMixin extends PathfinderMobMixin {
 
-    // @formatter:off
-    @Shadow public abstract int getInvulnerableTicks();
-    @Shadow public abstract void setInvulnerableTicks(int time);
+    @Shadow @Final private static TargetingConditions TARGETING_CONDITIONS;
+    @Shadow @Final public ServerBossEvent bossEvent;
     @Shadow @Final private int[] nextHeadUpdate;
     @Shadow @Final private int[] idleHeadUpdates;
-    @Shadow protected abstract void performRangedAttack(int head, double x, double y, double z, boolean invulnerable);
-    @Shadow public abstract int getAlternativeTarget(int head);
-    @Shadow public abstract void setAlternativeTarget(int targetOffset, int newId);
-    @Shadow protected abstract void performRangedAttack(int head, LivingEntity target);
-    @Shadow @Final private static TargetingConditions TARGETING_CONDITIONS;
     @Shadow private int destroyBlocksTick;
-    @Shadow @Final public ServerBossEvent bossEvent;
+
+    // @formatter:off
+    @Shadow public abstract int getInvulnerableTicks();
+
+    @Shadow public abstract void setInvulnerableTicks(int time);
+
+    @Shadow protected abstract void performRangedAttack(int head, double x, double y, double z, boolean invulnerable);
+
+    @Shadow public abstract int getAlternativeTarget(int head);
+
+    @Shadow public abstract void setAlternativeTarget(int targetOffset, int newId);
+
+    @Shadow protected abstract void performRangedAttack(int head, LivingEntity target);
     // @formatter:on
 
     /**

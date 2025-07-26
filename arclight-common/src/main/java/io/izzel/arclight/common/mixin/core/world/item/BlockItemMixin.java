@@ -33,12 +33,25 @@ import org.spongepowered.asm.mixin.injection.callback.LocalCapture;
 @Mixin(BlockItem.class)
 public abstract class BlockItemMixin {
 
-    // @formatter:off
-    @Shadow protected abstract boolean mustSurvive();
+    private transient org.bukkit.block.BlockState arclight$state;
+
     @Shadow private static <T extends Comparable<T>> BlockState updateState(BlockState p_219988_0_, Property<T> p_219988_1_, String p_219988_2_) { return null; }
     // @formatter:on
 
-    private transient org.bukkit.block.BlockState arclight$state;
+    private static BlockState getBlockState(BlockState blockState, CompoundTag nbt) {
+        StateDefinition<Block, BlockState> statecontainer = blockState.getBlock().getStateDefinition();
+        for (String s : nbt.getAllKeys()) {
+            Property<?> iproperty = statecontainer.getProperty(s);
+            if (iproperty != null) {
+                String s1 = nbt.get(s).getAsString();
+                blockState = updateState(blockState, iproperty, s1);
+            }
+        }
+        return blockState;
+    }
+
+    // @formatter:off
+    @Shadow protected abstract boolean mustSurvive();
 
     @Inject(method = "place", locals = LocalCapture.CAPTURE_FAILHARD,
             at = @At(value = "INVOKE", shift = At.Shift.AFTER, target = "Lnet/minecraft/world/item/BlockItem;getPlacementState(Lnet/minecraft/world/item/context/BlockPlaceContext;)Lnet/minecraft/world/level/block/state/BlockState;"))
@@ -69,18 +82,6 @@ public abstract class BlockItemMixin {
     @Inject(method = "place", at = @At("RETURN"))
     private void arclight$cleanup(BlockPlaceContext context, CallbackInfoReturnable<InteractionResult> cir) {
         this.arclight$state = null;
-    }
-
-    private static BlockState getBlockState(BlockState blockState, CompoundTag nbt) {
-        StateDefinition<Block, BlockState> statecontainer = blockState.getBlock().getStateDefinition();
-        for (String s : nbt.getAllKeys()) {
-            Property<?> iproperty = statecontainer.getProperty(s);
-            if (iproperty != null) {
-                String s1 = nbt.get(s).getAsString();
-                blockState = updateState(blockState, iproperty, s1);
-            }
-        }
-        return blockState;
     }
 
     /**

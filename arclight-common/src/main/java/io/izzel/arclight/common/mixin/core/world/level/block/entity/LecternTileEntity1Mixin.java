@@ -22,10 +22,9 @@ import java.util.List;
 @Mixin(targets = "net/minecraft/world/level/block/entity/LecternBlockEntity$1")
 public abstract class LecternTileEntity1Mixin implements IInventoryBridge, Container {
 
+    public List<HumanEntity> transaction = new ArrayList<>();
     @Shadow(aliases = {"this$0", "f_59572_"}, remap = false)
     private LecternBlockEntity outerThis;
-
-    public List<HumanEntity> transaction = new ArrayList<>();
     private int maxStack = 1;
 
     @Override

@@ -14,18 +14,6 @@ import java.util.function.BiFunction;
 @Mixin(ContainerLevelAccess.class)
 public interface ContainerLevelAccessMixin extends IWorldPosCallableBridge {
 
-    default Level getWorld() {
-        return bridge$getWorld();
-    }
-
-    default BlockPos getPosition() {
-        return bridge$getPosition();
-    }
-
-    default Location getLocation() {
-        return bridge$getLocation();
-    }
-
     /**
      * @author IzzelAliz
      * @reason
@@ -50,5 +38,17 @@ public interface ContainerLevelAccessMixin extends IWorldPosCallableBridge {
             }
         }
         return new Anonymous();
+    }
+
+    default Level getWorld() {
+        return bridge$getWorld();
+    }
+
+    default BlockPos getPosition() {
+        return bridge$getPosition();
+    }
+
+    default Location getLocation() {
+        return bridge$getLocation();
     }
 }

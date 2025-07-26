@@ -23,6 +23,16 @@ public class BaseFireBlockMixin {
 
     // fireExtinguished implemented per class
 
+    /**
+     * @author IzzelAliz
+     * @reason
+     */
+    @Overwrite
+    private static boolean inPortalDimension(Level level) {
+        var typeKey = ((WorldBridge) level).bridge$getTypeKey();
+        return typeKey == LevelStem.NETHER || typeKey == LevelStem.OVERWORLD;
+    }
+
     @Redirect(method = "entityInside", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/Entity;setSecondsOnFire(I)V"))
     private void arclight$onFire(Entity instance, int seconds, BlockState state, Level level, BlockPos pos) {
         var event = new EntityCombustByBlockEvent(CraftBlock.at(level, pos), ((EntityBridge) instance).bridge$getBukkitEntity(), seconds);
@@ -39,15 +49,5 @@ public class BaseFireBlockMixin {
             world.removeBlock(pos, isMoving);
         }
         return false;
-    }
-
-    /**
-     * @author IzzelAliz
-     * @reason
-     */
-    @Overwrite
-    private static boolean inPortalDimension(Level level) {
-        var typeKey = ((WorldBridge) level).bridge$getTypeKey();
-        return typeKey == LevelStem.NETHER || typeKey == LevelStem.OVERWORLD;
     }
 }

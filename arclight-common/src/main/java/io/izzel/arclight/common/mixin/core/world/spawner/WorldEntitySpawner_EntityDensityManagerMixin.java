@@ -17,12 +17,14 @@ import org.spongepowered.asm.mixin.Shadow;
 @Mixin(NaturalSpawner.SpawnState.class)
 public abstract class WorldEntitySpawner_EntityDensityManagerMixin implements WorldEntitySpawnerBridge.EntityDensityManagerBridge {
 
-    // @formatter:off
-    @Shadow protected abstract void afterSpawn(Mob p_234990_1_, ChunkAccess p_234990_2_);
     @Shadow @Final private int spawnableChunkCount;
     @Shadow @Final private Object2IntOpenHashMap<MobCategory> mobCategoryCounts;
-    @Shadow protected abstract boolean canSpawn(EntityType<?> p_234989_1_, BlockPos p_234989_2_, ChunkAccess p_234989_3_);
     @Shadow @Final private LocalMobCapCalculator localMobCapCalculator;
+
+    // @formatter:off
+    @Shadow protected abstract void afterSpawn(Mob p_234990_1_, ChunkAccess p_234990_2_);
+
+    @Shadow protected abstract boolean canSpawn(EntityType<?> p_234989_1_, BlockPos p_234989_2_, ChunkAccess p_234989_3_);
     // @formatter:on
 
     @Override

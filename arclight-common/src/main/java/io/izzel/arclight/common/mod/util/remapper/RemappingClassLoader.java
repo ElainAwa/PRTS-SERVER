@@ -7,10 +7,6 @@ import org.objectweb.asm.tree.*;
 
 public interface RemappingClassLoader {
 
-    ClassLoaderRemapper getRemapper();
-
-    ArclightRemapConfig getRemapConfig();
-
     static ClassLoader tryRedirect(ClassLoader classLoader) {
         return classLoader instanceof TransformingClassLoader ? RemappingClassLoader.class.getClassLoader() : classLoader;
     }
@@ -85,4 +81,8 @@ public interface RemappingClassLoader {
         needRemap.visitMaxs(1, 1);
         node.methods.add(needRemap);
     }
+
+    ClassLoaderRemapper getRemapper();
+
+    ArclightRemapConfig getRemapConfig();
 }

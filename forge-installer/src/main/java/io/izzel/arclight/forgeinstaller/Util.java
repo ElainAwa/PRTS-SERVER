@@ -8,6 +8,8 @@ import java.security.MessageDigest;
 
 class Util {
 
+    private static final String SHA_PAD = String.format("%040d", 0);
+
     public static String mavenToPath(String maven) {
         String type;
         if (maven.matches(".*@\\w+$")) {
@@ -26,8 +28,6 @@ class Util {
             return String.format("%s/%s/%s/%s-%s-%s.%s", pkg, arr[1], arr[2], arr[1], arr[2], arr[3], type);
         } else throw new RuntimeException("Wrong maven coordinate " + maven);
     }
-
-    private static final String SHA_PAD = String.format("%040d", 0);
 
     public static String hash(String path) throws Exception {
         return hash(new File(path).toPath());

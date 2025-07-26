@@ -32,26 +32,13 @@ import java.util.Optional;
 @Mixin(CraftingMenu.class)
 public abstract class CraftingMenuMixin extends AbstractContainerMenuMixin implements PosContainerBridge {
 
+    private static transient boolean arclight$isRepair;
     // @formatter:off
     @Mutable @Shadow @Final private CraftingContainer craftSlots;
     @Shadow @Final private ResultContainer resultSlots;
-    @Accessor("access") public abstract ContainerLevelAccess bridge$getWorldPos();
     // @formatter:on
-
     private CraftInventoryView bukkitEntity;
     private Inventory playerInventory;
-
-    @Inject(method = "stillValid", cancellable = true, at = @At("HEAD"))
-    public void arclight$unreachable(Player playerIn, CallbackInfoReturnable<Boolean> cir) {
-        if (!bridge$isCheckReachable()) cir.setReturnValue(true);
-    }
-
-    @Inject(method = "slotsChanged", at = @At("HEAD"))
-    public void arclight$capture(Container inventoryIn, CallbackInfo ci) {
-        ArclightCaptures.captureWorkbenchContainer((CraftingMenu) (Object) this);
-    }
-
-    private static transient boolean arclight$isRepair;
 
     @Redirect(method = "slotChangedCraftingGrid", at = @At(value = "INVOKE", remap = false, target = "Ljava/util/Optional;isPresent()Z"))
     private static boolean arclight$testRepair(Optional<?> optional) {
@@ -62,6 +49,18 @@ public abstract class CraftingMenuMixin extends AbstractContainerMenuMixin imple
     @ModifyVariable(method = "slotChangedCraftingGrid", ordinal = 0, at = @At(value = "INVOKE", target = "Lnet/minecraft/world/inventory/ResultContainer;setItem(ILnet/minecraft/world/item/ItemStack;)V"))
     private static ItemStack arclight$preCraft(ItemStack stack, AbstractContainerMenu container, Level level, Player player, CraftingContainer craftingContainer, ResultContainer resultContainer) {
         return CraftEventFactory.callPreCraftEvent(craftingContainer, resultContainer, stack, ((ContainerBridge) container).bridge$getBukkitView(), arclight$isRepair);
+    }
+
+    @Accessor("access") public abstract ContainerLevelAccess bridge$getWorldPos();
+
+    @Inject(method = "stillValid", cancellable = true, at = @At("HEAD"))
+    public void arclight$unreachable(Player playerIn, CallbackInfoReturnable<Boolean> cir) {
+        if (!bridge$isCheckReachable()) cir.setReturnValue(true);
+    }
+
+    @Inject(method = "slotsChanged", at = @At("HEAD"))
+    public void arclight$capture(Container inventoryIn, CallbackInfo ci) {
+        ArclightCaptures.captureWorkbenchContainer((CraftingMenu) (Object) this);
     }
 
     @Inject(method = "<init>(ILnet/minecraft/world/entity/player/Inventory;Lnet/minecraft/world/inventory/ContainerLevelAccess;)V", at = @At("RETURN"))

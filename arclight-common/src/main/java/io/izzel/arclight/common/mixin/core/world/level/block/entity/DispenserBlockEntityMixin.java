@@ -15,11 +15,10 @@ import java.util.List;
 @Mixin(DispenserBlockEntity.class)
 public abstract class DispenserBlockEntityMixin extends LockableBlockEntityMixin {
 
+    public List<HumanEntity> transaction = new ArrayList<>();
+    // @formatter:on
     // @formatter:off
     @Shadow private NonNullList<ItemStack> items;
-    // @formatter:on
-
-    public List<HumanEntity> transaction = new ArrayList<>();
     private int maxStack = MAX_STACK;
 
     @Override

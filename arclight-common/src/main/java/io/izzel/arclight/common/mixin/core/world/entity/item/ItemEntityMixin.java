@@ -38,9 +38,7 @@ public abstract class ItemEntityMixin extends EntityMixin {
     // @formatter:off
     @Shadow @Final private static EntityDataAccessor<ItemStack> DATA_ITEM;
     @Shadow public int pickupDelay;
-    @Shadow public abstract ItemStack getItem();
     @Shadow public UUID target;
-    // @formatter:on
 
     @Inject(method = "merge(Lnet/minecraft/world/entity/item/ItemEntity;Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/entity/item/ItemEntity;Lnet/minecraft/world/item/ItemStack;)V", cancellable = true, at = @At("HEAD"))
     private static void arclight$itemMerge(ItemEntity from, ItemStack stack1, ItemEntity to, ItemStack stack2, CallbackInfo ci) {
@@ -48,6 +46,16 @@ public abstract class ItemEntityMixin extends EntityMixin {
             ci.cancel();
         }
     }
+    // @formatter:on
+
+    @Redirect(method = "merge(Lnet/minecraft/world/entity/item/ItemEntity;Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/item/ItemStack;)V", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/item/ItemEntity;setItem(Lnet/minecraft/world/item/ItemStack;)V"))
+    private static void arclight$setNonEmpty(ItemEntity itemEntity, ItemStack stack) {
+        if (!stack.isEmpty()) {
+            itemEntity.setItem(stack);
+        }
+    }
+
+    @Shadow public abstract ItemStack getItem();
 
     @Inject(method = "hurt", cancellable = true, at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/item/ItemEntity;markHurt()V"))
     private void arclight$damageNonLiving(DamageSource source, float amount, CallbackInfoReturnable<Boolean> cir) {
@@ -55,6 +63,13 @@ public abstract class ItemEntityMixin extends EntityMixin {
             cir.setReturnValue(false);
         }
     }
+
+    /* #24
+    @Inject(method = "setItem", at = @At("HEAD"))
+    private void arclight$noAirDrops(ItemStack stack, CallbackInfo ci) {
+        Preconditions.checkArgument(!stack.isEmpty(), "Cannot drop air");
+    }
+    */
 
     /**
      * @author IzzelAliz
@@ -113,23 +128,9 @@ public abstract class ItemEntityMixin extends EntityMixin {
         }
     }
 
-    /* #24
-    @Inject(method = "setItem", at = @At("HEAD"))
-    private void arclight$noAirDrops(ItemStack stack, CallbackInfo ci) {
-        Preconditions.checkArgument(!stack.isEmpty(), "Cannot drop air");
-    }
-    */
-
     @Inject(method = "setItem", at = @At("RETURN"))
     private void arclight$markDirty(ItemStack stack, CallbackInfo ci) {
         ((SynchedEntityDataBridge) this.getEntityData()).bridge$markDirty(DATA_ITEM);
-    }
-
-    @Redirect(method = "merge(Lnet/minecraft/world/entity/item/ItemEntity;Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/item/ItemStack;)V", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/item/ItemEntity;setItem(Lnet/minecraft/world/item/ItemStack;)V"))
-    private static void arclight$setNonEmpty(ItemEntity itemEntity, ItemStack stack) {
-        if (!stack.isEmpty()) {
-            itemEntity.setItem(stack);
-        }
     }
 
     @Redirect(method = "mergeWithNeighbours", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/phys/AABB;inflate(DDD)Lnet/minecraft/world/phys/AABB;"))

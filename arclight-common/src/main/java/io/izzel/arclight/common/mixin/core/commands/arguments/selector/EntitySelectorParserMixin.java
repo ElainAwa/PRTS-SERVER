@@ -15,11 +15,12 @@ public abstract class EntitySelectorParserMixin implements EntitySelectorParserB
 
     // @formatter:off
     @Shadow private boolean usesSelectors;
+    private Boolean arclight$overridePermissions;
+
     @Shadow protected abstract void shadow$parseSelector() throws CommandSyntaxException;
-    @Shadow public abstract EntitySelector parse() throws CommandSyntaxException;
     // @formatter:on
 
-    private Boolean arclight$overridePermissions;
+    @Shadow public abstract EntitySelector parse() throws CommandSyntaxException;
 
     @Override
     public EntitySelector bridge$parse(boolean overridePermissions) throws CommandSyntaxException {

@@ -23,34 +23,6 @@ public class ArclightDummyCommandSender extends ArclightDummyPermissible impleme
         this.stack = stack;
     }
 
-    public class Spigot extends CommandSender.Spigot {
-        @Override
-        public void sendMessage(@NotNull BaseComponent... components) {
-            for (var raw : components) {
-                sendMessage(raw);
-            }
-        }
-
-        @Override
-        public void sendMessage(@Nullable UUID sender, @NotNull BaseComponent component) {
-            sendMessage(component);
-        }
-
-        @Override
-        public void sendMessage(@Nullable UUID sender, @NotNull BaseComponent... components) {
-            sendMessage(components);
-        }
-
-        @Override
-        public void sendMessage(@NotNull BaseComponent component) {
-            var json = ComponentSerializer.toString(component);
-            var result = Component.Serializer.fromJson(json);
-            if (result != null) {
-                stack.sendSystemMessage(result);
-            }
-        }
-    }
-
     @Override
     public void sendMessage(@NotNull String s) {
         for (var msg : CraftChatMessage.fromString(s)) {
@@ -92,5 +64,33 @@ public class ArclightDummyCommandSender extends ArclightDummyPermissible impleme
             return spigot;
         }
         return (spigot = new Spigot());
+    }
+
+    public class Spigot extends CommandSender.Spigot {
+        @Override
+        public void sendMessage(@NotNull BaseComponent... components) {
+            for (var raw : components) {
+                sendMessage(raw);
+            }
+        }
+
+        @Override
+        public void sendMessage(@Nullable UUID sender, @NotNull BaseComponent component) {
+            sendMessage(component);
+        }
+
+        @Override
+        public void sendMessage(@Nullable UUID sender, @NotNull BaseComponent... components) {
+            sendMessage(components);
+        }
+
+        @Override
+        public void sendMessage(@NotNull BaseComponent component) {
+            var json = ComponentSerializer.toString(component);
+            var result = Component.Serializer.fromJson(json);
+            if (result != null) {
+                stack.sendSystemMessage(result);
+            }
+        }
     }
 }

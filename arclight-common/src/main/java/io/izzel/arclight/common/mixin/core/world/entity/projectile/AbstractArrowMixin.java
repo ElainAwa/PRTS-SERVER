@@ -30,9 +30,11 @@ public abstract class AbstractArrowMixin extends ProjectileMixin {
 
     // @formatter:off
     @Shadow public boolean inGround;
-    @Shadow public abstract boolean isNoPhysics();
     @Shadow public int shakeTime;
     @Shadow public net.minecraft.world.entity.projectile.AbstractArrow.Pickup pickup;
+
+    @Shadow public abstract boolean isNoPhysics();
+
     @Shadow protected abstract ItemStack getPickupItem();
     // @formatter:on
 

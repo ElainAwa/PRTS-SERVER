@@ -15,13 +15,13 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Mixin(EndCrystalItem.class)
 public class EnderCrystalItemMixin {
 
+    private transient EndCrystal arclight$enderCrystalEntity;
+
     @Redirect(method = "useOn", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/boss/enderdragon/EndCrystal;setShowBottom(Z)V"))
     public void arclight$captureEntity(EndCrystal enderCrystalEntity, boolean showBottom) {
         arclight$enderCrystalEntity = enderCrystalEntity;
         enderCrystalEntity.setShowBottom(showBottom);
     }
-
-    private transient EndCrystal arclight$enderCrystalEntity;
 
     @Inject(method = "useOn", cancellable = true, at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/Level;addFreshEntity(Lnet/minecraft/world/entity/Entity;)Z"))
     public void arclight$entityPlace(UseOnContext context, CallbackInfoReturnable<InteractionResult> cir) {

@@ -24,15 +24,14 @@ public abstract class RepairContainerMixin extends ItemCombinerMixin {
     @Shadow @Final public DataSlot cost;
     @Shadow public int repairItemCountCost;
     @Shadow public String itemName;
-    @Shadow public static int calculateIncreasedRepairCost(int oldRepairCost) { return 0; }
-    // @formatter:on
-
     public int cancelThisBySettingCostToMaximum = 40;
+    // @formatter:on
     public int maximumRenameCostThreshold = 40;
     public int maximumAllowedRenameCost = 39;
     public int maximumRepairCost = 40;
-
     private CraftInventoryView bukkitEntity;
+
+    @Shadow public static int calculateIncreasedRepairCost(int oldRepairCost) { return 0; }
 
     // Below overwrite is removed to support injecting into createResult()
     // See #1636

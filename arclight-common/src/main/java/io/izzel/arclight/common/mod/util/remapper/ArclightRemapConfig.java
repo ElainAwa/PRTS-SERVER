@@ -10,6 +10,10 @@ import java.io.IOException;
 public record ArclightRemapConfig(boolean remap) {
     public static final ArclightRemapConfig PLUGIN = new ArclightRemapConfig(true);
 
+    public static ArclightRemapConfig read(DataInput input) throws IOException {
+        return new ArclightRemapConfig(input.readBoolean());
+    }
+
     public ArclightRemapConfig copy() {
         return new ArclightRemapConfig(remap);
     }
@@ -17,9 +21,5 @@ public record ArclightRemapConfig(boolean remap) {
     public int write(DataOutput output) throws IOException {
         output.writeBoolean(remap);
         return 1;
-    }
-
-    public static ArclightRemapConfig read(DataInput input) throws IOException {
-        return new ArclightRemapConfig(input.readBoolean());
     }
 }

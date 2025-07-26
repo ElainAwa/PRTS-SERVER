@@ -78,30 +78,44 @@ import java.util.UUID;
 @Mixin(PlayerList.class)
 public abstract class PlayerListMixin implements PlayerListBridge {
 
-    // @formatter:off
-    @Override @Accessor("players") @Mutable public abstract void bridge$setPlayers(List<ServerPlayer> players);
-    @Override @Accessor("players") public abstract List<ServerPlayer> bridge$getPlayers();
-    @Shadow @Final public PlayerDataStorage playerIo;
-    @Shadow @Final private UserBanList bans;
     @Shadow @Final private static SimpleDateFormat BAN_DATE_FORMAT;
-    @Shadow public abstract boolean isWhiteListed(GameProfile profile);
-    @Shadow @Final private IpBanList ipBans;
+    @Shadow @Final public PlayerDataStorage playerIo;
     @Shadow @Final public List<ServerPlayer> players;
     @Shadow @Final protected int maxPlayers;
-    @Shadow public abstract boolean canBypassPlayerLimit(GameProfile profile);
-    @Shadow protected abstract void save(ServerPlayer playerIn);
+    @Shadow @Final private UserBanList bans;
+    @Shadow @Final private IpBanList ipBans;
     @Shadow @Final private MinecraftServer server;
-    @Shadow public abstract UserBanList getBans();
-    @Shadow public abstract IpBanList getIpBans();
-    @Shadow public abstract void sendLevelInfo(ServerPlayer playerIn, ServerLevel worldIn);
-    @Shadow public abstract void sendPlayerPermissionLevel(ServerPlayer player);
     @Shadow @Final private Map<UUID, ServerPlayer> playersByUUID;
-    @Shadow public abstract void sendAllPlayerInfo(ServerPlayer playerIn);
-    @Shadow @Nullable public abstract ServerPlayer getPlayer(UUID playerUUID);
-    @Shadow public abstract void broadcastSystemMessage(Component p_240618_, boolean p_240644_);
+    private CraftServer cserver;
+    private transient Location arclight$loc;
+    private transient Boolean arclight$suffo;
+    private transient PlayerRespawnEvent.RespawnReason arclight$respawnReason;
+
+    // @formatter:off
+    @Override @Accessor("players") @Mutable public abstract void bridge$setPlayers(List<ServerPlayer> players);
+
+    @Override @Accessor("players") public abstract List<ServerPlayer> bridge$getPlayers();
+
+    @Shadow public abstract boolean isWhiteListed(GameProfile profile);
+
+    @Shadow public abstract boolean canBypassPlayerLimit(GameProfile profile);
+
+    @Shadow protected abstract void save(ServerPlayer playerIn);
+
+    @Shadow public abstract UserBanList getBans();
+
+    @Shadow public abstract IpBanList getIpBans();
+
+    @Shadow public abstract void sendLevelInfo(ServerPlayer playerIn, ServerLevel worldIn);
     // @formatter:on
 
-    private CraftServer cserver;
+    @Shadow public abstract void sendPlayerPermissionLevel(ServerPlayer player);
+
+    @Shadow public abstract void sendAllPlayerInfo(ServerPlayer playerIn);
+
+    @Shadow @Nullable public abstract ServerPlayer getPlayer(UUID playerUUID);
+
+    @Shadow public abstract void broadcastSystemMessage(Component p_240618_, boolean p_240644_);
 
     @Override
     public CraftServer bridge$getCraftServer() {
@@ -353,10 +367,6 @@ public abstract class PlayerListMixin implements PlayerListBridge {
         }
         return playerIn;
     }
-
-    private transient Location arclight$loc;
-    private transient Boolean arclight$suffo;
-    private transient PlayerRespawnEvent.RespawnReason arclight$respawnReason;
 
     /**
      * @author IzzelAliz

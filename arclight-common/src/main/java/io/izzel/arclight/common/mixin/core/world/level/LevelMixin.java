@@ -63,32 +63,41 @@ import java.util.function.Supplier;
 @Mixin(Level.class)
 public abstract class LevelMixin implements WorldBridge, LevelWriter {
 
-    // @formatter:off
-    @Shadow @Nullable public BlockEntity getBlockEntity(BlockPos pos) { return null; }
-    @Shadow public abstract BlockState getBlockState(BlockPos pos);
-    @Shadow public abstract WorldBorder getWorldBorder();
-    @Shadow @Final private WorldBorder worldBorder;
-    @Shadow public abstract long getDayTime();
-    @Shadow public abstract MinecraftServer shadow$getServer();
-    @Shadow public abstract LevelData getLevelData();
-    @Shadow public abstract ResourceKey<Level> dimension();
-    @Shadow(remap = false) public abstract void markAndNotifyBlock(BlockPos p_46605_,@org.jetbrains.annotations.Nullable LevelChunk levelchunk, BlockState blockstate, BlockState p_46606_, int p_46607_, int p_46608_);
-    @Shadow public abstract DimensionType dimensionType();
-    @Accessor("thread") public abstract Thread arclight$getMainThread();
-    // @formatter:on
-
-    protected CraftWorld world;
-    public boolean pvpMode;
-    public boolean keepSpawnInMemory = true;
-    public final Object2LongOpenHashMap<SpawnCategory> ticksPerSpawnCategory = new Object2LongOpenHashMap<>();
-    public boolean populating;
-    public org.bukkit.generator.ChunkGenerator generator;
-    protected org.bukkit.World.Environment environment;
-    protected org.bukkit.generator.BiomeProvider biomeProvider;
-    public org.spigotmc.SpigotWorldConfig spigotConfig;
     @SuppressWarnings("unused") // Access transformed to public by ArclightMixinPlugin
     private static BlockPos lastPhysicsProblem; // Spigot
+    public final Object2LongOpenHashMap<SpawnCategory> ticksPerSpawnCategory = new Object2LongOpenHashMap<>();
+    public boolean pvpMode;
+    public boolean keepSpawnInMemory = true;
+    public boolean populating;
+    public org.bukkit.generator.ChunkGenerator generator;
+    public org.spigotmc.SpigotWorldConfig spigotConfig;
     public boolean preventPoiUpdated = false;
+    protected CraftWorld world;
+    protected org.bukkit.World.Environment environment;
+    protected org.bukkit.generator.BiomeProvider biomeProvider;
+    // @formatter:on
+    @Shadow @Final private WorldBorder worldBorder;
+
+    // @formatter:off
+    @Shadow @Nullable public BlockEntity getBlockEntity(BlockPos pos) { return null; }
+
+    @Shadow public abstract BlockState getBlockState(BlockPos pos);
+
+    @Shadow public abstract WorldBorder getWorldBorder();
+
+    @Shadow public abstract long getDayTime();
+
+    @Shadow public abstract MinecraftServer shadow$getServer();
+
+    @Shadow public abstract LevelData getLevelData();
+
+    @Shadow public abstract ResourceKey<Level> dimension();
+
+    @Shadow(remap = false) public abstract void markAndNotifyBlock(BlockPos p_46605_,@org.jetbrains.annotations.Nullable LevelChunk levelchunk, BlockState blockstate, BlockState p_46606_, int p_46607_, int p_46608_);
+
+    @Shadow public abstract DimensionType dimensionType();
+
+    @Accessor("thread") public abstract Thread arclight$getMainThread();
 
     public void arclight$constructor(WritableLevelData worldInfo, ResourceKey<Level> dimension, RegistryAccess registryAccess, final Holder<DimensionType> dimensionType, Supplier<ProfilerFiller> profiler, boolean isRemote, boolean isDebug, long seed, int maxNeighborUpdate) {
         throw new RuntimeException();

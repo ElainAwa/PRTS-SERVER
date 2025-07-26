@@ -32,6 +32,9 @@ public class RaidMixin implements RaidBridge {
     @Shadow @Final private Map<Integer, Set<Raider>> groupRaiderMap;
     @Shadow @Final private ServerLevel level;
     // @formatter:on
+    private transient List<Player> arclight$winners;
+    private transient Raider arclight$leader;
+    private transient List<Raider> arclight$raiders;
 
     @Inject(method = "tick", at = @At(value = "INVOKE", ordinal = 0, target = "Lnet/minecraft/world/entity/raid/Raid;stop()V"),
             slice = @Slice(from = @At(value = "FIELD", target = "Lnet/minecraft/world/Difficulty;PEACEFUL:Lnet/minecraft/world/Difficulty;")))
@@ -77,8 +80,6 @@ public class RaidMixin implements RaidBridge {
         CraftEventFactory.callRaidFinishEvent((Raid) (Object) this, new ArrayList<>());
     }
 
-    private transient List<Player> arclight$winners;
-
     @Redirect(method = "tick", at = @At(value = "INVOKE", target = "Lnet/minecraft/advancements/critereon/PlayerTrigger;trigger(Lnet/minecraft/server/level/ServerPlayer;)V"))
     public void arclight$addWinner(PlayerTrigger trigger, ServerPlayer player) {
         trigger.trigger(player);
@@ -94,9 +95,6 @@ public class RaidMixin implements RaidBridge {
         this.arclight$winners = null;
         CraftEventFactory.callRaidFinishEvent((Raid) (Object) this, winners);
     }
-
-    private transient Raider arclight$leader;
-    private transient List<Raider> arclight$raiders;
 
     @Redirect(method = "spawnGroup", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/raid/Raid;setLeader(ILnet/minecraft/world/entity/raid/Raider;)V"))
     public void arclight$captureLeader(Raid raid, int raidId, Raider entity) {

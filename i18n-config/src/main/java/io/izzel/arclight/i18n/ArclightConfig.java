@@ -19,24 +19,20 @@ public class ArclightConfig {
 
     private static ArclightConfig instance;
 
+    static {
+        try {
+            load();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     private final CommentedConfigurationNode node;
     private final ConfigSpec spec;
 
     public ArclightConfig(CommentedConfigurationNode node) throws ObjectMappingException {
         this.node = node;
         this.spec = this.node.getValue(TypeToken.of(ConfigSpec.class));
-    }
-
-    public CommentedConfigurationNode getNode() {
-        return node;
-    }
-
-    public ConfigSpec getSpec() {
-        return spec;
-    }
-
-    public ConfigurationNode get(String path) {
-        return this.node.getNode((Object[]) path.split("\\."));
     }
 
     public static ConfigSpec spec() {
@@ -81,11 +77,15 @@ public class ArclightConfig {
         return s.isEmpty() ? "__root__" : s;
     }
 
-    static {
-        try {
-            load();
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+    public CommentedConfigurationNode getNode() {
+        return node;
+    }
+
+    public ConfigSpec getSpec() {
+        return spec;
+    }
+
+    public ConfigurationNode get(String path) {
+        return this.node.getNode((Object[]) path.split("\\."));
     }
 }

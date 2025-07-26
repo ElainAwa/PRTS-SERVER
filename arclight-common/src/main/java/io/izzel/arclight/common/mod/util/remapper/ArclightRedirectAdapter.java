@@ -151,15 +151,6 @@ public class ArclightRedirectAdapter implements PluginTransformer {
         }
     }
 
-    @Override
-    public void handleClass(ClassNode node, ClassLoaderRemapper remapper, ArclightRemapConfig config) {
-        // Don't transform for remap=false
-        // We don't have arc
-        if (config.remap()) {
-            redirect(node, remapper);
-        }
-    }
-
     private static void redirect(ClassNode classNode, ClassLoaderRemapper remapper) {
         for (MethodNode methodNode : classNode.methods) {
             for (AbstractInsnNode insnNode : methodNode.instructions) {
@@ -414,6 +405,15 @@ public class ArclightRedirectAdapter implements PluginTransformer {
             return new IntInsnNode(Opcodes.SIPUSH, i);
         } else {
             return new LdcInsnNode(i);
+        }
+    }
+
+    @Override
+    public void handleClass(ClassNode node, ClassLoaderRemapper remapper, ArclightRemapConfig config) {
+        // Don't transform for remap=false
+        // We don't have arc
+        if (config.remap()) {
+            redirect(node, remapper);
         }
     }
 

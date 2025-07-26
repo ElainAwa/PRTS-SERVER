@@ -28,19 +28,12 @@ public abstract class MapDataMixin implements MapDataBridge {
 
     // @formatter:off
     @Shadow @Final public ResourceKey<Level> dimension;
-    @Shadow @Final private List<MapItemSavedData.HoldingPlayer> carriedBy;
-    // @formatter:on
-
     public CraftMapView mapView;
-    private CraftServer server;
+    // @formatter:on
     public UUID uniqueId;
     public String id;
-
-    @Inject(method = "<init>", at = @At("RETURN"))
-    public void arclight$init(int p_164768_, int p_164769_, byte p_164770_, boolean p_164771_, boolean p_164772_, boolean p_164773_, ResourceKey<Level> p_164774_, CallbackInfo ci) {
-        this.mapView = new CraftMapView((MapItemSavedData) (Object) this);
-        this.server = (CraftServer) Bukkit.getServer();
-    }
+    @Shadow @Final private List<MapItemSavedData.HoldingPlayer> carriedBy;
+    private CraftServer server;
 
     @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
     @Redirect(method = "load", at = @At(value = "INVOKE", target = "Ljava/util/Optional;orElseThrow(Ljava/util/function/Supplier;)Ljava/lang/Object;"))
@@ -57,6 +50,12 @@ public abstract class MapDataMixin implements MapDataBridge {
             }
             throw new IllegalArgumentException("Invalid map dimension: " + nbt.get("dimension"));
         });
+    }
+
+    @Inject(method = "<init>", at = @At("RETURN"))
+    public void arclight$init(int p_164768_, int p_164769_, byte p_164770_, boolean p_164771_, boolean p_164772_, boolean p_164773_, ResourceKey<Level> p_164774_, CallbackInfo ci) {
+        this.mapView = new CraftMapView((MapItemSavedData) (Object) this);
+        this.server = (CraftServer) Bukkit.getServer();
     }
 
     @Inject(method = "save", at = @At("HEAD"))

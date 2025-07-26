@@ -19,13 +19,12 @@ import java.util.List;
 @Mixin(ShulkerBoxBlockEntity.class)
 public abstract class ShulkerBoxBlockEntityMixin extends LockableBlockEntityMixin {
 
+    public List<HumanEntity> transaction = new ArrayList<>();
+    // @formatter:on
+    public boolean opened;
     // @formatter:off
     @Shadow private NonNullList<ItemStack> itemStacks;
-    // @formatter:on
-
-    public List<HumanEntity> transaction = new ArrayList<>();
     private int maxStack = MAX_STACK;
-    public boolean opened;
 
     @Inject(method = "startOpen", cancellable = true, at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/Level;blockEvent(Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/Block;II)V"))
     private void arclight$sound1(Player player, CallbackInfo ci) {

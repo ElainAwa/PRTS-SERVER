@@ -35,14 +35,10 @@ public abstract class CampfireBlockEntityMixin extends BlockEntityMixin {
 
     @Shadow
     @Final
-    private RecipeManager.CachedCheck<Container, CampfireCookingRecipe> quickCheck;
-
-    @Shadow
-    public abstract Optional<CampfireCookingRecipe> getCookableRecipe(ItemStack p_59052_);
-
+    public int[] cookingTime;
     @Shadow
     @Final
-    public int[] cookingTime;
+    private RecipeManager.CachedCheck<Container, CampfireCookingRecipe> quickCheck;
 
     /**
      * @author IzzelAliz
@@ -90,6 +86,9 @@ public abstract class CampfireBlockEntityMixin extends BlockEntityMixin {
         }
 
     }
+
+    @Shadow
+    public abstract Optional<CampfireCookingRecipe> getCookableRecipe(ItemStack p_59052_);
 
     @Inject(method = "placeFood", locals = LocalCapture.CAPTURE_FAILHARD,
             at = @At(value = "FIELD", target = "Lnet/minecraft/world/level/block/entity/CampfireBlockEntity;cookingProgress:[I"))

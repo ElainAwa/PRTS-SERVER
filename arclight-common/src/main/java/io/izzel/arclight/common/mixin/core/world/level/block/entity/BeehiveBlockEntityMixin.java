@@ -34,13 +34,47 @@ import java.util.List;
 @Mixin(BeehiveBlockEntity.class)
 public abstract class BeehiveBlockEntityMixin extends BlockEntityMixin {
 
+    private static transient boolean arclight$force;
+    @Shadow @Nullable public BlockPos savedFlowerPos;
+    public int maxBees = 3;
+    // @formatter:on
     // @formatter:off
     @Shadow @Final private List<BeehiveBlockEntity.BeeData> stored;
-    @Shadow @Nullable public BlockPos savedFlowerPos;
-    @Shadow private static boolean releaseOccupant(Level p_155137_, BlockPos p_155138_, BlockState p_155139_, BeehiveBlockEntity.BeeData p_155140_, @org.jetbrains.annotations.Nullable List<Entity> p_155141_, BeehiveBlockEntity.BeeReleaseStatus p_155142_, @org.jetbrains.annotations.Nullable BlockPos p_155143_) { return false; }
-    // @formatter:on
 
-    public int maxBees = 3;
+    @Shadow private static boolean releaseOccupant(Level p_155137_, BlockPos p_155138_, BlockState p_155139_, BeehiveBlockEntity.BeeData p_155140_, @org.jetbrains.annotations.Nullable List<Entity> p_155141_, BeehiveBlockEntity.BeeReleaseStatus p_155142_, @org.jetbrains.annotations.Nullable BlockPos p_155143_) { return false; }
+
+    private static boolean releaseBee(Level world, BlockPos pos, BlockState state, BeehiveBlockEntity.BeeData beeData, @Nullable List<Entity> list, BeehiveBlockEntity.BeeReleaseStatus status, @Nullable BlockPos pos1, boolean force) {
+        arclight$force = force;
+        try {
+            return releaseOccupant(world, pos, state, beeData, list, status, pos1);
+        } finally {
+            arclight$force = false;
+        }
+    }
+
+    @Redirect(method = "releaseOccupant", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/Level;isNight()Z"))
+    private static boolean arclight$bypassNightCheck(Level world) {
+        return !arclight$force && world.isNight();
+    }
+
+    @Redirect(method = "releaseOccupant", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/Entity;getType()Lnet/minecraft/world/entity/EntityType;"))
+    private static EntityType<?> arclight$spawnFirst(Entity entity, Level level) {
+        EntityType<?> type = entity.getType();
+        if (type.is(EntityTypeTags.BEEHIVE_INHABITORS)) {
+            ((WorldBridge) level).bridge$pushAddEntityReason(CreatureSpawnEvent.SpawnReason.BEEHIVE);
+            if (!level.addFreshEntity(entity)) {
+                return EntityType.ITEM_FRAME;
+            } else {
+                return type;
+            }
+        }
+        return type;
+    }
+
+    @Redirect(method = "releaseOccupant", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/Level;addFreshEntity(Lnet/minecraft/world/entity/Entity;)Z"))
+    private static boolean arclight$addedBefore(Level world, Entity entityIn) {
+        return true;
+    }
 
     /**
      * @author IzzelAliz
@@ -80,41 +114,6 @@ public abstract class BeehiveBlockEntityMixin extends BlockEntityMixin {
                 ci.cancel();
             }
         }
-    }
-
-    private static boolean releaseBee(Level world, BlockPos pos, BlockState state, BeehiveBlockEntity.BeeData beeData, @Nullable List<Entity> list, BeehiveBlockEntity.BeeReleaseStatus status, @Nullable BlockPos pos1, boolean force) {
-        arclight$force = force;
-        try {
-            return releaseOccupant(world, pos, state, beeData, list, status, pos1);
-        } finally {
-            arclight$force = false;
-        }
-    }
-
-    private static transient boolean arclight$force;
-
-    @Redirect(method = "releaseOccupant", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/Level;isNight()Z"))
-    private static boolean arclight$bypassNightCheck(Level world) {
-        return !arclight$force && world.isNight();
-    }
-
-    @Redirect(method = "releaseOccupant", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/Entity;getType()Lnet/minecraft/world/entity/EntityType;"))
-    private static EntityType<?> arclight$spawnFirst(Entity entity, Level level) {
-        EntityType<?> type = entity.getType();
-        if (type.is(EntityTypeTags.BEEHIVE_INHABITORS)) {
-            ((WorldBridge) level).bridge$pushAddEntityReason(CreatureSpawnEvent.SpawnReason.BEEHIVE);
-            if (!level.addFreshEntity(entity)) {
-                return EntityType.ITEM_FRAME;
-            } else {
-                return type;
-            }
-        }
-        return type;
-    }
-
-    @Redirect(method = "releaseOccupant", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/Level;addFreshEntity(Lnet/minecraft/world/entity/Entity;)Z"))
-    private static boolean arclight$addedBefore(Level world, Entity entityIn) {
-        return true;
     }
 
     @Inject(method = "load", at = @At("RETURN"))

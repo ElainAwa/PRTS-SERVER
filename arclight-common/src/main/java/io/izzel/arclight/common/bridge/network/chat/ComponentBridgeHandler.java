@@ -147,6 +147,10 @@ public class ComponentBridgeHandler {
         return () -> createIterator(component);
     }
 
+    // Create a bridge instance for a component
+    public static ITextComponentBridge createBridge(Component component) {
+        return new ComponentBridge(component);
+    }
 
     // Implementation of ITextComponentBridge functionality
     public static class ComponentBridge implements ITextComponentBridge {
@@ -165,11 +169,6 @@ public class ComponentBridgeHandler {
         public Iterator<Component> bridge$iterator() {
             return createIterator(component);
         }
-    }
-
-    // Create a bridge instance for a component
-    public static ITextComponentBridge createBridge(Component component) {
-        return new ComponentBridge(component);
     }
 
 

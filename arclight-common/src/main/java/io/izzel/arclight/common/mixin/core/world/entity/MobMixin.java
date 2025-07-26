@@ -40,59 +40,19 @@ public abstract class MobMixin extends LivingEntityMixin implements MobEntityBri
 
     // @formatter:off
     @Shadow public boolean persistenceRequired;
-    @Shadow public abstract boolean removeWhenFarAway(double distanceToClosestPlayer);
-    @Shadow @Nullable public abstract LivingEntity getTarget();
-    @Shadow private LivingEntity target;
-    @Shadow protected abstract ResourceLocation getDefaultLootTable();
-    @Shadow public abstract ItemStack getItemBySlot(EquipmentSlot slotIn);
-    @Shadow public abstract boolean canHoldItem(ItemStack stack);
-    @Shadow protected abstract float getEquipmentDropChance(EquipmentSlot slotIn);
-    @Shadow public abstract void setItemSlot(EquipmentSlot slotIn, ItemStack stack);
     @Shadow @Final public float[] handDropChances;
     @Shadow @Final public float[] armorDropChances;
-    @Shadow @Nullable public abstract Entity getLeashHolder();
-    @Shadow public abstract boolean isPersistenceRequired();
-    @Shadow protected void customServerAiStep() { }
-    @Shadow public abstract boolean isNoAi();
-    @Shadow protected abstract boolean canReplaceCurrentItem(ItemStack candidate, ItemStack existing);
-    @Shadow protected abstract void setItemSlotAndDropWhenKilled(EquipmentSlot p_233657_1_, ItemStack p_233657_2_);
-    @Shadow @Nullable public abstract <T extends Mob> T convertTo(EntityType<T> p_233656_1_, boolean p_233656_2_);
-    @Shadow @Nullable protected abstract SoundEvent getAmbientSound();
-    // @formatter:on
-
     public boolean aware;
-
-    @Override
-    public void bridge$setAware(boolean aware) {
-        this.aware = aware;
-    }
-
-    @Inject(method = "setCanPickUpLoot", at = @At("HEAD"))
-    public void arclight$setPickupLoot(boolean canPickup, CallbackInfo ci) {
-        super.bukkitPickUpLoot = canPickup;
-    }
-
-    /**
-     * @author IzzelAliz
-     * @reason
-     */
-    @Overwrite
-    public boolean canPickUpLoot() {
-        return super.bukkitPickUpLoot;
-    }
-
-    @Inject(method = "<init>", at = @At("RETURN"))
-    private void arclight$init(EntityType<? extends Mob> type, net.minecraft.world.level.Level worldIn, CallbackInfo ci) {
-        this.aware = true;
-    }
-
-    public SoundEvent getAmbientSound0() {
-        return getAmbientSound();
-    }
-
     protected transient boolean arclight$targetSuccess = false;
+    @Shadow private LivingEntity target;
     private transient EntityTargetEvent.TargetReason arclight$reason;
     private transient boolean arclight$fireEvent;
+    private transient ItemEntity arclight$item;
+    private transient EntityTransformEvent.TransformReason arclight$transform;
+
+    @Shadow public abstract boolean removeWhenFarAway(double distanceToClosestPlayer);
+
+    @Shadow @Nullable public abstract LivingEntity getTarget();
 
     /**
      * @author IzzelAliz
@@ -139,6 +99,65 @@ public abstract class MobMixin extends LivingEntityMixin implements MobEntityBri
         }
         this.target = livingEntity;
         arclight$targetSuccess = true;
+    }
+
+    @Shadow protected abstract ResourceLocation getDefaultLootTable();
+
+    @Shadow public abstract ItemStack getItemBySlot(EquipmentSlot slotIn);
+
+    @Shadow public abstract boolean canHoldItem(ItemStack stack);
+
+    @Shadow protected abstract float getEquipmentDropChance(EquipmentSlot slotIn);
+
+    @Shadow public abstract void setItemSlot(EquipmentSlot slotIn, ItemStack stack);
+
+    @Shadow @Nullable public abstract Entity getLeashHolder();
+    // @formatter:on
+
+    @Shadow public abstract boolean isPersistenceRequired();
+
+    public void setPersistenceRequired(boolean value) {
+        this.persistenceRequired = value;
+    }
+
+    @Shadow protected void customServerAiStep() { }
+
+    @Shadow public abstract boolean isNoAi();
+
+    @Shadow protected abstract boolean canReplaceCurrentItem(ItemStack candidate, ItemStack existing);
+
+    @Shadow protected abstract void setItemSlotAndDropWhenKilled(EquipmentSlot p_233657_1_, ItemStack p_233657_2_);
+
+    @Shadow @Nullable public abstract <T extends Mob> T convertTo(EntityType<T> p_233656_1_, boolean p_233656_2_);
+
+    @Shadow @Nullable protected abstract SoundEvent getAmbientSound();
+
+    @Override
+    public void bridge$setAware(boolean aware) {
+        this.aware = aware;
+    }
+
+    @Inject(method = "setCanPickUpLoot", at = @At("HEAD"))
+    public void arclight$setPickupLoot(boolean canPickup, CallbackInfo ci) {
+        super.bukkitPickUpLoot = canPickup;
+    }
+
+    /**
+     * @author IzzelAliz
+     * @reason
+     */
+    @Overwrite
+    public boolean canPickUpLoot() {
+        return super.bukkitPickUpLoot;
+    }
+
+    @Inject(method = "<init>", at = @At("RETURN"))
+    private void arclight$init(EntityType<? extends Mob> type, net.minecraft.world.level.Level worldIn, CallbackInfo ci) {
+        this.aware = true;
+    }
+
+    public SoundEvent getAmbientSound0() {
+        return getAmbientSound();
     }
 
     public boolean setTarget(LivingEntity livingEntity, EntityTargetEvent.TargetReason reason, boolean fireEvent) {
@@ -201,8 +220,6 @@ public abstract class MobMixin extends LivingEntityMixin implements MobEntityBri
     public void bridge$captureItemDrop(ItemEntity itemEntity) {
         this.arclight$item = itemEntity;
     }
-
-    private transient ItemEntity arclight$item;
 
     /**
      * @author IzzelAliz
@@ -323,8 +340,6 @@ public abstract class MobMixin extends LivingEntityMixin implements MobEntityBri
         return this.convertTo(entityType, flag);
     }
 
-    private transient EntityTransformEvent.TransformReason arclight$transform;
-
     @Override
     public void bridge$pushTransformReason(EntityTransformEvent.TransformReason transformReason) {
         this.arclight$transform = transformReason;
@@ -347,10 +362,6 @@ public abstract class MobMixin extends LivingEntityMixin implements MobEntityBri
     @Override
     public boolean bridge$isPersistenceRequired() {
         return this.persistenceRequired;
-    }
-
-    public void setPersistenceRequired(boolean value) {
-        this.persistenceRequired = value;
     }
 
     @Override

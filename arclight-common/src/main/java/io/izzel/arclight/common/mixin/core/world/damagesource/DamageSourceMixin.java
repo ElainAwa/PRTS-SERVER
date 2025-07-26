@@ -11,13 +11,13 @@ import javax.annotation.Nullable;
 @Mixin(DamageSource.class)
 public abstract class DamageSourceMixin implements DamageSourceBridge {
 
-    // @formatter:off
-    @Shadow @Nullable public Entity getEntity() { return null; }
-    // @formatter:on
-
     private boolean sweep;
+    // @formatter:on
     private boolean melting;
     private boolean poison;
+
+    // @formatter:off
+    @Shadow @Nullable public Entity getEntity() { return null; }
 
     public boolean isSweep() {
         return sweep;

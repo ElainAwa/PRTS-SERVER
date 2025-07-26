@@ -19,8 +19,8 @@ import java.util.NoSuchElementException;
 
 public class ArclightPingEvent extends ServerListPingEvent {
 
-    public CraftIconCache icon;
     private final Object[] players;
+    public CraftIconCache icon;
 
     public ArclightPingEvent(Connection networkManager, MinecraftServer server) {
         super(((NetworkManagerBridge) networkManager).bridge$getHostname(), ((InetSocketAddress) networkManager.getRemoteAddress()).getAddress(), server.getMotd(), server.getPlayerList().getMaxPlayers());

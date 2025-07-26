@@ -25,17 +25,21 @@ import java.util.List;
 @Mixin(JukeboxBlockEntity.class)
 public abstract class JukeboxBlockEntityMixin extends BlockEntityMixin implements IInventoryBridge, Container {
 
+    public List<HumanEntity> transaction = new ArrayList<>();
+    public boolean opened;
     @Shadow
     @Final
     private NonNullList<ItemStack> items;
-
-    public List<HumanEntity> transaction = new ArrayList<>();
     private int maxStack = MAX_STACK;
-    public boolean opened;
 
     @Override
     public int getMaxStackSize() {
         return maxStack;
+    }
+
+    @Override
+    public void setMaxStackSize(int size) {
+        maxStack = size;
     }
 
     @Override
@@ -56,11 +60,6 @@ public abstract class JukeboxBlockEntityMixin extends BlockEntityMixin implement
     @Override
     public List<HumanEntity> getViewers() {
         return transaction;
-    }
-
-    @Override
-    public void setMaxStackSize(int size) {
-        maxStack = size;
     }
 
     @Override

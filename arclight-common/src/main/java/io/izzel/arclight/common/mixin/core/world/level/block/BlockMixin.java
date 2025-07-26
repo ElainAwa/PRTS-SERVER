@@ -39,11 +39,6 @@ import java.util.List;
 @Mixin(Block.class)
 public abstract class BlockMixin extends BlockBehaviourMixin implements BlockBridge {
 
-    // @formatter:off
-    @Shadow public abstract BlockState defaultBlockState();
-    @Shadow @Nullable public BlockState getStateForPlacement(BlockPlaceContext context) { return null; }
-    // @formatter:on
-
     /**
      * @author IzzelAliz
      * @reason
@@ -65,6 +60,12 @@ public abstract class BlockMixin extends BlockBehaviourMixin implements BlockBri
             }
         }
     }
+
+    // @formatter:off
+    @Shadow public abstract BlockState defaultBlockState();
+    // @formatter:on
+
+    @Shadow @Nullable public BlockState getStateForPlacement(BlockPlaceContext context) { return null; }
 
     public int getExpDrop(BlockState blockState, ServerLevel world, BlockPos blockPos, ItemStack itemStack, boolean flag) {
         int silkTouch = itemStack.getEnchantmentLevel(Enchantments.SILK_TOUCH);

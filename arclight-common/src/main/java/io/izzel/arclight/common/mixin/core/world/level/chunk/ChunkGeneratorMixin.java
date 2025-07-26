@@ -41,9 +41,10 @@ import java.util.function.Predicate;
 @Mixin(ChunkGenerator.class)
 public abstract class ChunkGeneratorMixin implements ChunkGeneratorBridge {
 
+    @Shadow @Final @Mutable protected BiomeSource biomeSource;
+
     // @formatter:off
     @Shadow public abstract void applyBiomeDecoration(WorldGenLevel p_187712_, ChunkAccess p_187713_, StructureManager p_187714_);
-    @Shadow @Final @Mutable protected BiomeSource biomeSource;
     // @formatter:on
 
     @Inject(method = "applyBiomeDecoration", at = @At("RETURN"))

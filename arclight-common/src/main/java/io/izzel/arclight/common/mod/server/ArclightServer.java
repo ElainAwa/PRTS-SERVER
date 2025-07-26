@@ -28,9 +28,6 @@ import java.util.function.Supplier;
 
 public class ArclightServer {
 
-    private interface ExecutorWithThread extends Executor, Supplier<Thread> {
-    }
-
     private static final ExecutorWithThread mainThreadExecutor = new ExecutorWithThread() {
         @Override
         public void execute(@NotNull Runnable command) {
@@ -45,6 +42,7 @@ public class ArclightServer {
     private static final ExecutorService chatExecutor = Executors.newCachedThreadPool(
             new ThreadFactoryBuilder().setDaemon(true).setNameFormat("Async Chat Thread - #%d")
                     .setThreadFactory(chatFactory()).build());
+    private static CraftServer server;
 
     private static ThreadFactory chatFactory() {
         var group = Thread.currentThread().getThreadGroup();
@@ -55,8 +53,6 @@ public class ArclightServer {
             return thread;
         };
     }
-
-    private static CraftServer server;
 
     @SuppressWarnings("ConstantConditions")
     public static CraftServer createOrLoad(DedicatedServer console, PlayerList playerList) {
@@ -120,5 +116,8 @@ public class ArclightServer {
 
     public static World.Environment getEnvironment(ResourceKey<LevelStem> key) {
         return BukkitRegistry.DIM_MAP.getOrDefault(key, World.Environment.CUSTOM);
+    }
+
+    private interface ExecutorWithThread extends Executor, Supplier<Thread> {
     }
 }

@@ -22,6 +22,18 @@ import java.util.Hashtable;
 
 public class RemapSourceHandler extends URLStreamHandler {
 
+    @SuppressWarnings("unchecked")
+    public static void register() {
+        try {
+            Unsafe.ensureClassInitialized(URL.class);
+            MethodHandle getter = Unsafe.lookup().findStaticGetter(URL.class, "handlers", Hashtable.class);
+            Hashtable<String, URLStreamHandler> handlers = (Hashtable<String, URLStreamHandler>) getter.invokeExact();
+            handlers.put("remap", new RemapSourceHandler());
+        } catch (Throwable e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     @Override
     protected URLConnection openConnection(URL u) throws IOException {
         return new RemapSourceConnection(new URL(u.getFile()));
@@ -72,18 +84,6 @@ public class RemapSourceHandler extends URLStreamHandler {
             } else {
                 return new ByteArrayInputStream(this.array);
             }
-        }
-    }
-
-    @SuppressWarnings("unchecked")
-    public static void register() {
-        try {
-            Unsafe.ensureClassInitialized(URL.class);
-            MethodHandle getter = Unsafe.lookup().findStaticGetter(URL.class, "handlers", Hashtable.class);
-            Hashtable<String, URLStreamHandler> handlers = (Hashtable<String, URLStreamHandler>) getter.invokeExact();
-            handlers.put("remap", new RemapSourceHandler());
-        } catch (Throwable e) {
-            throw new RuntimeException(e);
         }
     }
 }

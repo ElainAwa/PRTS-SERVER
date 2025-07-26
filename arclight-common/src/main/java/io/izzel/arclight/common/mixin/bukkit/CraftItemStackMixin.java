@@ -24,11 +24,8 @@ public abstract class CraftItemStackMixin implements CraftItemStackBridge {
 
     // @formatter:off
     @Shadow ItemStack handle;
-    @Shadow public abstract Material getType();
-    @Shadow public abstract short getDurability();
-    @Shadow public abstract boolean hasItemMeta();
+
     @Shadow static Material getType(ItemStack item) { throw new RuntimeException(); }
-    // @formatter:on
 
     @Inject(method = "getItemMeta(Lnet/minecraft/world/item/ItemStack;)Lorg/bukkit/inventory/meta/ItemMeta;", cancellable = true, at = @At(value = "INVOKE", target = "Lorg/bukkit/Material;ordinal()I"))
     private static void arclight$noTag(ItemStack item, CallbackInfoReturnable<ItemMeta> cir) {
@@ -57,6 +54,23 @@ public abstract class CraftItemStackMixin implements CraftItemStackBridge {
             ((ItemStackBridge) (Object) item).bridge$setForgeCaps(forgeCaps.copy());
         }
     }
+    // @formatter:on
+
+    @Inject(method = "hasItemMeta(Lnet/minecraft/world/item/ItemStack;)Z", cancellable = true, at = @At("HEAD"))
+    private static void arclight$hasMeta(ItemStack item, CallbackInfoReturnable<Boolean> cir) {
+        if (item != null) {
+            CompoundTag forgeCaps = ((ItemStackBridge) (Object) item).bridge$getForgeCaps();
+            if (forgeCaps != null && !forgeCaps.isEmpty()) {
+                cir.setReturnValue(true);
+            }
+        }
+    }
+
+    @Shadow public abstract Material getType();
+
+    @Shadow public abstract short getDurability();
+
+    @Shadow public abstract boolean hasItemMeta();
 
     /**
      * @author IzzelAliz
@@ -89,16 +103,6 @@ public abstract class CraftItemStackMixin implements CraftItemStackBridge {
                 && Objects.equals(handle.getTag(), ((CraftItemStackBridge) (Object) that).bridge$getHandle().getTag())
                 && Objects.equals(((ItemStackBridge) (Object) handle).bridge$getForgeCaps(), ((ItemStackBridge) (Object) ((CraftItemStackBridge) (Object) that).bridge$getHandle()).bridge$getForgeCaps()))
                 : !that.hasItemMeta();
-    }
-
-    @Inject(method = "hasItemMeta(Lnet/minecraft/world/item/ItemStack;)Z", cancellable = true, at = @At("HEAD"))
-    private static void arclight$hasMeta(ItemStack item, CallbackInfoReturnable<Boolean> cir) {
-        if (item != null) {
-            CompoundTag forgeCaps = ((ItemStackBridge) (Object) item).bridge$getForgeCaps();
-            if (forgeCaps != null && !forgeCaps.isEmpty()) {
-                cir.setReturnValue(true);
-            }
-        }
     }
 
     @Override

@@ -48,7 +48,6 @@ public abstract class ServerEntityMixin implements ServerEntityBridge {
     @Shadow @Final private Consumer<Packet<?>> broadcast;
     @Shadow private int tickCount;
     @Shadow @Final private ServerLevel level;
-    @Shadow protected abstract void sendDirtyEntityData();
     @Shadow @Final private int updateInterval;
     @Shadow private int yRotp;
     @Shadow private int xRotp;
@@ -59,16 +58,19 @@ public abstract class ServerEntityMixin implements ServerEntityBridge {
     @Shadow @Final private boolean trackDelta;
     @Shadow private Vec3 ap;
     @Shadow private int yHeadRotp;
-    @Shadow protected abstract void broadcastAndSend(Packet<?> packet);
     @Shadow @Nullable private List<SynchedEntityData.DataValue<?>> trackedDataValues;
-    @Shadow private static Stream<Entity> removedPassengers(List<Entity> p_277592_, List<Entity> p_277658_) { return null; }
-    // @formatter:on
-
     private Set<ServerPlayerConnection> trackedPlayers;
     @Unique
     private int lastTick;
     @Unique
     private int lastUpdate, lastPosUpdate, lastMapUpdate;
+    // @formatter:on
+
+    @Shadow private static Stream<Entity> removedPassengers(List<Entity> p_277592_, List<Entity> p_277658_) { return null; }
+
+    @Shadow protected abstract void sendDirtyEntityData();
+
+    @Shadow protected abstract void broadcastAndSend(Packet<?> packet);
 
     @Inject(method = "<init>", at = @At("RETURN"))
     private void arclight$init(ServerLevel serverWorld, Entity entity, int updateFrequency, boolean sendVelocityUpdates, Consumer<Packet<?>> packetConsumer, CallbackInfo ci) {

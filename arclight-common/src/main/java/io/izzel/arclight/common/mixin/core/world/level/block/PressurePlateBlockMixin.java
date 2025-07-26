@@ -25,14 +25,15 @@ public abstract class PressurePlateBlockMixin extends BasePressurePlateBlockMixi
 
     // @formatter:off
     @Shadow @Final private PressurePlateBlock.Sensitivity sensitivity;
-    @Shadow protected abstract int getSignalForState(BlockState state);
-    // @formatter:on
 
     private static <T extends Entity> java.util.List<T> getEntities(Level world, AABB axisalignedbb, Class<T> oclass) {
         return world.getEntitiesOfClass(oclass, axisalignedbb, EntitySelector.NO_SPECTATORS.and((entity) -> {
             return !entity.isIgnoringBlockTriggers();
         }));
     }
+    // @formatter:on
+
+    @Shadow protected abstract int getSignalForState(BlockState state);
 
     /**
      * @author IzzelAliz

@@ -59,6 +59,8 @@ import java.util.Set;
 @Mixin(Explosion.class)
 public abstract class ExplosionMixin implements ExplosionBridge {
 
+    @Shadow @Final public Entity source;
+    public boolean wasCanceled = false;
     // @formatter:off
     @Shadow @Final private Level level;
     @Shadow @Final private Explosion.BlockInteraction blockInteraction;
@@ -67,21 +69,34 @@ public abstract class ExplosionMixin implements ExplosionBridge {
     @Shadow @Final private double x;
     @Shadow @Final private double y;
     @Shadow @Final private double z;
-    @Shadow @Final public Entity source;
-    @Shadow public abstract DamageSource getDamageSource();
     @Shadow @Final private Map<Player, Vec3> hitPlayers;
-    @Accessor("source") public abstract Entity bridge$getExploder();
-    @Accessor("radius") public abstract float bridge$getSize();
-    @Accessor("radius") public abstract void bridge$setSize(float size);
-    @Accessor("blockInteraction") public abstract Explosion.BlockInteraction bridge$getMode();
     @Shadow @Final private boolean fire;
     @Shadow @Final private RandomSource random;
-    @Shadow private static void addBlockDrops(ObjectArrayList<Pair<ItemStack, BlockPos>> dropPositionArray, ItemStack stack, BlockPos pos) { }
     @Shadow @Final private ExplosionDamageCalculator damageCalculator;
-    @Shadow public abstract boolean interactsWithBlocks();
-    @Shadow @Nullable public abstract LivingEntity getIndirectSourceEntity();
+
+    @Shadow private static void addBlockDrops(ObjectArrayList<Pair<ItemStack, BlockPos>> dropPositionArray, ItemStack stack, BlockPos pos) { }
+
     @Shadow public static float getSeenPercent(Vec3 p_46065_, Entity p_46066_) { return 0f; }
+
+    @Inject(method = "addBlockDrops", cancellable = true, at = @At("HEAD"))
+    private static void arclight$fix(ObjectArrayList<Pair<ItemStack, BlockPos>> dropPositionArray, ItemStack stack, BlockPos pos, CallbackInfo ci) {
+        if (stack.isEmpty()) ci.cancel();
+    }
+
+    @Shadow public abstract DamageSource getDamageSource();
+
+    @Accessor("source") public abstract Entity bridge$getExploder();
+
+    @Accessor("radius") public abstract float bridge$getSize();
+
+    @Accessor("radius") public abstract void bridge$setSize(float size);
+
+    @Accessor("blockInteraction") public abstract Explosion.BlockInteraction bridge$getMode();
     // @formatter:on
+
+    @Shadow public abstract boolean interactsWithBlocks();
+
+    @Shadow @Nullable public abstract LivingEntity getIndirectSourceEntity();
 
     @Inject(method = "<init>(Lnet/minecraft/world/level/Level;Lnet/minecraft/world/entity/Entity;DDDFZLnet/minecraft/world/level/Explosion$BlockInteraction;)V",
             at = @At("RETURN"))
@@ -229,8 +244,6 @@ public abstract class ExplosionMixin implements ExplosionBridge {
 
     }
 
-    public boolean wasCanceled = false;
-
     @Override
     public boolean bridge$wasCancelled() {
         return wasCanceled;
@@ -318,11 +331,6 @@ public abstract class ExplosionMixin implements ExplosionBridge {
                 }
             }
         }
-    }
-
-    @Inject(method = "addBlockDrops", cancellable = true, at = @At("HEAD"))
-    private static void arclight$fix(ObjectArrayList<Pair<ItemStack, BlockPos>> dropPositionArray, ItemStack stack, BlockPos pos, CallbackInfo ci) {
-        if (stack.isEmpty()) ci.cancel();
     }
 
     private float callBlockExplodeEvent() {

@@ -20,10 +20,10 @@ public class SmithingTransformRecipeMixin implements IRecipeBridge {
 
     // @formatter:off
     @Shadow @Final ItemStack result;
-    @Shadow @Final private ResourceLocation id;
     @Shadow @Final Ingredient template;
     @Shadow @Final Ingredient base;
     @Shadow @Final Ingredient addition;
+    @Shadow @Final private ResourceLocation id;
     // @formatter:on
 
     @Override

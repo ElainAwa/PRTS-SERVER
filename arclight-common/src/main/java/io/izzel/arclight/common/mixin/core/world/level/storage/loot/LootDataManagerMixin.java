@@ -18,11 +18,10 @@ import java.util.Map;
 @Mixin(LootDataManager.class)
 public class LootDataManagerMixin implements LootDataManagerBridge {
 
+    public Map<?, ResourceLocation> lootTableToKey = ImmutableMap.of();
+    // @formatter:on
     // @formatter:off
     @Shadow private Map<LootDataId<?>, ?> elements;
-    // @formatter:on
-
-    public Map<?, ResourceLocation> lootTableToKey = ImmutableMap.of();
 
     @Inject(method = "apply", at = @At("RETURN"))
     private void arclight$buildRev(Map<LootDataType<?>, Map<ResourceLocation, ?>> p_279426_, CallbackInfo ci) {

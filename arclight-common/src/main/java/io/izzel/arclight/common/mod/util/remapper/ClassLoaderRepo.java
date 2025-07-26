@@ -15,6 +15,16 @@ import java.net.URLConnection;
 
 public class ClassLoaderRepo implements ClassRepo, PluginPatcher.ClassRepo {
 
+    private static final MethodHandle H_FIND_RESOURCE;
+
+    static {
+        try {
+            H_FIND_RESOURCE = Unsafe.lookup().findVirtual(ClassLoader.class, "findResource", MethodType.methodType(URL.class, String.class));
+        } catch (NoSuchMethodException | IllegalAccessException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     private final ClassLoader classLoader;
 
     public ClassLoaderRepo(ClassLoader classLoader) {
@@ -43,15 +53,5 @@ public class ClassLoaderRepo implements ClassRepo, PluginPatcher.ClassRepo {
         } catch (Throwable ignored) {
         }
         return null;
-    }
-
-    private static final MethodHandle H_FIND_RESOURCE;
-
-    static {
-        try {
-            H_FIND_RESOURCE = Unsafe.lookup().findVirtual(ClassLoader.class, "findResource", MethodType.methodType(URL.class, String.class));
-        } catch (NoSuchMethodException | IllegalAccessException e) {
-            throw new RuntimeException(e);
-        }
     }
 }

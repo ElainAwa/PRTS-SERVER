@@ -52,22 +52,29 @@ import static net.minecraft.server.network.ServerLoginPacketListenerImpl.isValid
 @Mixin(ServerLoginPacketListenerImpl.class)
 public abstract class ServerLoginNetHandlerMixin {
 
+    @Shadow @Final private static AtomicInteger UNIQUE_THREAD_ID;
+    @Shadow @Final private static Logger LOGGER;
+    @Shadow @Final public Connection connection;
     // @formatter:off
     @Shadow private ServerLoginPacketListenerImpl.State state;
     @Shadow @Final private MinecraftServer server;
-    @Shadow @Final public Connection connection;
-    @Shadow @Final private static AtomicInteger UNIQUE_THREAD_ID;
     @Shadow private GameProfile gameProfile;
-    @Shadow @Final private static Logger LOGGER;
-    @Shadow protected abstract GameProfile createFakeProfile(GameProfile original);
-    @Shadow public abstract void disconnect(Component reason);
-    @Shadow public abstract String getUserName();
     @Shadow private ServerPlayer delayedAcceptPlayer;
     @Shadow @Final private byte[] challenge;
-    // @formatter:on
-
     // Velocity Modern Forwarding support
     private int luminara$velocityLoginMessageId = -1;
+
+    private static boolean arclight$validUsernameCheck(String name) {
+        var regex = ArclightConfig.spec().getCompat().getValidUsernameRegex();
+        return !regex.isBlank() && name.matches(regex);
+    }
+
+    @Shadow protected abstract GameProfile createFakeProfile(GameProfile original);
+    // @formatter:on
+
+    @Shadow public abstract void disconnect(Component reason);
+
+    @Shadow public abstract String getUserName();
 
     public void disconnect(final String s) {
         this.disconnect(Component.literal(s));
@@ -118,11 +125,6 @@ public abstract class ServerLoginNetHandlerMixin {
                 this.connection.disconnect(chatmessage);
             }
         }
-    }
-
-    private static boolean arclight$validUsernameCheck(String name) {
-        var regex = ArclightConfig.spec().getCompat().getValidUsernameRegex();
-        return !regex.isBlank() && name.matches(regex);
     }
 
     /**

@@ -55,10 +55,11 @@ import java.util.Objects;
 @Mixin(ServerPlayerGameMode.class)
 public abstract class ServerPlayerGameModeMixin implements PlayerInteractionManagerBridge {
 
+    public boolean interactResult = false;
+    public boolean firedInteract = false;
     // @formatter:off
     @Shadow protected ServerLevel level;
     @Shadow @Final protected ServerPlayer player;
-    @Shadow public abstract boolean isCreative();
     @Shadow private GameType gameModeForPlayer;
     @Shadow private int destroyProgressStart;
     @Shadow private int gameTicks;
@@ -68,12 +69,13 @@ public abstract class ServerPlayerGameModeMixin implements PlayerInteractionMana
     @Shadow private boolean hasDelayedDestroy;
     @Shadow private BlockPos delayedDestroyPos;
     @Shadow private int delayedTickStart;
-    @Shadow public abstract void destroyAndAck(BlockPos p_215117_, int p_215118_, String p_215119_);
-    @Shadow protected abstract void debugLogging(BlockPos p_215126_, boolean p_215127_, int p_215128_, String p_215129_);
+
+    @Shadow public abstract boolean isCreative();
     // @formatter:on
 
-    public boolean interactResult = false;
-    public boolean firedInteract = false;
+    @Shadow public abstract void destroyAndAck(BlockPos p_215117_, int p_215118_, String p_215119_);
+
+    @Shadow protected abstract void debugLogging(BlockPos p_215126_, boolean p_215127_, int p_215128_, String p_215129_);
 
     @Inject(method = "changeGameModeForPlayer", cancellable = true, at = @At(value = "INVOKE", target = "Lnet/minecraft/server/level/ServerPlayerGameMode;setGameModeForPlayer(Lnet/minecraft/world/level/GameType;Lnet/minecraft/world/level/GameType;)V"))
     private void arclight$gameModeEvent(GameType gameType, CallbackInfoReturnable<Boolean> cir) {

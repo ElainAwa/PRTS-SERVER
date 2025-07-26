@@ -24,30 +24,6 @@ public abstract class ItemFrameMixin extends HangingEntityMixin {
 
     // @formatter:off
     @Shadow @Final private static EntityDataAccessor<ItemStack> DATA_ITEM;
-    @Shadow protected abstract void onItemChanged(ItemStack p_218866_);
-    // @formatter:on
-
-    @Inject(method = "hurt", cancellable = true, at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/decoration/ItemFrame;dropItem(Lnet/minecraft/world/entity/Entity;Z)V"))
-    private void arclight$damageNonLiving(DamageSource source, float amount, CallbackInfoReturnable<Boolean> cir) {
-        if (CraftEventFactory.handleNonLivingEntityDamageEvent((ItemFrame) (Object) this, source, amount, false) || this.isRemoved()) {
-            cir.setReturnValue(true);
-        }
-    }
-
-    public void setItem(ItemStack itemstack, final boolean flag, final boolean playSound) {
-        if (!itemstack.isEmpty()) {
-            itemstack = itemstack.copy();
-            itemstack.setCount(1);
-        }
-        this.onItemChanged(itemstack);
-        this.getEntityData().set(DATA_ITEM, itemstack);
-        if (!itemstack.isEmpty() && playSound) {
-            this.playSound(SoundEvents.ITEM_FRAME_ADD_ITEM, 1.0f, 1.0f);
-        }
-        if (flag && this.pos != null) {
-            this.level().updateNeighbourForOutputSignal(this.pos, Blocks.AIR);
-        }
-    }
 
     private static AABB calculateBoundingBox(Entity entity, BlockPos blockPosition, Direction direction, int width, int height) {
         double d0 = 0.46875;
@@ -79,5 +55,30 @@ public abstract class ItemFrameMixin extends HangingEntityMixin {
         d3 /= 32.0;
         d4 /= 32.0;
         return new AABB(locX - d2, locY - d3, locZ - d4, locX + d2, locY + d3, locZ + d4);
+    }
+    // @formatter:on
+
+    @Shadow protected abstract void onItemChanged(ItemStack p_218866_);
+
+    @Inject(method = "hurt", cancellable = true, at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/decoration/ItemFrame;dropItem(Lnet/minecraft/world/entity/Entity;Z)V"))
+    private void arclight$damageNonLiving(DamageSource source, float amount, CallbackInfoReturnable<Boolean> cir) {
+        if (CraftEventFactory.handleNonLivingEntityDamageEvent((ItemFrame) (Object) this, source, amount, false) || this.isRemoved()) {
+            cir.setReturnValue(true);
+        }
+    }
+
+    public void setItem(ItemStack itemstack, final boolean flag, final boolean playSound) {
+        if (!itemstack.isEmpty()) {
+            itemstack = itemstack.copy();
+            itemstack.setCount(1);
+        }
+        this.onItemChanged(itemstack);
+        this.getEntityData().set(DATA_ITEM, itemstack);
+        if (!itemstack.isEmpty() && playSound) {
+            this.playSound(SoundEvents.ITEM_FRAME_ADD_ITEM, 1.0f, 1.0f);
+        }
+        if (flag && this.pos != null) {
+            this.level().updateNeighbourForOutputSignal(this.pos, Blocks.AIR);
+        }
     }
 }

@@ -35,15 +35,15 @@ import javax.annotation.Nullable;
 @Mixin(LevelChunk.class)
 public abstract class LevelChunkMixin extends ChunkAccessMixin implements ChunkBridge {
 
+    @Shadow @Final public Level level;
+    public boolean mustNotSave;
+    // @formatter:on
+    public boolean needsDecoration;
+    public ServerLevel r; // TODO f_62776_ check on update
+    private transient boolean arclight$doPlace;
+
     // @formatter:off
     @Shadow @Nullable public abstract BlockState setBlockState(BlockPos pos, BlockState state, boolean isMoving);
-    @Shadow @Final public Level level;
-    // @formatter:on
-
-    public boolean mustNotSave;
-    public boolean needsDecoration;
-    private transient boolean arclight$doPlace;
-    public ServerLevel r; // TODO f_62776_ check on update
 
     @Inject(method = "<init>(Lnet/minecraft/world/level/Level;Lnet/minecraft/world/level/ChunkPos;Lnet/minecraft/world/level/chunk/UpgradeData;Lnet/minecraft/world/ticks/LevelChunkTicks;Lnet/minecraft/world/ticks/LevelChunkTicks;J[Lnet/minecraft/world/level/chunk/LevelChunkSection;Lnet/minecraft/world/level/chunk/LevelChunk$PostLoadProcessor;Lnet/minecraft/world/level/levelgen/blending/BlendingData;)V", at = @At("RETURN"))
     private void arclight$init(Level worldIn, ChunkPos p_196855_, UpgradeData p_196856_, LevelChunkTicks<Block> p_196857_, LevelChunkTicks<Fluid> p_196858_, long p_196859_, @Nullable LevelChunkSection[] p_196860_, @Nullable LevelChunk.PostLoadProcessor p_196861_, @Nullable BlendingData p_196862_, CallbackInfo ci) {

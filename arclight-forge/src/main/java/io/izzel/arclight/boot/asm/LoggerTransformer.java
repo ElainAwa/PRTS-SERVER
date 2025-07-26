@@ -13,6 +13,14 @@ public class LoggerTransformer implements Implementer {
 
     private static final LogManager JUL_MANAGER = new LogManager();
 
+    public static Logger getLogger(String name) {
+        return JUL_MANAGER.getLogger(name);
+    }
+
+    public static Logger getLogger(String name, String rb) {
+        return JUL_MANAGER.getLogger(name);
+    }
+
     @Override
     public boolean processClass(ClassNode node, ILaunchPluginService.ITransformerLoader transformerLoader) {
         var transform = false;
@@ -26,13 +34,5 @@ public class LoggerTransformer implements Implementer {
             }
         }
         return transform;
-    }
-
-    public static Logger getLogger(String name) {
-        return JUL_MANAGER.getLogger(name);
-    }
-
-    public static Logger getLogger(String name, String rb) {
-        return JUL_MANAGER.getLogger(name);
     }
 }

@@ -13,13 +13,12 @@ import java.util.*;
 @LoadIfMod(modid = {ModIds.RECRUITS}, condition = LoadIfMod.ModCondition.ABSENT)
 public class ClassInheritanceMultiMapMixin<T> {
 
+    private static final ArrayList<?> EMPTY_LIST = new ArrayList<>();
     // @formatter:off
     @Shadow @Final private Class<T> baseClass;
     @Shadow @Final @Mutable private Map<Class<?>, List<T>> byClass;
-    @Shadow @Final @Mutable private List<T> allInstances;
     // @formatter:on
-
-    private static final ArrayList<?> EMPTY_LIST = new ArrayList<>();
+    @Shadow @Final @Mutable private List<T> allInstances;
 
     @Redirect(method = "<init>", at = @At(value = "INVOKE", remap = false, target = "Lcom/google/common/collect/Maps;newHashMap()Ljava/util/HashMap;"))
     private HashMap<Class<?>, List<T>> optimization$dropClass() {

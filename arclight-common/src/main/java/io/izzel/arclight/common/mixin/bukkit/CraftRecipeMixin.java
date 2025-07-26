@@ -22,6 +22,36 @@ public interface CraftRecipeMixin {
      * @reason
      */
     @Overwrite
+    static RecipeChoice toBukkit(Ingredient list) {
+        list.getItems();
+        if (!list.isVanilla()) {
+            return new ArclightSpecialIngredient(list);
+        }
+        net.minecraft.world.item.ItemStack[] items = list.getItems();
+        if (items.length == 0) {
+            return null;
+        } else {
+            if (((IngredientBridge) list).bridge$isExact()) {
+                List<ItemStack> choices = new ArrayList<>(items.length);
+                for (net.minecraft.world.item.ItemStack i : items) {
+                    choices.add(CraftItemStack.asBukkitCopy(i));
+                }
+                return new RecipeChoice.ExactChoice(choices);
+            } else {
+                List<org.bukkit.Material> choices = new ArrayList<>(items.length);
+                for (net.minecraft.world.item.ItemStack i : items) {
+                    choices.add(CraftMagicNumbers.getMaterial(i.getItem()));
+                }
+                return new RecipeChoice.MaterialChoice(choices);
+            }
+        }
+    }
+
+    /**
+     * @author IzzelAliz
+     * @reason
+     */
+    @Overwrite
     default Ingredient toNMS(RecipeChoice bukkit, boolean requireNotEmpty) {
         Ingredient stack;
         if (bukkit == null) {
@@ -46,36 +76,6 @@ public interface CraftRecipeMixin {
             throw new IllegalArgumentException("Recipe requires at least one non-air choice!");
         } else {
             return stack;
-        }
-    }
-
-    /**
-     * @author IzzelAliz
-     * @reason
-     */
-    @Overwrite
-    static RecipeChoice toBukkit(Ingredient list) {
-        list.getItems();
-        if (!list.isVanilla()) {
-            return new ArclightSpecialIngredient(list);
-        }
-        net.minecraft.world.item.ItemStack[] items = list.getItems();
-        if (items.length == 0) {
-            return null;
-        } else {
-            if (((IngredientBridge) list).bridge$isExact()) {
-                List<ItemStack> choices = new ArrayList<>(items.length);
-                for (net.minecraft.world.item.ItemStack i : items) {
-                    choices.add(CraftItemStack.asBukkitCopy(i));
-                }
-                return new RecipeChoice.ExactChoice(choices);
-            } else {
-                List<org.bukkit.Material> choices = new ArrayList<>(items.length);
-                for (net.minecraft.world.item.ItemStack i : items) {
-                    choices.add(CraftMagicNumbers.getMaterial(i.getItem()));
-                }
-                return new RecipeChoice.MaterialChoice(choices);
-            }
         }
     }
 }

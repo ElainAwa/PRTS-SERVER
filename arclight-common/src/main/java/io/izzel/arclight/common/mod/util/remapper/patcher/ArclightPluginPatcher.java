@@ -30,13 +30,6 @@ public class ArclightPluginPatcher implements PluginTransformer {
         this.list = list;
     }
 
-    @Override
-    public void handleClass(ClassNode node, ClassLoaderRemapper remapper, ArclightRemapConfig config) {
-        for (PluginPatcher patcher : list) {
-            patcher.handleClass(node, GlobalClassRepo.INSTANCE);
-        }
-    }
-
     public static List<PluginPatcher> load(List<PluginTransformer> transformerList) {
         var list = new ArrayList<PluginPatcher>();
         File pluginFolder = new File("plugins");
@@ -79,5 +72,12 @@ public class ArclightPluginPatcher implements PluginTransformer {
             ArclightMod.LOGGER.debug("patcher.load-error", e);
         }
         return Optional.empty();
+    }
+
+    @Override
+    public void handleClass(ClassNode node, ClassLoaderRemapper remapper, ArclightRemapConfig config) {
+        for (PluginPatcher patcher : list) {
+            patcher.handleClass(node, GlobalClassRepo.INSTANCE);
+        }
     }
 }

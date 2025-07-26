@@ -23,6 +23,28 @@ public class ArclightJarInJarAdaptor implements IDependencyLocator {
         this.delegate = delegate;
     }
 
+    @SuppressWarnings("unchecked")
+    static void inject() {
+        try {
+            var field = FMLLoader.class.getDeclaredField("modDiscoverer");
+            field.setAccessible(true);
+            var discoverer = (ModDiscoverer) field.get(null);
+            var locatorField = ModDiscoverer.class.getDeclaredField("dependencyLocatorList");
+            locatorField.setAccessible(true);
+            var locatorList = (List<IDependencyLocator>) locatorField.get(discoverer);
+            var newList = locatorList.stream().map(it -> {
+                if (it instanceof JarInJarDependencyLocator) {
+                    return new ArclightJarInJarAdaptor(it);
+                } else {
+                    return it;
+                }
+            }).toList();
+            locatorField.set(discoverer, newList);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     @Override
     public List<IModFile> scanMods(Iterable<IModFile> loadedMods) {
         return delegate.scanMods(loadedMods).stream().filter(it -> {
@@ -51,27 +73,5 @@ public class ArclightJarInJarAdaptor implements IDependencyLocator {
     @Override
     public boolean isValid(IModFile modFile) {
         return delegate.isValid(modFile);
-    }
-
-    @SuppressWarnings("unchecked")
-    static void inject() {
-        try {
-            var field = FMLLoader.class.getDeclaredField("modDiscoverer");
-            field.setAccessible(true);
-            var discoverer = (ModDiscoverer) field.get(null);
-            var locatorField = ModDiscoverer.class.getDeclaredField("dependencyLocatorList");
-            locatorField.setAccessible(true);
-            var locatorList = (List<IDependencyLocator>) locatorField.get(discoverer);
-            var newList = locatorList.stream().map(it -> {
-                if (it instanceof JarInJarDependencyLocator) {
-                    return new ArclightJarInJarAdaptor(it);
-                } else {
-                    return it;
-                }
-            }).toList();
-            locatorField.set(discoverer, newList);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
     }
 }

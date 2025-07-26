@@ -33,9 +33,11 @@ public abstract class ChunkHolderMixin implements ChunkHolderBridge {
 
     // @formatter:off
     @Shadow public int oldTicketLevel;
-    @Shadow public abstract CompletableFuture<Either<ChunkAccess, ChunkHolder.ChunkLoadingFailure>> getFutureIfPresentUnchecked(ChunkStatus p_219301_1_);
     @Shadow @Final ChunkPos pos;
     @Shadow @Final private ShortSet[] changedBlocksPerSection;
+
+    @Shadow public abstract CompletableFuture<Either<ChunkAccess, ChunkHolder.ChunkLoadingFailure>> getFutureIfPresentUnchecked(ChunkStatus p_219301_1_);
+
     @Override @Accessor("oldTicketLevel") public abstract int bridge$getOldTicketLevel();
     // @formatter:on
 

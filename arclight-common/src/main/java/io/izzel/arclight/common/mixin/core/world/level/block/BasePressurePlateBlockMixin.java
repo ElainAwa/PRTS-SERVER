@@ -19,9 +19,10 @@ import org.spongepowered.asm.mixin.injection.Redirect;
 @Mixin(BasePressurePlateBlock.class)
 public abstract class BasePressurePlateBlockMixin {
 
+    @Shadow @Final protected static AABB TOUCH_AABB;
+
     // @formatter:off
     @Shadow protected abstract int getSignalStrength(Level worldIn, BlockPos pos);
-    @Shadow @Final protected static AABB TOUCH_AABB;
     // @formatter:on
 
     @Redirect(method = "checkPressed", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/block/BasePressurePlateBlock;getSignalStrength(Lnet/minecraft/world/level/Level;Lnet/minecraft/core/BlockPos;)I"))

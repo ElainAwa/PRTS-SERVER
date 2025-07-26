@@ -47,14 +47,20 @@ import java.util.function.UnaryOperator;
 @Mixin(SignBlockEntity.class)
 public abstract class SignBlockEntityMixin extends BlockEntityMixin implements SignTileEntityBridge, CommandSource, ICommandSourceBridge {
 
+    @Shadow @Final private static Logger LOGGER;
+
+    @Shadow private static CommandSourceStack createCommandSourceStack(@Nullable Player p_279428_, Level p_279359_, BlockPos p_279430_) { return null; }
+
     // @formatter:off
     @Shadow public abstract ClientboundBlockEntityDataPacket getUpdatePacket();
-    @Shadow private static CommandSourceStack createCommandSourceStack(@Nullable Player p_279428_, Level p_279359_, BlockPos p_279430_) { return null; }
+
     @Shadow public abstract boolean isWaxed();
+
     @Shadow @javax.annotation.Nullable public abstract UUID getPlayerWhoMayEdit();
+
     @Shadow public abstract boolean updateText(UnaryOperator<SignText> p_277877_, boolean p_277426_);
+
     @Shadow public abstract void setAllowedPlayerEditor(@Nullable UUID p_155714_);
-    @Shadow @Final private static Logger LOGGER;
     // @formatter:on
 
     /**

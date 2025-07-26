@@ -21,11 +21,11 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Mixin(SignBlock.class)
 public abstract class SignBlockMixin {
 
-    // @formatter:off
-    @Shadow public abstract void openTextEdit(Player p_277738_, SignBlockEntity p_277467_, boolean p_277771_);
+    private transient PlayerSignOpenEvent.Cause arclight$edit;
     // @formatter:on
 
-    private transient PlayerSignOpenEvent.Cause arclight$edit;
+    // @formatter:off
+    @Shadow public abstract void openTextEdit(Player p_277738_, SignBlockEntity p_277467_, boolean p_277771_);
 
     @Inject(method = "use", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/block/SignBlock;openTextEdit(Lnet/minecraft/world/entity/player/Player;Lnet/minecraft/world/level/block/entity/SignBlockEntity;Z)V"))
     private void arclight$beforeEdit(BlockState p_56278_, Level p_56279_, BlockPos p_56280_, Player p_56281_, InteractionHand p_56282_, BlockHitResult p_56283_, CallbackInfoReturnable<InteractionResult> cir) {
