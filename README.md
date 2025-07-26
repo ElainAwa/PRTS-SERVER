@@ -73,8 +73,8 @@
 - [x] 1.0.8-PRE1：支持Velocity Modern转发（Port Mohist and *①PCF）
 - [x] 1.0.8-PRE2：并入*②MPEM的部分优化项
 - [ ] 1.0.8-PRE2：支持Adventure库
+- [ ] 1.0.8-PRE3：使用Paper方法优化初始化世界的速度
 - [ ] 1.0.8-PRE3：更多i18n（打算用AI，我很懒）
-- [ ] 1.0.8-PRE3: 使用Paper方法优化初始化世界的速度
 
 *①PCF：指Proxy Compatible Forge（Velocity代理兼容Forge）模组
 
