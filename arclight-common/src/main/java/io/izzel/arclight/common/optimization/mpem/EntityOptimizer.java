@@ -29,11 +29,10 @@ public class EntityOptimizer {
 
 
         if (!(entity instanceof Player)) {
-            MpemThreadManager.runAsync(() -> {
-                entity.setNoGravity(true);
-                entity.noPhysics = false;
-                inactiveEntities.put(entity, System.currentTimeMillis());
-            });
+            // Apply entity modifications on main thread to avoid async world access
+            entity.setNoGravity(true);
+            entity.noPhysics = false;
+            inactiveEntities.put(entity, System.currentTimeMillis());
         }
     }
 
@@ -60,27 +59,26 @@ public class EntityOptimizer {
         if (!config.isDisableEntityCollisions()) return;
 
 
-        MpemThreadManager.runAsync(() -> {
-            long now = System.currentTimeMillis();
-            long timeout = config.getEntityFreezeTimeout();
-            Iterator<Map.Entry<Entity, Long>> iterator = inactiveEntities.entrySet().iterator();
+        // Process entity freezing on main thread to avoid async world access
+        long now = System.currentTimeMillis();
+        long timeout = config.getEntityFreezeTimeout();
+        Iterator<Map.Entry<Entity, Long>> iterator = inactiveEntities.entrySet().iterator();
 
-            while (iterator.hasNext()) {
-                Map.Entry<Entity, Long> entry = iterator.next();
-                Entity entity = entry.getKey();
+        while (iterator.hasNext()) {
+            Map.Entry<Entity, Long> entry = iterator.next();
+            Entity entity = entry.getKey();
 
-                if (!entity.isAlive()) {
-                    iterator.remove();
-                    continue;
-                }
-
-                // Freeze entity after timeout
-                if (now - entry.getValue() > timeout) {
-                    entity.setDeltaMovement(Vec3.ZERO);
-                    entity.setPos(entity.getX(), entity.getY(), entity.getZ());
-                }
+            if (!entity.isAlive()) {
+                iterator.remove();
+                continue;
             }
-        });
+
+            // Freeze entity after timeout
+            if (now - entry.getValue() > timeout) {
+                entity.setDeltaMovement(Vec3.ZERO);
+                entity.setPos(entity.getX(), entity.getY(), entity.getZ());
+            }
+        }
     }
 
     public static boolean isEntityActive(Entity entity) {

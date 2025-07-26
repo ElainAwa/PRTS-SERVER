@@ -2,8 +2,11 @@ package io.izzel.arclight.common.optimization.mpem.async;
 
 import io.izzel.arclight.common.optimization.mpem.MpemThreadManager;
 import io.izzel.arclight.i18n.ArclightConfig;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.event.TickEvent;
@@ -49,22 +52,39 @@ public class AsyncCollisionSystem {
     private static void processAsyncCollisions(net.minecraft.server.MinecraftServer server) {
         if (!initialized || !MpemThreadManager.isHealthy()) return;
 
-        server.getAllLevels().forEach(level -> {
-            List<Entity> entities = new ArrayList<>();
-            level.getAllEntities().forEach(entities::add);
+        // Collect entity data on main thread to avoid async chunk access
+        for (ServerLevel level : server.getAllLevels()) {
+            List<EntityCollisionData> entityData = new ArrayList<>();
 
+            // Safely collect entity data on main thread
+            for (Entity entity : level.getEntities().getAll()) {
+                if (entity instanceof Player) continue;
+                if (!shouldProcessAsync(entity)) continue;
 
-            entities.stream()
-                    .filter(entity -> !(entity instanceof Player))
-                    .filter(AsyncCollisionSystem::shouldProcessAsync)
-                    .forEach(entity -> {
-                        MpemThreadManager.runAsync(() -> processEntityCollisions(entity, entities))
-                                .exceptionally(throwable -> {
-                                    LOGGER.warn("Error processing async collision for entity {}", entity.getType(), throwable);
-                                    return null;
-                                });
+                try {
+                    // Collect all necessary data on main thread
+                    EntityCollisionData data = new EntityCollisionData(
+                        entity.getId(),
+                        entity.position(),
+                        entity.getBoundingBox(),
+                        entity.isAlive()
+                    );
+                    entityData.add(data);
+                } catch (Exception e) {
+                    // Skip entities that can't be safely accessed
+                    continue;
+                }
+            }
+
+            // Process collision calculations asynchronously with collected data
+            if (!entityData.isEmpty()) {
+                MpemThreadManager.runAsync(() -> processCollisionCalculations(entityData))
+                    .exceptionally(throwable -> {
+                        LOGGER.warn("Error in async collision calculations", throwable);
+                        return null;
                     });
-        });
+            }
+        }
     }
 
     private static boolean shouldProcessAsync(Entity entity) {
@@ -146,5 +166,48 @@ public class AsyncCollisionSystem {
 
     public static boolean isHealthy() {
         return initialized && MpemThreadManager.isHealthy();
+    }
+
+    // Thread-safe data container for entity collision information
+    private static class EntityCollisionData {
+        final int entityId;
+        final Vec3 position;
+        final AABB boundingBox;
+        final boolean isAlive;
+
+        EntityCollisionData(int entityId, Vec3 position, AABB boundingBox, boolean isAlive) {
+            this.entityId = entityId;
+            this.position = position;
+            this.boundingBox = boundingBox;
+            this.isAlive = isAlive;
+        }
+    }
+
+    // Process collision calculations with pre-collected data
+    private static void processCollisionCalculations(List<EntityCollisionData> entityData) {
+        try {
+            for (int i = 0; i < entityData.size(); i++) {
+                EntityCollisionData entity1 = entityData.get(i);
+                if (!entity1.isAlive) continue;
+
+                for (int j = i + 1; j < entityData.size(); j++) {
+                    EntityCollisionData entity2 = entityData.get(j);
+                    if (!entity2.isAlive) continue;
+
+                    // Check distance first (cheap operation)
+                    if (entity1.position.distanceToSqr(entity2.position) > 64.0) continue;
+
+                    // Check bounding box intersection
+                    if (entity1.boundingBox.intersects(entity2.boundingBox)) {
+                        // Calculate separation force (pure math, no world access)
+                        Vec3 diff = entity1.position.subtract(entity2.position).normalize();
+                        double force = 0.1;
+                        Vec3 separation = diff.scale(force);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            LOGGER.warn("Error in collision calculations", e);
+        }
     }
 }

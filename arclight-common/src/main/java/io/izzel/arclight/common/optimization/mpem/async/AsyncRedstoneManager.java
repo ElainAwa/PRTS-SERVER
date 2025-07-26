@@ -59,34 +59,9 @@ public class AsyncRedstoneManager {
     }
 
     private static void processRedstoneUpdate(RedstoneUpdate update) {
-        try {
-            ServerLevel level = update.level;
-            BlockPos pos = update.pos;
-            BlockState state = level.getBlockState(pos);
-
-
-            if (!(state.getBlock() instanceof RedStoneWireBlock)) {
-                return;
-            }
-
-
-            int power = calculateRedstoneSignal(level, pos, state);
-
-
-            level.getServer().execute(() -> {
-                try {
-                    if (level.getBlockState(pos) == state) {
-
-                        level.setBlock(pos, state.setValue(RedStoneWireBlock.POWER, power), 2);
-                    }
-                } catch (Exception e) {
-                    LOGGER.warn("Error applying async redstone update", e);
-                }
-            });
-
-        } catch (Exception e) {
-            LOGGER.warn("Error in async redstone processing", e);
-        }
+        // Disable async redstone processing to avoid thread safety issues
+        // Redstone calculations require world access which must be done on main thread
+        return;
     }
 
     private static int calculateRedstoneSignal(ServerLevel level, BlockPos pos, BlockState state) {

@@ -143,7 +143,7 @@ public class EntityCleaner {
     private static void updateChunkEntityCounts(ServerLevel level) {
         chunkEntityCounts.clear();
 
-        for (Entity entity : level.getAllEntities()) {
+        for (Entity entity : level.getEntities().getAll()) {
             if (entity instanceof Player) continue;
 
             ChunkPos chunkPos = new ChunkPos(entity.blockPosition());
@@ -157,7 +157,7 @@ public class EntityCleaner {
     private static int cleanupDeadEntities(ServerLevel level, int threshold, CleanupStats stats) {
         int cleaned = 0;
 
-        for (Entity entity : level.getAllEntities()) {
+        for (Entity entity : level.getEntities().getAll()) {
             if (entity instanceof Player) continue;
 
             // Clean truly dead entities
@@ -185,7 +185,7 @@ public class EntityCleaner {
         int cleaned = 0;
         long maxAge = config.getItemMaxAge();
 
-        for (Entity entity : level.getAllEntities()) {
+        for (Entity entity : level.getEntities().getAll()) {
             if (entity instanceof ItemEntity itemEntity) {
                 // Don't clean valuable items unless configured to do so
                 if (!config.isCleanValuableItems() && isValuableItem(itemEntity)) continue;
@@ -227,7 +227,7 @@ public class EntityCleaner {
         Map<String, List<Entity>> entityGroups = new HashMap<>();
 
         // Group entities by type
-        for (Entity entity : level.getAllEntities()) {
+        for (Entity entity : level.getEntities().getAll()) {
             if (entity instanceof Player) continue;
             if (!shouldCleanEntity(entity)) continue;
 
