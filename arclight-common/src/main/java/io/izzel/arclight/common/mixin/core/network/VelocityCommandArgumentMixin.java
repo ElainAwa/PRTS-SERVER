@@ -9,8 +9,10 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraftforge.registries.ForgeRegistries;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Overwrite;
 import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
  * Mixin to handle command argument types for Velocity compatibility
@@ -34,18 +36,24 @@ public class VelocityCommandArgumentMixin {
     private ResourceLocation suggestionId;
 
     /**
-     * @author Luminara Team
-     * @reason Handle command argument types for Velocity compatibility
+     * Handle command argument types for Velocity compatibility
+     * Only active when Velocity forwarding is enabled
      */
-    @Overwrite
-    public void write(FriendlyByteBuf buffer) {
+    @Inject(method = "write", at = @At("HEAD"), cancellable = true)
+    public void luminara$handleVelocityWrite(FriendlyByteBuf buffer, CallbackInfo ci) {
+        VelocityManager velocityManager = VelocityManager.getInstance();
+
+        if (!velocityManager.isVelocityForwardingEnabled()) {
+            return; // Let original logic handle it
+        }
+
+        ci.cancel(); // Cancel original method execution
+
         buffer.writeUtf(this.id);
 
         var typeInfo = argumentType.type();
         var identifier = ForgeRegistries.COMMAND_ARGUMENT_TYPES.getKey(typeInfo);
         var id = BuiltInRegistries.COMMAND_ARGUMENT_TYPE.getId(typeInfo);
-
-        VelocityManager velocityManager = VelocityManager.getInstance();
 
         if (identifier != null && velocityManager.getIntegratedArgumentTypes().contains(identifier.toString())) {
             buffer.writeVarInt(id);
