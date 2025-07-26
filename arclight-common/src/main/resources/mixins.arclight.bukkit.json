@@ -51,6 +51,7 @@
     "StandardMessengerMixin",
     "WatchdogThreadMixin",
     "adventure.ChatColorAdventureMixin",
+    "adventure.CommandSenderAdventureMixin",
     "adventure.CraftMagicNumbersAdventureMixin",
     "adventure.CraftPlayerAdventureMixin",
     "adventure.CraftServerAdventureMixin",

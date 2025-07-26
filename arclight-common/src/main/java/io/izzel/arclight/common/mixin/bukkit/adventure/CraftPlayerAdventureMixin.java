@@ -14,7 +14,10 @@ public abstract class CraftPlayerAdventureMixin implements Audience {
 
     @Override
     public void sendMessage(@NotNull Component message) {
-        ((CraftPlayer) (Object) this).sendMessage(PaperAdventure.adventureToLegacy(message));
+        CraftPlayer player = (CraftPlayer) (Object) this;
+        // Convert Adventure Component to Minecraft Component and send directly
+        net.minecraft.network.chat.Component vanillaComponent = PaperAdventure.asVanilla(message);
+        player.getHandle().sendSystemMessage(vanillaComponent);
     }
 
     @Override

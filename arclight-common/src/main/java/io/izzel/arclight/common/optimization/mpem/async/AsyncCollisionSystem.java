@@ -147,15 +147,22 @@ public class AsyncCollisionSystem {
             return CompletableFuture.completedFuture(false);
         }
 
-        return MpemThreadManager.supplyAsync(() -> {
+        // Schedule entity access on main thread to avoid async chunk access
+        CompletableFuture<Boolean> future = new CompletableFuture<>();
+
+        // Execute entity access on main thread
+        entity.level().getServer().execute(() -> {
             try {
                 List<Entity> nearbyEntities = entity.level().getEntities(entity, bounds);
-                return !nearbyEntities.isEmpty();
+                boolean hasCollision = !nearbyEntities.isEmpty();
+                future.complete(hasCollision);
             } catch (Exception e) {
-                LOGGER.warn("Error in async collision check", e);
-                return false;
+                LOGGER.warn("Error in collision check", e);
+                future.complete(false);
             }
         });
+
+        return future;
     }
 
     public static boolean isInitialized() {

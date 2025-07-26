@@ -34,12 +34,24 @@ public final class PaperAdventure {
 
     // Convert Adventure Component to Minecraft Component
     public static net.minecraft.network.chat.Component asVanilla(@NotNull Component component) {
-        return net.minecraft.network.chat.Component.Serializer.fromJson(GSON_SERIALIZER.serialize(component));
+        try {
+            String json = GSON_SERIALIZER.serialize(component);
+            return net.minecraft.network.chat.Component.Serializer.fromJson(json);
+        } catch (Exception e) {
+            // Fallback to plain text if conversion fails
+            return net.minecraft.network.chat.Component.literal(PLAIN_SERIALIZER.serialize(component));
+        }
     }
 
     // Convert Minecraft Component to Adventure Component
     public static @NotNull Component asAdventure(@NotNull net.minecraft.network.chat.Component component) {
-        return GSON_SERIALIZER.deserialize(net.minecraft.network.chat.Component.Serializer.toJson(component));
+        try {
+            String json = net.minecraft.network.chat.Component.Serializer.toJson(component);
+            return GSON_SERIALIZER.deserialize(json);
+        } catch (Exception e) {
+            // Fallback to plain text if conversion fails
+            return Component.text(component.getString());
+        }
     }
 
     // Convert legacy string to Adventure Component
