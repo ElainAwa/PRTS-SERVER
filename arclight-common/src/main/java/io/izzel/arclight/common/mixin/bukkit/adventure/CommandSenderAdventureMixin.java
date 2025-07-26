@@ -33,9 +33,4 @@ public interface CommandSenderAdventureMixin extends Audience {
     default void sendMessage(@NotNull Identity source, @NotNull Component message, net.kyori.adventure.audience.MessageType type) {
         sendMessage(message);
     }
-
-    @Override
-    default @NotNull Identity identity() {
-        return Identity.nil();
-    }
 }
