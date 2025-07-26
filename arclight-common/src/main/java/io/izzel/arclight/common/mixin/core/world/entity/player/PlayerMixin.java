@@ -18,9 +18,11 @@ import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.level.Level;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.stats.Stat;
@@ -600,5 +602,33 @@ public abstract class PlayerMixin extends LivingEntityMixin implements PlayerEnt
     @Override
     public void bridge$pushExhaustReason(EntityExhaustionEvent.ExhaustionReason reason) {
         arclight$exhaustReason = reason;
+    }
+
+    @Override
+    public float bridge$getAttackCooldown() {
+        return getAttackStrengthScale(0.5f);
+    }
+
+    @Override
+    public void bridge$resetAttackCooldown() {
+        resetAttackStrengthTicker();
+    }
+
+    @Override
+    public org.bukkit.Location bridge$getCompassTarget() {
+        if ((Object) this instanceof ServerPlayer serverPlayer) {
+            BlockPos respawnPos = serverPlayer.getRespawnPosition();
+            net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level> respawnDim = serverPlayer.getRespawnDimension();
+            if (respawnPos != null && respawnDim != null) {
+                ServerLevel world = serverPlayer.getServer().getLevel(respawnDim);
+                if (world != null) {
+                    return new org.bukkit.Location(
+                        ((io.izzel.arclight.common.bridge.core.world.server.ServerWorldBridge) world).bridge$getWorld(),
+                        respawnPos.getX(), respawnPos.getY(), respawnPos.getZ()
+                    );
+                }
+            }
+        }
+        return getBukkitEntity().getWorld().getSpawnLocation();
     }
 }

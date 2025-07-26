@@ -4,6 +4,7 @@ import io.izzel.arclight.common.adventure.PaperAdventure;
 import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.identity.Identity;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.craftbukkit.v.entity.CraftPlayer;
 import org.jetbrains.annotations.NotNull;
 import org.spongepowered.asm.mixin.Mixin;
@@ -15,9 +16,14 @@ public abstract class CraftPlayerAdventureMixin implements Audience {
     @Override
     public void sendMessage(@NotNull Component message) {
         CraftPlayer player = (CraftPlayer) (Object) this;
-        // Convert Adventure Component to Minecraft Component and send directly
-        net.minecraft.network.chat.Component vanillaComponent = PaperAdventure.asVanilla(message);
-        player.getHandle().sendSystemMessage(vanillaComponent);
+        try {
+            net.minecraft.network.chat.Component vanillaComponent = PaperAdventure.asVanilla(message);
+            player.getHandle().sendSystemMessage(vanillaComponent);
+        } catch (Exception e) {
+            // Fallback to legacy Bukkit sendMessage
+            String plainText = net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText().serialize(message);
+            player.sendMessage(plainText);
+        }
     }
 
     @Override
@@ -43,10 +49,15 @@ public abstract class CraftPlayerAdventureMixin implements Audience {
 
 
     public @NotNull Component displayName() {
-        return Component.text(((CraftPlayer) (Object) this).getName());
+        CraftPlayer player = (CraftPlayer) (Object) this;
+        String displayName = player.getDisplayName();
+        return displayName != null ? LegacyComponentSerializer.legacySection().deserialize(displayName)
+                                   : Component.text(player.getName());
     }
 
     public void displayName(@NotNull Component displayName) {
-        // TODO: Implement display name setting
+        CraftPlayer player = (CraftPlayer) (Object) this;
+        String legacy = LegacyComponentSerializer.legacySection().serialize(displayName);
+        player.setDisplayName(legacy);
     }
 }

@@ -7,6 +7,7 @@ import net.minecraft.util.Unit;
 import net.minecraft.world.entity.player.Player;
 import org.bukkit.craftbukkit.v.entity.CraftHumanEntity;
 import org.bukkit.event.entity.EntityExhaustionEvent;
+import org.bukkit.Location;
 
 public interface PlayerEntityBridge extends LivingEntityBridge {
 
@@ -18,4 +19,10 @@ public interface PlayerEntityBridge extends LivingEntityBridge {
     Either<Player.BedSleepingProblem, Unit> bridge$trySleep(BlockPos at, boolean force);
 
     void bridge$pushExhaustReason(EntityExhaustionEvent.ExhaustionReason reason);
+
+    float bridge$getAttackCooldown();
+
+    void bridge$resetAttackCooldown();
+
+    org.bukkit.Location bridge$getCompassTarget();
 }

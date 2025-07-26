@@ -1078,4 +1078,41 @@ public abstract class ServerPlayerMixin extends PlayerMixin implements ServerPla
     public void bridge$reset() {
         reset();
     }
+
+    @Override
+    public void bridge$sendActionBar(net.kyori.adventure.text.Component message) {
+        net.minecraft.network.chat.Component vanillaComponent =
+            io.izzel.arclight.common.adventure.PaperAdventure.asVanilla(message);
+        this.connection.send(new net.minecraft.network.protocol.game.ClientboundSetActionBarTextPacket(vanillaComponent));
+    }
+
+    @Override
+    public void bridge$sendTitle(net.kyori.adventure.title.Title title) {
+        net.kyori.adventure.title.Title.Times times = title.times();
+        if (times != null) {
+            this.connection.send(new net.minecraft.network.protocol.game.ClientboundSetTitlesAnimationPacket(
+                (int) times.fadeIn().toMillis() / 50,
+                (int) times.stay().toMillis() / 50,
+                (int) times.fadeOut().toMillis() / 50
+            ));
+        }
+
+        net.minecraft.network.chat.Component titleComponent =
+            io.izzel.arclight.common.adventure.PaperAdventure.asVanilla(title.title());
+        net.minecraft.network.chat.Component subtitleComponent =
+            io.izzel.arclight.common.adventure.PaperAdventure.asVanilla(title.subtitle());
+
+        this.connection.send(new net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket(titleComponent));
+        this.connection.send(new net.minecraft.network.protocol.game.ClientboundSetSubtitleTextPacket(subtitleComponent));
+    }
+
+    @Override
+    public int bridge$getPing() {
+        return this.connection.latency();
+    }
+
+    @Override
+    public void bridge$updateCommands() {
+        this.server.getCommands().sendCommands(this);
+    }
 }

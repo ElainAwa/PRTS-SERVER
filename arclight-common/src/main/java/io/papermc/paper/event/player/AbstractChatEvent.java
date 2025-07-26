@@ -14,7 +14,6 @@ import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 
-// Abstract chat event with shared logic
 @ApiStatus.NonExtendable
 public abstract class AbstractChatEvent extends PlayerEvent implements Cancellable {
     private final Set<Audience> viewers;
@@ -33,41 +32,34 @@ public abstract class AbstractChatEvent extends PlayerEvent implements Cancellab
         this.signedMessage = signedMessage;
     }
 
-    // Get audiences for this chat message
     @NotNull
     public final Set<Audience> viewers() {
         return this.viewers;
     }
 
-    // Set chat renderer
     public final void renderer(final @NotNull ChatRenderer renderer) {
         this.renderer = requireNonNull(renderer, "renderer");
     }
 
-    // Get chat renderer
     @NotNull
     public final ChatRenderer renderer() {
         return this.renderer;
     }
 
-    // Get user message
     @NotNull
     public final Component message() {
         return this.message;
     }
 
-    // Set user message
     public final void message(final @NotNull Component message) {
         this.message = requireNonNull(message, "message");
     }
 
-    // Get original unmodified message
     @NotNull
     public final Component originalMessage() {
         return this.originalMessage;
     }
 
-    // Get signed message
     @NotNull
     public final SignedMessage signedMessage() {
         return this.signedMessage;

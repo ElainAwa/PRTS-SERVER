@@ -38,4 +38,12 @@ public interface ServerPlayerEntityBridge extends PlayerEntityBridge {
     boolean bridge$isTrackerDirty();
 
     void bridge$setTrackerDirty(boolean flag);
+
+    void bridge$sendActionBar(net.kyori.adventure.text.Component message);
+
+    void bridge$sendTitle(net.kyori.adventure.title.Title title);
+
+    int bridge$getPing();
+
+    void bridge$updateCommands();
 }

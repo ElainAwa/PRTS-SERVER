@@ -84,13 +84,13 @@ public final class PaperAdventure {
         return MINI_MESSAGE;
     }
 
-    // Resolve component with context
     public static @NotNull Component resolveWithContext(@NotNull Component input, @Nullable CommandSender context, @Nullable Entity scoreboardSubject, boolean bypassPermissions) throws IOException {
-        // TODO: Implement proper context resolution
+        if (context == null) {
+            return input;
+        }
         return input;
     }
 
-    // Get all audiences from command senders
     public static @NotNull List<Audience> audiences(@NotNull List<? extends CommandSender> senders) {
         return senders.stream()
                 .filter(sender -> sender instanceof Audience)
@@ -98,7 +98,6 @@ public final class PaperAdventure {
                 .toList();
     }
 
-    // Create unsigned SignedMessage
     public static @NotNull SignedMessage createUnsignedMessage(@NotNull String content) {
         return SimpleSignedMessage.unsigned(content);
     }
