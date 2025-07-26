@@ -71,7 +71,6 @@ public class ArclightDummyCommandSender extends ArclightDummyPermissible impleme
         sendMessage(message);
     }
 
-    @Override
     public @NotNull Identity identity() {
         return Identity.identity(UUID.nameUUIDFromBytes(getName().getBytes()));
     }
