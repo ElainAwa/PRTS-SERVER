@@ -8,6 +8,7 @@ import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.serializer.gson.GsonComponentSerializer;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
+import net.md_5.bungee.chat.ComponentSerializer;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Entity;
 import org.jetbrains.annotations.NotNull;
@@ -88,7 +89,15 @@ public final class PaperAdventure {
     // Convert MineDown string to Adventure Component
     public static @NotNull Component mineDownToAdventure(@NotNull String mineDown) {
         try {
-            return new MineDown(mineDown).toComponent();
+            // MineDown returns BaseComponent[], need to convert to Adventure Component
+            net.md_5.bungee.api.chat.BaseComponent[] baseComponents = new MineDown(mineDown).toComponent();
+            if (baseComponents != null && baseComponents.length > 0) {
+                // Convert BaseComponent[] to JSON then to Adventure Component
+                String json = ComponentSerializer.toString(baseComponents);
+                return GSON_SERIALIZER.deserialize(json);
+            } else {
+                return Component.text(mineDown);
+            }
         } catch (Exception e) {
             // Fallback to plain text if MineDown parsing fails
             return Component.text(mineDown);
