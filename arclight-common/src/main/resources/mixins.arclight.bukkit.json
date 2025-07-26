@@ -49,6 +49,14 @@
     "RecipeIteratorMixin",
     "Registry_SimpleRegistryMixin",
     "StandardMessengerMixin",
-    "WatchdogThreadMixin"
+    "WatchdogThreadMixin",
+    "adventure.BukkitAdventureMixin",
+    "adventure.ChatColorAdventureMixin",
+    "adventure.CraftMagicNumbersAdventureMixin",
+    "adventure.CraftPlayerAdventureMixin",
+    "adventure.CraftServerAdventureMixin",
+    "adventure.KeyedAdventureMixin",
+    "adventure.NameableAdventureMixin",
+    "adventure.NamespacedKeyAdventureMixin"
   ]
 }
