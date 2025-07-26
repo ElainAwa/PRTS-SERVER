@@ -1,5 +1,6 @@
 package io.izzel.arclight.common.mixin.optimization.general;
 
+import io.izzel.arclight.common.optimization.mpem.ChunkOptimizer;
 import io.izzel.arclight.i18n.ArclightConfig;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;

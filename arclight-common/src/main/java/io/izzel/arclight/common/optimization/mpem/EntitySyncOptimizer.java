@@ -1,4 +1,4 @@
-package io.izzel.arclight.common.mixin.optimization.general;
+package io.izzel.arclight.common.optimization.mpem;
 
 import io.izzel.arclight.i18n.ArclightConfig;
 import net.minecraft.server.level.ServerPlayer;

@@ -1,6 +1,6 @@
 package io.izzel.arclight.common.util;
 
-import io.izzel.arclight.common.mixin.optimization.general.MpemThreadManager;
+import io.izzel.arclight.common.optimization.mpem.MpemThreadManager;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;

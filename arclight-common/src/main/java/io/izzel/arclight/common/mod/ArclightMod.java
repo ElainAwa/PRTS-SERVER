@@ -1,6 +1,6 @@
 package io.izzel.arclight.common.mod;
 
-import io.izzel.arclight.common.mixin.optimization.general.OptimizationManager;
+import io.izzel.arclight.common.optimization.mpem.OptimizationManager;
 import io.izzel.arclight.common.mod.server.event.ArclightEventDispatcherRegistry;
 import io.izzel.arclight.common.mod.util.log.ArclightI18nLogger;
 import io.izzel.arclight.common.mod.velocity.VelocityManager;

@@ -1,5 +1,6 @@
 package io.izzel.arclight.common.mixin.optimization.general;
 
+import io.izzel.arclight.common.optimization.mpem.EntityOptimizer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;

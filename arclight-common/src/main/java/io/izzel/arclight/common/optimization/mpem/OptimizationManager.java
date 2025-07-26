@@ -1,8 +1,8 @@
-package io.izzel.arclight.common.mixin.optimization.general;
+package io.izzel.arclight.common.optimization.mpem;
 
-import io.izzel.arclight.common.mixin.optimization.general.async.AsyncAIManager;
-import io.izzel.arclight.common.mixin.optimization.general.async.AsyncCollisionSystem;
-import io.izzel.arclight.common.mixin.optimization.general.async.AsyncRedstoneManager;
+import io.izzel.arclight.common.optimization.mpem.async.AsyncAIManager;
+import io.izzel.arclight.common.optimization.mpem.async.AsyncCollisionSystem;
+import io.izzel.arclight.common.optimization.mpem.async.AsyncRedstoneManager;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import org.apache.logging.log4j.LogManager;

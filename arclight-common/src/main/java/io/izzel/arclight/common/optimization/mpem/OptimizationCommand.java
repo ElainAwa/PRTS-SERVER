@@ -1,4 +1,4 @@
-package io.izzel.arclight.common.mixin.optimization.general;
+package io.izzel.arclight.common.optimization.mpem;
 
 import com.mojang.brigadier.context.CommandContext;
 import net.minecraft.commands.CommandSourceStack;

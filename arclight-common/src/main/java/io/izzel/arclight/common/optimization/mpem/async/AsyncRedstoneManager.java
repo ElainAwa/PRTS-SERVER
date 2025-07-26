@@ -1,6 +1,6 @@
-package io.izzel.arclight.common.mixin.optimization.general.async;
+package io.izzel.arclight.common.optimization.mpem.async;
 
-import io.izzel.arclight.common.mixin.optimization.general.MpemThreadManager;
+import io.izzel.arclight.common.optimization.mpem.MpemThreadManager;
 import io.izzel.arclight.i18n.ArclightConfig;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
