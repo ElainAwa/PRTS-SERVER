@@ -53,7 +53,7 @@ repositories {
     maven { url = 'https://files.minecraftforge.net/maven/' }
     maven { url = 'https://maven.izzel.io/releases' }
     maven { url = 'https://jitpack.io/' }
-    maven { url = 'https://repo.minebench.de/' }
+
     mavenCentral()
 }
 
@@ -100,11 +100,7 @@ dependencies {
         exclude group: 'org.slf4j'
         exclude group: 'org.checkerframework'
     }
-    // MineDown support for HuskHomes compatibility
-    implementation("de.themoep:minedown:1.7.1-SNAPSHOT") {
-        exclude group: 'org.slf4j'
-        exclude group: 'org.checkerframework'
-    }
+
 
     embed 'net.md-5:bungeecord-chat:1.16-R0.4@jar'
     embed "org.spigotmc:spigot-api:$minecraftVersion-R0.1-SNAPSHOT@jar"

@@ -1,6 +1,6 @@
 package io.izzel.arclight.common.adventure;
 
-import de.themoep.minedown.MineDown;
+
 import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.chat.SignedMessage;
 import net.kyori.adventure.text.Component;
@@ -8,7 +8,7 @@ import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.serializer.gson.GsonComponentSerializer;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
-import net.md_5.bungee.chat.ComponentSerializer;
+
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Entity;
 import org.jetbrains.annotations.NotNull;
@@ -86,38 +86,12 @@ public final class PaperAdventure {
         return MINI_MESSAGE;
     }
 
-    // Convert MineDown string to Adventure Component
-    public static @NotNull Component mineDownToAdventure(@NotNull String mineDown) {
-        try {
-            // MineDown returns BaseComponent[], need to convert to Adventure Component
-            net.md_5.bungee.api.chat.BaseComponent[] baseComponents = new MineDown(mineDown).toComponent();
-            if (baseComponents != null && baseComponents.length > 0) {
-                // Convert BaseComponent[] to JSON then to Adventure Component
-                String json = ComponentSerializer.toString(baseComponents);
-                return GSON_SERIALIZER.deserialize(json);
-            } else {
-                return Component.text(mineDown);
-            }
-        } catch (Exception e) {
-            // Fallback to plain text if MineDown parsing fails
-            return Component.text(mineDown);
-        }
-    }
 
-    // Convert Adventure Component to MineDown string (best effort)
-    public static @NotNull String adventureToMineDown(@NotNull Component component) {
-        // MineDown doesn't have a direct serializer, so we convert to legacy format
-        // which is the closest representation that MineDown can understand
-        return adventureToLegacy(component);
-    }
 
     // Enhanced message parsing that supports multiple formats
     public static @NotNull Component parseMessage(@NotNull String message) {
         // Try to detect the message format and parse accordingly
-        if (message.contains("&[") || message.contains("&(")) {
-            // Likely MineDown format
-            return mineDownToAdventure(message);
-        } else if (message.contains("<") && message.contains(">")) {
+        if (message.contains("<") && message.contains(">")) {
             // Likely MiniMessage format
             return miniMessageToAdventure(message);
         } else if (message.contains("§") || message.contains("&")) {

@@ -29,7 +29,7 @@ public class ArclightDummyCommandSender extends ArclightDummyPermissible impleme
 
     @Override
     public void sendMessage(@NotNull String s) {
-        // Enhanced message parsing to support MineDown and other formats
+        // Enhanced message parsing to support Adventure formats
         try {
             Component adventureComponent = PaperAdventure.parseMessage(s);
             sendMessage(adventureComponent);

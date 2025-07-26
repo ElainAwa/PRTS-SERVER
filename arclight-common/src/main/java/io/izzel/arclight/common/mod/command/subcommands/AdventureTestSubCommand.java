@@ -21,7 +21,7 @@ public class AdventureTestSubCommand implements LuminaraSubCommand {
 
     @Override
     public String getDescription() {
-        return "Test all Adventure message formats (MineDown, MiniMessage, etc.)";
+        return "Test Adventure message formats (MiniMessage, Legacy, etc.)";
     }
 
     @Override
@@ -67,19 +67,11 @@ public class AdventureTestSubCommand implements LuminaraSubCommand {
             testMiniMessage(sender, "<click:run_command:/help>Click me!</click>");
             testMiniMessage(sender, "<hover:show_text:'Hover tooltip'>Hover over me</hover>");
 
-            // Test 5: MineDown format
-            sender.sendMessage("§e5. MineDown Format:");
-            testMineDown(sender, "&[Green text](color=green)");
-            testMineDown(sender, "&[&lBold red text](color=red)");
-            testMineDown(sender, "&[Click me!](color=blue run_command=/help)");
-            testMineDown(sender, "&[Hover me](color=yellow hover=This is a tooltip)");
-            testMineDown(sender, "&[Complex formatting &l&nBold underlined](color=purple)");
-
-            // Test 6: Mixed formats
-            sender.sendMessage("§e6. Mixed Format Detection:");
-            testMessageParsing(sender, "&[MineDown](color=green)");
+            // Test 5: Mixed formats
+            sender.sendMessage("§e5. Mixed Format Detection:");
             testMessageParsing(sender, "<green>MiniMessage</green>");
             testMessageParsing(sender, "§aLegacy format");
+            testMessageParsing(sender, "&aLegacy ampersand format");
             testMessageParsing(sender, "Plain text");
 
             sender.sendMessage("§6=== Test Complete ===");
@@ -108,21 +100,7 @@ public class AdventureTestSubCommand implements LuminaraSubCommand {
         }
     }
 
-    private void testMineDown(CommandSender sender, String mineDown) {
-        try {
-            net.kyori.adventure.text.Component component = PaperAdventure.mineDownToAdventure(mineDown);
-            sender.sendMessage("§7Input: §f" + mineDown);
-            if (sender instanceof net.kyori.adventure.audience.Audience) {
-                ((net.kyori.adventure.audience.Audience) sender).sendMessage(component);
-            } else {
-                String legacy = PaperAdventure.adventureToLegacy(component);
-                sender.sendMessage("§7Fallback: " + legacy);
-            }
-        } catch (Exception e) {
-            sender.sendMessage("§cFailed to parse MineDown: " + mineDown);
-            sender.sendMessage("§cError: " + e.getMessage());
-        }
-    }
+
 
     private void testMessageParsing(CommandSender sender, String message) {
         try {
