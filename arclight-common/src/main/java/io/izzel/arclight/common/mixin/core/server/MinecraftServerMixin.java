@@ -659,7 +659,7 @@ public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<T
     @DontObfuscate
     @Overwrite
     public String getServerModName() {
-        return BrandingControl.getServerBranding() + " arclight/" + ArclightVersion.current().getReleaseName();
+        return BrandingControl.getServerBranding() + " luminara/" + ArclightVersion.current().getReleaseName();
     }
 
     @Override

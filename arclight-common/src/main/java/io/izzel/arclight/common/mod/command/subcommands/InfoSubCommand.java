@@ -54,10 +54,6 @@ public class InfoSubCommand implements LuminaraSubCommand {
             sender.sendMessage("§eMemory Usage: §f" + usedMemory + "MB / " + maxMemory + "MB");
             sender.sendMessage("§eAvailable Processors: §f" + runtime.availableProcessors());
 
-            // Adventure API support
-            boolean adventureSupport = sender instanceof net.kyori.adventure.audience.Audience;
-            sender.sendMessage("§eAdventure API Support: " + (adventureSupport ? "§aEnabled" : "§cDisabled"));
-
             sender.sendMessage("§6========================");
 
             source.sendSuccess(() -> Component.literal("Information displayed"), false);
