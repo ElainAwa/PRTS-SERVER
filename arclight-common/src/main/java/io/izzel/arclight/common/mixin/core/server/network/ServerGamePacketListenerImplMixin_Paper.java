@@ -22,7 +22,8 @@ import java.util.Set;
 @Mixin(ServerGamePacketListenerImpl.class)
 public abstract class ServerGamePacketListenerImplMixin_Paper {
 
-    @Shadow public ServerPlayer player;
+    @Shadow
+    public ServerPlayer player;
 
     @Inject(method = "broadcastChatMessage", at = @At("HEAD"), cancellable = true)
     private void arclight$handlePaperChat(PlayerChatMessage message, CallbackInfo ci) {
@@ -39,17 +40,17 @@ public abstract class ServerGamePacketListenerImplMixin_Paper {
         SignedMessage signedMessage = PaperAdventure.createUnsignedMessage(content);
 
         Set<Audience> audiences = Set.copyOf(PaperAdventure.audiences(
-            Bukkit.getOnlinePlayers().stream().map(p -> (org.bukkit.command.CommandSender) p).toList()
+                Bukkit.getOnlinePlayers().stream().map(p -> (org.bukkit.command.CommandSender) p).toList()
         ));
 
         AsyncChatEvent asyncChatEvent = new AsyncChatEvent(
-            true,
-            craftPlayer,
-            audiences,
-            ChatRenderer.defaultRenderer(),
-            processedMessage,
-            originalMessage,
-            signedMessage
+                true,
+                craftPlayer,
+                audiences,
+                ChatRenderer.defaultRenderer(),
+                processedMessage,
+                originalMessage,
+                signedMessage
         );
 
         if (!Bukkit.isPrimaryThread()) {

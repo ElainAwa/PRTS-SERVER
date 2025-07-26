@@ -39,16 +39,27 @@ public abstract class ChunkAccessMixin implements BlockGetter, BiomeManager.Nois
     private static final CraftPersistentDataTypeRegistry DATA_TYPE_REGISTRY = new CraftPersistentDataTypeRegistry();
     public DirtyCraftPersistentDataContainer persistentDataContainer = new DirtyCraftPersistentDataContainer(DATA_TYPE_REGISTRY);
     public Registry<Biome> biomeRegistry;
-    @Shadow @Final protected LevelChunkSection[] sections;
-    @Shadow @Final protected Map<BlockPos, CompoundTag> pendingBlockEntities;
-    @Shadow @Final protected ChunkPos chunkPos;
+    @Shadow
+    @Final
+    protected LevelChunkSection[] sections;
+    @Shadow
+    @Final
+    protected Map<BlockPos, CompoundTag> pendingBlockEntities;
+    @Shadow
+    @Final
+    protected ChunkPos chunkPos;
 
-    @Shadow public abstract int getMinBuildHeight();
+    @Shadow
+    public abstract int getMinBuildHeight();
     // @formatter:on
 
-    @Shadow public abstract int getHeight();
+    @Shadow
+    public abstract int getHeight();
 
-    @Shadow public boolean isUnsaved() { return false; }
+    @Shadow
+    public boolean isUnsaved() {
+        return false;
+    }
 
     // @formatter:off
     @Shadow public abstract void setUnsaved(boolean p_62094_);

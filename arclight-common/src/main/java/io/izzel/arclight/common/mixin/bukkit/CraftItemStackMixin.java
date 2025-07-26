@@ -66,11 +66,14 @@ public abstract class CraftItemStackMixin implements CraftItemStackBridge {
         }
     }
 
-    @Shadow public abstract Material getType();
+    @Shadow
+    public abstract Material getType();
 
-    @Shadow public abstract short getDurability();
+    @Shadow
+    public abstract short getDurability();
 
-    @Shadow public abstract boolean hasItemMeta();
+    @Shadow
+    public abstract boolean hasItemMeta();
 
     /**
      * @author IzzelAliz

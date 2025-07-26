@@ -52,7 +52,7 @@ public abstract class CraftPlayerAdventureMixin implements Audience {
         CraftPlayer player = (CraftPlayer) (Object) this;
         String displayName = player.getDisplayName();
         return displayName != null ? LegacyComponentSerializer.legacySection().deserialize(displayName)
-                                   : Component.text(player.getName());
+                : Component.text(player.getName());
     }
 
     public void displayName(@NotNull Component displayName) {

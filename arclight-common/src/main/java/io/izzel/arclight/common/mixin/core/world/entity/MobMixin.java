@@ -114,23 +114,33 @@ public abstract class MobMixin extends LivingEntityMixin implements MobEntityBri
     @Shadow @Nullable public abstract Entity getLeashHolder();
     // @formatter:on
 
-    @Shadow public abstract boolean isPersistenceRequired();
+    @Shadow
+    public abstract boolean isPersistenceRequired();
 
     public void setPersistenceRequired(boolean value) {
         this.persistenceRequired = value;
     }
 
-    @Shadow protected void customServerAiStep() { }
+    @Shadow
+    protected void customServerAiStep() {
+    }
 
-    @Shadow public abstract boolean isNoAi();
+    @Shadow
+    public abstract boolean isNoAi();
 
-    @Shadow protected abstract boolean canReplaceCurrentItem(ItemStack candidate, ItemStack existing);
+    @Shadow
+    protected abstract boolean canReplaceCurrentItem(ItemStack candidate, ItemStack existing);
 
-    @Shadow protected abstract void setItemSlotAndDropWhenKilled(EquipmentSlot p_233657_1_, ItemStack p_233657_2_);
+    @Shadow
+    protected abstract void setItemSlotAndDropWhenKilled(EquipmentSlot p_233657_1_, ItemStack p_233657_2_);
 
-    @Shadow @Nullable public abstract <T extends Mob> T convertTo(EntityType<T> p_233656_1_, boolean p_233656_2_);
+    @Shadow
+    @Nullable
+    public abstract <T extends Mob> T convertTo(EntityType<T> p_233656_1_, boolean p_233656_2_);
 
-    @Shadow @Nullable protected abstract SoundEvent getAmbientSound();
+    @Shadow
+    @Nullable
+    protected abstract SoundEvent getAmbientSound();
 
     @Override
     public void bridge$setAware(boolean aware) {

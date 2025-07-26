@@ -19,7 +19,9 @@ import java.util.Set;
 @Mixin(ChunkMap.TrackedEntity.class)
 public abstract class ChunkMap_TrackedEntityMixin implements ChunkMap_TrackedEntityBridge {
 
-    @Shadow @Final public Set<ServerPlayerConnection> seenBy;
+    @Shadow
+    @Final
+    public Set<ServerPlayerConnection> seenBy;
     // @formatter:off
     @Shadow @Final ServerEntity serverEntity;
     @Shadow @Final Entity entity;

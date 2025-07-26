@@ -25,7 +25,9 @@ import java.util.function.Consumer;
 @Mixin(DistanceManager.class)
 public abstract class DistanceManagerMixin implements TicketManagerBridge {
 
-    @Shadow @Final public Long2ObjectOpenHashMap<SortedArraySet<Ticket<?>>> tickets;
+    @Shadow
+    @Final
+    public Long2ObjectOpenHashMap<SortedArraySet<Ticket<?>>> tickets;
     // @formatter:off
     @Shadow private long ticketTickCounter;
     @Shadow @Final private DistanceManager.ChunkTicketTracker ticketTracker;

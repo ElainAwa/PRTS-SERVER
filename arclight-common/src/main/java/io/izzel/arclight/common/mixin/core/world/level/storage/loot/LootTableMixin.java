@@ -29,7 +29,9 @@ import java.util.List;
 @Mixin(LootTable.class)
 public abstract class LootTableMixin implements LootTableBridge {
 
-    @Shadow @Final static Logger LOGGER;
+    @Shadow
+    @Final
+    static Logger LOGGER;
     // @formatter:off
     @Shadow @Final @Nullable private ResourceLocation randomSequence;
 

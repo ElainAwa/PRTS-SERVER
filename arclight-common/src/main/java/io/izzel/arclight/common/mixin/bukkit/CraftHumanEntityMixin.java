@@ -29,7 +29,8 @@ public abstract class CraftHumanEntityMixin extends CraftEntity {
     }
     // @formatter:on
 
-    @Shadow public abstract Player getHandle();
+    @Shadow
+    public abstract Player getHandle();
 
     @Override
     public void setHandle(Entity entity) {

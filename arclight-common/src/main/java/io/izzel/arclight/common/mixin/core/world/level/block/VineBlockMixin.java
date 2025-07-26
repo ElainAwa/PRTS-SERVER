@@ -19,7 +19,9 @@ import org.spongepowered.asm.mixin.Shadow;
 @Mixin(VineBlock.class)
 public abstract class VineBlockMixin extends BlockMixin {
 
-    @Shadow @Final public static BooleanProperty UP;
+    @Shadow
+    @Final
+    public static BooleanProperty UP;
 
     // @formatter:off
     @Shadow public static BooleanProperty getPropertyForFace(Direction side) { return null; }

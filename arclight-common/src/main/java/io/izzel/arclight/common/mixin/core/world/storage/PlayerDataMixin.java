@@ -22,7 +22,9 @@ import java.io.FileInputStream;
 @Mixin(PlayerDataStorage.class)
 public class PlayerDataMixin implements PlayerDataBridge {
 
-    @Shadow @Final private static Logger LOGGER;
+    @Shadow
+    @Final
+    private static Logger LOGGER;
     // @formatter:off
     @Shadow @Final private File playerDir;
     // @formatter:on

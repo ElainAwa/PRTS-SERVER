@@ -29,7 +29,10 @@ import java.util.Map;
 @Mixin(Commands.class)
 public abstract class CommandsMixin {
 
-    @Mutable @Shadow @Final private CommandDispatcher<CommandSourceStack> dispatcher;
+    @Mutable
+    @Shadow
+    @Final
+    private CommandDispatcher<CommandSourceStack> dispatcher;
 
     // @formatter:off
     @Shadow public abstract int performCommand(ParseResults<CommandSourceStack> p_242844_, String p_242841_);

@@ -10,17 +10,17 @@ import net.minecraft.network.chat.Component;
 // Entity cleanup subcommand
 
 public class CleanupSubCommand implements LuminaraSubCommand {
-    
+
     @Override
     public String getName() {
         return "cleanup";
     }
-    
+
     @Override
     public String getDescription() {
         return "Force entity cleanup or cancel scheduled cleanup";
     }
-    
+
     @Override
     public LiteralArgumentBuilder<CommandSourceStack> build() {
         return Commands.literal(getName())
@@ -29,7 +29,7 @@ public class CleanupSubCommand implements LuminaraSubCommand {
                 .then(Commands.literal("cancel")
                         .executes(this::executeCancel));
     }
-    
+
     private int executeCleanup(CommandContext<CommandSourceStack> context) {
         CommandSourceStack source = context.getSource();
 
@@ -42,7 +42,7 @@ public class CleanupSubCommand implements LuminaraSubCommand {
             return 0;
         }
     }
-    
+
     private int executeCancel(CommandContext<CommandSourceStack> context) {
         CommandSourceStack source = context.getSource();
 

@@ -55,15 +55,24 @@ public abstract class FishingHookMixin extends ProjectileMixin {
     // @formatter:on
     public boolean rainInfluenced = true;
     public boolean skyInfluenced = true;
-    @Shadow private int nibble;
-    @Shadow @Final private int luck;
-    @Shadow private int timeUntilHooked;
-    @Shadow private int timeUntilLured;
-    @Shadow @Final private int lureSpeed;
+    @Shadow
+    private int nibble;
+    @Shadow
+    @Final
+    private int luck;
+    @Shadow
+    private int timeUntilHooked;
+    @Shadow
+    private int timeUntilLured;
+    @Shadow
+    @Final
+    private int lureSpeed;
 
-    @Shadow public abstract Player getPlayerOwner();
+    @Shadow
+    public abstract Player getPlayerOwner();
 
-    @Shadow protected abstract void pullEntity(Entity p_150156_);
+    @Shadow
+    protected abstract void pullEntity(Entity p_150156_);
 
     @Redirect(method = "checkCollision", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/projectile/FishingHook;onHit(Lnet/minecraft/world/phys/HitResult;)V"))
     private void arclight$collide(FishingHook fishingHook, HitResult hitResult) {

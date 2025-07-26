@@ -39,25 +39,50 @@ import static net.minecraft.world.inventory.AbstractContainerMenu.getQuickCraftP
 @Mixin(AbstractContainerMenu.class)
 public abstract class AbstractContainerMenuMixin implements ContainerBridge {
 
-    @Shadow @Final public int containerId;
-    @Shadow public NonNullList<Slot> slots;
+    @Shadow
+    @Final
+    public int containerId;
+    @Shadow
+    public NonNullList<Slot> slots;
     public boolean checkReachable = true;
-    @Shadow private int quickcraftStatus;
-    @Shadow private int quickcraftType;
-    @Shadow @Final private Set<Slot> quickcraftSlots;
-    @Shadow @Final @javax.annotation.Nullable private MenuType<?> menuType;
-    @Shadow private ItemStack remoteCarried;
-    @Shadow @javax.annotation.Nullable private ContainerSynchronizer synchronizer;
+    @Shadow
+    private int quickcraftStatus;
+    @Shadow
+    private int quickcraftType;
+    @Shadow
+    @Final
+    private Set<Slot> quickcraftSlots;
+    @Shadow
+    @Final
+    @javax.annotation.Nullable
+    private MenuType<?> menuType;
+    @Shadow
+    private ItemStack remoteCarried;
+    @Shadow
+    @javax.annotation.Nullable
+    private ContainerSynchronizer synchronizer;
     private InventoryView bukkitView;
     private Component title;
 
-    @Shadow public static int getQuickcraftHeader(int clickedButton) { return 0; }
+    @Shadow
+    public static int getQuickcraftHeader(int clickedButton) {
+        return 0;
+    }
 
-    @Shadow public static int getQuickcraftType(int eventButton) { return 0; }
+    @Shadow
+    public static int getQuickcraftType(int eventButton) {
+        return 0;
+    }
 
-    @Shadow public static boolean isValidQuickcraftType(int dragModeIn, Player player) { return false; }
+    @Shadow
+    public static boolean isValidQuickcraftType(int dragModeIn, Player player) {
+        return false;
+    }
 
-    @Shadow public static boolean canItemQuickReplace(@Nullable Slot slotIn, ItemStack stack, boolean stackSizeMatters) { return false; }
+    @Shadow
+    public static boolean canItemQuickReplace(@Nullable Slot slotIn, ItemStack stack, boolean stackSizeMatters) {
+        return false;
+    }
 
     // @formatter:off
     @Shadow public void broadcastChanges() {}
@@ -81,11 +106,14 @@ public abstract class AbstractContainerMenuMixin implements ContainerBridge {
     @Shadow protected abstract SlotAccess createCarriedSlotAccess();
     // @formatter:on
 
-    @Shadow public abstract void sendAllDataToRemote();
+    @Shadow
+    public abstract void sendAllDataToRemote();
 
-    @Shadow public abstract int incrementStateId();
+    @Shadow
+    public abstract int incrementStateId();
 
-    @Shadow protected abstract boolean tryItemClickBehaviourOverride(Player p_249615_, ClickAction p_250300_, Slot p_249384_, ItemStack p_251073_, ItemStack p_252026_);
+    @Shadow
+    protected abstract boolean tryItemClickBehaviourOverride(Player p_249615_, ClickAction p_250300_, Slot p_249384_, ItemStack p_251073_, ItemStack p_252026_);
 
     public InventoryView getBukkitView() {
         if (bukkitView == null) {

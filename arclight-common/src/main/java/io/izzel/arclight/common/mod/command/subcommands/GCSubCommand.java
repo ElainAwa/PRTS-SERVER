@@ -10,24 +10,24 @@ import net.minecraft.network.chat.Component;
 // Garbage Collection subcommand
 
 public class GCSubCommand implements LuminaraSubCommand {
-    
+
     @Override
     public String getName() {
         return "gc";
     }
-    
+
     @Override
     public String getDescription() {
         return "Force garbage collection and memory cleanup";
     }
-    
+
     @Override
     public LiteralArgumentBuilder<CommandSourceStack> build() {
         return Commands.literal(getName())
                 .requires(source -> source.hasPermission(getRequiredPermissionLevel()))
                 .executes(this::execute);
     }
-    
+
     private int execute(CommandContext<CommandSourceStack> context) {
         CommandSourceStack source = context.getSource();
 

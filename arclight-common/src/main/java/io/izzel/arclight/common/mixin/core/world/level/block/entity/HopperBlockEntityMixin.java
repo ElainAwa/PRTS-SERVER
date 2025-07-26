@@ -51,7 +51,10 @@ public abstract class HopperBlockEntityMixin extends LockableBlockEntityMixin {
     private int maxStack = MAX_STACK;
     // @formatter:on
 
-    @Shadow private static boolean tryMoveItems(Level p_155579_, BlockPos p_155580_, BlockState p_155581_, HopperBlockEntity p_155582_, BooleanSupplier p_155583_) { return false; }
+    @Shadow
+    private static boolean tryMoveItems(Level p_155579_, BlockPos p_155580_, BlockState p_155581_, HopperBlockEntity p_155582_, BooleanSupplier p_155583_) {
+        return false;
+    }
 
     @Redirect(method = "pushItemsTick", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/block/entity/HopperBlockEntity;tryMoveItems(Lnet/minecraft/world/level/Level;Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/world/level/block/entity/HopperBlockEntity;Ljava/util/function/BooleanSupplier;)Z"))
     private static boolean arclight$hopperCheck(Level level, BlockPos pos, BlockState state, HopperBlockEntity hopper, BooleanSupplier flag) {
@@ -143,7 +146,8 @@ public abstract class HopperBlockEntityMixin extends LockableBlockEntityMixin {
         cir.setReturnValue(runHopperInventorySearchEvent(container, hopperBlock, containerBlock, HopperInventorySearchEvent.ContainerType.SOURCE));
     }
 
-    @Shadow public abstract void setItem(int index, ItemStack stack);
+    @Shadow
+    public abstract void setItem(int index, ItemStack stack);
 
     @Override
     public List<ItemStack> getContents() {

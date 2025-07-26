@@ -32,7 +32,8 @@ import java.util.Optional;
 @Mixin(Animal.class)
 public abstract class AnimalMixin extends AgeableMobMixin implements AnimalEntityBridge {
 
-    @Shadow public int inLove;
+    @Shadow
+    public int inLove;
     public ItemStack breedItem;
     private transient int arclight$loveTime;
 
@@ -40,9 +41,12 @@ public abstract class AnimalMixin extends AgeableMobMixin implements AnimalEntit
     @Shadow public InteractionResult mobInteract(Player playerIn, InteractionHand hand) { return null; }
     // @formatter:on
 
-    @Shadow public abstract void resetLove();
+    @Shadow
+    public abstract void resetLove();
 
-    @Shadow @Nullable public abstract ServerPlayer getLoveCause();
+    @Shadow
+    @Nullable
+    public abstract ServerPlayer getLoveCause();
 
     /**
      * @author IzzelAliz

@@ -115,9 +115,14 @@ public abstract class ServerPlayNetHandlerMixin implements ServerPlayNetHandlerB
     private static final int CREATIVE_PLACE_DISTANCE_SQUARED = 7 * 7;
     private static final ResourceLocation CUSTOM_REGISTER = new ResourceLocation("register");
     private static final ResourceLocation CUSTOM_UNREGISTER = new ResourceLocation("unregister");
-    @Shadow @Final private static Logger LOGGER;
-    @Shadow public ServerPlayer player;
-    @Shadow @Final public Connection connection;
+    @Shadow
+    @Final
+    private static Logger LOGGER;
+    @Shadow
+    public ServerPlayer player;
+    @Shadow
+    @Final
+    public Connection connection;
     public boolean processedDisconnect;
     // @formatter:off
     @Shadow @Final private MinecraftServer server;
@@ -163,45 +168,73 @@ public abstract class ServerPlayNetHandlerMixin implements ServerPlayNetHandlerB
     // @formatter:on
     private transient PlayerTeleportEvent.TeleportCause arclight$cause;
 
-    @Shadow private static double clampHorizontal(double p_143610_) { return 0; }
+    @Shadow
+    private static double clampHorizontal(double p_143610_) {
+        return 0;
+    }
 
-    @Shadow private static double clampVertical(double p_143654_) { return 0; }
+    @Shadow
+    private static double clampVertical(double p_143654_) {
+        return 0;
+    }
 
-    @Shadow private static boolean containsInvalidValues(double p_143664_, double p_143665_, double p_143666_, float p_143667_, float p_143668_) { return false; }
+    @Shadow
+    private static boolean containsInvalidValues(double p_143664_, double p_143665_, double p_143666_, float p_143667_, float p_143668_) {
+        return false;
+    }
 
-    @Shadow private static boolean isChatMessageIllegal(String p_215215_) { return false; }
+    @Shadow
+    private static boolean isChatMessageIllegal(String p_215215_) {
+        return false;
+    }
 
-    @Shadow public abstract void onDisconnect(Component reason);
+    @Shadow
+    public abstract void onDisconnect(Component reason);
 
-    @Shadow protected abstract boolean isSingleplayerOwner();
+    @Shadow
+    protected abstract boolean isSingleplayerOwner();
 
-    @Shadow public abstract void resetPosition();
+    @Shadow
+    public abstract void resetPosition();
 
-    @Shadow public abstract void teleport(double x, double y, double z, float yaw, float pitch);
+    @Shadow
+    public abstract void teleport(double x, double y, double z, float yaw, float pitch);
 
-    @Shadow public abstract void send(Packet<?> packetIn);
+    @Shadow
+    public abstract void send(Packet<?> packetIn);
 
-    @Shadow protected abstract boolean noBlocksAround(Entity p_241162_1_);
+    @Shadow
+    protected abstract boolean noBlocksAround(Entity p_241162_1_);
 
-    @Shadow protected abstract void updateBookPages(List<FilteredText> p_143635_, UnaryOperator<String> p_143636_, ItemStack p_143637_);
+    @Shadow
+    protected abstract void updateBookPages(List<FilteredText> p_143635_, UnaryOperator<String> p_143636_, ItemStack p_143637_);
 
-    @Shadow public abstract void ackBlockChangesUpTo(int p_215202_);
+    @Shadow
+    public abstract void ackBlockChangesUpTo(int p_215202_);
 
-    @Shadow protected abstract CompletableFuture<FilteredText> filterTextPacket(String p_243213_);
+    @Shadow
+    protected abstract CompletableFuture<FilteredText> filterTextPacket(String p_243213_);
 
-    @Shadow protected abstract ParseResults<CommandSourceStack> parseCommand(String p_242938_);
+    @Shadow
+    protected abstract ParseResults<CommandSourceStack> parseCommand(String p_242938_);
 
-    @Shadow protected abstract void detectRateSpam();
+    @Shadow
+    protected abstract void detectRateSpam();
 
-    @Shadow protected abstract Optional<LastSeenMessages> tryHandleChat(String p_251364_, Instant p_248959_, LastSeenMessages.Update p_249613_);
+    @Shadow
+    protected abstract Optional<LastSeenMessages> tryHandleChat(String p_251364_, Instant p_248959_, LastSeenMessages.Update p_249613_);
 
-    @Shadow protected abstract PlayerChatMessage getSignedMessage(ServerboundChatPacket p_251061_, LastSeenMessages p_250566_) throws SignedMessageChain.DecodeException;
+    @Shadow
+    protected abstract PlayerChatMessage getSignedMessage(ServerboundChatPacket p_251061_, LastSeenMessages p_250566_) throws SignedMessageChain.DecodeException;
 
-    @Shadow protected abstract void handleMessageDecodeFailure(SignedMessageChain.DecodeException p_252068_);
+    @Shadow
+    protected abstract void handleMessageDecodeFailure(SignedMessageChain.DecodeException p_252068_);
 
-    @Shadow protected abstract Map<String, PlayerChatMessage> collectSignedArguments(ServerboundChatCommandPacket p_249441_, SignableCommand<?> p_250039_, LastSeenMessages p_249207_) throws SignedMessageChain.DecodeException;
+    @Shadow
+    protected abstract Map<String, PlayerChatMessage> collectSignedArguments(ServerboundChatCommandPacket p_249441_, SignableCommand<?> p_250039_, LastSeenMessages p_249207_) throws SignedMessageChain.DecodeException;
 
-    @Shadow protected abstract boolean isPlayerCollidingWithAnythingNew(LevelReader p_289008_, AABB p_288986_, double p_288990_, double p_288991_, double p_288967_);
+    @Shadow
+    protected abstract boolean isPlayerCollidingWithAnythingNew(LevelReader p_289008_, AABB p_288986_, double p_288990_, double p_288991_, double p_288967_);
 
     public CraftPlayer getCraftPlayer() {
         return (this.player == null) ? null : ((ServerPlayerEntityBridge) this.player).bridge$getBukkitEntity();

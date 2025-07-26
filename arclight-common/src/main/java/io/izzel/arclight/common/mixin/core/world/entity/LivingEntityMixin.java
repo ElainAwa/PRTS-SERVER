@@ -81,35 +81,66 @@ import java.util.function.Consumer;
 @Mixin(LivingEntity.class)
 public abstract class LivingEntityMixin extends EntityMixin implements LivingEntityBridge {
 
-    @Shadow @Final public static EntityDataAccessor<Float> DATA_HEALTH_ID;
-    @Shadow @Final public static EntityDataAccessor<Integer> DATA_ARROW_COUNT_ID;
-    @Shadow @Final private static EntityDataAccessor<Integer> DATA_EFFECT_COLOR_ID;
-    @Shadow @Final private static EntityDataAccessor<Boolean> DATA_EFFECT_AMBIENCE_ID;
-    @Shadow public net.minecraft.world.entity.player.Player lastHurtByPlayer;
-    @Shadow public int deathTime;
-    @Shadow public boolean effectsDirty;
-    @Shadow public float lastHurt;
-    @Shadow public int hurtDuration;
-    @Shadow public int hurtTime;
-    @Shadow @Nullable public LivingEntity lastHurtByMob;
-    @Shadow public CombatTracker combatTracker;
-    @Shadow @Final public Map<MobEffect, MobEffectInstance> activeEffects;
-    @Shadow @Final public WalkAnimationState walkAnimation;
-    @Shadow public int invulnerableDuration;
+    @Shadow
+    @Final
+    public static EntityDataAccessor<Float> DATA_HEALTH_ID;
+    @Shadow
+    @Final
+    public static EntityDataAccessor<Integer> DATA_ARROW_COUNT_ID;
+    @Shadow
+    @Final
+    private static EntityDataAccessor<Integer> DATA_EFFECT_COLOR_ID;
+    @Shadow
+    @Final
+    private static EntityDataAccessor<Boolean> DATA_EFFECT_AMBIENCE_ID;
+    @Shadow
+    public net.minecraft.world.entity.player.Player lastHurtByPlayer;
+    @Shadow
+    public int deathTime;
+    @Shadow
+    public boolean effectsDirty;
+    @Shadow
+    public float lastHurt;
+    @Shadow
+    public int hurtDuration;
+    @Shadow
+    public int hurtTime;
+    @Shadow
+    @Nullable
+    public LivingEntity lastHurtByMob;
+    @Shadow
+    public CombatTracker combatTracker;
+    @Shadow
+    @Final
+    public Map<MobEffect, MobEffectInstance> activeEffects;
+    @Shadow
+    @Final
+    public WalkAnimationState walkAnimation;
+    @Shadow
+    public int invulnerableDuration;
     public int expToDrop;
     public boolean forceDrops;
     public CraftAttributeMap craftAttributes;
     public boolean collides;
     public boolean bukkitPickUpLoot;
     public Set<UUID> collidableExemptions = new HashSet<>();
-    @Shadow protected int lastHurtByPlayerTime;
-    @Shadow protected boolean dead;
-    @Shadow protected int noActionTime;
-    @Shadow protected ItemStack useItem;
-    @Shadow protected int deathScore;
-    @Shadow private DamageSource lastDamageSource;
-    @Shadow private long lastDamageStamp;
-    @Shadow @Final private AttributeMap attributes;
+    @Shadow
+    protected int lastHurtByPlayerTime;
+    @Shadow
+    protected boolean dead;
+    @Shadow
+    protected int noActionTime;
+    @Shadow
+    protected ItemStack useItem;
+    @Shadow
+    protected int deathScore;
+    @Shadow
+    private DamageSource lastDamageSource;
+    @Shadow
+    private long lastDamageStamp;
+    @Shadow
+    @Final
+    private AttributeMap attributes;
     private boolean isTickingEffects = false;
     private List<Map.Entry<Either<MobEffectInstance, MobEffect>, EntityPotionEffectEvent.Cause>> effectsToProcess = Lists.newArrayList();
     private transient EntityPotionEffectEvent.Action arclight$action;
@@ -117,7 +148,10 @@ public abstract class LivingEntityMixin extends EntityMixin implements LivingEnt
     private transient EntityRegainHealthEvent.RegainReason arclight$regainReason;
     private transient EntityPotionEffectEvent.Cause arclight$cause;
 
-    @Shadow public static EquipmentSlot getEquipmentSlotForItem(ItemStack p_147234_) { return null; }
+    @Shadow
+    public static EquipmentSlot getEquipmentSlotForItem(ItemStack p_147234_) {
+        return null;
+    }
 
     // @formatter:off
     @Shadow public abstract float getMaxHealth();
@@ -241,29 +275,42 @@ public abstract class LivingEntityMixin extends EntityMixin implements LivingEnt
     @Shadow public abstract void stopUsingItem();
     // @formatter:on
 
-    @Shadow protected abstract boolean doesEmitEquipEvent(EquipmentSlot p_217035_);
+    @Shadow
+    protected abstract boolean doesEmitEquipEvent(EquipmentSlot p_217035_);
 
-    @Shadow protected abstract void verifyEquippedItem(ItemStack p_181123_);
+    @Shadow
+    protected abstract void verifyEquippedItem(ItemStack p_181123_);
 
-    @Shadow public abstract boolean wasExperienceConsumed();
+    @Shadow
+    public abstract boolean wasExperienceConsumed();
 
-    @Shadow public abstract int getExperienceReward();
+    @Shadow
+    public abstract int getExperienceReward();
 
-    @Shadow @Nullable protected abstract SoundEvent getHurtSound(DamageSource p_21239_);
+    @Shadow
+    @Nullable
+    protected abstract SoundEvent getHurtSound(DamageSource p_21239_);
 
-    @Shadow protected abstract SoundEvent getFallDamageSound(int p_21313_);
+    @Shadow
+    protected abstract SoundEvent getFallDamageSound(int p_21313_);
 
-    @Shadow protected abstract SoundEvent getDrinkingSound(ItemStack p_21174_);
+    @Shadow
+    protected abstract SoundEvent getDrinkingSound(ItemStack p_21174_);
 
-    @Shadow public abstract SoundEvent getEatingSound(ItemStack p_21202_);
+    @Shadow
+    public abstract SoundEvent getEatingSound(ItemStack p_21202_);
 
-    @Shadow public abstract InteractionHand getUsedItemHand();
+    @Shadow
+    public abstract InteractionHand getUsedItemHand();
 
-    @Shadow public abstract void indicateDamage(double p_270514_, double p_270826_);
+    @Shadow
+    public abstract void indicateDamage(double p_270514_, double p_270826_);
 
-    @Shadow protected abstract void actuallyHurt(DamageSource p_21240_, float p_21241_);
+    @Shadow
+    protected abstract void actuallyHurt(DamageSource p_21240_, float p_21241_);
 
-    @Shadow protected abstract void updateGlowingStatus();
+    @Shadow
+    protected abstract void updateGlowingStatus();
 
     @Redirect(method = "<init>", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/LivingEntity;setHealth(F)V"))
     private void arclight$muteHealth(LivingEntity entity, float health) {

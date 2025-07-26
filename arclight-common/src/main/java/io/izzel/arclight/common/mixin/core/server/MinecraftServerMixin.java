@@ -91,13 +91,20 @@ public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<T
     private static final int TPS = 20;
     private static final int TICK_TIME = 1000000000 / TPS;
     private static final int SAMPLE_INTERVAL = 100;
-    @Shadow @Final static Logger LOGGER;
+    @Shadow
+    @Final
+    static Logger LOGGER;
     private static int currentTick = (int) (System.currentTimeMillis() / 50);
     public final double[] recentTps = new double[3];
     private final Object stopLock = new Object();
-    @Shadow @Final public Map<ResourceKey<Level>, ServerLevel> levels;
-    @Shadow @Final public Executor executor;
-    @Shadow public MinecraftServer.ReloadableResources resources;
+    @Shadow
+    @Final
+    public Map<ResourceKey<Level>, ServerLevel> levels;
+    @Shadow
+    @Final
+    public Executor executor;
+    @Shadow
+    public MinecraftServer.ReloadableResources resources;
     public WorldLoader.DataLoadContext worldLoader;
     public CraftServer server;
     public OptionSet options;
@@ -106,9 +113,13 @@ public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<T
     public java.util.Queue<Runnable> processQueue = new java.util.concurrent.ConcurrentLinkedQueue<>();
     public int autosavePeriod;
     public Commands vanillaCommandDispatcher;
-    @Shadow protected long nextTickTime;
-    @Shadow protected WorldData worldData;
-    @Shadow @Final protected Services services;
+    @Shadow
+    protected long nextTickTime;
+    @Shadow
+    protected WorldData worldData;
+    @Shadow
+    @Final
+    protected Services services;
     // @formatter:off
     @Shadow private int tickCount;
     @Shadow private ServerStatus status;
@@ -160,47 +171,69 @@ public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<T
     @Shadow protected abstract void onServerCrash(CrashReport report);
     // @formatter:on
 
-    @Shadow public abstract File getServerDirectory();
+    @Shadow
+    public abstract File getServerDirectory();
 
-    @Shadow public abstract void stopServer();
+    @Shadow
+    public abstract void stopServer();
 
-    @Shadow public abstract void onServerExit();
+    @Shadow
+    public abstract void onServerExit();
 
-    @Shadow public abstract Commands getCommands();
+    @Shadow
+    public abstract Commands getCommands();
 
-    @Shadow protected abstract void updateMobSpawningFlags();
+    @Shadow
+    protected abstract void updateMobSpawningFlags();
 
-    @Shadow public abstract ServerLevel overworld();
+    @Shadow
+    public abstract ServerLevel overworld();
 
-    @Shadow protected abstract void setupDebugLevel(WorldData p_240778_1_);
+    @Shadow
+    protected abstract void setupDebugLevel(WorldData p_240778_1_);
 
-    @Shadow(remap = false) @Deprecated public abstract void markWorldsDirty();
+    @Shadow(remap = false)
+    @Deprecated
+    public abstract void markWorldsDirty();
 
-    @Shadow public abstract boolean isSpawningMonsters();
+    @Shadow
+    public abstract boolean isSpawningMonsters();
 
-    @Shadow public abstract boolean isSpawningAnimals();
+    @Shadow
+    public abstract boolean isSpawningAnimals();
 
-    @Shadow protected abstract void startMetricsRecordingTick();
+    @Shadow
+    protected abstract void startMetricsRecordingTick();
 
-    @Shadow protected abstract void endMetricsRecordingTick();
+    @Shadow
+    protected abstract void endMetricsRecordingTick();
 
-    @Shadow public abstract SystemReport fillSystemReport(SystemReport p_177936_);
+    @Shadow
+    public abstract SystemReport fillSystemReport(SystemReport p_177936_);
 
-    @Shadow public abstract boolean isDedicatedServer();
+    @Shadow
+    public abstract boolean isDedicatedServer();
 
-    @Shadow public abstract int getFunctionCompilationLevel();
+    @Shadow
+    public abstract int getFunctionCompilationLevel();
 
-    @Shadow public abstract RegistryAccess.Frozen registryAccess();
+    @Shadow
+    public abstract RegistryAccess.Frozen registryAccess();
 
-    @Shadow public abstract PlayerList getPlayerList();
+    @Shadow
+    public abstract PlayerList getPlayerList();
 
-    @Shadow public abstract boolean enforceSecureProfile();
+    @Shadow
+    public abstract boolean enforceSecureProfile();
 
-    @Shadow public abstract LayeredRegistryAccess<RegistryLayer> registries();
+    @Shadow
+    public abstract LayeredRegistryAccess<RegistryLayer> registries();
 
-    @Shadow protected abstract ServerStatus buildServerStatus();
+    @Shadow
+    protected abstract ServerStatus buildServerStatus();
 
-    @Shadow protected abstract Optional<ServerStatus.Favicon> loadStatusIcon();
+    @Shadow
+    protected abstract Optional<ServerStatus.Favicon> loadStatusIcon();
 
     public boolean hasStopped() {
         synchronized (stopLock) {

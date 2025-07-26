@@ -78,14 +78,30 @@ import java.util.UUID;
 @Mixin(PlayerList.class)
 public abstract class PlayerListMixin implements PlayerListBridge {
 
-    @Shadow @Final private static SimpleDateFormat BAN_DATE_FORMAT;
-    @Shadow @Final public PlayerDataStorage playerIo;
-    @Shadow @Final public List<ServerPlayer> players;
-    @Shadow @Final protected int maxPlayers;
-    @Shadow @Final private UserBanList bans;
-    @Shadow @Final private IpBanList ipBans;
-    @Shadow @Final private MinecraftServer server;
-    @Shadow @Final private Map<UUID, ServerPlayer> playersByUUID;
+    @Shadow
+    @Final
+    private static SimpleDateFormat BAN_DATE_FORMAT;
+    @Shadow
+    @Final
+    public PlayerDataStorage playerIo;
+    @Shadow
+    @Final
+    public List<ServerPlayer> players;
+    @Shadow
+    @Final
+    protected int maxPlayers;
+    @Shadow
+    @Final
+    private UserBanList bans;
+    @Shadow
+    @Final
+    private IpBanList ipBans;
+    @Shadow
+    @Final
+    private MinecraftServer server;
+    @Shadow
+    @Final
+    private Map<UUID, ServerPlayer> playersByUUID;
     private CraftServer cserver;
     private transient Location arclight$loc;
     private transient Boolean arclight$suffo;
@@ -109,13 +125,18 @@ public abstract class PlayerListMixin implements PlayerListBridge {
     @Shadow public abstract void sendLevelInfo(ServerPlayer playerIn, ServerLevel worldIn);
     // @formatter:on
 
-    @Shadow public abstract void sendPlayerPermissionLevel(ServerPlayer player);
+    @Shadow
+    public abstract void sendPlayerPermissionLevel(ServerPlayer player);
 
-    @Shadow public abstract void sendAllPlayerInfo(ServerPlayer playerIn);
+    @Shadow
+    public abstract void sendAllPlayerInfo(ServerPlayer playerIn);
 
-    @Shadow @Nullable public abstract ServerPlayer getPlayer(UUID playerUUID);
+    @Shadow
+    @Nullable
+    public abstract ServerPlayer getPlayer(UUID playerUUID);
 
-    @Shadow public abstract void broadcastSystemMessage(Component p_240618_, boolean p_240644_);
+    @Shadow
+    public abstract void broadcastSystemMessage(Component p_240618_, boolean p_240644_);
 
     @Override
     public CraftServer bridge$getCraftServer() {

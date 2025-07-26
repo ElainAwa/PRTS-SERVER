@@ -25,7 +25,8 @@ public abstract class ContainerOpenersCounterMixin {
     @Shadow protected abstract void onClose(Level p_155473_, BlockPos p_155474_, BlockState p_155475_);
     // @formatter:on
 
-    @Shadow protected abstract void openerCountChanged(Level p_155463_, BlockPos p_155464_, BlockState p_155465_, int p_155466_, int p_155467_);
+    @Shadow
+    protected abstract void openerCountChanged(Level p_155463_, BlockPos p_155464_, BlockState p_155465_, int p_155466_, int p_155467_);
 
     public void onAPIOpen(Level world, BlockPos blockposition, BlockState iblockdata) {
         onOpen(world, blockposition, iblockdata);

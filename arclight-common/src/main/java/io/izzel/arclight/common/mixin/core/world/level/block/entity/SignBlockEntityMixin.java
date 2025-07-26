@@ -47,9 +47,14 @@ import java.util.function.UnaryOperator;
 @Mixin(SignBlockEntity.class)
 public abstract class SignBlockEntityMixin extends BlockEntityMixin implements SignTileEntityBridge, CommandSource, ICommandSourceBridge {
 
-    @Shadow @Final private static Logger LOGGER;
+    @Shadow
+    @Final
+    private static Logger LOGGER;
 
-    @Shadow private static CommandSourceStack createCommandSourceStack(@Nullable Player p_279428_, Level p_279359_, BlockPos p_279430_) { return null; }
+    @Shadow
+    private static CommandSourceStack createCommandSourceStack(@Nullable Player p_279428_, Level p_279359_, BlockPos p_279430_) {
+        return null;
+    }
 
     // @formatter:off
     @Shadow public abstract ClientboundBlockEntityDataPacket getUpdatePacket();

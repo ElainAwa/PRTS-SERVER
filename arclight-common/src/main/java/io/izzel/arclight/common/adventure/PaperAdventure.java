@@ -25,12 +25,12 @@ public final class PaperAdventure {
     private static final PlainTextComponentSerializer PLAIN_SERIALIZER = PlainTextComponentSerializer.plainText();
     private static final MiniMessage MINI_MESSAGE = createMiniMessage();
 
-    private static MiniMessage createMiniMessage() {
-        return MiniMessage.builder().build();
-    }
-
     private PaperAdventure() {
         throw new RuntimeException("PaperAdventure is not to be instantiated!");
+    }
+
+    private static MiniMessage createMiniMessage() {
+        return MiniMessage.builder().build();
     }
 
     // Convert Adventure Component to Minecraft Component

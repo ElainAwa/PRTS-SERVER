@@ -34,14 +34,22 @@ public abstract class AbstractMinecartMixin extends EntityMixin implements IForg
 
     public boolean slowWhenEmpty = true;
     public double maxSpeed = 0.4D;
-    @Shadow private int lSteps;
-    @Shadow private double lx;
-    @Shadow private double ly;
-    @Shadow private double lz;
-    @Shadow private double lyr;
-    @Shadow private double lxr;
-    @Shadow private boolean flipped;
-    @Shadow private boolean onRails;
+    @Shadow
+    private int lSteps;
+    @Shadow
+    private double lx;
+    @Shadow
+    private double ly;
+    @Shadow
+    private double lz;
+    @Shadow
+    private double lyr;
+    @Shadow
+    private double lxr;
+    @Shadow
+    private boolean flipped;
+    @Shadow
+    private boolean onRails;
     private double derailedX = 0.5;
     private double derailedY = 0.5;
     private double derailedZ = 0.5;
@@ -50,7 +58,8 @@ public abstract class AbstractMinecartMixin extends EntityMixin implements IForg
     private double flyingZ = 0.95;
     private transient Location arclight$prevLocation;
 
-    @Shadow public abstract int getHurtDir();
+    @Shadow
+    public abstract int getHurtDir();
     // @formatter:on
 
     // @formatter:off

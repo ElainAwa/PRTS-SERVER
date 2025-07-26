@@ -28,7 +28,9 @@ import java.util.Optional;
 @Mixin(PortalForcer.class)
 public abstract class PortalForcerMixin implements TeleporterBridge {
 
-    @Shadow @Final protected ServerLevel level;
+    @Shadow
+    @Final
+    protected ServerLevel level;
     private transient int arclight$searchRadius = -1;
     private transient BlockStateListPopulator arclight$populator;
     // @formatter:on

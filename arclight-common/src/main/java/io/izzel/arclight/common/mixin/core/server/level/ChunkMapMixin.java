@@ -40,9 +40,16 @@ import java.util.function.Supplier;
 public abstract class ChunkMapMixin implements ChunkMapBridge {
 
     public final ArclightCallbackExecutor callbackExecutor = new ArclightCallbackExecutor();
-    @Shadow @Mutable public ChunkGenerator generator;
-    @Shadow @Final public ServerLevel level;
-    @Shadow @Final @Mutable private RandomState randomState;
+    @Shadow
+    @Mutable
+    public ChunkGenerator generator;
+    @Shadow
+    @Final
+    public ServerLevel level;
+    @Shadow
+    @Final
+    @Mutable
+    private RandomState randomState;
 
     // @formatter:off
     @Shadow @Nullable protected abstract ChunkHolder getUpdatingChunkIfPresent(long chunkPosIn);
@@ -54,7 +61,8 @@ public abstract class ChunkMapMixin implements ChunkMapBridge {
     @Invoker("tick") public abstract void bridge$tick(BooleanSupplier hasMoreTime);
     // @formatter:on
 
-    @Invoker("setViewDistance") public abstract void bridge$setViewDistance(int i);
+    @Invoker("setViewDistance")
+    public abstract void bridge$setViewDistance(int i);
 
     @Inject(method = "<init>", at = @At("RETURN"))
     private void arclight$updateRandom(ServerLevel p_214836_, LevelStorageSource.LevelStorageAccess p_214837_, DataFixer p_214838_, StructureTemplateManager p_214839_, Executor p_214840_, BlockableEventLoop p_214841_, LightChunkGetter p_214842_, ChunkGenerator p_214843_, ChunkProgressListener p_214844_, ChunkStatusUpdateListener p_214845_, Supplier p_214846_, int p_214847_, boolean p_214848_, CallbackInfo ci) {

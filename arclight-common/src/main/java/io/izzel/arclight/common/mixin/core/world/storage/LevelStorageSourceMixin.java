@@ -20,7 +20,9 @@ public abstract class LevelStorageSourceMixin implements LevelStorageSourceBridg
 
     // pdc implemented as WorldSavedData
 
-    @Shadow @Final private DirectoryValidator worldDirValidator;
+    @Shadow
+    @Final
+    private DirectoryValidator worldDirValidator;
 
     // @formatter:off
     @Shadow public abstract LevelStorageSource.LevelStorageAccess createAccess(String saveName) throws IOException;

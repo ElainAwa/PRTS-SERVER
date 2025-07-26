@@ -35,7 +35,9 @@ import java.util.List;
 public abstract class BeehiveBlockEntityMixin extends BlockEntityMixin {
 
     private static transient boolean arclight$force;
-    @Shadow @Nullable public BlockPos savedFlowerPos;
+    @Shadow
+    @Nullable
+    public BlockPos savedFlowerPos;
     public int maxBees = 3;
     // @formatter:on
     // @formatter:off

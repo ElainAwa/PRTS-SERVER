@@ -17,7 +17,9 @@ import java.util.Optional;
 @Mixin(ChestBlock.class)
 public abstract class ChestBlockMixin {
 
-    @Shadow @Final private static DoubleBlockCombiner.Combiner<ChestBlockEntity, Optional<MenuProvider>> MENU_PROVIDER_COMBINER;
+    @Shadow
+    @Final
+    private static DoubleBlockCombiner.Combiner<ChestBlockEntity, Optional<MenuProvider>> MENU_PROVIDER_COMBINER;
 
     // @formatter:off
     @Shadow public abstract DoubleBlockCombiner.NeighborCombineResult<? extends ChestBlockEntity> combine(BlockState pState, Level pLevel, BlockPos pPos, boolean pOverride);

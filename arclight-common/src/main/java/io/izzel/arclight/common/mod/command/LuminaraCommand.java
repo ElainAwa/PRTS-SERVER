@@ -2,11 +2,7 @@ package io.izzel.arclight.common.mod.command;
 
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
-import io.izzel.arclight.common.mod.command.subcommands.AdventureTestSubCommand;
-import io.izzel.arclight.common.mod.command.subcommands.CleanupSubCommand;
-import io.izzel.arclight.common.mod.command.subcommands.GCSubCommand;
-import io.izzel.arclight.common.mod.command.subcommands.InfoSubCommand;
-import io.izzel.arclight.common.mod.command.subcommands.LuminaraSubCommand;
+import io.izzel.arclight.common.mod.command.subcommands.*;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
@@ -50,6 +46,7 @@ public class LuminaraCommand {
     public static void registerSubCommand(LuminaraSubCommand subCommand) {
         subCommands.add(subCommand);
     }
+
     private static int showHelp(CommandContext<CommandSourceStack> context) {
         CommandSourceStack source = context.getSource();
 

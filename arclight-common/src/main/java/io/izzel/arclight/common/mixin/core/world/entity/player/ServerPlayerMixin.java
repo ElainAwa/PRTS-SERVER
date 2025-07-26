@@ -157,47 +157,69 @@ public abstract class ServerPlayerMixin extends PlayerMixin implements ServerPla
     @Shadow protected abstract int getCoprime(int p_205735_1_);
     // @formatter:on
 
-    @Shadow public abstract boolean isSpectator();
+    @Shadow
+    public abstract boolean isSpectator();
 
-    @Shadow public abstract void resetStat(Stat<?> stat);
+    @Shadow
+    public abstract void resetStat(Stat<?> stat);
 
-    @Shadow public abstract void closeContainer();
+    @Shadow
+    public abstract void closeContainer();
 
-    @Shadow public abstract void setCamera(Entity entityToSpectate);
+    @Shadow
+    public abstract void setCamera(Entity entityToSpectate);
 
-    @Shadow public abstract ServerLevel serverLevel();
+    @Shadow
+    public abstract ServerLevel serverLevel();
 
-    @Shadow public abstract void triggerDimensionChangeTriggers(ServerLevel p_213846_1_);
+    @Shadow
+    public abstract void triggerDimensionChangeTriggers(ServerLevel p_213846_1_);
 
-    @Shadow public abstract void teleportTo(ServerLevel newWorld, double x, double y, double z, float yaw, float pitch);
+    @Shadow
+    public abstract void teleportTo(ServerLevel newWorld, double x, double y, double z, float yaw, float pitch);
 
-    @Shadow public abstract void giveExperiencePoints(int p_195068_1_);
+    @Shadow
+    public abstract void giveExperiencePoints(int p_195068_1_);
 
-    @Shadow @Nullable public abstract BlockPos getRespawnPosition();
+    @Shadow
+    @Nullable
+    public abstract BlockPos getRespawnPosition();
 
-    @Shadow public abstract float getRespawnAngle();
+    @Shadow
+    public abstract float getRespawnAngle();
 
-    @Shadow protected abstract void tellNeutralMobsThatIDied();
+    @Shadow
+    protected abstract void tellNeutralMobsThatIDied();
 
-    @Shadow protected abstract void createEndPlatform(ServerLevel p_242110_1_, BlockPos p_242110_2_);
+    @Shadow
+    protected abstract void createEndPlatform(ServerLevel p_242110_1_, BlockPos p_242110_2_);
 
-    @Shadow public abstract boolean isCreative();
+    @Shadow
+    public abstract boolean isCreative();
 
-    @Shadow protected abstract boolean bedBlocked(BlockPos p_241156_1_, Direction p_241156_2_);
+    @Shadow
+    protected abstract boolean bedBlocked(BlockPos p_241156_1_, Direction p_241156_2_);
 
-    @Shadow protected abstract boolean bedInRange(BlockPos p_241147_1_, Direction p_241147_2_);
+    @Shadow
+    protected abstract boolean bedInRange(BlockPos p_241147_1_, Direction p_241147_2_);
 
-    @Shadow public abstract void resetFallDistance();
+    @Shadow
+    public abstract void resetFallDistance();
 
-    @Shadow public abstract void shadow$nextContainerCounter();
+    @Shadow
+    public abstract void shadow$nextContainerCounter();
 
-    @Shadow public abstract void initMenu(AbstractContainerMenu p_143400_);
+    @Shadow
+    public abstract void initMenu(AbstractContainerMenu p_143400_);
 
-    @Shadow public abstract boolean teleportTo(ServerLevel p_265564_, double p_265424_, double p_265680_, double p_265312_, Set<RelativeMovement> p_265192_, float p_265059_, float p_265266_);
+    @Shadow
+    public abstract boolean teleportTo(ServerLevel p_265564_, double p_265424_, double p_265680_, double p_265312_, Set<RelativeMovement> p_265192_, float p_265059_, float p_265266_);
 
-    @Shadow public abstract void sendSystemMessage(Component p_215097_);
+    @Shadow
+    public abstract void sendSystemMessage(Component p_215097_);
 
-    @Shadow public abstract void setServerLevel(ServerLevel p_284971_);
+    @Shadow
+    public abstract void setServerLevel(ServerLevel p_284971_);
 
     @Inject(method = "<init>", at = @At("RETURN"))
     public void arclight$init(CallbackInfo ci) {
@@ -1083,7 +1105,7 @@ public abstract class ServerPlayerMixin extends PlayerMixin implements ServerPla
     @Override
     public void bridge$sendActionBar(net.kyori.adventure.text.Component message) {
         net.minecraft.network.chat.Component vanillaComponent =
-            io.izzel.arclight.common.adventure.PaperAdventure.asVanilla(message);
+                io.izzel.arclight.common.adventure.PaperAdventure.asVanilla(message);
         this.connection.send(new net.minecraft.network.protocol.game.ClientboundSetActionBarTextPacket(vanillaComponent));
     }
 
@@ -1092,16 +1114,16 @@ public abstract class ServerPlayerMixin extends PlayerMixin implements ServerPla
         net.kyori.adventure.title.Title.Times times = title.times();
         if (times != null) {
             this.connection.send(new net.minecraft.network.protocol.game.ClientboundSetTitlesAnimationPacket(
-                (int) times.fadeIn().toMillis() / 50,
-                (int) times.stay().toMillis() / 50,
-                (int) times.fadeOut().toMillis() / 50
+                    (int) times.fadeIn().toMillis() / 50,
+                    (int) times.stay().toMillis() / 50,
+                    (int) times.fadeOut().toMillis() / 50
             ));
         }
 
         net.minecraft.network.chat.Component titleComponent =
-            io.izzel.arclight.common.adventure.PaperAdventure.asVanilla(title.title());
+                io.izzel.arclight.common.adventure.PaperAdventure.asVanilla(title.title());
         net.minecraft.network.chat.Component subtitleComponent =
-            io.izzel.arclight.common.adventure.PaperAdventure.asVanilla(title.subtitle());
+                io.izzel.arclight.common.adventure.PaperAdventure.asVanilla(title.subtitle());
 
         this.connection.send(new net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket(titleComponent));
         this.connection.send(new net.minecraft.network.protocol.game.ClientboundSetSubtitleTextPacket(subtitleComponent));

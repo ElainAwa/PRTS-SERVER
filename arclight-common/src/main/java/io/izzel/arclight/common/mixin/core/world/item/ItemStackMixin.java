@@ -41,7 +41,10 @@ public abstract class ItemStackMixin extends CapabilityProvider<ItemStack> imple
     @Shadow private int count;
     @Shadow(remap = false) private CompoundTag capNBT;
     // @formatter:on
-    @Mutable @Shadow(remap = false) @Final private net.minecraft.core.Holder.Reference<Item> delegate;
+    @Mutable
+    @Shadow(remap = false)
+    @Final
+    private net.minecraft.core.Holder.Reference<Item> delegate;
 
     protected ItemStackMixin(Class<ItemStack> baseClass) {
         super(baseClass);

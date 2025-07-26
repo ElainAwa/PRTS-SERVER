@@ -35,7 +35,9 @@ import javax.annotation.Nullable;
 @Mixin(LevelChunk.class)
 public abstract class LevelChunkMixin extends ChunkAccessMixin implements ChunkBridge {
 
-    @Shadow @Final public Level level;
+    @Shadow
+    @Final
+    public Level level;
     public boolean mustNotSave;
     // @formatter:on
     public boolean needsDecoration;

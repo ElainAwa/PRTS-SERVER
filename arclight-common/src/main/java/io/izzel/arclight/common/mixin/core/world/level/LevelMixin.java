@@ -76,7 +76,9 @@ public abstract class LevelMixin implements WorldBridge, LevelWriter {
     protected org.bukkit.World.Environment environment;
     protected org.bukkit.generator.BiomeProvider biomeProvider;
     // @formatter:on
-    @Shadow @Final private WorldBorder worldBorder;
+    @Shadow
+    @Final
+    private WorldBorder worldBorder;
 
     // @formatter:off
     @Shadow @Nullable public BlockEntity getBlockEntity(BlockPos pos) { return null; }

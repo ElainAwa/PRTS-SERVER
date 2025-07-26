@@ -53,10 +53,17 @@ import java.util.logging.Logger;
 @Mixin(value = CraftServer.class, remap = false)
 public abstract class CraftServerMixin implements CraftServerBridge {
 
-    @Shadow public int reloadCount;
-    @Shadow public boolean ignoreVanillaPermissions;
-    @Shadow @Final protected DedicatedServer console;
-    @Shadow @Final @Mutable protected DedicatedPlayerList playerList;
+    @Shadow
+    public int reloadCount;
+    @Shadow
+    public boolean ignoreVanillaPermissions;
+    @Shadow
+    @Final
+    protected DedicatedServer console;
+    @Shadow
+    @Final
+    @Mutable
+    protected DedicatedPlayerList playerList;
     // @formatter:off
     @Shadow @Final private CraftCommandMap commandMap;
     @Shadow @Final private SimplePluginManager pluginManager;

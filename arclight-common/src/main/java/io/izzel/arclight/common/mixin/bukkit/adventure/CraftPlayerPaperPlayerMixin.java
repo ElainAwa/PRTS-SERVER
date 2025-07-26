@@ -76,15 +76,14 @@ public abstract class CraftPlayerPaperPlayerMixin {
     }
 
 
-
     // Paper's playerListName methods
     @Nullable
     public Component playerListName() {
         CraftPlayer player = (CraftPlayer) (Object) this;
         String listName = player.getPlayerListName();
         return listName != null ?
-            net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer.legacySection().deserialize(listName) :
-            null;
+                net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer.legacySection().deserialize(listName) :
+                null;
     }
 
     public void playerListName(@Nullable Component name) {

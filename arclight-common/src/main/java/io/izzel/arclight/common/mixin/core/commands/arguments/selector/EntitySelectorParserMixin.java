@@ -20,7 +20,8 @@ public abstract class EntitySelectorParserMixin implements EntitySelectorParserB
     @Shadow protected abstract void shadow$parseSelector() throws CommandSyntaxException;
     // @formatter:on
 
-    @Shadow public abstract EntitySelector parse() throws CommandSyntaxException;
+    @Shadow
+    public abstract EntitySelector parse() throws CommandSyntaxException;
 
     @Override
     public EntitySelector bridge$parse(boolean overridePermissions) throws CommandSyntaxException {

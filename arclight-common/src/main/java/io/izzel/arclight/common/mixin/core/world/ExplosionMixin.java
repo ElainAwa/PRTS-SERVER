@@ -59,7 +59,9 @@ import java.util.Set;
 @Mixin(Explosion.class)
 public abstract class ExplosionMixin implements ExplosionBridge {
 
-    @Shadow @Final public Entity source;
+    @Shadow
+    @Final
+    public Entity source;
     public boolean wasCanceled = false;
     // @formatter:off
     @Shadow @Final private Level level;
@@ -94,9 +96,12 @@ public abstract class ExplosionMixin implements ExplosionBridge {
     @Accessor("blockInteraction") public abstract Explosion.BlockInteraction bridge$getMode();
     // @formatter:on
 
-    @Shadow public abstract boolean interactsWithBlocks();
+    @Shadow
+    public abstract boolean interactsWithBlocks();
 
-    @Shadow @Nullable public abstract LivingEntity getIndirectSourceEntity();
+    @Shadow
+    @Nullable
+    public abstract LivingEntity getIndirectSourceEntity();
 
     @Inject(method = "<init>(Lnet/minecraft/world/level/Level;Lnet/minecraft/world/entity/Entity;DDDFZLnet/minecraft/world/level/Explosion$BlockInteraction;)V",
             at = @At("RETURN"))

@@ -18,7 +18,10 @@ public class ClassInheritanceMultiMapMixin<T> {
     @Shadow @Final private Class<T> baseClass;
     @Shadow @Final @Mutable private Map<Class<?>, List<T>> byClass;
     // @formatter:on
-    @Shadow @Final @Mutable private List<T> allInstances;
+    @Shadow
+    @Final
+    @Mutable
+    private List<T> allInstances;
 
     @Redirect(method = "<init>", at = @At(value = "INVOKE", remap = false, target = "Lcom/google/common/collect/Maps;newHashMap()Ljava/util/HashMap;"))
     private HashMap<Class<?>, List<T>> optimization$dropClass() {

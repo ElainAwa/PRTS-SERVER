@@ -11,29 +11,29 @@ import org.bukkit.command.CommandSender;
 
 // Server information subcommand
 public class InfoSubCommand implements LuminaraSubCommand {
-    
+
     @Override
     public String getName() {
         return "info";
     }
-    
+
     @Override
     public String getDescription() {
         return "Show Luminara and server information";
     }
-    
+
     @Override
     public LiteralArgumentBuilder<CommandSourceStack> build() {
         return Commands.literal(getName())
                 .requires(source -> source.hasPermission(getRequiredPermissionLevel()))
                 .executes(this::execute);
     }
-    
+
     @Override
     public int getRequiredPermissionLevel() {
         return 2; // Lower permission level for info command
     }
-    
+
     private int execute(CommandContext<CommandSourceStack> context) {
         CommandSourceStack source = context.getSource();
         CommandSender sender = ((CommandSourceBridge) source).bridge$getBukkitSender();
@@ -43,23 +43,23 @@ public class InfoSubCommand implements LuminaraSubCommand {
             sender.sendMessage("§eServer Version: §f" + Bukkit.getVersion());
             sender.sendMessage("§eBukkit Version: §f" + Bukkit.getBukkitVersion());
             sender.sendMessage("§eOnline Players: §f" + Bukkit.getOnlinePlayers().size() + "/" + Bukkit.getMaxPlayers());
-            
+
             // Runtime information
             Runtime runtime = Runtime.getRuntime();
             long maxMemory = runtime.maxMemory() / 1024 / 1024;
             long totalMemory = runtime.totalMemory() / 1024 / 1024;
             long freeMemory = runtime.freeMemory() / 1024 / 1024;
             long usedMemory = totalMemory - freeMemory;
-            
+
             sender.sendMessage("§eMemory Usage: §f" + usedMemory + "MB / " + maxMemory + "MB");
             sender.sendMessage("§eAvailable Processors: §f" + runtime.availableProcessors());
-            
+
             // Adventure API support
             boolean adventureSupport = sender instanceof net.kyori.adventure.audience.Audience;
             sender.sendMessage("§eAdventure API Support: " + (adventureSupport ? "§aEnabled" : "§cDisabled"));
-            
+
             sender.sendMessage("§6========================");
-            
+
             source.sendSuccess(() -> Component.literal("Information displayed"), false);
             return 1;
         } catch (Exception e) {

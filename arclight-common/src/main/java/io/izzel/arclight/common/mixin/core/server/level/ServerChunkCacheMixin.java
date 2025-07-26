@@ -27,10 +27,18 @@ import java.io.IOException;
 @Mixin(ServerChunkCache.class)
 public abstract class ServerChunkCacheMixin implements ServerChunkProviderBridge {
 
-    @Shadow @Final public ChunkMap chunkMap;
-    @Shadow @Final public ServerLevel level;
-    @Shadow @Final ThreadedLevelLightEngine lightEngine;
-    @Shadow @Final private DistanceManager distanceManager;
+    @Shadow
+    @Final
+    public ChunkMap chunkMap;
+    @Shadow
+    @Final
+    public ServerLevel level;
+    @Shadow
+    @Final
+    ThreadedLevelLightEngine lightEngine;
+    @Shadow
+    @Final
+    private DistanceManager distanceManager;
 
     // @formatter:off
     @Shadow public abstract void save(boolean flush);

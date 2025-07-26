@@ -22,7 +22,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Mixin(CartographyTableMenu.class)
 public abstract class CartographyContainerMixin extends AbstractContainerMenuMixin implements PosContainerBridge {
 
-    @Shadow @Final public Container container;
+    @Shadow
+    @Final
+    public Container container;
     // @formatter:off
     @Shadow @Final private ContainerLevelAccess access;
     @Shadow @Final private ResultContainer resultContainer;

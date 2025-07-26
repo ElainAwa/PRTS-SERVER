@@ -29,7 +29,9 @@ import javax.annotation.Nullable;
 @Mixin(Shulker.class)
 public abstract class ShulkerMixin extends PathfinderMobMixin {
 
-    @Shadow @Final protected static EntityDataAccessor<Byte> DATA_PEEK_ID;
+    @Shadow
+    @Final
+    protected static EntityDataAccessor<Byte> DATA_PEEK_ID;
 
     // @formatter:off
     @Shadow @Nullable protected abstract Direction findAttachableSurface(BlockPos p_149811_);

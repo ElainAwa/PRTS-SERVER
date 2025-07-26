@@ -62,7 +62,10 @@ public abstract class MaterialMixin implements MaterialBridge {
             .put("UNSPECIFIC", (a, b) -> new CraftMetaItem(b))
             .put("NULL", (a, b) -> null)
             .build();
-    @Shadow @Mutable @Final public Class<?> data;
+    @Shadow
+    @Mutable
+    @Final
+    public Class<?> data;
     // @formatter:off
     @Shadow @Mutable @Final private NamespacedKey key;
     @Shadow @Mutable @Final private Constructor<? extends MaterialData> ctor;
@@ -97,7 +100,8 @@ public abstract class MaterialMixin implements MaterialBridge {
         }
     }
 
-    @Shadow public abstract boolean isBlock();
+    @Shadow
+    public abstract boolean isBlock();
 
     @Override
     public void bridge$setBlock() {

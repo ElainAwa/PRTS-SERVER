@@ -91,16 +91,26 @@ import java.util.concurrent.Executor;
 @Mixin(ServerLevel.class)
 public abstract class ServerLevelMixin extends LevelMixin implements ServerWorldBridge {
 
-    @Shadow @Final public static BlockPos END_SPAWN_POINT;
-    @Shadow @Final public ServerLevelData serverLevelData;
+    @Shadow
+    @Final
+    public static BlockPos END_SPAWN_POINT;
+    @Shadow
+    @Final
+    public ServerLevelData serverLevelData;
     @SuppressWarnings({"FieldCanBeLocal", "unused"})
     public PrimaryLevelData K; // Stupid CraftBukkit patch.
     public LevelStorageSource.LevelStorageAccess convertable;
     public UUID uuid;
     public ResourceKey<LevelStem> typeKey;
-    @Shadow @Final private List<ServerPlayer> players;
-    @Shadow @Final private ServerChunkCache chunkSource;
-    @Shadow @Final private PersistentEntitySectionManager<Entity> entityManager;
+    @Shadow
+    @Final
+    private List<ServerPlayer> players;
+    @Shadow
+    @Final
+    private ServerChunkCache chunkSource;
+    @Shadow
+    @Final
+    private PersistentEntitySectionManager<Entity> entityManager;
     private transient boolean arclight$force;
     private transient LightningStrikeEvent.Cause arclight$cause;
     private transient CreatureSpawnEvent.SpawnReason arclight$reason;

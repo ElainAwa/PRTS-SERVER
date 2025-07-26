@@ -51,7 +51,8 @@ public abstract class CraftingMenuMixin extends AbstractContainerMenuMixin imple
         return CraftEventFactory.callPreCraftEvent(craftingContainer, resultContainer, stack, ((ContainerBridge) container).bridge$getBukkitView(), arclight$isRepair);
     }
 
-    @Accessor("access") public abstract ContainerLevelAccess bridge$getWorldPos();
+    @Accessor("access")
+    public abstract ContainerLevelAccess bridge$getWorldPos();
 
     @Inject(method = "stillValid", cancellable = true, at = @At("HEAD"))
     public void arclight$unreachable(Player playerIn, CallbackInfoReturnable<Boolean> cir) {

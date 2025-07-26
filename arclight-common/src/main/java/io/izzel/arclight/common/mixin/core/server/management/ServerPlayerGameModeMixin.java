@@ -73,9 +73,11 @@ public abstract class ServerPlayerGameModeMixin implements PlayerInteractionMana
     @Shadow public abstract boolean isCreative();
     // @formatter:on
 
-    @Shadow public abstract void destroyAndAck(BlockPos p_215117_, int p_215118_, String p_215119_);
+    @Shadow
+    public abstract void destroyAndAck(BlockPos p_215117_, int p_215118_, String p_215119_);
 
-    @Shadow protected abstract void debugLogging(BlockPos p_215126_, boolean p_215127_, int p_215128_, String p_215129_);
+    @Shadow
+    protected abstract void debugLogging(BlockPos p_215126_, boolean p_215127_, int p_215128_, String p_215129_);
 
     @Inject(method = "changeGameModeForPlayer", cancellable = true, at = @At(value = "INVOKE", target = "Lnet/minecraft/server/level/ServerPlayerGameMode;setGameModeForPlayer(Lnet/minecraft/world/level/GameType;Lnet/minecraft/world/level/GameType;)V"))
     private void arclight$gameModeEvent(GameType gameType, CallbackInfoReturnable<Boolean> cir) {

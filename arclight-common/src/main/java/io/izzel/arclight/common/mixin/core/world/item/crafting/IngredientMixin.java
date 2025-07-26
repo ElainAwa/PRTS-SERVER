@@ -18,7 +18,8 @@ public abstract class IngredientMixin implements IngredientBridge {
     @Shadow public abstract boolean isEmpty();
     // @formatter:on
 
-    @Shadow public abstract ItemStack[] getItems();
+    @Shadow
+    public abstract ItemStack[] getItems();
 
     /**
      * @author IzzelAliz

@@ -26,7 +26,9 @@ public abstract class ProjectileMixin extends EntityMixin {
     @Shadow @Nullable public abstract Entity getOwner();
     // @formatter:on
 
-    @Shadow protected void onHit(HitResult result) { }
+    @Shadow
+    protected void onHit(HitResult result) {
+    }
 
     @Inject(method = "setOwner", at = @At("RETURN"))
     private void arclight$updateSource(Entity entityIn, CallbackInfo ci) {

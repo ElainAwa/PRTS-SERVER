@@ -25,7 +25,8 @@ public abstract class AgeableMobMixin extends PathfinderMobMixin implements Agea
     @Shadow @Nullable public abstract AgeableMob getBreedOffspring(ServerLevel world, AgeableMob mate);
     // @formatter:on
 
-    @Shadow public abstract void setAge(int age);
+    @Shadow
+    public abstract void setAge(int age);
 
     @Inject(method = "addAdditionalSaveData", at = @At("RETURN"))
     private void arclight$writeAgeLocked(CompoundTag compound, CallbackInfo ci) {

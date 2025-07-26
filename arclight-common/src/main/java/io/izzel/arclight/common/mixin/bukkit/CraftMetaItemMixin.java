@@ -61,7 +61,8 @@ public class CraftMetaItemMixin implements ItemMetaBridge {
     // @formatter:off
     @Shadow(remap = false) @Final private Map<String, Tag> unhandledTags;
     // @formatter:on
-    @Shadow(remap = false) private CompoundTag internalTag;
+    @Shadow(remap = false)
+    private CompoundTag internalTag;
     private CompoundTag forgeCaps;
 
     @ModifyVariable(method = "<init>(Lnet/minecraft/nbt/CompoundTag;)V", at = @At(value = "INVOKE", target = "Lorg/bukkit/UnsafeValues;getDataVersion()I"))

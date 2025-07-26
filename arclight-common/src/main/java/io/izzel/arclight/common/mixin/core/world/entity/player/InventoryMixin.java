@@ -33,7 +33,8 @@ public abstract class InventoryMixin implements Container, IInventoryBridge, Pla
     // @formatter:on
     private int maxStack = -1;
 
-    @Shadow protected abstract boolean hasRemainingSpaceForItem(ItemStack stack1, ItemStack stack2);
+    @Shadow
+    protected abstract boolean hasRemainingSpaceForItem(ItemStack stack1, ItemStack stack2);
 
     public int canHold(ItemStack stack) {
         int remains = stack.getCount();

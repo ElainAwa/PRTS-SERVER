@@ -30,13 +30,21 @@ import java.util.Map;
 @Mixin(AreaEffectCloud.class)
 public abstract class AreaEffectCloudEntityMixin extends EntityMixin implements AreaEffectCloudEntityBridge {
 
-    @Shadow @Final private static EntityDataAccessor<Integer> DATA_COLOR;
-    @Shadow public List<MobEffectInstance> effects;
-    @Shadow public int waitTime;
-    @Shadow public float radiusPerTick;
-    @Shadow public int reapplicationDelay;
-    @Shadow public float radiusOnUse;
-    @Shadow public int durationOnUse;
+    @Shadow
+    @Final
+    private static EntityDataAccessor<Integer> DATA_COLOR;
+    @Shadow
+    public List<MobEffectInstance> effects;
+    @Shadow
+    public int waitTime;
+    @Shadow
+    public float radiusPerTick;
+    @Shadow
+    public int reapplicationDelay;
+    @Shadow
+    public float radiusOnUse;
+    @Shadow
+    public int durationOnUse;
     // @formatter:off
     @Shadow private boolean fixedColor;
     @Shadow private Potion potion;

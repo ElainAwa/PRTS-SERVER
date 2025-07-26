@@ -66,11 +66,16 @@ public abstract class ServerEntityMixin implements ServerEntityBridge {
     private int lastUpdate, lastPosUpdate, lastMapUpdate;
     // @formatter:on
 
-    @Shadow private static Stream<Entity> removedPassengers(List<Entity> p_277592_, List<Entity> p_277658_) { return null; }
+    @Shadow
+    private static Stream<Entity> removedPassengers(List<Entity> p_277592_, List<Entity> p_277658_) {
+        return null;
+    }
 
-    @Shadow protected abstract void sendDirtyEntityData();
+    @Shadow
+    protected abstract void sendDirtyEntityData();
 
-    @Shadow protected abstract void broadcastAndSend(Packet<?> packet);
+    @Shadow
+    protected abstract void broadcastAndSend(Packet<?> packet);
 
     @Inject(method = "<init>", at = @At("RETURN"))
     private void arclight$init(ServerLevel serverWorld, Entity entity, int updateFrequency, boolean sendVelocityUpdates, Consumer<Packet<?>> packetConsumer, CallbackInfo ci) {

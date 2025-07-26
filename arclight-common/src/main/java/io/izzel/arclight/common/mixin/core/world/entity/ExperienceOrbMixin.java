@@ -28,7 +28,8 @@ import java.util.Map;
 @Mixin(ExperienceOrb.class)
 public abstract class ExperienceOrbMixin extends EntityMixin {
 
-    @Shadow public int value;
+    @Shadow
+    public int value;
     // @formatter:off
     @Shadow private Player followingPlayer;
     private transient Player arclight$lastPlayer;
@@ -55,12 +56,15 @@ public abstract class ExperienceOrbMixin extends EntityMixin {
         // @formatter:on
     }
 
-    @Shadow public abstract boolean hurt(DamageSource source, float amount);
+    @Shadow
+    public abstract boolean hurt(DamageSource source, float amount);
     // @formatter:on
 
-    @Shadow protected abstract int durabilityToXp(int durability);
+    @Shadow
+    protected abstract int durabilityToXp(int durability);
 
-    @Shadow protected abstract int xpToDurability(int p_20799_);
+    @Shadow
+    protected abstract int xpToDurability(int p_20799_);
 
     @Inject(method = "tick", at = @At(value = "INVOKE", shift = At.Shift.AFTER, target = "Lnet/minecraft/world/entity/Entity;tick()V"))
     private void arclight$captureLast(CallbackInfo ci) {

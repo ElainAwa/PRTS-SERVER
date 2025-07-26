@@ -52,7 +52,10 @@ public abstract class PortalShapeMixin implements PortalSizeBridge {
     private transient boolean arclight$ret;
     // @formatter:on
 
-    @Shadow public static PortalInfo createPortalInfo(ServerLevel p_259301_, BlockUtil.FoundRectangle p_259931_, Direction.Axis p_259901_, Vec3 p_259630_, Entity p_259166_, Vec3 p_260043_, float p_259853_, float p_259667_) { return null; }
+    @Shadow
+    public static PortalInfo createPortalInfo(ServerLevel p_259301_, BlockUtil.FoundRectangle p_259931_, Direction.Axis p_259901_, Vec3 p_259630_, Entity p_259166_, Vec3 p_260043_, float p_259853_, float p_259667_) {
+        return null;
+    }
 
     @SuppressWarnings("ConstantConditions")
     @Redirect(method = "createPortalInfo", at = @At(value = "NEW", target = "net/minecraft/world/level/portal/PortalInfo"))
@@ -68,7 +71,8 @@ public abstract class PortalShapeMixin implements PortalSizeBridge {
         return createPortalInfo(world, result, axis, offsetVector, entity, motion, rotationYaw, rotationPitch);
     }
 
-    @Shadow public abstract void shadow$createPortalBlocks();
+    @Shadow
+    public abstract void shadow$createPortalBlocks();
 
     @Redirect(method = "getDistanceUntilEdgeAboveFrame", at = @At(value = "INVOKE", ordinal = 0, target = "Lnet/minecraft/world/level/block/state/BlockBehaviour$StatePredicate;test(Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/world/level/BlockGetter;Lnet/minecraft/core/BlockPos;)Z"))
     private boolean arclight$captureBlock(BlockBehaviour.StatePredicate predicate, net.minecraft.world.level.block.state.BlockState p_test_1_, BlockGetter p_test_2_, BlockPos pos) {

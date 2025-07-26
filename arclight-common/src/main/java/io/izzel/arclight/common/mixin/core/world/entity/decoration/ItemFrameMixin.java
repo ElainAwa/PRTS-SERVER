@@ -58,7 +58,8 @@ public abstract class ItemFrameMixin extends HangingEntityMixin {
     }
     // @formatter:on
 
-    @Shadow protected abstract void onItemChanged(ItemStack p_218866_);
+    @Shadow
+    protected abstract void onItemChanged(ItemStack p_218866_);
 
     @Inject(method = "hurt", cancellable = true, at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/decoration/ItemFrame;dropItem(Lnet/minecraft/world/entity/Entity;Z)V"))
     private void arclight$damageNonLiving(DamageSource source, float amount, CallbackInfoReturnable<Boolean> cir) {

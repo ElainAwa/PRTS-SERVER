@@ -35,7 +35,8 @@ public abstract class CommandSourceStackMixin implements CommandSourceBridge {
     @Shadow @Final private int permissionLevel;
     // @formatter:on
 
-    @Shadow public abstract ServerLevel getLevel();
+    @Shadow
+    public abstract ServerLevel getLevel();
 
     @Override
     public void bridge$setSource(CommandSource source) {

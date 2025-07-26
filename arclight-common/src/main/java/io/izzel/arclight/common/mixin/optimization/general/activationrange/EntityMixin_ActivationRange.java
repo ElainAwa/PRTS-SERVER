@@ -18,7 +18,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(Entity.class)
 public abstract class EntityMixin_ActivationRange implements EntityBridge_ActivationRange {
 
-    @Shadow public int tickCount;
+    @Shadow
+    public int tickCount;
     public ActivationRange.ActivationType activationType;
     public boolean defaultActivationState;
     public long activatedTick = Integer.MIN_VALUE;
@@ -27,11 +28,14 @@ public abstract class EntityMixin_ActivationRange implements EntityBridge_Activa
     @Shadow public abstract void refreshDimensions();
     // @formatter:on
 
-    @Shadow public abstract Level level();
+    @Shadow
+    public abstract Level level();
 
-    @Shadow public abstract AABB getBoundingBox();
+    @Shadow
+    public abstract AABB getBoundingBox();
 
-    @Shadow public abstract void discard();
+    @Shadow
+    public abstract void discard();
 
     @Inject(method = "<init>", at = @At("RETURN"))
     private void arclight$init(EntityType<?> entityTypeIn, Level worldIn, CallbackInfo ci) {

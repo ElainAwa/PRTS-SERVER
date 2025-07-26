@@ -26,7 +26,10 @@ public abstract class BowItemMixin extends ProjectileWeaponItem {
         super(builder);
     }
 
-    @Shadow public static float getPowerForTime(int charge) { return 0; }
+    @Shadow
+    public static float getPowerForTime(int charge) {
+        return 0;
+    }
 
     // @formatter:off
     @Shadow public abstract int getUseDuration(ItemStack stack);

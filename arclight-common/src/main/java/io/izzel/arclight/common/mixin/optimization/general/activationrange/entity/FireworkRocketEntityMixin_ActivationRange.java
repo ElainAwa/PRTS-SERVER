@@ -9,7 +9,8 @@ import org.spongepowered.asm.mixin.Shadow;
 @Mixin(FireworkRocketEntity.class)
 public abstract class FireworkRocketEntityMixin_ActivationRange extends EntityMixin_ActivationRange {
 
-    @Shadow public int lifetime;
+    @Shadow
+    public int lifetime;
     // @formatter:off
     @Shadow private int life;
 

@@ -29,7 +29,9 @@ public abstract class AllayMixin extends MobMixin {
     // @formatter:on
     private transient Allay arclight$duplicate;
 
-    @Shadow private void shadow$duplicateAllay() {}
+    @Shadow
+    private void shadow$duplicateAllay() {
+    }
 
     public void setCanDuplicate(boolean canDuplicate) {
         this.entityData.set(DATA_CAN_DUPLICATE, canDuplicate);

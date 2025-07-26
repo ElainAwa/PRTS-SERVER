@@ -33,7 +33,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(FireBlock.class)
 public abstract class FireBlockMixin extends BaseFireBlockMixin implements FireBlockBridge {
 
-    @Shadow @Final private Object2IntMap<net.minecraft.world.level.block.Block> burnOdds;
+    @Shadow
+    @Final
+    private Object2IntMap<net.minecraft.world.level.block.Block> burnOdds;
 
     // @formatter:off
     @Shadow protected abstract BlockState getStateForPlacement(BlockGetter blockReader, BlockPos pos);

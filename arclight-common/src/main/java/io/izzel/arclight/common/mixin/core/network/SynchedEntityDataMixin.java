@@ -22,8 +22,11 @@ import java.util.List;
 @Mixin(SynchedEntityData.class)
 public abstract class SynchedEntityDataMixin implements SynchedEntityDataBridge {
 
-    @Shadow private boolean isDirty;
-    @Shadow @Final private Entity entity;
+    @Shadow
+    private boolean isDirty;
+    @Shadow
+    @Final
+    private Entity entity;
 
     // @formatter:off
     @Shadow protected abstract <T> SynchedEntityData.DataItem<T> getItem(EntityDataAccessor<T> key);

@@ -22,7 +22,9 @@ import java.util.Collection;
 @Mixin(MapItemSavedData.HoldingPlayer.class)
 public abstract class MapItemSavedData_HoldingPlayerMixin {
 
-    @Shadow @Final public Player player;
+    @Shadow
+    @Final
+    public Player player;
     // @formatter:off
     @SuppressWarnings("target") @Shadow(aliases = {"this$0", "f_77961_"}, remap = false) private MapItemSavedData outerThis;
     @Shadow private boolean dirtyData;

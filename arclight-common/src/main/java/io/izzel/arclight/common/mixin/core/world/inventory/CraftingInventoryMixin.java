@@ -26,7 +26,9 @@ import java.util.List;
 @Mixin(TransientCraftingContainer.class)
 public abstract class CraftingInventoryMixin implements CraftingInventoryBridge, Container {
 
-    @Shadow @Final public AbstractContainerMenu menu;
+    @Shadow
+    @Final
+    public AbstractContainerMenu menu;
     public List<HumanEntity> transaction = new ArrayList<>();
     // @formatter:on
     public Container resultInventory;

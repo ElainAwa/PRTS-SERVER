@@ -91,19 +91,33 @@ import java.util.*;
 public abstract class EntityMixin implements InternalEntityBridge, EntityBridge, ICommandSourceBridge {
 
     private static final int CURRENT_LEVEL = 2;
-    @Shadow @Final private static EntityDataAccessor<Integer> DATA_AIR_SUPPLY_ID;
-    @Shadow public int remainingFireTicks;
-    @Shadow public boolean horizontalCollision;
-    @Shadow public int tickCount;
-    @Shadow public int invulnerableTime;
-    @Shadow public float fallDistance;
-    @Shadow public float walkDist;
-    @Shadow public float walkDistO;
-    @Shadow public double xo;
-    @Shadow public double yo;
-    @Shadow public double zo;
-    @Shadow public float yRotO;
-    @Shadow public ImmutableList<Entity> passengers;
+    @Shadow
+    @Final
+    private static EntityDataAccessor<Integer> DATA_AIR_SUPPLY_ID;
+    @Shadow
+    public int remainingFireTicks;
+    @Shadow
+    public boolean horizontalCollision;
+    @Shadow
+    public int tickCount;
+    @Shadow
+    public int invulnerableTime;
+    @Shadow
+    public float fallDistance;
+    @Shadow
+    public float walkDist;
+    @Shadow
+    public float walkDistO;
+    @Shadow
+    public double xo;
+    @Shadow
+    public double yo;
+    @Shadow
+    public double zo;
+    @Shadow
+    public float yRotO;
+    @Shadow
+    public ImmutableList<Entity> passengers;
     public boolean persist = true;
     public boolean generation;
     public boolean valid;
@@ -113,13 +127,22 @@ public abstract class EntityMixin implements InternalEntityBridge, EntityBridge,
     public BlockPos lastLavaContact;
     public int maxAirTicks = getDefaultMaxAirSupply();
     public boolean visibleByDefault = true;
-    @Shadow protected int boardingCooldown;
-    @Shadow @Final protected SynchedEntityData entityData;
-    @Shadow @Final protected RandomSource random;
-    @Shadow protected boolean onGround;
-    @Shadow protected UUID uuid;
-    @Shadow protected BlockPos portalEntrancePos;
-    @Shadow protected boolean firstTick;
+    @Shadow
+    protected int boardingCooldown;
+    @Shadow
+    @Final
+    protected SynchedEntityData entityData;
+    @Shadow
+    @Final
+    protected RandomSource random;
+    @Shadow
+    protected boolean onGround;
+    @Shadow
+    protected UUID uuid;
+    @Shadow
+    protected BlockPos portalEntrancePos;
+    @Shadow
+    protected boolean firstTick;
     // @formatter:off
     @Shadow private float yRot;
     @Shadow private float xRot;
@@ -298,31 +321,45 @@ public abstract class EntityMixin implements InternalEntityBridge, EntityBridge,
     @Shadow public abstract int getMaxAirSupply();
     // @formatter:on
 
-    @Shadow public abstract int getAirSupply();
+    @Shadow
+    public abstract int getAirSupply();
 
-    @Shadow public abstract void gameEvent(GameEvent p_146851_);
+    @Shadow
+    public abstract void gameEvent(GameEvent p_146851_);
 
-    @Shadow protected abstract SoundEvent getSwimSound();
+    @Shadow
+    protected abstract SoundEvent getSwimSound();
 
-    @Shadow protected abstract SoundEvent getSwimSplashSound();
+    @Shadow
+    protected abstract SoundEvent getSwimSplashSound();
 
-    @Shadow protected abstract SoundEvent getSwimHighSpeedSplashSound();
+    @Shadow
+    protected abstract SoundEvent getSwimHighSpeedSplashSound();
 
-    @Shadow public abstract boolean isShiftKeyDown();
+    @Shadow
+    public abstract boolean isShiftKeyDown();
 
-    @Shadow public abstract DamageSources damageSources();
+    @Shadow
+    public abstract DamageSources damageSources();
 
-    @Shadow @Nullable public abstract Entity getFirstPassenger();
+    @Shadow
+    @Nullable
+    public abstract Entity getFirstPassenger();
 
-    @Shadow public abstract boolean teleportTo(ServerLevel p_265257_, double p_265407_, double p_265727_, double p_265410_, Set<RelativeMovement> p_265083_, float p_265573_, float p_265094_);
+    @Shadow
+    public abstract boolean teleportTo(ServerLevel p_265257_, double p_265407_, double p_265727_, double p_265410_, Set<RelativeMovement> p_265083_, float p_265573_, float p_265094_);
 
-    @Shadow public abstract boolean isSpectator();
+    @Shadow
+    public abstract boolean isSpectator();
 
-    @Shadow public abstract SoundSource getSoundSource();
+    @Shadow
+    public abstract SoundSource getSoundSource();
 
-    @Shadow public abstract int getPortalCooldown();
+    @Shadow
+    public abstract int getPortalCooldown();
 
-    @Shadow public abstract void checkBelowWorld();
+    @Shadow
+    public abstract void checkBelowWorld();
 
     @Shadow
     protected abstract void setLevel(Level p_285201_);

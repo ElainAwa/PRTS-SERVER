@@ -27,11 +27,20 @@ import java.util.List;
 @Mixin(WitherBoss.class)
 public abstract class WitherBossMixin extends PathfinderMobMixin {
 
-    @Shadow @Final private static TargetingConditions TARGETING_CONDITIONS;
-    @Shadow @Final public ServerBossEvent bossEvent;
-    @Shadow @Final private int[] nextHeadUpdate;
-    @Shadow @Final private int[] idleHeadUpdates;
-    @Shadow private int destroyBlocksTick;
+    @Shadow
+    @Final
+    private static TargetingConditions TARGETING_CONDITIONS;
+    @Shadow
+    @Final
+    public ServerBossEvent bossEvent;
+    @Shadow
+    @Final
+    private int[] nextHeadUpdate;
+    @Shadow
+    @Final
+    private int[] idleHeadUpdates;
+    @Shadow
+    private int destroyBlocksTick;
 
     // @formatter:off
     @Shadow public abstract int getInvulnerableTicks();

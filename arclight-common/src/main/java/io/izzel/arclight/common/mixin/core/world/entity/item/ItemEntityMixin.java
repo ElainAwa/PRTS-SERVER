@@ -55,7 +55,8 @@ public abstract class ItemEntityMixin extends EntityMixin {
         }
     }
 
-    @Shadow public abstract ItemStack getItem();
+    @Shadow
+    public abstract ItemStack getItem();
 
     @Inject(method = "hurt", cancellable = true, at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/item/ItemEntity;markHurt()V"))
     private void arclight$damageNonLiving(DamageSource source, float amount, CallbackInfoReturnable<Boolean> cir) {

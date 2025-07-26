@@ -7,7 +7,6 @@ import net.minecraft.util.Unit;
 import net.minecraft.world.entity.player.Player;
 import org.bukkit.craftbukkit.v.entity.CraftHumanEntity;
 import org.bukkit.event.entity.EntityExhaustionEvent;
-import org.bukkit.Location;
 
 public interface PlayerEntityBridge extends LivingEntityBridge {
 

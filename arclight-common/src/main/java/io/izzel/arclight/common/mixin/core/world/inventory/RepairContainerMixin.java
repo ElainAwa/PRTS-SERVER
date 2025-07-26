@@ -31,7 +31,10 @@ public abstract class RepairContainerMixin extends ItemCombinerMixin {
     public int maximumRepairCost = 40;
     private CraftInventoryView bukkitEntity;
 
-    @Shadow public static int calculateIncreasedRepairCost(int oldRepairCost) { return 0; }
+    @Shadow
+    public static int calculateIncreasedRepairCost(int oldRepairCost) {
+        return 0;
+    }
 
     // Below overwrite is removed to support injecting into createResult()
     // See #1636

@@ -18,11 +18,9 @@ import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket;
-import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.level.Level;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.stats.Stat;
@@ -85,20 +83,34 @@ import java.util.Optional;
 @Mixin(net.minecraft.world.entity.player.Player.class)
 public abstract class PlayerMixin extends LivingEntityMixin implements PlayerEntityBridge, IForgePlayer {
 
-    @Shadow public int experienceLevel;
-    @Shadow public AbstractContainerMenu containerMenu;
-    @Shadow @Final public InventoryMenu inventoryMenu;
-    @Shadow public float experienceProgress;
-    @Shadow public int totalExperience;
-    @Shadow public int sleepCounter;
+    @Shadow
+    public int experienceLevel;
+    @Shadow
+    public AbstractContainerMenu containerMenu;
+    @Shadow
+    @Final
+    public InventoryMenu inventoryMenu;
+    @Shadow
+    public float experienceProgress;
+    @Shadow
+    public int totalExperience;
+    @Shadow
+    public int sleepCounter;
     public boolean fauxSleeping;
     public int oldLevel;
-    @Shadow protected FoodData foodData;
-    @Shadow protected PlayerEnderChestContainer enderChestInventory;
+    @Shadow
+    protected FoodData foodData;
+    @Shadow
+    protected PlayerEnderChestContainer enderChestInventory;
     protected transient boolean arclight$forceSleep;
-    @Shadow @Final private Abilities abilities;
-    @Shadow private long timeEntitySatOnShoulder;
-    @Shadow @Final private Inventory inventory;
+    @Shadow
+    @Final
+    private Abilities abilities;
+    @Shadow
+    private long timeEntitySatOnShoulder;
+    @Shadow
+    @Final
+    private Inventory inventory;
     private EntityExhaustionEvent.ExhaustionReason arclight$exhaustReason;
 
     // @formatter:off
@@ -149,13 +161,17 @@ public abstract class PlayerMixin extends LivingEntityMixin implements PlayerEnt
     @Shadow public abstract Inventory getInventory();
     // @formatter:on
 
-    @Shadow public abstract Abilities getAbilities();
+    @Shadow
+    public abstract Abilities getAbilities();
 
-    @Shadow public abstract Optional<GlobalPos> getLastDeathLocation();
+    @Shadow
+    public abstract Optional<GlobalPos> getLastDeathLocation();
 
-    @Shadow public abstract void setLastDeathLocation(Optional<GlobalPos> p_219750_);
+    @Shadow
+    public abstract void setLastDeathLocation(Optional<GlobalPos> p_219750_);
 
-    @Shadow public abstract void setRemainingFireTicks(int p_36353_);
+    @Shadow
+    public abstract void setRemainingFireTicks(int p_36353_);
 
     @Inject(method = "<init>", at = @At("RETURN"))
     private void arclight$init(CallbackInfo ci) {
@@ -623,8 +639,8 @@ public abstract class PlayerMixin extends LivingEntityMixin implements PlayerEnt
                 ServerLevel world = serverPlayer.getServer().getLevel(respawnDim);
                 if (world != null) {
                     return new org.bukkit.Location(
-                        ((io.izzel.arclight.common.bridge.core.world.server.ServerWorldBridge) world).bridge$getWorld(),
-                        respawnPos.getX(), respawnPos.getY(), respawnPos.getZ()
+                            ((io.izzel.arclight.common.bridge.core.world.server.ServerWorldBridge) world).bridge$getWorld(),
+                            respawnPos.getX(), respawnPos.getY(), respawnPos.getZ()
                     );
                 }
             }

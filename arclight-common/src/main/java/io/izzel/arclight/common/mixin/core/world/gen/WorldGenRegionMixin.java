@@ -13,7 +13,9 @@ import org.spongepowered.asm.mixin.Shadow;
 @Mixin(WorldGenRegion.class)
 public abstract class WorldGenRegionMixin implements WorldBridge {
 
-    @Shadow @Final private ServerLevel level;
+    @Shadow
+    @Final
+    private ServerLevel level;
 
     // @formatter:off
     @Shadow public abstract boolean addFreshEntity(Entity entityIn);

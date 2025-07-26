@@ -32,7 +32,9 @@ public abstract class MapDataMixin implements MapDataBridge {
     // @formatter:on
     public UUID uniqueId;
     public String id;
-    @Shadow @Final private List<MapItemSavedData.HoldingPlayer> carriedBy;
+    @Shadow
+    @Final
+    private List<MapItemSavedData.HoldingPlayer> carriedBy;
     private CraftServer server;
 
     @SuppressWarnings("OptionalUsedAsFieldOrParameterType")

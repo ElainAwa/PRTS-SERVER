@@ -40,7 +40,8 @@ public abstract class BoatItemMixin extends Item {
     }
     // @formatter:on
 
-    @Shadow protected abstract Boat getBoat(Level p_220017_, HitResult p_220018_);
+    @Shadow
+    protected abstract Boat getBoat(Level p_220017_, HitResult p_220018_);
 
     /**
      * @author IzzelAliz

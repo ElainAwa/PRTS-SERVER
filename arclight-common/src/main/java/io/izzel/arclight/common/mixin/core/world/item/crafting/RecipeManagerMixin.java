@@ -33,7 +33,9 @@ import java.util.Optional;
 @Mixin(RecipeManager.class)
 public abstract class RecipeManagerMixin implements RecipeManagerBridge {
 
-    @Shadow @Final private static Logger LOGGER;
+    @Shadow
+    @Final
+    private static Logger LOGGER;
     // @formatter:off
     @Shadow public Map<RecipeType<?>, Map<ResourceLocation, Recipe<?>>> recipes;
     @Shadow private boolean hasErrors;

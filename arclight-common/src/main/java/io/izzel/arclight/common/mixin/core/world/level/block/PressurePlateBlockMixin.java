@@ -33,7 +33,8 @@ public abstract class PressurePlateBlockMixin extends BasePressurePlateBlockMixi
     }
     // @formatter:on
 
-    @Shadow protected abstract int getSignalForState(BlockState state);
+    @Shadow
+    protected abstract int getSignalForState(BlockState state);
 
     /**
      * @author IzzelAliz

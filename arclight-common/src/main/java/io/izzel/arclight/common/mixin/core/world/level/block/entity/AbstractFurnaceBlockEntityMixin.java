@@ -60,7 +60,9 @@ public abstract class AbstractFurnaceBlockEntityMixin extends LockableBlockEntit
     // @formatter:off
     @Shadow protected NonNullList<ItemStack> items;
     // @formatter:on
-    @Shadow @Final private Object2IntOpenHashMap<ResourceLocation> recipesUsed;
+    @Shadow
+    @Final
+    private Object2IntOpenHashMap<ResourceLocation> recipesUsed;
     private int maxStack = MAX_STACK;
 
     @Eject(method = "serverTick", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/block/entity/AbstractFurnaceBlockEntity;isLit()Z"),
@@ -103,13 +105,17 @@ public abstract class AbstractFurnaceBlockEntityMixin extends LockableBlockEntit
         ExperienceOrb.award(level, vec3, amount);
     }
 
-    @Shadow protected abstract int getBurnDuration(ItemStack stack);
+    @Shadow
+    protected abstract int getBurnDuration(ItemStack stack);
 
-    @Shadow protected abstract boolean isLit();
+    @Shadow
+    protected abstract boolean isLit();
 
-    @Shadow public abstract List<Recipe<?>> getRecipesToAwardAndPopExperience(ServerLevel p_154996_, Vec3 p_154997_);
+    @Shadow
+    public abstract List<Recipe<?>> getRecipesToAwardAndPopExperience(ServerLevel p_154996_, Vec3 p_154997_);
 
-    @Shadow protected abstract boolean canBurn(RegistryAccess p_266924_, @org.jetbrains.annotations.Nullable Recipe<?> p_155006_, NonNullList<ItemStack> p_155007_, int p_155008_);
+    @Shadow
+    protected abstract boolean canBurn(RegistryAccess p_266924_, @org.jetbrains.annotations.Nullable Recipe<?> p_155006_, NonNullList<ItemStack> p_155007_, int p_155008_);
 
     /**
      * @author IzzelAliz

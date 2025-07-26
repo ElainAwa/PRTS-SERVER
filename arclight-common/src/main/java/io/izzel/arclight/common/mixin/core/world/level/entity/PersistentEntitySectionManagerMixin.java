@@ -25,9 +25,15 @@ import java.util.stream.Collectors;
 @Mixin(PersistentEntitySectionManager.class)
 public abstract class PersistentEntitySectionManagerMixin<T extends EntityAccess> {
 
-    @Shadow @Final EntitySectionStorage<T> sectionStorage;
-    @Shadow @Final private EntityPersistentStorage<T> permanentStorage;
-    @Shadow @Final private Long2ObjectMap<PersistentEntitySectionManager.ChunkLoadStatus> chunkLoadStatuses;
+    @Shadow
+    @Final
+    EntitySectionStorage<T> sectionStorage;
+    @Shadow
+    @Final
+    private EntityPersistentStorage<T> permanentStorage;
+    @Shadow
+    @Final
+    private Long2ObjectMap<PersistentEntitySectionManager.ChunkLoadStatus> chunkLoadStatuses;
     @Unique
     private boolean arclight$fireEvent = false;
     // @formatter:on
