@@ -50,7 +50,6 @@
     "Registry_SimpleRegistryMixin",
     "StandardMessengerMixin",
     "WatchdogThreadMixin",
-    "adventure.BukkitAdventureMixin",
     "adventure.ChatColorAdventureMixin",
     "adventure.CraftMagicNumbersAdventureMixin",
     "adventure.CraftPlayerAdventureMixin",
