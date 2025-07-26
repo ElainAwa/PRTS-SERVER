@@ -109,7 +109,13 @@ public class ComponentBridgeHandler {
             class Func implements Function<Component, Stream<? extends Component>> {
                 @Override
                 public Stream<? extends Component> apply(Component comp) {
-                    return createStream(comp);
+                    // Avoid infinite recursion by directly processing siblings
+                    List<Component> siblings = getSiblings(comp);
+                    if (siblings != null && !siblings.isEmpty()) {
+                        return Streams.concat(Stream.of(comp), siblings.stream());
+                    } else {
+                        return Stream.of(comp);
+                    }
                 }
             }
             List<Component> siblings = getSiblings(component);
