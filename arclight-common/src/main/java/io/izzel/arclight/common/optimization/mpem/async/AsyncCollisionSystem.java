@@ -87,9 +87,7 @@ public class AsyncCollisionSystem {
 
     private static boolean shouldProcessAsync(Entity entity) {
         var config = ArclightConfig.spec().getOptimization().getEntityOptimization();
-        double range = config.getEntityActivationRange();
-
-
+        double range = config.getEntityUpdateDistance();
         return entity.level().getNearestPlayer(entity, range) == null;
     }
 

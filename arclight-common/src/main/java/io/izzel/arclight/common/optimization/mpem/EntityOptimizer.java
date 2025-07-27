@@ -102,6 +102,29 @@ public class EntityOptimizer {
         return activeEntities.getOrDefault(entity, true);
     }
 
+    public static boolean shouldOptimizeEntityTick(Entity entity) {
+        if (entity instanceof Player) return false;
+        if (entity instanceof net.minecraft.world.entity.boss.EnderDragonPart) return false;
+        if (!(entity instanceof LivingEntity livingEntity)) return false;
+        if (!livingEntity.isAlive()) return false;
+        if (isAlwaysTicking(entity)) return false;
+        if (isBossMob(livingEntity)) return false;
+
+        var config = ArclightConfig.spec().getOptimization().getEntityOptimization();
+        double distance = config.getEntityUpdateDistance();
+        Player nearestPlayer = entity.level().getNearestPlayer(entity, distance);
+
+        if (nearestPlayer == null) {
+            return true;
+        }
+
+        if (nearestPlayer.distanceToSqr(entity) > distance * distance * 4) {
+            return true;
+        }
+
+        return false;
+    }
+
     public static boolean shouldReduceEntityUpdates(Entity entity) {
         var config = ArclightConfig.spec().getOptimization().getEntityOptimization();
 

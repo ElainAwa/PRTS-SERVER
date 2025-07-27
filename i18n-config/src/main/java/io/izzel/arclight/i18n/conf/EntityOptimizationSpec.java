@@ -124,4 +124,9 @@ public class EntityOptimizationSpec {
     public int getChunkEntityLimit() {
         return chunkEntityLimit;
     }
+
+    // Compatibility method for legacy code
+    public double getEntityActivationRange() {
+        return entityUpdateDistance;
+    }
 }
