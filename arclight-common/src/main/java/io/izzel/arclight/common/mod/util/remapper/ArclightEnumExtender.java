@@ -1,6 +1,6 @@
 package io.izzel.arclight.common.mod.util.remapper;
 
-import org.apache.logging.log4j.LogManager;
+import io.izzel.arclight.common.mod.util.log.ArclightI18nLogger;
 import org.apache.logging.log4j.Logger;
 import org.bukkit.NamespacedKey;
 import org.objectweb.asm.Opcodes;
@@ -17,7 +17,7 @@ import static io.izzel.arclight.common.mod.util.remapper.ArclightRedirectAdapter
 @SuppressWarnings("unused")
 public class ArclightEnumExtender {
 
-    private static final Logger LOGGER = LogManager.getLogger("EnumExtender");
+    private static final Logger LOGGER = ArclightI18nLogger.getLogger("EnumExtender");
 
     public static void process(ClassNode node, List<String> names) {
         String desc = Type.getObjectType(node.name).getDescriptor();
@@ -34,7 +34,7 @@ public class ArclightEnumExtender {
                     boolean found = false;
                     if (name.startsWith(NamespacedKey.MINECRAFT + ":")) {
                         if (!set.contains(standardize(name.substring(NamespacedKey.MINECRAFT.length() + 1)))) {
-                            LOGGER.warn("Expect {} found in {}, but not", name, node.name);
+                            LOGGER.warn("enum.not-found-warning", name, node.name);
                         } else found = true;
                     }
                     if (!found) {

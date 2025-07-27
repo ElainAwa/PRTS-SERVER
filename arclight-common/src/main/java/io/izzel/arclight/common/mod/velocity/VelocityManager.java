@@ -37,10 +37,10 @@ public class VelocityManager {
         if (VelocityConfig.INSTANCE.isVelocityForwardingEnabled()) {
             String secret = VelocityConfig.INSTANCE.getForwardingSecret();
             this.velocityForwarding = new VelocityForwarding(secret);
-            LOGGER.info("Velocity Modern Forwarding enabled");
+            LOGGER.info("velocity.enabled");
         } else {
             this.velocityForwarding = null;
-            LOGGER.info("Velocity Modern Forwarding disabled");
+            LOGGER.info("velocity.disabled");
         }
     }
 
@@ -66,9 +66,9 @@ public class VelocityManager {
             JsonObject result = new Gson().fromJson(reader, JsonObject.class);
             result.get("entries").getAsJsonArray().iterator()
                     .forEachRemaining(element -> integratedArgumentTypes.add(element.getAsString()));
-            LOGGER.debug("Loaded {} integrated argument types", integratedArgumentTypes.size());
+            LOGGER.debug("velocity.loaded-argument-types", integratedArgumentTypes.size());
         } catch (IOException e) {
-            LOGGER.warn("Failed to load integrated argument types, using defaults", e);
+            LOGGER.warn("velocity.failed-load-argument-types", e);
             // Add some basic types as fallback
             integratedArgumentTypes.add("brigadier:bool");
             integratedArgumentTypes.add("brigadier:float");

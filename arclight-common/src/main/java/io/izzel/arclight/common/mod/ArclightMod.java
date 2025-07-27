@@ -51,7 +51,7 @@ public class ArclightMod {
     private void onServerAboutToStart(ServerAboutToStartEvent event) {
         // Initialize Velocity forwarding
         VelocityManager.getInstance().initialize();
-        LOGGER.info("Luminara server initialization completed");
+        LOGGER.info("server-initialization-completed");
     }
 
     private static class LoggingPrintStream extends PrintStream {

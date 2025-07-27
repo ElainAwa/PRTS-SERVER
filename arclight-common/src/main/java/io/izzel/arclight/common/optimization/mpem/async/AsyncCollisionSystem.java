@@ -1,5 +1,6 @@
 package io.izzel.arclight.common.optimization.mpem.async;
 
+import io.izzel.arclight.common.mod.util.log.ArclightI18nLogger;
 import io.izzel.arclight.common.optimization.mpem.MpemThreadManager;
 import io.izzel.arclight.i18n.ArclightConfig;
 import net.minecraft.server.level.ServerLevel;
@@ -9,7 +10,6 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
-import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.util.ArrayList;
@@ -17,7 +17,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 public class AsyncCollisionSystem {
-    private static final Logger LOGGER = LogManager.getLogger("Luminara-MPEM-AsyncCollision");
+    private static final Logger LOGGER = ArclightI18nLogger.getLogger("Luminara-MPEM-AsyncCollision");
     private static boolean initialized = false;
 
     public static void initialize() {
@@ -78,7 +78,7 @@ public class AsyncCollisionSystem {
             if (!entityData.isEmpty()) {
                 MpemThreadManager.runAsync(() -> processCollisionCalculations(entityData))
                         .exceptionally(throwable -> {
-                            LOGGER.warn("Error in async collision calculations", throwable);
+                            LOGGER.warn("optimization.async-collision.calculation-error", throwable);
                             return null;
                         });
             }
@@ -114,7 +114,7 @@ public class AsyncCollisionSystem {
             }
 
         } catch (Exception e) {
-            LOGGER.warn("Error in async collision processing for entity {}", entity.getType(), e);
+            LOGGER.warn("optimization.async-collision.processing-error", entity.getType(), e);
         }
     }
 
@@ -155,7 +155,7 @@ public class AsyncCollisionSystem {
                 boolean hasCollision = !nearbyEntities.isEmpty();
                 future.complete(hasCollision);
             } catch (Exception e) {
-                LOGGER.warn("Error in collision check", e);
+                LOGGER.warn("optimization.async-collision.check-error", e);
                 future.complete(false);
             }
         });

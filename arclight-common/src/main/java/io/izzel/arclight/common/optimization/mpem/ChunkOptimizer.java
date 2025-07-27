@@ -1,15 +1,18 @@
 package io.izzel.arclight.common.optimization.mpem;
 
+import io.izzel.arclight.common.mod.util.log.ArclightI18nLogger;
 import io.izzel.arclight.i18n.ArclightConfig;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
+import org.apache.logging.log4j.Logger;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class ChunkOptimizer {
+    private static final Logger LOGGER = ArclightI18nLogger.getLogger("ChunkOptimizer");
     private static final Map<ChunkPos, Long> chunkAccessTimes = new ConcurrentHashMap<>();
 
     @SubscribeEvent
@@ -32,18 +35,24 @@ public class ChunkOptimizer {
         }
 
         // Unload inactive chunks
+        int unloadedCount = 0;
         chunkAccessTimes.entrySet().removeIf(entry -> {
             if (currentTime - entry.getValue() > unloadThreshold) {
                 for (ServerLevel level : event.getServer().getAllLevels()) {
                     if (level.getChunkSource().hasChunk(entry.getKey().x, entry.getKey().z)) {
                         // Trigger chunk unloading
                         level.getChunkSource().tick(() -> true, true);
+                        LOGGER.debug("optimization.chunk.unloading", entry.getKey().x, entry.getKey().z, level.dimension().location());
                     }
                 }
                 return true;
             }
             return false;
         });
+
+        if (unloadedCount > 0) {
+            LOGGER.info("optimization.chunk.unloaded", unloadedCount);
+        }
 
     }
 

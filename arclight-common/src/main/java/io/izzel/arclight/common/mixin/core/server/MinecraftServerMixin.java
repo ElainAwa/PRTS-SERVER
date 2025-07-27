@@ -4,6 +4,7 @@ import com.mojang.datafixers.DataFixer;
 import io.izzel.arclight.api.ArclightVersion;
 import io.izzel.arclight.common.bridge.core.command.ICommandSourceBridge;
 import io.izzel.arclight.common.bridge.core.server.MinecraftServerBridge;
+import io.izzel.arclight.common.mod.util.log.ArclightI18nLogger;
 import io.izzel.arclight.common.bridge.core.world.WorldBridge;
 import io.izzel.arclight.common.mod.ArclightConstants;
 import io.izzel.arclight.common.mod.server.BukkitRegistry;
@@ -95,6 +96,7 @@ public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<T
     @Shadow
     @Final
     static Logger LOGGER;
+    private static final org.apache.logging.log4j.Logger ARCLIGHT_LOGGER = ArclightI18nLogger.getLogger("MinecraftServer");
     private static int currentTick = (int) (System.currentTimeMillis() / 50);
     public final double[] recentTps = new double[3];
     private final Object stopLock = new Object();
@@ -267,11 +269,14 @@ public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<T
     @Overwrite
     protected void runServer() {
         try {
+            ARCLIGHT_LOGGER.info("server.starting");
             if (!this.initServer()) {
                 throw new IllegalStateException("Failed to initialize server");
             }
             ServerLifecycleHooks.handleServerStarted((MinecraftServer) (Object) this);
-            this.nextTickTime = Util.getMillis();
+            long endTime = Util.getMillis();
+            ARCLIGHT_LOGGER.info("server.started", endTime - this.nextTickTime);
+            this.nextTickTime = endTime;
             this.statusIcon = this.loadStatusIcon().orElse(null);
             this.status = this.buildServerStatus();
 
@@ -284,7 +289,7 @@ public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<T
                     long j = i / 50L;
 
                     if (server.getWarnOnOverload()) {
-                        LOGGER.warn("Can't keep up! Is the server overloaded? Running {}ms or {} ticks behind", i, j);
+                        ARCLIGHT_LOGGER.warn("server.overload-warning", i, j);
                     }
 
                     this.nextTickTime += j * 50L;
@@ -319,17 +324,18 @@ public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<T
                 this.isReady = true;
                 JvmProfiler.INSTANCE.onServerTick(this.averageTickTime);
             }
+            ARCLIGHT_LOGGER.info("server.stopping");
             ServerLifecycleHooks.handleServerStopping((MinecraftServer) (Object) this);
             ServerLifecycleHooks.expectServerStopped(); // has to come before finalTick to avoid race conditions
         } catch (Throwable throwable1) {
-            LOGGER.error("Encountered an unexpected exception", throwable1);
+            ARCLIGHT_LOGGER.error("server.unexpected-exception", throwable1);
             CrashReport crashreport = constructOrExtractCrashReport(throwable1);
             this.fillSystemReport(crashreport.getSystemReport());
             File file1 = new File(new File(this.getServerDirectory(), "crash-reports"), "crash-" + Util.getFilenameFormattedDateTime() + "-server.txt");
             if (crashreport.saveToFile(file1)) {
-                LOGGER.error("This crash report has been saved to: {}", file1.getAbsolutePath());
+                ARCLIGHT_LOGGER.error("server.crash-report-saved", file1.getAbsolutePath());
             } else {
-                LOGGER.error("We were unable to save this crash report to disk.");
+                ARCLIGHT_LOGGER.error("server.crash-report-failed");
             }
 
             net.minecraftforge.server.ServerLifecycleHooks.expectServerStopped(); // Forge: Has to come before MinecraftServer#onServerCrash to avoid race conditions
@@ -348,6 +354,7 @@ public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<T
                 // Shutdown async world save executor
                 arclight$shutdownAsyncSaveExecutor();
                 ServerLifecycleHooks.handleServerStopped((MinecraftServer) (Object) this);
+                ARCLIGHT_LOGGER.info("server.stopped");
                 this.onServerExit();
             }
         }
@@ -451,6 +458,7 @@ public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<T
 
         ServerLevel serverworld = this.overworld();
         this.forceTicks = true;
+        ARCLIGHT_LOGGER.info("world.loading", serverworld.dimension().location());
         LOGGER.info("Preparing start region for dimension {}", serverworld.dimension().location());
         BlockPos blockpos = serverworld.getSharedSpawnPos();
         listener.updateSpawnPos(new ChunkPos(blockpos));
@@ -483,6 +491,7 @@ public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<T
                 }
             }
             Bukkit.getPluginManager().callEvent(new WorldLoadEvent(((WorldBridge) serverWorld).bridge$getWorld()));
+            ARCLIGHT_LOGGER.info("world.loaded", ((WorldBridge) serverWorld).bridge$getWorld().getName());
         }
 
         this.executeModerately();
@@ -494,6 +503,8 @@ public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<T
     // bukkit methods
     public void initWorld(ServerLevel serverWorld, ServerLevelData worldInfo, WorldData saveData, WorldOptions worldOptions) {
         var config = io.izzel.arclight.i18n.ArclightConfig.spec().getOptimization().getWorldCreation();
+
+        ARCLIGHT_LOGGER.info("world.creating", ((WorldBridge) serverWorld).bridge$getWorld().getName());
 
         boolean flag = saveData.isDebugWorld();
         if (((WorldBridge) serverWorld).bridge$getGenerator() != null) {
@@ -527,6 +538,8 @@ public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<T
             }
             worldInfo.setInitialized(true);
         }
+
+        ARCLIGHT_LOGGER.info("world.created", ((WorldBridge) serverWorld).bridge$getWorld().getName());
     }
 
     // bukkit methods
@@ -640,7 +653,7 @@ public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<T
      */
     private void arclight$saveWorldAsync(ServerLevel level, boolean suppressLog, boolean flush, boolean forced) {
         if (!suppressLog) {
-            LOGGER.debug("Saving world: {}", level.dimension().location());
+            ARCLIGHT_LOGGER.debug("world.saving", level.dimension().location());
         }
 
         try {
@@ -648,10 +661,10 @@ public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<T
             level.save(null, flush, level.noSave && !forced);
 
             if (!suppressLog) {
-                LOGGER.debug("World {} saved successfully", level.dimension().location());
+                ARCLIGHT_LOGGER.debug("world.saved-successfully", level.dimension().location());
             }
         } catch (Exception e) {
-            LOGGER.error("Error saving world {}", level.dimension().location(), e);
+            ARCLIGHT_LOGGER.error("world.save-error", level.dimension().location(), e);
         }
     }
 

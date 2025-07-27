@@ -1,16 +1,16 @@
 package io.izzel.arclight.common.optimization.mpem;
 
 import io.izzel.arclight.common.mod.command.LuminaraCommand;
+import io.izzel.arclight.common.mod.util.log.ArclightI18nLogger;
 import io.izzel.arclight.common.optimization.mpem.async.AsyncAIManager;
 import io.izzel.arclight.common.optimization.mpem.async.AsyncCollisionSystem;
 import io.izzel.arclight.common.optimization.mpem.async.AsyncRedstoneManager;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
-import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 public class OptimizationManager {
-    private static final Logger LOGGER = LogManager.getLogger("Luminara-MPEM-Manager");
+    private static final Logger LOGGER = ArclightI18nLogger.getLogger("Luminara-MPEM-Manager");
     private static boolean initialized = false;
 
     public static void initialize(FMLCommonSetupEvent event) {
@@ -50,7 +50,7 @@ public class OptimizationManager {
             AsyncRedstoneManager.shutdown();
             MpemThreadManager.shutdown();
         } catch (Exception e) {
-            LOGGER.error("Error during optimization systems shutdown", e);
+            LOGGER.error("optimization.manager.shutdown-error", e);
         }
     }
 

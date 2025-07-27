@@ -5,6 +5,7 @@ import io.izzel.arclight.common.bridge.core.command.ICommandSourceBridge;
 import io.izzel.arclight.common.bridge.core.entity.EntityBridge;
 import io.izzel.arclight.common.bridge.core.entity.player.ServerPlayerEntityBridge;
 import io.izzel.arclight.common.bridge.core.tileentity.SignTileEntityBridge;
+import io.izzel.arclight.common.mod.util.log.ArclightI18nLogger;
 import net.minecraft.commands.CommandSource;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.core.BlockPos;
@@ -47,6 +48,8 @@ import java.util.function.UnaryOperator;
 @Mixin(SignBlockEntity.class)
 public abstract class SignBlockEntityMixin extends BlockEntityMixin implements SignTileEntityBridge, CommandSource, ICommandSourceBridge {
 
+    private static final org.apache.logging.log4j.Logger ARCLIGHT_LOGGER = ArclightI18nLogger.getLogger("SignBlockEntity");
+
     @Shadow
     @Final
     private static Logger LOGGER;
@@ -81,7 +84,7 @@ public abstract class SignBlockEntityMixin extends BlockEntityMixin implements S
             this.setAllowedPlayerEditor(null);
             this.level.sendBlockUpdated(this.getBlockPos(), this.getBlockState(), this.getBlockState(), 3);
         } else {
-            LOGGER.warn("Player {} just tried to change non-editable sign", p_278048_.getName().getString());
+            ARCLIGHT_LOGGER.warn("sign.non-editable-warning", p_278048_.getName().getString());
             ((ServerPlayer) p_278048_).connection.send(this.getUpdatePacket());
         }
     }

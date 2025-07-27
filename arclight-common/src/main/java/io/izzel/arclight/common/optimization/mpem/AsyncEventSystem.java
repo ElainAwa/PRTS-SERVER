@@ -1,9 +1,9 @@
 package io.izzel.arclight.common.optimization.mpem;
 
+import io.izzel.arclight.common.mod.util.log.ArclightI18nLogger;
 import io.izzel.arclight.i18n.ArclightConfig;
 import net.minecraftforge.eventbus.api.Event;
 import net.minecraftforge.fml.loading.FMLEnvironment;
-import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.util.Map;
@@ -13,7 +13,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class AsyncEventSystem {
-    private static final Logger LOGGER = LogManager.getLogger("Luminara-AsyncEvent");
+    private static final Logger LOGGER = ArclightI18nLogger.getLogger("Luminara-AsyncEvent");
     private static final AtomicBoolean initialized = new AtomicBoolean(false);
     private static final Map<Class<? extends Event>, EventTypeInfo> eventTypeInfos = new ConcurrentHashMap<>();
     private static final AtomicLong totalAsyncTasks = new AtomicLong(0);
@@ -118,10 +118,10 @@ public class AsyncEventSystem {
 
                 if (config.isDisableOnError() && info.failedCount.get() > 3) {
                     info.healthy = false;
-                    LOGGER.warn("Disabling async for event type due to errors: {}", eventType.getName());
+                    LOGGER.warn("optimization.async-event.disabled-due-to-errors", eventType.getName());
                 }
 
-                LOGGER.error("Error in async event handler for {}", eventType.getName(), e);
+                LOGGER.error("optimization.async-event.handler-error", eventType.getName(), e);
                 throw new RuntimeException(e);
             }
         }, asyncExecutor).orTimeout(config.getTimeoutSeconds(), TimeUnit.SECONDS);
@@ -144,7 +144,7 @@ public class AsyncEventSystem {
             return v;
         });
 
-        LOGGER.debug("Registered async event: {}", eventType.getName());
+        LOGGER.debug("optimization.async-event.registered", eventType.getName());
     }
 
     public static void registerSyncEvent(Class<? extends Event> eventType) {

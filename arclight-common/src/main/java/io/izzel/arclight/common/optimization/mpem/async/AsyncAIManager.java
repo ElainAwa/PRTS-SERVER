@@ -1,5 +1,6 @@
 package io.izzel.arclight.common.optimization.mpem.async;
 
+import io.izzel.arclight.common.mod.util.log.ArclightI18nLogger;
 import io.izzel.arclight.common.optimization.mpem.MpemThreadManager;
 import io.izzel.arclight.i18n.ArclightConfig;
 import net.minecraft.server.level.ServerLevel;
@@ -8,7 +9,6 @@ import net.minecraft.world.entity.Mob;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
-import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.util.ArrayList;
@@ -16,7 +16,7 @@ import java.util.List;
 
 
 public class AsyncAIManager {
-    private static final Logger LOGGER = LogManager.getLogger("Luminara-MPEM-AsyncAI");
+    private static final Logger LOGGER = ArclightI18nLogger.getLogger("Luminara-MPEM-AsyncAI");
     private static boolean initialized = false;
 
     public static void initialize() {
@@ -75,7 +75,7 @@ public class AsyncAIManager {
             if (!mobData.isEmpty()) {
                 MpemThreadManager.runAsync(() -> processAICalculations(mobData))
                         .exceptionally(throwable -> {
-                            LOGGER.warn("Error in async AI calculations", throwable);
+                            LOGGER.warn("optimization.async-ai.calculation-error", throwable);
                             return null;
                         });
             }
@@ -105,7 +105,7 @@ public class AsyncAIManager {
             }
 
         } catch (Exception e) {
-            LOGGER.warn("Error in async AI processing for mob {}", mob.getType(), e);
+            LOGGER.warn("optimization.async-ai.processing-error", mob.getType(), e);
         }
     }
 

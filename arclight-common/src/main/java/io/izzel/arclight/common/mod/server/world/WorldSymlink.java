@@ -26,7 +26,7 @@ public class WorldSymlink {
         } catch (UnsupportedOperationException e) {
             ArclightMod.LOGGER.warn("error-symlink", e);
         } catch (IOException e) {
-            ArclightMod.LOGGER.error("Error creating symlink", e);
+            ArclightMod.LOGGER.error("symlink.create-error", e);
         }
     }
 }

@@ -18,6 +18,7 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.StreamSupport;
 import java.util.regex.Pattern;
 
 public class EntityCleaner {
@@ -63,6 +64,7 @@ public class EntityCleaner {
 
         if (scheduledCleanup != null && !scheduledCleanup.isDone()) {
             scheduledCleanup.cancel(false);
+            LOGGER.info("optimization.entity-cleanup.cancelled");
         }
 
         if (!config.isCleanupNotificationEnabled()) {
@@ -98,6 +100,13 @@ public class EntityCleaner {
             var config = ArclightConfig.spec().getOptimization().getEntityOptimization();
             int cleanupThreshold = config.getEntityCleanupThreshold();
 
+            // Estimate entities to clean
+            int estimatedEntities = 0;
+            for (ServerLevel level : server.getAllLevels()) {
+                estimatedEntities += (int) StreamSupport.stream(level.getEntities().getAll().spliterator(), false).count();
+            }
+            LOGGER.info("optimization.entity-cleanup.starting", estimatedEntities);
+
             int totalCleaned = 0;
             CleanupStats stats = new CleanupStats();
 
@@ -126,7 +135,7 @@ public class EntityCleaner {
             }
 
             if (totalCleaned > 0) {
-                LOGGER.info("Luminara-MPEM entity cleanup completed. Removed {} entities (Dead: {}, Items: {}, Dense: {}, Excess: {})",
+                LOGGER.info("optimization.entity-cleanup.mpem-completed",
                         totalCleaned, stats.deadEntities, stats.oldItems, stats.denseEntities, stats.excessEntities);
             }
 

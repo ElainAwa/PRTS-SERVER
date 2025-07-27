@@ -15,6 +15,7 @@ import io.izzel.arclight.common.bridge.core.world.WorldBridge;
 import io.izzel.arclight.common.mod.ArclightConstants;
 import io.izzel.arclight.common.mod.server.ArclightServer;
 import io.izzel.arclight.common.mod.util.ArclightCaptures;
+import io.izzel.arclight.common.mod.util.log.ArclightI18nLogger;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import net.minecraft.ChatFormatting;
 import net.minecraft.advancements.CriteriaTriggers;
@@ -118,6 +119,7 @@ public abstract class ServerPlayNetHandlerMixin implements ServerPlayNetHandlerB
     @Shadow
     @Final
     private static Logger LOGGER;
+    private static final org.apache.logging.log4j.Logger ARCLIGHT_LOGGER = ArclightI18nLogger.getLogger("ServerPlayNetHandler");
     @Shadow
     public ServerPlayer player;
     @Shadow
@@ -784,8 +786,8 @@ public abstract class ServerPlayNetHandlerMixin implements ServerPlayNetHandlerB
                     } else {
                         ++this.dropCount;
                         if (this.dropCount >= 20) {
-                            LOGGER.warn(this.player.getScoreboardName() + " dropped their items too quickly!");
-                            this.disconnect("You dropped your items too quickly (Hacking?)");
+                            ARCLIGHT_LOGGER.warn("player.dropped-items-quickly", this.player.getScoreboardName());
+                            this.disconnect("player.dropped-items-disconnect");
                             return;
                         }
                     }
@@ -969,8 +971,8 @@ public abstract class ServerPlayNetHandlerMixin implements ServerPlayNetHandlerB
             this.player.getInventory().selected = packet.getSlot();
             this.player.resetLastActionTime();
         } else {
-            LOGGER.warn("{} tried to set an invalid carried item", this.player.getName().getString());
-            this.disconnect("Invalid hotbar selection (Hacking?)");
+            ARCLIGHT_LOGGER.warn("player.invalid-hotbar", this.player.getName().getString());
+            this.disconnect("player.invalid-hotbar-disconnect");
         }
     }
 
@@ -1025,7 +1027,7 @@ public abstract class ServerPlayNetHandlerMixin implements ServerPlayNetHandlerB
     @Overwrite
     private void performChatCommand(ServerboundChatCommandPacket packet, LastSeenMessages lastseenmessages) {
         String command = "/" + packet.command();
-        LOGGER.info(this.player.getScoreboardName() + " issued server command: " + command);
+        ARCLIGHT_LOGGER.info("player.command-issued", this.player.getScoreboardName(), command);
 
         PlayerCommandPreprocessEvent event = new PlayerCommandPreprocessEvent(getCraftPlayer(), command, new LazyPlayerSet(server));
         this.cserver.getPluginManager().callEvent(event);
@@ -1143,7 +1145,7 @@ public abstract class ServerPlayNetHandlerMixin implements ServerPlayNetHandlerB
 
     private void handleCommand(String s) {
         if (SpigotConfig.logCommands) {
-            LOGGER.info(this.player.getScoreboardName() + " issued server command: " + s);
+            ARCLIGHT_LOGGER.info("player.command-issued", this.player.getScoreboardName(), s);
         }
         CraftPlayer player = this.getCraftPlayer();
         PlayerCommandPreprocessEvent event = new PlayerCommandPreprocessEvent(player, s, new LazyPlayerSet(this.server));
@@ -1154,7 +1156,7 @@ public abstract class ServerPlayNetHandlerMixin implements ServerPlayNetHandlerB
         try {
             this.cserver.dispatchCommand(event.getPlayer(), event.getMessage().substring(1));
         } catch (CommandRuntimeException ex) {
-            player.sendMessage(ChatColor.RED + "An internal error occurred while attempting to perform this command");
+            player.sendMessage(ChatColor.RED + "player.internal-command-error");
             java.util.logging.Logger.getLogger(ServerGamePacketListenerImpl.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
@@ -1167,10 +1169,10 @@ public abstract class ServerPlayNetHandlerMixin implements ServerPlayNetHandlerB
     private void broadcastChatMessage(PlayerChatMessage playerchatmessage) {
         String s = playerchatmessage.signedContent();
         if (s == null || s.isEmpty()) {
-            LOGGER.warn(this.player.getScoreboardName() + " tried to send an empty message");
+            ARCLIGHT_LOGGER.warn("chat.empty-message-warning", this.player.getScoreboardName());
         } else if (s.length() > 256) { // Validate message length
-            LOGGER.warn(this.player.getScoreboardName() + " tried to send a message that is too long: " + s.length() + " characters");
-            this.disconnect("Chat message too long!");
+            ARCLIGHT_LOGGER.warn("chat.long-message-warning", this.player.getScoreboardName(), s.length());
+            this.disconnect("chat.message-too-long");
         } else if (getCraftPlayer().isConversing()) {
             final String conversationInput = s;
             ((MinecraftServerBridge) this.server).bridge$queuedProcess(() -> getCraftPlayer().acceptConversationInput(conversationInput));
