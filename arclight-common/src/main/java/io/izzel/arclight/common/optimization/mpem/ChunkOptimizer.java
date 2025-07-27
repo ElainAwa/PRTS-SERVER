@@ -45,19 +45,6 @@ public class ChunkOptimizer {
             return false;
         });
 
-        // Periodic cleanup
-        if (event.getServer().getTickCount() % (config.getChunkGcPeriod() * 20) == 0) {
-            performChunkGC(event.getServer());
-        }
-    }
-
-    private static void performChunkGC(net.minecraft.server.MinecraftServer server) {
-        var config = ArclightConfig.spec().getOptimization().getChunkOptimization();
-
-        for (ServerLevel level : server.getAllLevels()) {
-            // Force chunk garbage collection
-            level.getChunkSource().tick(() -> true, true);
-        }
     }
 
     public static void markChunkAccessed(ChunkPos pos) {
@@ -73,4 +60,6 @@ public class ChunkOptimizer {
         long threshold = config.getChunkUnloadDelay() * 1000L;
         return (System.currentTimeMillis() - lastAccess) < threshold;
     }
+
+
 }

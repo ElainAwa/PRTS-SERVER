@@ -9,12 +9,6 @@ public class EntityOptimizationSpec {
     @Setting("disable-entity-collisions")
     private boolean disableEntityCollisions = false;
 
-    @Setting("optimize-entity-ai")
-    private boolean optimizeEntityAI = true;
-
-    @Setting("entity-activation-range")
-    private int entityActivationRange = 32;
-
     @Setting("entity-cleanup-enabled")
     private boolean entityCleanupEnabled = true;
 
@@ -24,23 +18,8 @@ public class EntityOptimizationSpec {
     @Setting("entity-freeze-timeout")
     private long entityFreezeTimeout = 10000;
 
-    @Setting("optimize-entity-tick")
-    private boolean optimizeEntityTick = true;
-
-    @Setting("entity-tick-distance")
-    private double entityTickDistance = 64.0;
-
     @Setting("reduce-entity-updates")
     private boolean reduceEntityUpdates = true;
-
-    @Setting("entity-update-distance")
-    private double entityUpdateDistance = 64.0;
-
-    @Setting("max-entities-per-chunk")
-    private int maxEntitiesPerChunk = 50;
-
-    @Setting("max-entities-per-type")
-    private int maxEntitiesPerType = 100;
 
     @Setting("clean-valuable-items")
     private boolean cleanValuableItems = false;
@@ -63,16 +42,23 @@ public class EntityOptimizationSpec {
     @Setting("cleanup-cancelled-message")
     private String cleanupCancelledMessage = "&6[Luminara] &cEntity cleanup cancelled.";
 
+    @Setting("entity-check-interval")
+    private int entityCheckInterval = 200;
+
+    @Setting("entity-update-distance")
+    private double entityUpdateDistance = 64.0;
+
+    @Setting("max-entities-per-chunk")
+    private int maxEntitiesPerChunk = 100;
+
+    @Setting("max-entities-per-type")
+    private int maxEntitiesPerType = 150;
+
+    @Setting("chunk-entity-limit")
+    private int chunkEntityLimit = 20;
+
     public boolean isDisableEntityCollisions() {
         return disableEntityCollisions;
-    }
-
-    public boolean isOptimizeEntityAI() {
-        return optimizeEntityAI;
-    }
-
-    public int getEntityActivationRange() {
-        return entityActivationRange;
     }
 
     public boolean isEntityCleanupEnabled() {
@@ -87,28 +73,8 @@ public class EntityOptimizationSpec {
         return entityFreezeTimeout;
     }
 
-    public boolean isOptimizeEntityTick() {
-        return optimizeEntityTick;
-    }
-
-    public double getEntityTickDistance() {
-        return entityTickDistance;
-    }
-
     public boolean isReduceEntityUpdates() {
         return reduceEntityUpdates;
-    }
-
-    public double getEntityUpdateDistance() {
-        return entityUpdateDistance;
-    }
-
-    public int getMaxEntitiesPerChunk() {
-        return maxEntitiesPerChunk;
-    }
-
-    public int getMaxEntitiesPerType() {
-        return maxEntitiesPerType;
     }
 
     public boolean isCleanValuableItems() {
@@ -137,5 +103,25 @@ public class EntityOptimizationSpec {
 
     public String getCleanupCancelledMessage() {
         return cleanupCancelledMessage;
+    }
+
+    public int getEntityCheckInterval() {
+        return entityCheckInterval;
+    }
+
+    public double getEntityUpdateDistance() {
+        return entityUpdateDistance;
+    }
+
+    public int getMaxEntitiesPerChunk() {
+        return maxEntitiesPerChunk;
+    }
+
+    public int getMaxEntitiesPerType() {
+        return maxEntitiesPerType;
+    }
+
+    public int getChunkEntityLimit() {
+        return chunkEntityLimit;
     }
 }

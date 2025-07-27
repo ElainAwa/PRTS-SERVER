@@ -22,7 +22,7 @@ import java.util.regex.Pattern;
 
 public class EntityCleaner {
     private static final Logger LOGGER = LogManager.getLogger("Luminara-MPEM-EntityCleaner");
-    private static final int CLEAN_INTERVAL_TICKS = 12000; // 10 minutes
+    private static final int CLEAN_INTERVAL_TICKS = 12000;
     // Entity type patterns for filtering (similar to EClean's regex support)
     private static final Map<String, Pattern> entityPatterns = new ConcurrentHashMap<>();
     private static final Set<String> protectedEntityTypes = ConcurrentHashMap.newKeySet();
@@ -198,8 +198,9 @@ public class EntityCleaner {
     }
 
     private static int cleanupDenseChunks(ServerLevel level, CleanupStats stats) {
-        var config = ArclightConfig.spec().getOptimization().getEntityOptimization();
         int cleaned = 0;
+
+        var config = ArclightConfig.spec().getOptimization().getEntityOptimization();
         int maxEntitiesPerChunk = config.getMaxEntitiesPerChunk();
 
         for (Map.Entry<ChunkPos, Map<String, Integer>> chunkEntry : chunkEntityCounts.entrySet()) {
@@ -231,8 +232,8 @@ public class EntityCleaner {
             entityGroups.computeIfAbsent(entityType, k -> new ArrayList<>()).add(entity);
         }
 
-        // Clean excess entities of each type
         int maxEntitiesPerType = config.getMaxEntitiesPerType();
+
         for (Map.Entry<String, List<Entity>> entry : entityGroups.entrySet()) {
             List<Entity> entities = entry.getValue();
             if (entities.size() > maxEntitiesPerType) {
@@ -292,8 +293,9 @@ public class EntityCleaner {
                 return Double.compare(dist2, dist1);
             });
 
-            // Keep only 20 entities of this type in the chunk
-            for (int i = 20; i < entitiesToClean.size(); i++) {
+            var config = ArclightConfig.spec().getOptimization().getEntityOptimization();
+            int chunkEntityLimit = config.getChunkEntityLimit();
+            for (int i = chunkEntityLimit; i < entitiesToClean.size(); i++) {
                 entitiesToClean.get(i).discard();
                 cleaned++;
                 stats.denseEntities++;

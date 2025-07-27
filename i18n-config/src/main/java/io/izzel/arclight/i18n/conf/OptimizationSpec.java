@@ -28,6 +28,10 @@ public class OptimizationSpec {
     @Setting("async-system")
     private AsyncSystemSpec asyncSystem;
 
+    // World creation optimization settings
+    @Setting("world-creation")
+    private WorldCreationSpec worldCreation;
+
     public boolean isCachePluginClass() {
         return cachePluginClass;
     }
@@ -50,5 +54,9 @@ public class OptimizationSpec {
 
     public AsyncSystemSpec getAsyncSystem() {
         return asyncSystem != null ? asyncSystem : new AsyncSystemSpec();
+    }
+
+    public WorldCreationSpec getWorldCreation() {
+        return worldCreation != null ? worldCreation : new WorldCreationSpec();
     }
 }

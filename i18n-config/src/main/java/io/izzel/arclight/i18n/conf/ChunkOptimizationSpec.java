@@ -18,9 +18,6 @@ public class ChunkOptimizationSpec {
     @Setting("chunk-load-rate-limit")
     private int chunkLoadRateLimit = 10;
 
-    @Setting("chunk-gc-period")
-    private int chunkGcPeriod = 600;
-
     public boolean isAggressiveChunkUnloading() {
         return aggressiveChunkUnloading;
     }
@@ -35,9 +32,5 @@ public class ChunkOptimizationSpec {
 
     public int getChunkLoadRateLimit() {
         return chunkLoadRateLimit;
-    }
-
-    public int getChunkGcPeriod() {
-        return chunkGcPeriod;
     }
 }

@@ -16,29 +16,23 @@ public class EntitySyncOptimizer {
         Entity entity = event.getEntity();
 
         // Optimize entity synchronization for distant players
+        double updateDistance = config.getEntityUpdateDistance();
+
         if (entity instanceof ServerPlayer player) {
-            // Check if any other players are nearby
             boolean hasNearbyPlayers = entity.level().players().stream()
                     .filter(p -> p != player)
-                    .anyMatch(p -> p.distanceToSqr(entity) <= config.getEntityUpdateDistance() * config.getEntityUpdateDistance());
+                    .anyMatch(p -> p.distanceToSqr(entity) <= updateDistance * updateDistance);
 
-            // If no nearby players, reduce sync frequency
             if (!hasNearbyPlayers) {
-                // This would be handled by the network optimization mixins
-                // Here we just mark it for potential optimization
                 return;
             }
         }
 
-        // For non-player entities, check distance to all players
         if (!(entity instanceof ServerPlayer)) {
-            double updateDistance = config.getEntityUpdateDistance();
             boolean hasNearbyPlayers = entity.level().players().stream()
                     .anyMatch(p -> p.distanceToSqr(entity) <= updateDistance * updateDistance);
 
             if (!hasNearbyPlayers) {
-                // Mark entity for reduced update frequency
-                // This integrates with the existing network optimization system
                 return;
             }
         }

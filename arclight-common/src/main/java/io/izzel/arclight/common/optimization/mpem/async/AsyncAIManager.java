@@ -84,9 +84,7 @@ public class AsyncAIManager {
 
     private static boolean shouldProcessAsync(Mob mob) {
         var config = ArclightConfig.spec().getOptimization().getEntityOptimization();
-        double range = config.getEntityActivationRange();
-
-
+        double range = config.getEntityUpdateDistance();
         return mob.level().getNearestPlayer(mob, range) == null;
     }
 

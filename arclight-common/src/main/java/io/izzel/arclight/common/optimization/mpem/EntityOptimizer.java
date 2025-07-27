@@ -66,7 +66,7 @@ public class EntityOptimizer {
         var config = ArclightConfig.spec().getOptimization().getEntityOptimization();
 
 
-        if (event.getServer().getTickCount() % 200 == 0) {
+        if (event.getServer().getTickCount() % config.getEntityCheckInterval() == 0) {
             activeEntities.keySet().removeIf(e -> !e.isAlive());
             processInactiveEntities(config);
         }
@@ -99,66 +99,7 @@ public class EntityOptimizer {
     }
 
     public static boolean isEntityActive(Entity entity) {
-        var config = ArclightConfig.spec().getOptimization().getEntityOptimization();
-
-        if (!activeEntities.containsKey(entity)) {
-            updateEntityActivity(entity, config);
-        }
         return activeEntities.getOrDefault(entity, true);
-    }
-
-    private static void updateEntityActivity(Entity entity, io.izzel.arclight.i18n.conf.EntityOptimizationSpec config) {
-        boolean active = false;
-        double range = config.getEntityActivationRange();
-        double rangeSq = range * range;
-
-        // Check nearby players
-        for (Player player : entity.level().players()) {
-            if (player.distanceToSqr(entity) < rangeSq) {
-                active = true;
-                break;
-            }
-        }
-
-        // Check if in player view
-        if (!active) {
-            active = entity.level().getNearestPlayer(entity, range) != null;
-        }
-
-        activeEntities.put(entity, active);
-    }
-
-    public static boolean shouldOptimizeEntityTick(Entity entity) {
-        var config = ArclightConfig.spec().getOptimization().getEntityOptimization();
-
-        if (!config.isOptimizeEntityTick()) return false;
-        if (entity instanceof Player) return false;
-
-        // Don't optimize boss-related entities
-        if (entity instanceof net.minecraft.world.entity.boss.EnderDragonPart) return false;
-
-        if (!(entity instanceof LivingEntity livingEntity)) return false;
-        if (!livingEntity.isAlive()) return false;
-
-        // Always ticking entities bypass optimization
-        if (isAlwaysTicking(entity)) return false;
-
-        // Boss mobs don't get optimized
-        if (isBossMob(livingEntity)) return false;
-
-        double distance = config.getEntityTickDistance();
-        Player nearestPlayer = entity.level().getNearestPlayer(entity, distance);
-
-        if (nearestPlayer == null) {
-            return true; // No players nearby, can optimize
-        }
-
-        // Additional checks for very distant entities
-        if (nearestPlayer.distanceToSqr(entity) > distance * distance * 4) {
-            return true;
-        }
-
-        return false;
     }
 
     public static boolean shouldReduceEntityUpdates(Entity entity) {

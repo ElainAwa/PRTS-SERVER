@@ -8,6 +8,7 @@ import io.izzel.arclight.common.bridge.core.world.WorldBridge;
 import io.izzel.arclight.common.mod.ArclightConstants;
 import io.izzel.arclight.common.mod.server.BukkitRegistry;
 import io.izzel.arclight.common.mod.util.ArclightCaptures;
+import io.izzel.arclight.common.optimization.paper.WorldCreationOptimizer;
 import io.izzel.arclight.common.mod.util.BukkitOptionParser;
 import it.unimi.dsi.fastutil.longs.LongIterator;
 import joptsimple.OptionParser;
@@ -376,6 +377,9 @@ public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<T
             LOGGER.info("Starting async world save during server shutdown...");
             arclight$saveAllWorldsAsync(false, true, true);
         }
+
+        // Luminara - Cleanup world creation optimizer resources
+        WorldCreationOptimizer.shutdown();
     }
 
     @Inject(method = "createLevels", at = @At("RETURN"))
@@ -384,6 +388,8 @@ public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<T
         this.server.enablePlugins(PluginLoadOrder.POSTWORLD);
         BukkitRegistry.lockRegistries();
         this.server.getPluginManager().callEvent(new ServerLoadEvent(ServerLoadEvent.LoadType.STARTUP));
+
+
     }
 
     private void executeModerately() {
@@ -420,6 +426,9 @@ public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<T
         ServerLevel serverWorld = arclight$capturedLevel;
         arclight$capturedLevel = null;
         if (serverWorld != null) {
+            this.levels.put(serverWorld.dimension(), serverWorld);
+            WorldCreationOptimizer.optimizeWorldInit(serverWorld, serverWorld.serverLevelData);
+
             if (((CraftServer) Bukkit.getServer()).scoreboardManager == null) {
                 ((CraftServer) Bukkit.getServer()).scoreboardManager = new CraftScoreboardManager((MinecraftServer) (Object) this, serverWorld.getScoreboard());
             }
@@ -438,6 +447,8 @@ public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<T
      */
     @Overwrite
     public void prepareLevels(ChunkProgressListener listener) {
+        var config = io.izzel.arclight.i18n.ArclightConfig.spec().getOptimization().getWorldCreation();
+
         ServerLevel serverworld = this.overworld();
         this.forceTicks = true;
         LOGGER.info("Preparing start region for dimension {}", serverworld.dimension().location());
@@ -445,10 +456,14 @@ public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<T
         listener.updateSpawnPos(new ChunkPos(blockpos));
         ServerChunkCache serverchunkprovider = serverworld.getChunkSource();
         this.nextTickTime = Util.getMillis();
-        serverchunkprovider.addRegionTicket(TicketType.START, new ChunkPos(blockpos), 11, Unit.INSTANCE);
 
-        while (serverchunkprovider.getTickingGenerated() < 441) {
-            this.executeModerately();
+        int spawnRadius = config.getSpawnAreaRadius();
+        serverchunkprovider.addRegionTicket(TicketType.START, new ChunkPos(blockpos), spawnRadius, Unit.INSTANCE);
+        if (!config.isSkipSpawnChunkLoading()) {
+            int targetChunks = (spawnRadius * 2 + 1) * (spawnRadius * 2 + 1);
+            while (serverchunkprovider.getTickingGenerated() < targetChunks) {
+                this.executeModerately();
+            }
         }
 
         this.executeModerately();
@@ -478,17 +493,25 @@ public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<T
 
     // bukkit methods
     public void initWorld(ServerLevel serverWorld, ServerLevelData worldInfo, WorldData saveData, WorldOptions worldOptions) {
+        var config = io.izzel.arclight.i18n.ArclightConfig.spec().getOptimization().getWorldCreation();
+
         boolean flag = saveData.isDebugWorld();
         if (((WorldBridge) serverWorld).bridge$getGenerator() != null) {
             ((WorldBridge) serverWorld).bridge$getWorld().getPopulators().addAll(
                     ((WorldBridge) serverWorld).bridge$getGenerator().getDefaultPopulators(
                             ((WorldBridge) serverWorld).bridge$getWorld()));
         }
-        WorldBorder worldborder = serverWorld.getWorldBorder();
-        worldborder.applySettings(worldInfo.getWorldBorder());
+
+        if (config.isOptimizeWorldBorderSetup()) {
+            WorldBorder worldborder = serverWorld.getWorldBorder();
+            worldborder.applySettings(worldInfo.getWorldBorder());
+        }
+
         if (!worldInfo.isInitialized()) {
-            try {
-                setInitialSpawn(serverWorld, worldInfo, worldOptions.generateBonusChest(), flag);
+            try{
+                if (!config.isDeferSpawnAreaPreparation()) {
+                    setInitialSpawn(serverWorld, worldInfo, worldOptions.generateBonusChest(), flag);
+                }
                 worldInfo.setInitialized(true);
                 if (flag) {
                     this.setupDebugLevel(this.worldData);
