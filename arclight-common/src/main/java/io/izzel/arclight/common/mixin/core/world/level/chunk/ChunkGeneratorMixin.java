@@ -21,7 +21,6 @@ import net.minecraft.world.level.levelgen.structure.Structure;
 import net.minecraft.world.level.levelgen.structure.StructureSet;
 import net.minecraft.world.level.levelgen.structure.StructureStart;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplateManager;
-import org.bukkit.Bukkit;
 import org.bukkit.craftbukkit.v.generator.CraftLimitedRegion;
 import org.bukkit.craftbukkit.v.generator.structure.CraftStructure;
 import org.bukkit.craftbukkit.v.util.RandomSourceWrapper;
@@ -58,21 +57,33 @@ public abstract class ChunkGeneratorMixin implements ChunkGeneratorBridge {
     @Inject(method = "tryGenerateStructure", cancellable = true, locals = LocalCapture.CAPTURE_FAILHARD, at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/StructureManager;setStartForStructure(Lnet/minecraft/core/SectionPos;Lnet/minecraft/world/level/levelgen/structure/Structure;Lnet/minecraft/world/level/levelgen/structure/StructureStart;Lnet/minecraft/world/level/chunk/StructureAccess;)V"))
     private void arclight$structureSpawn(StructureSet.StructureSelectionEntry p_223105_, StructureManager manager, RegistryAccess registryAccess, RandomState p_223108_, StructureTemplateManager p_223109_, long p_223110_, ChunkAccess p_223111_, ChunkPos chunkPos, SectionPos p_223113_, CallbackInfoReturnable<Boolean> cir,
                                          Structure structure, int i, HolderSet<Biome> holderset, Predicate<Holder<Biome>> predicate, StructureStart structurestart) {
-        var box = structurestart.getBoundingBox();
-        var event = new org.bukkit.event.world.AsyncStructureSpawnEvent(((WorldBridge) ((IWorldBridge) manager.level).bridge$getMinecraftWorld()).bridge$getWorld(), CraftStructure.minecraftToBukkit(structure, registryAccess), new org.bukkit.util.BoundingBox(box.minX(), box.minY(), box.minZ(), box.maxX(), box.maxY(), box.maxZ()), chunkPos.x, chunkPos.z);
+        // Thread-safe structure spawn event handling
+        try {
+            var box = structurestart.getBoundingBox();
+            var world = ((WorldBridge) ((IWorldBridge) manager.level).bridge$getMinecraftWorld()).bridge$getWorld();
+            var boundingBox = new org.bukkit.util.BoundingBox(box.minX(), box.minY(), box.minZ(), box.maxX(), box.maxY(), box.maxZ());
 
-        // Check if we're on the primary thread, if not skip event call to avoid async errors
-        if (io.izzel.arclight.common.mod.server.ArclightServer.isPrimaryThread()) {
-            Bukkit.getPluginManager().callEvent(event);
-        } else {
-            // In non-primary threads, we don't call this event to avoid async errors
-            // This is a trade-off: skip structure spawn events during async chunk generation
-            org.slf4j.LoggerFactory.getLogger("Luminara").debug("Skipping AsyncStructureSpawnEvent in non-primary thread to avoid async error");
-            return;
-        }
+            var event = new org.bukkit.event.world.AsyncStructureSpawnEvent(
+                world,
+                CraftStructure.minecraftToBukkit(structure, registryAccess),
+                boundingBox,
+                chunkPos.x,
+                chunkPos.z
+            );
 
-        if (event.isCancelled()) {
-            cir.setReturnValue(true);
+            // Only call event if we're NOT on the primary thread (async context)
+            if (!io.izzel.arclight.common.mod.server.ArclightServer.isPrimaryThread()) {
+                org.bukkit.Bukkit.getPluginManager().callEvent(event);
+
+                if (event.isCancelled()) {
+                    cir.setReturnValue(true);
+                }
+            }
+            // If on primary thread, skip event to avoid IllegalStateException
+
+        } catch (Exception e) {
+            // Graceful fallback: log error and continue without event
+            org.slf4j.LoggerFactory.getLogger("Luminara").debug("Error in structure spawn event handling: {}", e.getMessage());
         }
     }
 

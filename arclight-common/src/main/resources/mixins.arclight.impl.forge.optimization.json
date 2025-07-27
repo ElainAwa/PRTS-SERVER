@@ -21,7 +21,6 @@
     "network.ServerGamePacketListenerImplMixin_Optimize",
     "network.ServerPlayerMixin_Optimize",
     "realtime.ItemEntityMixin_Realtime",
-    "realtime.PlayerInteractionManagerMixin_Realtime",
-    "trackingrange.ChunkManagerMixin_TrackingRange"
+    "realtime.PlayerInteractionManagerMixin_Realtime"
   ]
 }
