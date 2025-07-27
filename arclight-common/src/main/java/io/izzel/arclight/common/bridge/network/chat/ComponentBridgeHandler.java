@@ -55,7 +55,7 @@ public class ComponentBridgeHandler {
 
             if (getSiblingsMethod != null) {
                 METHOD_CACHE.put(componentClass, getSiblingsMethod);
-                LOGGER.info("ComponentBridgeHandler initialized successfully with method: " + getSiblingsMethod.getName());
+                LOGGER.debug("ComponentBridgeHandler initialized successfully with method: " + getSiblingsMethod.getName());
             } else {
                 LOGGER.error("Could not find getSiblings method in Component class");
             }

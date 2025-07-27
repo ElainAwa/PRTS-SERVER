@@ -375,7 +375,7 @@ public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<T
     public void arclight$asyncWorldSave(CallbackInfo ci) {
         if (io.izzel.arclight.i18n.ArclightConfig.spec().getAsyncWorldSave().isEnabled()) {
             LOGGER.info("Starting async world save during server shutdown...");
-            arclight$saveAllWorldsAsync(false, true, true);
+            arclight$saveAllWorldsAsync(true, true, true); // suppressLog = true to avoid duplicate message
         }
 
         // Luminara - Cleanup world creation optimizer resources
