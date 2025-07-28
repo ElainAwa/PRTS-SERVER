@@ -88,7 +88,7 @@ public abstract class ChunkHolderMixin implements ChunkHolderBridge {
                 }
             }).exceptionally((throwable) -> {
                 // ensure exceptions are printed, by default this is not the case
-                ArclightMod.LOGGER.fatal("Failed to schedule unload callback for chunk " + this.pos, throwable);
+                ArclightMod.LOGGER.fatal("chunk.unload-callback.failed", this.pos, throwable);
                 return null;
             });
 
@@ -111,7 +111,7 @@ public abstract class ChunkHolderMixin implements ChunkHolderBridge {
                 }
             }).exceptionally((throwable) -> {
                 // ensure exceptions are printed, by default this is not the case
-                ArclightMod.LOGGER.fatal("Failed to schedule load callback for chunk " + this.pos, throwable);
+                ArclightMod.LOGGER.fatal("chunk.load-callback.failed", this.pos, throwable);
                 return null;
             });
 

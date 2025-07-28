@@ -41,7 +41,7 @@ public class PacketThreadUtilMixin {
                         if (processor.shouldPropagateHandlingExceptions()) {
                             throw exception;
                         }
-                        LOGGER.error("Failed to handle packet {}, suppressing error", packetIn, exception);
+                        LOGGER.error("network.packet.handle-failed", packetIn, exception);
                     }
                 } else {
                     LOGGER.debug("Ignoring packet due to disconnection: " + packetIn);

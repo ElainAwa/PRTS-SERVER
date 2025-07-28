@@ -38,7 +38,7 @@ public class VelocityForwarding {
 
     public VelocityForwarding(String forwardingSecret) {
         this.forwardingSecret = forwardingSecret;
-        LOGGER.info("Velocity Modern Forwarding initialized");
+        LOGGER.info("velocity.forwarding.initialized");
     }
 
     @Nullable
@@ -79,7 +79,7 @@ public class VelocityForwarding {
             addressField.set(connection, new InetSocketAddress(forwardedAddress, port));
             LOGGER.debug("Set forwarded address via f_129469_: {}:{}", forwardedAddress, port);
         } catch (Exception e) {
-            LOGGER.warn("Failed to set forwarded address via f_129469_, trying alternatives", e);
+            LOGGER.warn("velocity.address.field-failed-trying-alternatives", e);
             // Try other possible field names
             try {
                 var addressField = connection.getClass().getDeclaredField("address");
@@ -87,12 +87,12 @@ public class VelocityForwarding {
                 addressField.set(connection, new InetSocketAddress(forwardedAddress, port));
                 LOGGER.debug("Set forwarded address via address field: {}:{}", forwardedAddress, port);
             } catch (Exception e2) {
-                LOGGER.warn("Failed to set address via reflection, trying bridge method", e2);
+                LOGGER.warn("velocity.address.reflection-failed-trying-bridge", e2);
                 // Try the bridge method as last resort
                 try {
                     ((NetworkManagerBridge) connection).bridge$setVelocityAddress(new InetSocketAddress(forwardedAddress, port));
                 } catch (Exception e3) {
-                    LOGGER.warn("Failed to set address via bridge", e3);
+                    LOGGER.warn("velocity.address.bridge-failed", e3);
                 }
             }
         }
@@ -109,7 +109,7 @@ public class VelocityForwarding {
             LOGGER.debug("Online-mode is disabled, trusting forwarded profile from Velocity");
         }
 
-        LOGGER.info("Successfully processed Velocity forwarding for player: {} (online-mode: {})",
+        LOGGER.info("velocity.forwarding.player-processed-successfully",
                 profile.getName(), velocityManager.getVelocityConfig().isOnlineMode());
         return profile;
     }
@@ -118,7 +118,7 @@ public class VelocityForwarding {
         LOGGER.debug("Checking Velocity packet integrity, readable bytes: {}", buf.readableBytes());
 
         if (buf.readableBytes() < 33) { // 32 bytes signature + at least 1 byte data
-            LOGGER.warn("Velocity packet too small: {} bytes", buf.readableBytes());
+            LOGGER.warn("velocity.packet.too-small", buf.readableBytes());
             return false;
         }
 
@@ -138,7 +138,7 @@ public class VelocityForwarding {
             LOGGER.debug("Expected signature length: {}, actual signature length: {}", mySignature.length, signature.length);
 
             if (!MessageDigest.isEqual(signature, mySignature)) {
-                LOGGER.warn("Velocity signature mismatch!");
+                LOGGER.warn("velocity.signature.mismatch");
                 LOGGER.debug("Expected: {}", bytesToHex(mySignature));
                 LOGGER.debug("Got: {}", bytesToHex(signature));
                 LOGGER.debug("Secret: {}", forwardingSecret);
@@ -148,7 +148,7 @@ public class VelocityForwarding {
 
             LOGGER.debug("Velocity signature verification successful");
         } catch (final InvalidKeyException | NoSuchAlgorithmException e) {
-            LOGGER.error("Error verifying Velocity signature", e);
+            LOGGER.error("velocity.signature.verification-error", e);
             throw new AssertionError(e);
         }
 

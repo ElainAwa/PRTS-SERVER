@@ -392,7 +392,7 @@ public class EntityCleaner {
     }
 
     public static void forceCleanup(net.minecraft.server.MinecraftServer server) {
-        LOGGER.info("Forcing entity cleanup...");
+        LOGGER.info("optimization.entity-cleaner.forcing-cleanup");
 
         // Cancel any scheduled cleanup
         if (scheduledCleanup != null && !scheduledCleanup.isDone()) {
@@ -423,7 +423,7 @@ public class EntityCleaner {
                 NotificationManager.broadcastMessage(server, cancelMessage);
             }
 
-            LOGGER.info("Scheduled entity cleanup cancelled");
+            LOGGER.info("optimization.entity-cleaner.scheduled-cancelled");
         }
     }
 

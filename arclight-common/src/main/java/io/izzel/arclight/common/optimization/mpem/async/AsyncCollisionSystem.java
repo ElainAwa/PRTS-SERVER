@@ -135,7 +135,7 @@ public class AsyncCollisionSystem {
             }
 
         } catch (Exception e) {
-            LOGGER.warn("Error handling async collision between {} and {}",
+            LOGGER.warn("optimization.async-collision.handling-error",
                     entity1.getType(), entity2.getType(), e);
         }
     }
@@ -195,7 +195,7 @@ public class AsyncCollisionSystem {
                 }
             }
         } catch (Exception e) {
-            LOGGER.warn("Error in collision calculations", e);
+            LOGGER.warn("optimization.async-collision.calculation-error", e);
         }
     }
 

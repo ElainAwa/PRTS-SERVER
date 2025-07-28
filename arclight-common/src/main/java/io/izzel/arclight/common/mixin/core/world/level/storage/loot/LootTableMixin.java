@@ -76,7 +76,7 @@ public abstract class LootTableMixin implements LootTableBridge {
 
         for (ItemStack itemstack : objectarraylist) {
             if (list.isEmpty()) {
-                LOGGER.warn("Tried to over-fill a container");
+                LOGGER.warn("loot.container.overfill-attempt");
                 return;
             }
 

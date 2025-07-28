@@ -58,7 +58,7 @@ public class AsyncEventSystem {
 
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            LOGGER.warn("Interrupted during shutdown", e);
+            LOGGER.warn("optimization.async-event.shutdown-interrupted", e);
         }
     }
 

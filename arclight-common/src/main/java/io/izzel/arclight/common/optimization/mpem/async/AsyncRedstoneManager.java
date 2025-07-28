@@ -52,7 +52,7 @@ public class AsyncRedstoneManager {
 
             MpemThreadManager.runAsync(() -> processRedstoneUpdate(finalUpdate))
                     .exceptionally(throwable -> {
-                        LOGGER.warn("Error processing async redstone update at {}", finalUpdate.pos, throwable);
+                        LOGGER.warn("optimization.async-redstone.update-error", finalUpdate.pos, throwable);
                         return null;
                     });
         }
@@ -83,7 +83,7 @@ public class AsyncRedstoneManager {
             return Math.max(0, Math.min(15, maxPower));
 
         } catch (Exception e) {
-            LOGGER.warn("Error calculating redstone signal", e);
+            LOGGER.warn("optimization.async-redstone.calculation-error", e);
             return 0;
         }
     }

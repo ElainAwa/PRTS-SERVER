@@ -48,7 +48,7 @@ public class ModBootstrap extends AbstractBootstrap {
             load(paths.toArray(new Path[0]));
             new ModBootstrap().inject();
         } catch (Throwable e) {
-            logger.error("Error bootstrap Arclight", e);
+            logger.error("bootstrap.error", e);
             throw new RuntimeException(e);
         }
     }

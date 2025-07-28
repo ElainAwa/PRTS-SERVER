@@ -310,7 +310,7 @@ public abstract class MaterialMixin implements MaterialBridge {
                     this.ctor = (Constructor<? extends MaterialData>) data.getConstructor(Material.class, byte.class);
                 }
             } catch (Exception e) {
-                ArclightMod.LOGGER.warn("Bad material data class {} for {}", arclight$spec.materialDataClass, this);
+                ArclightMod.LOGGER.warn("material.bad-data-class", arclight$spec.materialDataClass, this);
                 ArclightMod.LOGGER.warn(e);
             }
         }

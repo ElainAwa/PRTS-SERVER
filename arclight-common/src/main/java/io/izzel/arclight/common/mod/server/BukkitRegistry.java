@@ -322,7 +322,7 @@ public class BukkitRegistry {
                 if (entityType != null) {
                     found = true;
                     ((EntityTypeBridge) (Object) entityType).bridge$setHandle(type);
-                } else ArclightMod.LOGGER.warn("Not found {} in {}", location, EntityType.class);
+                } else ArclightMod.LOGGER.warn("registry.entity-type.not-found", location, EntityType.class);
             }
             if (!found) {
                 String name = ResourceLocationUtil.standardize(location);
@@ -350,7 +350,7 @@ public class BukkitRegistry {
                 Enchantment.registerEnchantment(enchantment);
                 ArclightMod.LOGGER.debug("Registered {} as enchantment {}", location, enchantment);
             } catch (Exception e) {
-                ArclightMod.LOGGER.error("Failed to register enchantment {}: {}", enc, e);
+                ArclightMod.LOGGER.error("registry.enchantment.failed", enc, e);
             }
         }
         Enchantment.stopAcceptingRegistrations();
@@ -372,7 +372,7 @@ public class BukkitRegistry {
                 PotionEffectType.registerPotionEffectType(effect);
                 ArclightMod.LOGGER.debug("Registered {} as potion {}", location, effect);
             } catch (Exception e) {
-                ArclightMod.LOGGER.error("Failed to register potion type {}: {}", eff, e);
+                ArclightMod.LOGGER.error("registry.potion.failed", eff, e);
             }
         }
         PotionEffectType.stopAcceptingRegistrations();

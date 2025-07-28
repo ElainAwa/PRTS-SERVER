@@ -141,7 +141,7 @@ public class PluginEventHandler implements IEventListener {
             var asm = new PluginEventHandler(plugin, target, method, IGenericEvent.class.isAssignableFrom(eventType));
             MH_ADD_LISTENERS.invokeExact(bus, target, eventType, (IEventListener) asm, asm.getPriority());
         } catch (Throwable e) {
-            ArclightMod.LOGGER.error("Error registering event handler: {} {}", eventType, method, e);
+            ArclightMod.LOGGER.error("event.handler.registration-failed", eventType, method, e);
         }
     }
 

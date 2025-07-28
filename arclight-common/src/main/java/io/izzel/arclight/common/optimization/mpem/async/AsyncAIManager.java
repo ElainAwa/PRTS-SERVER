@@ -140,7 +140,7 @@ public class AsyncAIManager {
                 // For now, we just perform the calculations.
             }
         } catch (Exception e) {
-            LOGGER.warn("Error in AI calculations", e);
+            LOGGER.warn("optimization.async-ai.calculation-error", e);
         }
     }
 

@@ -51,7 +51,7 @@ public class ArclightEnumExtender {
                         postList.add(loadInt(count));
                         postList.add(new FieldInsnNode(Opcodes.GETSTATIC, node.name, name, desc));
                         postList.add(new InsnNode(Opcodes.AASTORE));
-                        LOGGER.info("Added {} to {}", name, node.name);
+                        LOGGER.info("enum.field-added", name, node.name);
                     }
                     count++;
                 }

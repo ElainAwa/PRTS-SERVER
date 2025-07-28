@@ -74,20 +74,20 @@ public abstract class RecipeManagerMixin implements RecipeManagerBridge {
                 }
                 Recipe<?> irecipe = fromJson(resourcelocation, GsonHelper.convertToJsonObject(entry.getValue(), "top element"), this.context);
                 if (irecipe == null) {
-                    LOGGER.info("Skipping loading recipe {} as it's serializer returned null", resourcelocation);
+                    LOGGER.info("recipe.loading.skip-null-serializer", resourcelocation);
                     continue;
                 }
                 map.computeIfAbsent(irecipe.getType(), (recipeType) -> new Object2ObjectLinkedOpenHashMap<>())
                         .putAndMoveToFirst(resourcelocation, irecipe);
                 builder.put(resourcelocation, irecipe);
             } catch (IllegalArgumentException | JsonParseException jsonparseexception) {
-                LOGGER.error("Parsing error loading recipe {}", resourcelocation, jsonparseexception);
+                LOGGER.error("recipe.loading.parsing-error", resourcelocation, jsonparseexception);
             }
         }
 
         this.recipes = (Map) map;
         this.byName = Maps.newHashMap(builder.build());
-        LOGGER.info("Loaded {} recipes", map.size());
+        LOGGER.info("recipe.loading.completed", map.size());
     }
 
     /**

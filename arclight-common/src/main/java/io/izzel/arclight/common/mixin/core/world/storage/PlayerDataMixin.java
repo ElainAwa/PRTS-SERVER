@@ -52,7 +52,7 @@ public class PlayerDataMixin implements PlayerDataBridge {
                 return NbtIo.readCompressed(new FileInputStream(file1));
             }
         } catch (Exception exception) {
-            LOGGER.warn("Failed to load player data for " + uuid);
+            LOGGER.warn("player.data.load-failed", uuid);
         }
         return null;
     }

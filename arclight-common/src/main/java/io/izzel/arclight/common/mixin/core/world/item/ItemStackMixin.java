@@ -81,7 +81,7 @@ public abstract class ItemStackMixin extends CapabilityProvider<ItemStack> imple
 
     public void convertStack(int version) {
         if (0 < version && version < CraftMagicNumbers.INSTANCE.getDataVersion()) {
-            LOG.warn("Legacy ItemStack being used, updates will not applied: {}", this);
+            LOG.warn("item.legacy-itemstack", this);
         }
     }
 

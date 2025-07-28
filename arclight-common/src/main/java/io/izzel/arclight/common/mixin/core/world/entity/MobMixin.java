@@ -73,7 +73,7 @@ public abstract class MobMixin extends LivingEntityMixin implements MobEntityBri
                 reason = (this.getTarget().isAlive() ? EntityTargetEvent.TargetReason.FORGOT_TARGET : EntityTargetEvent.TargetReason.TARGET_DIED);
             }
             if (reason == EntityTargetEvent.TargetReason.UNKNOWN) {
-                ArclightMod.LOGGER.warn("Unknown target reason setting {} target to {}", this, livingEntity);
+                ArclightMod.LOGGER.warn("entity.target.unknown-reason", this, livingEntity);
             }
             CraftLivingEntity ctarget = null;
             if (livingEntity != null) {

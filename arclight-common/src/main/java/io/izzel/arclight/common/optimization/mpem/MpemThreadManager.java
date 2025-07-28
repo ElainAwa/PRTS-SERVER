@@ -67,15 +67,15 @@ public class MpemThreadManager {
         try {
             pool.shutdown();
             if (!pool.awaitTermination(5, TimeUnit.SECONDS)) {
-                LOGGER.warn("{} pool did not terminate gracefully, forcing shutdown", name);
+                LOGGER.warn("optimization.thread-pool.graceful-shutdown-failed", name);
                 pool.shutdownNow();
                 if (!pool.awaitTermination(2, TimeUnit.SECONDS)) {
-                    LOGGER.error("{} pool did not terminate after forced shutdown", name);
+                    LOGGER.error("optimization.thread-pool.forced-shutdown-failed", name);
                 }
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            LOGGER.warn("Interrupted while shutting down {} pool", name);
+            LOGGER.warn("optimization.thread-pool.shutdown-interrupted", name);
             pool.shutdownNow();
         }
     }
@@ -84,7 +84,7 @@ public class MpemThreadManager {
         Thread t = new Thread(r, prefix + "-" + threadCounter.incrementAndGet());
         t.setDaemon(true);
         t.setUncaughtExceptionHandler((thread, ex) ->
-                LOGGER.error("Uncaught exception in thread {}", thread.getName(), ex));
+                LOGGER.error("optimization.thread.uncaught-exception", thread.getName(), ex));
         return t;
     }
 

@@ -9,3 +9,6 @@ build/
 *-test
 arclight-forge.iml
 arclight-common.iml
+*.py
+i18n_*.txt
+i18n-tools

@@ -345,7 +345,7 @@ public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<T
                 this.stopped = true;
                 this.stopServer();
             } catch (Throwable throwable) {
-                LOGGER.error("Exception stopping the server", throwable);
+                LOGGER.error("server.stop-exception", throwable);
             } finally {
                 if (this.services.profileCache() != null) {
                     this.services.profileCache().clearExecutor();
@@ -381,7 +381,7 @@ public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<T
     @Inject(method = "stopServer", at = @At(value = "INVOKE", target = "Lnet/minecraft/server/MinecraftServer;saveAllChunks(ZZZ)Z"))
     public void arclight$asyncWorldSave(CallbackInfo ci) {
         if (io.izzel.arclight.i18n.ArclightConfig.spec().getAsyncWorldSave().isEnabled()) {
-            LOGGER.info("Starting async world save during server shutdown...");
+            LOGGER.info("server.async-world-save.starting-shutdown");
             arclight$saveAllWorldsAsync(true, true, true); // suppressLog = true to avoid duplicate message
         }
 
@@ -459,7 +459,7 @@ public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<T
         ServerLevel serverworld = this.overworld();
         this.forceTicks = true;
         ARCLIGHT_LOGGER.info("world.loading", serverworld.dimension().location());
-        LOGGER.info("Preparing start region for dimension {}", serverworld.dimension().location());
+        LOGGER.info("server.preparing-start-region", serverworld.dimension().location());
         BlockPos blockpos = serverworld.getSharedSpawnPos();
         listener.updateSpawnPos(new ChunkPos(blockpos));
         ServerChunkCache serverchunkprovider = serverworld.getChunkSource();
@@ -550,7 +550,7 @@ public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<T
             return;
         }
         this.forceTicks = true;
-        LOGGER.info("Preparing start region for dimension {}", serverWorld.dimension().location());
+        LOGGER.info("server.preparing-start-region", serverWorld.dimension().location());
         BlockPos blockpos = serverWorld.getSharedSpawnPos();
         listener.updateSpawnPos(new ChunkPos(blockpos));
         ServerChunkCache serverchunkprovider = serverWorld.getChunkSource();
@@ -613,7 +613,7 @@ public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<T
         List<CompletableFuture<Void>> saveTasks = new ArrayList<>();
 
         if (!suppressLog) {
-            LOGGER.info("Starting async world save...");
+            LOGGER.info("server.async-world-save.starting");
         }
 
         // Create async save tasks for each world
@@ -622,7 +622,7 @@ public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<T
                 try {
                     arclight$saveWorldAsync(level, suppressLog, flush, forced);
                 } catch (Exception e) {
-                    LOGGER.error("Failed to save world {}", level.dimension().location(), e);
+                    LOGGER.error("server.world-save.failed", level.dimension().location(), e);
                 }
             }, ASYNC_SAVE_EXECUTOR);
 
@@ -640,10 +640,10 @@ public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<T
                 allTasks.get(timeoutSeconds, TimeUnit.SECONDS);
 
                 if (!suppressLog) {
-                    LOGGER.info("All worlds saved successfully");
+                    LOGGER.info("server.world-save.all-successful");
                 }
             } catch (Exception e) {
-                LOGGER.warn("Async world save did not complete within timeout or failed", e);
+                LOGGER.warn("server.async-world-save.timeout-or-failed", e);
             }
         }
     }

@@ -23,7 +23,7 @@ public class PermissionAPIMixin {
             return;
         }
         var handler = new ArclightPermissionHandler(activeHandler);
-        ArclightMod.LOGGER.info("Forwarding forge permission[{}] to bukkit", activeHandler.getIdentifier());
+        ArclightMod.LOGGER.info("permission.forge-to-bukkit", activeHandler.getIdentifier());
         activeHandler = handler;
     }
 }

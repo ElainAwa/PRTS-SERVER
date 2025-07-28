@@ -57,10 +57,10 @@ public class ComponentBridgeHandler {
                 METHOD_CACHE.put(componentClass, getSiblingsMethod);
                 LOGGER.debug("ComponentBridgeHandler initialized successfully with method: " + getSiblingsMethod.getName());
             } else {
-                LOGGER.error("Could not find getSiblings method in Component class");
+                LOGGER.error("component.bridge.method-not-found");
             }
         } catch (Exception e) {
-            LOGGER.error("Failed to initialize ComponentBridgeHandler: " + e.getMessage());
+            LOGGER.error("component.bridge.init-failed", e.getMessage());
             e.printStackTrace();
         } finally {
             // Always mark as initialized to prevent infinite retry loops
@@ -88,7 +88,7 @@ public class ComponentBridgeHandler {
                 }
             }
         } catch (Exception e) {
-            LOGGER.error("Failed to get siblings from Component: " + e.getMessage());
+            LOGGER.error("component.bridge.get-siblings-failed", e.getMessage());
         }
 
         // Fallback to empty list
@@ -125,7 +125,7 @@ public class ComponentBridgeHandler {
                 return Stream.of(component);
             }
         } catch (Exception e) {
-            LOGGER.error("Failed to create Component stream: " + e.getMessage());
+            LOGGER.error("component.bridge.create-stream-failed", e.getMessage());
             return Stream.of(component);
         }
     }
@@ -143,7 +143,7 @@ public class ComponentBridgeHandler {
         try {
             return createStream(component).iterator();
         } catch (Exception e) {
-            LOGGER.error("Failed to create Component iterator: " + e.getMessage());
+            LOGGER.error("component.bridge.create-iterator-failed", e.getMessage());
             return List.of(component).iterator();
         }
     }

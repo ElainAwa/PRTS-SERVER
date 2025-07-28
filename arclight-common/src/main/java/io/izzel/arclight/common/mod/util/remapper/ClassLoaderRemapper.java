@@ -86,7 +86,7 @@ public class ClassLoaderRemapper extends LenientJarRemapper {
                 }
             }
         } catch (Exception e) {
-            LOGGER.error("Failed to dump class " + new ClassReader(bytes).getClassName(), e);
+            LOGGER.error("classloader.dump-failed", new ClassReader(bytes).getClassName(), e);
         }
         return bytes;
     }
@@ -189,7 +189,7 @@ public class ClassLoaderRemapper extends LenientJarRemapper {
         if (!internalName.startsWith(PREFIX)) {
             throw new NoClassDefFoundError(internalName);
         }
-        LOGGER.warn("Loading CLIENT side class: {}", internalName);
+        LOGGER.warn("classloader.client-side-class", internalName);
         ClassWriter writer = new ClassWriter(0);
         writer.visit(Opcodes.V1_8, Opcodes.ACC_PUBLIC | Opcodes.ACC_DEPRECATED, internalName, null, "java/lang/Object", new String[]{});
         writer.visitEnd();
@@ -373,7 +373,7 @@ public class ClassLoaderRemapper extends LenientJarRemapper {
         if (repo instanceof ClassRepoWrapper wrapper) {
             config = wrapper.config();
         } else {
-            ArclightMod.LOGGER.warn("No class remap config is provided for class {}, using PLUGIN", node.name.replace('/', '.'));
+            ArclightMod.LOGGER.warn("classloader.no-remap-config", node.name.replace('/', '.'));
             config = ArclightRemapConfig.PLUGIN;
         }
 
@@ -450,7 +450,7 @@ public class ClassLoaderRemapper extends LenientJarRemapper {
         private String getSuper(final String typeName) {
             ClassNode node = GlobalClassRepo.INSTANCE.findClass(typeName);
             if (node == null) {
-                LOGGER.warn("Failed to find class {}", typeName);
+                LOGGER.warn("classloader.class-not-found", typeName);
                 return "java/lang/Object";
             }
             return ArclightRemapper.getNmsMapper().map(node.superName);

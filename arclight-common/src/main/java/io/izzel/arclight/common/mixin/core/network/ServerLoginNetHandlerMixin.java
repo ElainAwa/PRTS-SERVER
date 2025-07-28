@@ -126,7 +126,7 @@ public abstract class ServerLoginNetHandlerMixin {
                     this.server.getPlayerList().placeNewPlayer(this.connection, entity);
                 }
             } catch (Exception exception) {
-                LOGGER.error("Couldn't place player in world", exception);
+                LOGGER.error("player.place-in-world-failed", exception);
                 var chatmessage = Component.translatable("multiplayer.disconnect.invalid_player_data");
 
                 this.connection.send(new ClientboundDisconnectPacket(chatmessage));
@@ -148,7 +148,7 @@ public abstract class ServerLoginNetHandlerMixin {
         // Check for Velocity Modern Forwarding
         VelocityManager velocityManager = VelocityManager.getInstance();
         if (velocityManager.isVelocityForwardingEnabled()) {
-            LOGGER.info("Velocity Modern Forwarding is enabled for player: {} (online-mode: {})",
+            LOGGER.info("velocity.forwarding.enabled-for-player",
                     packetIn.name(), velocityManager.getVelocityConfig().isOnlineMode());
 
             // Send Velocity query packet - following Mohist's approach
@@ -170,7 +170,7 @@ public abstract class ServerLoginNetHandlerMixin {
                         this.luminara$velocityLoginMessageId, packetIn.name());
                 return; // Don't continue with normal login process
             } catch (Exception e) {
-                LOGGER.error("Failed to send Velocity query packet", e);
+                LOGGER.error("velocity.query.send-failed", e);
                 // Continue with normal login if we can't send the query
             }
         }
@@ -198,7 +198,7 @@ public abstract class ServerLoginNetHandlerMixin {
                             arclight$preLogin();
                         } catch (Exception ex) {
                             disconnect("Failed to verify username!");
-                            LOGGER.warn("Exception verifying {} ", gameProfile.getName(), ex);
+                            LOGGER.warn("auth.exception-verifying", gameProfile.getName(), ex);
                         }
                     }
                 }
@@ -266,21 +266,21 @@ public abstract class ServerLoginNetHandlerMixin {
                         }
                         arclight$preLogin();
                     } else if (server.isSingleplayer()) {
-                        LOGGER.warn("Failed to verify username but will let them in anyway!");
+                        LOGGER.warn("auth.verification-failed-allow");
                         gameProfile = createFakeProfile(gameprofile);
                         state = ServerLoginPacketListenerImpl.State.NEGOTIATING;
                     } else {
                         disconnect(Component.translatable("multiplayer.disconnect.unverified_username"));
-                        LOGGER.error("Username '{}' tried to join with an invalid session", gameprofile.getName());
+                        LOGGER.error("auth.invalid-session", gameprofile.getName());
                     }
                 } catch (Exception var3) {
                     if (server.isSingleplayer()) {
-                        LOGGER.warn("Authentication servers are down but will let them in anyway!");
+                        LOGGER.warn("auth.servers-down-allow");
                         gameProfile = createFakeProfile(gameprofile);
                         state = ServerLoginPacketListenerImpl.State.NEGOTIATING;
                     } else {
                         disconnect(Component.translatable("multiplayer.disconnect.authservers_down"));
-                        LOGGER.error("Couldn't verify username because servers are unavailable");
+                        LOGGER.error("auth.servers-unavailable");
                     }
                 }
 
@@ -327,7 +327,7 @@ public abstract class ServerLoginNetHandlerMixin {
             disconnect(asyncEvent.getKickMessage());
             return;
         }
-        LOGGER.info("UUID of player {} is {}", gameProfile.getName(), gameProfile.getId());
+        LOGGER.info("auth.player-uuid", gameProfile.getName(), gameProfile.getId());
         state = ServerLoginPacketListenerImpl.State.NEGOTIATING;
     }
 
@@ -353,7 +353,7 @@ public abstract class ServerLoginNetHandlerMixin {
 
             if (transactionId == this.luminara$velocityLoginMessageId) {
                 if (buf == null) {
-                    LOGGER.warn("Received Velocity query response with null data");
+                    LOGGER.warn("velocity.query.null-response");
                     this.disconnect("This server requires you to connect with Velocity.");
                     ci.cancel();
                     return;
@@ -361,7 +361,7 @@ public abstract class ServerLoginNetHandlerMixin {
 
                 LOGGER.debug("Processing Velocity forwarding data, buffer size: {}", buf.readableBytes());
                 this.gameProfile = velocityManager.getVelocityForwarding().handleForwardingPacket(buf, this.connection);
-                LOGGER.info("Successfully processed Velocity forwarding for player: {}", this.gameProfile.getName());
+                LOGGER.info("velocity.forwarding.processed-successfully", this.gameProfile.getName());
 
                 // Handle online-mode logic
                 if (velocityManager.getVelocityConfig().isOnlineMode()) {
@@ -376,7 +376,7 @@ public abstract class ServerLoginNetHandlerMixin {
                 ci.cancel();
             }
         } catch (Exception e) {
-            LOGGER.warn("Exception processing Velocity forwarding packet from {}",
+            LOGGER.warn("velocity.forwarding.packet-exception",
                     this.connection.getRemoteAddress(), e);
             this.disconnect("Unable to verify player details");
             ci.cancel();
@@ -395,7 +395,7 @@ public abstract class ServerLoginNetHandlerMixin {
                     arclight$preLogin();
                 } catch (Exception ex) {
                     disconnect("Failed to verify username!");
-                    LOGGER.warn("Exception verifying " + gameProfile.getName(), ex);
+                    LOGGER.warn("auth.exception-verifying-player", gameProfile.getName(), ex);
                 }
             }
         };
@@ -413,11 +413,11 @@ public abstract class ServerLoginNetHandlerMixin {
             public void run() {
                 try {
                     // Skip Mojang authentication and proceed directly
-                    LOGGER.info("UUID of player {} is {} (from Velocity)", gameProfile.getName(), gameProfile.getId());
+                    LOGGER.info("auth.player-uuid-velocity", gameProfile.getName(), gameProfile.getId());
                     state = ServerLoginPacketListenerImpl.State.NEGOTIATING; // FORGE: continue NEGOTIATING
                 } catch (Exception ex) {
                     disconnect("Failed to process Velocity login!");
-                    LOGGER.warn("Exception processing Velocity login for " + gameProfile.getName(), ex);
+                    LOGGER.warn("velocity.login.exception-processing", gameProfile.getName(), ex);
                 }
             }
         };

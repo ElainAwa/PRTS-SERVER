@@ -202,7 +202,7 @@ public abstract class ServerLevelMixin extends LevelMixin implements ServerWorld
             if (key.isPresent()) {
                 this.typeKey = key.get();
             } else {
-                ArclightMod.LOGGER.warn("Assign {} to unknown level stem {}", dimension.location(), levelStem);
+                ArclightMod.LOGGER.warn("world.unknown-level-stem", dimension.location(), levelStem);
                 this.typeKey = ResourceKey.create(Registries.LEVEL_STEM, dimension.location());
             }
         }
