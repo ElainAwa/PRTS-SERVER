@@ -63,7 +63,7 @@ import org.bukkit.event.server.ServerLoadEvent;
 import org.bukkit.event.world.WorldInitEvent;
 import org.bukkit.event.world.WorldLoadEvent;
 import org.bukkit.plugin.PluginLoadOrder;
-import org.apache.logging.log4j.Logger;
+import org.slf4j.Logger;
 import org.spigotmc.WatchdogThread;
 import org.spongepowered.asm.mixin.*;
 import org.spongepowered.asm.mixin.injection.At;
@@ -345,7 +345,7 @@ public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<T
                 this.stopped = true;
                 this.stopServer();
             } catch (Throwable throwable) {
-                LOGGER.error("server.stop-exception", throwable);
+                ARCLIGHT_LOGGER.error("server.stop-exception", throwable);
             } finally {
                 if (this.services.profileCache() != null) {
                     this.services.profileCache().clearExecutor();
@@ -381,7 +381,7 @@ public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<T
     @Inject(method = "stopServer", at = @At(value = "INVOKE", target = "Lnet/minecraft/server/MinecraftServer;saveAllChunks(ZZZ)Z"))
     public void arclight$asyncWorldSave(CallbackInfo ci) {
         if (io.izzel.arclight.i18n.ArclightConfig.spec().getAsyncWorldSave().isEnabled()) {
-            LOGGER.info("server.async-world-save.starting-shutdown");
+            ARCLIGHT_LOGGER.info("server.async-world-save.starting-shutdown");
             arclight$saveAllWorldsAsync(true, true, true); // suppressLog = true to avoid duplicate message
         }
 
