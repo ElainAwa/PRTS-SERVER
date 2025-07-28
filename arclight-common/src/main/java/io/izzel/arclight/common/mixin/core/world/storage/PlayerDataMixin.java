@@ -21,6 +21,8 @@ import java.io.FileInputStream;
 
 @Mixin(PlayerDataStorage.class)
 public class PlayerDataMixin implements PlayerDataBridge {
+    private static final org.apache.logging.log4j.Logger ARCLIGHT_LOGGER = io.izzel.arclight.common.mod.util.log.ArclightI18nLogger.getLogger("PlayerData");
+
 
     @Shadow
     @Final
@@ -52,7 +54,7 @@ public class PlayerDataMixin implements PlayerDataBridge {
                 return NbtIo.readCompressed(new FileInputStream(file1));
             }
         } catch (Exception exception) {
-            LOGGER.warn("player.data.load-failed", uuid);
+            ARCLIGHT_LOGGER.warn("player.data.load-failed", uuid);
         }
         return null;
     }

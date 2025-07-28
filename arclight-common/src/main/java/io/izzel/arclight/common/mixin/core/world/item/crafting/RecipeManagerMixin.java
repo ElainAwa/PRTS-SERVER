@@ -7,6 +7,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
 import io.izzel.arclight.common.bridge.core.inventory.IInventoryBridge;
 import io.izzel.arclight.common.bridge.core.item.crafting.RecipeManagerBridge;
+import io.izzel.arclight.common.mod.util.log.ArclightI18nLogger;
 import it.unimi.dsi.fastutil.objects.Object2ObjectLinkedOpenHashMap;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
@@ -36,6 +37,8 @@ public abstract class RecipeManagerMixin implements RecipeManagerBridge {
     @Shadow
     @Final
     private static Logger LOGGER;
+
+    private static final org.apache.logging.log4j.Logger ARCLIGHT_LOGGER = ArclightI18nLogger.getLogger("RecipeManager");
     // @formatter:off
     @Shadow public Map<RecipeType<?>, Map<ResourceLocation, Recipe<?>>> recipes;
     @Shadow private boolean hasErrors;
@@ -74,20 +77,20 @@ public abstract class RecipeManagerMixin implements RecipeManagerBridge {
                 }
                 Recipe<?> irecipe = fromJson(resourcelocation, GsonHelper.convertToJsonObject(entry.getValue(), "top element"), this.context);
                 if (irecipe == null) {
-                    LOGGER.info("recipe.loading.skip-null-serializer", resourcelocation);
+                    ARCLIGHT_LOGGER.info("recipe.loading.skip-null-serializer", resourcelocation);
                     continue;
                 }
                 map.computeIfAbsent(irecipe.getType(), (recipeType) -> new Object2ObjectLinkedOpenHashMap<>())
                         .putAndMoveToFirst(resourcelocation, irecipe);
                 builder.put(resourcelocation, irecipe);
             } catch (IllegalArgumentException | JsonParseException jsonparseexception) {
-                LOGGER.error("recipe.loading.parsing-error", resourcelocation, jsonparseexception);
+                ARCLIGHT_LOGGER.error("recipe.loading.parsing-error", resourcelocation, jsonparseexception);
             }
         }
 
         this.recipes = (Map) map;
         this.byName = Maps.newHashMap(builder.build());
-        LOGGER.info("recipe.loading.completed", map.size());
+        ARCLIGHT_LOGGER.info("recipe.loading.completed", map.size());
     }
 
     /**

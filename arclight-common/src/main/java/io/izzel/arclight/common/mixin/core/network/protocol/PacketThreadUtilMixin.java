@@ -18,6 +18,8 @@ import org.spongepowered.asm.mixin.Shadow;
 
 @Mixin(PacketUtils.class)
 public class PacketThreadUtilMixin {
+    private static final org.apache.logging.log4j.Logger ARCLIGHT_LOGGER = io.izzel.arclight.common.mod.util.log.ArclightI18nLogger.getLogger("PacketThreadUtil");
+
 
     @Shadow
     @Final
@@ -41,7 +43,7 @@ public class PacketThreadUtilMixin {
                         if (processor.shouldPropagateHandlingExceptions()) {
                             throw exception;
                         }
-                        LOGGER.error("network.packet.handle-failed", packetIn, exception);
+                        ARCLIGHT_LOGGER.error("network.packet.handle-failed", packetIn, exception);
                     }
                 } else {
                     LOGGER.debug("Ignoring packet due to disconnection: " + packetIn);

@@ -2,6 +2,7 @@ package io.izzel.arclight.common.bridge.network.chat;
 
 import com.google.common.collect.Streams;
 import io.izzel.arclight.common.bridge.core.util.text.ITextComponentBridge;
+import io.izzel.arclight.common.mod.util.log.ArclightI18nLogger;
 import net.minecraft.network.chat.Component;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -18,6 +19,7 @@ import java.util.stream.Stream;
 public class ComponentBridgeHandler {
 
     private static final Logger LOGGER = LogManager.getLogger("Luminara");
+    private static final Logger ARCLIGHT_LOGGER = ArclightI18nLogger.getLogger("ComponentBridge");
     private static final ConcurrentMap<Class<?>, Method> METHOD_CACHE = new ConcurrentHashMap<>();
     private static volatile boolean initialized = false;
 
@@ -57,10 +59,10 @@ public class ComponentBridgeHandler {
                 METHOD_CACHE.put(componentClass, getSiblingsMethod);
                 LOGGER.debug("ComponentBridgeHandler initialized successfully with method: " + getSiblingsMethod.getName());
             } else {
-                LOGGER.error("component.bridge.method-not-found");
+                ARCLIGHT_LOGGER.error("component.bridge.method-not-found");
             }
         } catch (Exception e) {
-            LOGGER.error("component.bridge.init-failed", e.getMessage());
+            ARCLIGHT_LOGGER.error("component.bridge.init-failed", e.getMessage());
             e.printStackTrace();
         } finally {
             // Always mark as initialized to prevent infinite retry loops
@@ -88,7 +90,7 @@ public class ComponentBridgeHandler {
                 }
             }
         } catch (Exception e) {
-            LOGGER.error("component.bridge.get-siblings-failed", e.getMessage());
+            ARCLIGHT_LOGGER.error("component.bridge.get-siblings-failed", e.getMessage());
         }
 
         // Fallback to empty list
@@ -125,7 +127,7 @@ public class ComponentBridgeHandler {
                 return Stream.of(component);
             }
         } catch (Exception e) {
-            LOGGER.error("component.bridge.create-stream-failed", e.getMessage());
+            ARCLIGHT_LOGGER.error("component.bridge.create-stream-failed", e.getMessage());
             return Stream.of(component);
         }
     }
@@ -143,7 +145,7 @@ public class ComponentBridgeHandler {
         try {
             return createStream(component).iterator();
         } catch (Exception e) {
-            LOGGER.error("component.bridge.create-iterator-failed", e.getMessage());
+            ARCLIGHT_LOGGER.error("component.bridge.create-iterator-failed", e.getMessage());
             return List.of(component).iterator();
         }
     }

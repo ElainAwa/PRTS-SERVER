@@ -63,7 +63,7 @@ import org.bukkit.event.server.ServerLoadEvent;
 import org.bukkit.event.world.WorldInitEvent;
 import org.bukkit.event.world.WorldLoadEvent;
 import org.bukkit.plugin.PluginLoadOrder;
-import org.slf4j.Logger;
+import org.apache.logging.log4j.Logger;
 import org.spigotmc.WatchdogThread;
 import org.spongepowered.asm.mixin.*;
 import org.spongepowered.asm.mixin.injection.At;
@@ -459,7 +459,7 @@ public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<T
         ServerLevel serverworld = this.overworld();
         this.forceTicks = true;
         ARCLIGHT_LOGGER.info("world.loading", serverworld.dimension().location());
-        LOGGER.info("server.preparing-start-region", serverworld.dimension().location());
+        ARCLIGHT_LOGGER.info("server.preparing-start-region", serverworld.dimension().location());
         BlockPos blockpos = serverworld.getSharedSpawnPos();
         listener.updateSpawnPos(new ChunkPos(blockpos));
         ServerChunkCache serverchunkprovider = serverworld.getChunkSource();
@@ -550,7 +550,7 @@ public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<T
             return;
         }
         this.forceTicks = true;
-        LOGGER.info("server.preparing-start-region", serverWorld.dimension().location());
+        ARCLIGHT_LOGGER.info("server.preparing-start-region", serverWorld.dimension().location());
         BlockPos blockpos = serverWorld.getSharedSpawnPos();
         listener.updateSpawnPos(new ChunkPos(blockpos));
         ServerChunkCache serverchunkprovider = serverWorld.getChunkSource();
@@ -613,7 +613,7 @@ public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<T
         List<CompletableFuture<Void>> saveTasks = new ArrayList<>();
 
         if (!suppressLog) {
-            LOGGER.info("server.async-world-save.starting");
+            ARCLIGHT_LOGGER.info("server.async-world-save.starting");
         }
 
         // Create async save tasks for each world
@@ -622,7 +622,7 @@ public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<T
                 try {
                     arclight$saveWorldAsync(level, suppressLog, flush, forced);
                 } catch (Exception e) {
-                    LOGGER.error("server.world-save.failed", level.dimension().location(), e);
+                    ARCLIGHT_LOGGER.error("server.world-save.failed", level.dimension().location(), e);
                 }
             }, ASYNC_SAVE_EXECUTOR);
 
@@ -640,10 +640,10 @@ public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<T
                 allTasks.get(timeoutSeconds, TimeUnit.SECONDS);
 
                 if (!suppressLog) {
-                    LOGGER.info("server.world-save.all-successful");
+                    ARCLIGHT_LOGGER.info("server.world-save.all-successful");
                 }
             } catch (Exception e) {
-                LOGGER.warn("server.async-world-save.timeout-or-failed", e);
+                ARCLIGHT_LOGGER.warn("server.async-world-save.timeout-or-failed", e);
             }
         }
     }

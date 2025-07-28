@@ -28,6 +28,8 @@ import java.util.List;
 
 @Mixin(LootTable.class)
 public abstract class LootTableMixin implements LootTableBridge {
+    private static final org.apache.logging.log4j.Logger ARCLIGHT_LOGGER = io.izzel.arclight.common.mod.util.log.ArclightI18nLogger.getLogger("LootTable");
+
 
     @Shadow
     @Final
@@ -76,7 +78,7 @@ public abstract class LootTableMixin implements LootTableBridge {
 
         for (ItemStack itemstack : objectarraylist) {
             if (list.isEmpty()) {
-                LOGGER.warn("loot.container.overfill-attempt");
+                ARCLIGHT_LOGGER.warn("loot.container.overfill-attempt");
                 return;
             }
 

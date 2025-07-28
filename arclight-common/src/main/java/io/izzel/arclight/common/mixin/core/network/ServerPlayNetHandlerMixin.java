@@ -88,7 +88,7 @@ import org.bukkit.inventory.CraftingInventory;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.InventoryView;
 import org.bukkit.inventory.SmithingInventory;
-import org.slf4j.Logger;
+import org.apache.logging.log4j.Logger;
 import org.spigotmc.SpigotConfig;
 import org.spongepowered.asm.mixin.*;
 import org.spongepowered.asm.mixin.injection.At;
@@ -368,7 +368,7 @@ public abstract class ServerPlayNetHandlerMixin implements ServerPlayNetHandlerB
                 }
                 speed *= 2.0;
                 if (d11 - d10 > Math.max(100.0, Math.pow(10.0f * i * speed, 2.0)) && !this.isSingleplayerOwner()) {
-                    LOGGER.warn("player.vehicle-moved-too-quickly", entity.getName().getString(), this.player.getName().getString(), d7, d8, d9);
+                    ARCLIGHT_LOGGER.warn("vehicle-moved-too-quickly", entity.getName().getString(), this.player.getName().getString(), d7, d8, d9);
                     this.connection.send(new ClientboundMoveVehiclePacket(entity));
                     return;
                 }
@@ -396,7 +396,7 @@ public abstract class ServerPlayNetHandlerMixin implements ServerPlayNetHandlerB
                 boolean flag2 = false;
                 if (d11 > SpigotConfig.movedWronglyThreshold) {
                     flag2 = true;
-                    LOGGER.warn("player.vehicle-moved-wrongly", entity.getName().getString(), this.player.getName().getString(), Math.sqrt(d11));
+                    ARCLIGHT_LOGGER.warn("vehicle-moved-wrongly", entity.getName().getString(), this.player.getName().getString(), Math.sqrt(d11));
                 }
                 Location curPos = this.getCraftPlayer().getLocation();
                 entity.absMoveTo(d4, d5, d6, f, f2);
@@ -631,7 +631,7 @@ public abstract class ServerPlayNetHandlerMixin implements ServerPlayNetHandlerB
 
                                 if (d11 - d10 > Math.max(f2, Math.pow((double) (org.spigotmc.SpigotConfig.movedTooQuicklyMultiplier * (float) i * speed), 2)) && !this.isSingleplayerOwner()) {
                                     // CraftBukkit end
-                                    LOGGER.warn("player.moved-too-quickly", this.player.getName().getString(), d7, d8, d9);
+                                    ARCLIGHT_LOGGER.warn("moved-too-quickly", this.player.getName().getString(), d7, d8, d9);
                                     this.teleport(this.player.getX(), this.player.getY(), this.player.getZ(), this.player.getYRot(), this.player.getXRot());
                                     return;
                                 }
@@ -664,7 +664,7 @@ public abstract class ServerPlayNetHandlerMixin implements ServerPlayNetHandlerB
 
                             if (!this.player.isChangingDimension() && d11 > org.spigotmc.SpigotConfig.movedWronglyThreshold && !this.player.isSleeping() && !this.player.gameMode.isCreative() && this.player.gameMode.getGameModeForPlayer() != GameType.SPECTATOR) { // Spigot
                                 flag1 = true;
-                                LOGGER.warn("player.moved-wrongly", this.player.getName().getString());
+                                ARCLIGHT_LOGGER.warn("moved-wrongly", this.player.getName().getString());
                             }
 
                             if (!this.player.noPhysics && !this.player.isSleeping() && (flag1 && worldserver.noCollision(this.player, axisalignedbb) || this.isPlayerCollidingWithAnythingNew(worldserver, axisalignedbb, d0, d1, d2))) {
@@ -1169,9 +1169,9 @@ public abstract class ServerPlayNetHandlerMixin implements ServerPlayNetHandlerB
     private void broadcastChatMessage(PlayerChatMessage playerchatmessage) {
         String s = playerchatmessage.signedContent();
         if (s == null || s.isEmpty()) {
-            ARCLIGHT_LOGGER.warn("chat.empty-message-warning", this.player.getScoreboardName());
+            ARCLIGHT_LOGGER.warn("chat.empty-message", this.player.getScoreboardName());
         } else if (s.length() > 256) { // Validate message length
-            ARCLIGHT_LOGGER.warn("chat.long-message-warning", this.player.getScoreboardName(), s.length());
+            ARCLIGHT_LOGGER.warn("chat.message-too-long", this.player.getScoreboardName(), s.length());
             this.disconnect("chat.message-too-long");
         } else if (getCraftPlayer().isConversing()) {
             final String conversationInput = s;
@@ -1349,7 +1349,7 @@ public abstract class ServerPlayNetHandlerMixin implements ServerPlayNetHandlerB
                         }
                     } else {
                         disconnect(Component.translatable("multiplayer.disconnect.invalid_entity_attacked"));
-                        LOGGER.warn("player.attack-invalid-entity", player.getName().getString());
+                        ARCLIGHT_LOGGER.warn("attack-invalid-entity", player.getName().getString());
                     }
                 }
             }
@@ -1806,14 +1806,14 @@ public abstract class ServerPlayNetHandlerMixin implements ServerPlayNetHandlerB
                 if (packet.identifier.equals(CUSTOM_REGISTER)) {
                     try {
                         if (buf.length > 32767) { // Reasonable limit for channel names
-                            LOGGER.warn("network.custom-payload.register-too-large", buf.length);
+                            ARCLIGHT_LOGGER.warn("custom-payload.register-too-large", buf.length);
                             this.disconnect("Invalid payload REGISTER!");
                             return;
                         }
 
                         String channels = new String(buf, StandardCharsets.UTF_8);
                         if (channels.length() > 32767) { // Additional safety check
-                            LOGGER.warn("network.custom-payload.register-string-too-long", channels.length());
+                            ARCLIGHT_LOGGER.warn("custom-payload.register-string-too-long", channels.length());
                             this.disconnect("Invalid payload REGISTER!");
                             return;
                         }
@@ -1824,20 +1824,20 @@ public abstract class ServerPlayNetHandlerMixin implements ServerPlayNetHandlerB
                             }
                         }
                     } catch (Exception ex) {
-                        LOGGER.error("network.custom-payload.register-error", ex);
+                        ARCLIGHT_LOGGER.error("custom-payload.register-error", ex);
                         this.disconnect("Invalid payload REGISTER!");
                     }
                 } else if (packet.identifier.equals(CUSTOM_UNREGISTER)) {
                     try {
                         if (buf.length > 32767) { // Reasonable limit for channel names
-                            LOGGER.warn("network.custom-payload.unregister-too-large", buf.length);
+                            ARCLIGHT_LOGGER.warn("custom-payload.unregister-too-large", buf.length);
                             this.disconnect("Invalid payload UNREGISTER!");
                             return;
                         }
 
                         final String channels = new String(buf, StandardCharsets.UTF_8);
                         if (channels.length() > 32767) { // Additional safety check
-                            LOGGER.warn("network.custom-payload.unregister-string-too-long", channels.length());
+                            ARCLIGHT_LOGGER.warn("custom-payload.unregister-string-too-long", channels.length());
                             this.disconnect("Invalid payload UNREGISTER!");
                             return;
                         }
@@ -1848,14 +1848,14 @@ public abstract class ServerPlayNetHandlerMixin implements ServerPlayNetHandlerB
                             }
                         }
                     } catch (Exception ex) {
-                        LOGGER.error("network.custom-payload.unregister-error", ex);
+                        ARCLIGHT_LOGGER.error("custom-payload.unregister-error", ex);
                         this.disconnect("Invalid payload UNREGISTER!");
                     }
                 } else {
                     try {
                         this.cserver.getMessenger().dispatchIncomingMessage(((ServerPlayerEntityBridge) this.player).bridge$getBukkitEntity(), packet.identifier.toString(), buf);
                     } catch (Exception ex) {
-                        LOGGER.error("network.custom-payload.dispatch-failed", ex);
+                        ARCLIGHT_LOGGER.error("custom-payload.dispatch-failed", ex);
                         this.disconnect("Invalid custom payload!");
                     }
                 }
