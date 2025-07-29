@@ -322,7 +322,7 @@ public class BukkitRegistry {
                 if (entityType != null) {
                     found = true;
                     ((EntityTypeBridge) (Object) entityType).bridge$setHandle(type);
-                } else ArclightMod.LOGGER.warn("registry.entity-type.not-found", location.toString(), EntityType.class.getSimpleName());
+                } else ArclightMod.LOGGER.warn("Cannot find {} in {}", location, EntityType.class);
             }
             if (!found) {
                 String name = ResourceLocationUtil.standardize(location);
@@ -350,11 +350,11 @@ public class BukkitRegistry {
                 Enchantment.registerEnchantment(enchantment);
                 ArclightMod.LOGGER.debug("Registered {} as enchantment {}", location, enchantment);
             } catch (Exception e) {
-                ArclightMod.LOGGER.error("registry.enchantment.failed", ForgeRegistries.ENCHANTMENTS.getKey(enc), e.getMessage());
+                ArclightMod.LOGGER.error("Failed to register enchantment {}: {}", ForgeRegistries.ENCHANTMENTS.getKey(enc), e.getMessage());
             }
         }
         Enchantment.stopAcceptingRegistrations();
-        ArclightMod.LOGGER.info("registry.enchantment", size - origin);
+        ArclightMod.LOGGER.info("Registered {} enchantments", size - origin);
     }
 
     private static void loadPotions() {
@@ -372,11 +372,11 @@ public class BukkitRegistry {
                 PotionEffectType.registerPotionEffectType(effect);
                 ArclightMod.LOGGER.debug("Registered {} as potion {}", location, effect);
             } catch (Exception e) {
-                ArclightMod.LOGGER.error("registry.potion.failed", ForgeRegistries.MOB_EFFECTS.getKey(eff), e.getMessage());
+                ArclightMod.LOGGER.error("Failed to register potion effect {}: {}", ForgeRegistries.MOB_EFFECTS.getKey(eff), e.getMessage());
             }
         }
         PotionEffectType.stopAcceptingRegistrations();
-        ArclightMod.LOGGER.info("registry.potion", size - origin);
+        ArclightMod.LOGGER.info("Registered {} potion effects", size - origin);
         int typeId = PotionType.values().length;
         List<PotionType> newTypes = new ArrayList<>();
         BiMap<PotionType, String> map = HashBiMap.create(Unsafe.getStatic(CraftPotionUtil.class, "regular"));
