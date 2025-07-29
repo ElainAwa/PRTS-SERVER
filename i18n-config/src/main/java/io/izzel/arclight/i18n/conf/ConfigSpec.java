@@ -27,6 +27,9 @@ public class ConfigSpec {
     @Setting("velocity")
     private VelocitySpec velocitySpec;
 
+    @Setting("error-handling")
+    private ErrorHandlingSpec errorHandlingSpec;
+
     public int getVersion() {
         return version;
     }
@@ -53,5 +56,9 @@ public class ConfigSpec {
 
     public VelocitySpec getVelocity() {
         return velocitySpec;
+    }
+
+    public ErrorHandlingSpec getErrorHandling() {
+        return errorHandlingSpec;
     }
 }

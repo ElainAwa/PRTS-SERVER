@@ -330,11 +330,24 @@ public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<T
             ARCLIGHT_LOGGER.error("server.unexpected-exception", throwable1);
             CrashReport crashreport = constructOrExtractCrashReport(throwable1);
             this.fillSystemReport(crashreport.getSystemReport());
-            File file1 = new File(new File(this.getServerDirectory(), "crash-reports"), "crash-" + Util.getFilenameFormattedDateTime() + "-server.txt");
-            if (crashreport.saveToFile(file1)) {
-                ARCLIGHT_LOGGER.error("server.crash-report-saved", file1.getAbsolutePath());
+
+            // Use the new crash handler to determine if we should continue
+            boolean shouldContinue = io.izzel.arclight.common.mod.util.ArclightCrashHandler.handleCrash(
+                throwable1, crashreport, this.getServerDirectory()
+            );
+
+            if (!shouldContinue) {
+                // Original behavior - stop the server
+                File file1 = new File(new File(this.getServerDirectory(), "crash-reports"), "crash-" + Util.getFilenameFormattedDateTime() + "-server.txt");
+                if (crashreport.saveToFile(file1)) {
+                    ARCLIGHT_LOGGER.error("server.crash-report-saved", file1.getAbsolutePath());
+                } else {
+                    ARCLIGHT_LOGGER.error("server.crash-report-failed");
+                }
+                this.onServerCrash(crashreport);
             } else {
-                ARCLIGHT_LOGGER.error("server.crash-report-failed");
+                // Continue running - log but don't crash
+                ARCLIGHT_LOGGER.warn("server.continuing-after-crash");
             }
 
             net.minecraftforge.server.ServerLifecycleHooks.expectServerStopped(); // Forge: Has to come before MinecraftServer#onServerCrash to avoid race conditions
