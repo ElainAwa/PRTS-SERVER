@@ -101,7 +101,6 @@ public class AdventureTestSubCommand implements LuminaraSubCommand {
     }
 
 
-
     private void testMessageParsing(CommandSender sender, String message) {
         try {
             net.kyori.adventure.text.Component component = PaperAdventure.parseMessage(message);

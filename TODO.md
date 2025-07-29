@@ -1,12 +1,6 @@
 # 📋 Luminara Paper优化集成计划
 
-## 📝 当前版本待办事项
-
-- [ ] 1.0.8-RELEASE：更多i18n（打算用AI，我很懒）
-
-## 🚀 Paper优化
-
-### 1.1.0-PRE1
+## 📝 当前版本待办事项 1.1.0-PRE1
 
 - [ ] 集成Starlight光照引擎 (0016-Starlight.patch)
 - [ ] 集成新的chunk加载系统 (0019-Rewrite-chunk-system.patch)
@@ -21,6 +15,8 @@
 - [ ] 添加Proxy Protocol支持 (0823-Add-support-for-Proxy-Protocol.patch)
 - [ ] 优化网络数据包处理 (0298-Optimize-Network-Manager.patch)
 - [ ] 实现异步网络处理 (0104-Avoid-blocking-on-Network-Manager-creation.patch)
+
+## 🚀 Paper优化
 
 ### 1.1.0-PRE2
 
@@ -43,7 +39,6 @@
 - [ ] 集成世界边界优化 (0118-Bound-Treasure-Maps-to-World-Border.patch)
 - [ ] 优化爆炸计算 (0040-Optimize-explosions.patch)
 - [ ] 优化碰撞检测 (0739-Highly-optimise-single-and-multi-AABB-VoxelShapes-an.patch)
-
 
 ### 1.1.0-PRE4
 
@@ -74,3 +69,4 @@
 - [x] 1.0.8-PRE2：并入MPEM的部分优化项
 - [x] 1.0.8-PRE2：支持Adventure库
 - [x] 1.0.8-PRE3：使用Paper方法优化初始化世界的速度
+- [x] 1.0.8-RELEASE：更多i18n（打算用AI，我很懒）

@@ -64,11 +64,11 @@ public abstract class ChunkGeneratorMixin implements ChunkGeneratorBridge {
             var boundingBox = new org.bukkit.util.BoundingBox(box.minX(), box.minY(), box.minZ(), box.maxX(), box.maxY(), box.maxZ());
 
             var event = new org.bukkit.event.world.AsyncStructureSpawnEvent(
-                world,
-                CraftStructure.minecraftToBukkit(structure, registryAccess),
-                boundingBox,
-                chunkPos.x,
-                chunkPos.z
+                    world,
+                    CraftStructure.minecraftToBukkit(structure, registryAccess),
+                    boundingBox,
+                    chunkPos.x,
+                    chunkPos.z
             );
 
             // Only call event if we're NOT on the primary thread (async context)

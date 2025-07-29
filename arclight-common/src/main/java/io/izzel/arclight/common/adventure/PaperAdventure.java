@@ -8,7 +8,6 @@ import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.serializer.gson.GsonComponentSerializer;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
-
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Entity;
 import org.jetbrains.annotations.NotNull;
@@ -85,7 +84,6 @@ public final class PaperAdventure {
     public static @NotNull MiniMessage miniMessage() {
         return MINI_MESSAGE;
     }
-
 
 
     // Enhanced message parsing that supports multiple formats

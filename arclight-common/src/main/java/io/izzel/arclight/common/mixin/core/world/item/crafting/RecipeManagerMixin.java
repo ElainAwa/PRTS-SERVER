@@ -34,11 +34,10 @@ import java.util.Optional;
 @Mixin(RecipeManager.class)
 public abstract class RecipeManagerMixin implements RecipeManagerBridge {
 
+    private static final org.apache.logging.log4j.Logger ARCLIGHT_LOGGER = ArclightI18nLogger.getLogger("RecipeManager");
     @Shadow
     @Final
     private static Logger LOGGER;
-
-    private static final org.apache.logging.log4j.Logger ARCLIGHT_LOGGER = ArclightI18nLogger.getLogger("RecipeManager");
     // @formatter:off
     @Shadow public Map<RecipeType<?>, Map<ResourceLocation, Recipe<?>>> recipes;
     @Shadow private boolean hasErrors;

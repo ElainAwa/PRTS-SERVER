@@ -4,13 +4,13 @@ import com.mojang.datafixers.DataFixer;
 import io.izzel.arclight.api.ArclightVersion;
 import io.izzel.arclight.common.bridge.core.command.ICommandSourceBridge;
 import io.izzel.arclight.common.bridge.core.server.MinecraftServerBridge;
-import io.izzel.arclight.common.mod.util.log.ArclightI18nLogger;
 import io.izzel.arclight.common.bridge.core.world.WorldBridge;
 import io.izzel.arclight.common.mod.ArclightConstants;
 import io.izzel.arclight.common.mod.server.BukkitRegistry;
 import io.izzel.arclight.common.mod.util.ArclightCaptures;
-import io.izzel.arclight.common.optimization.paper.WorldCreationOptimizer;
 import io.izzel.arclight.common.mod.util.BukkitOptionParser;
+import io.izzel.arclight.common.mod.util.log.ArclightI18nLogger;
+import io.izzel.arclight.common.optimization.paper.WorldCreationOptimizer;
 import it.unimi.dsi.fastutil.longs.LongIterator;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
@@ -93,10 +93,10 @@ public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<T
     private static final int TPS = 20;
     private static final int TICK_TIME = 1000000000 / TPS;
     private static final int SAMPLE_INTERVAL = 100;
+    private static final org.apache.logging.log4j.Logger ARCLIGHT_LOGGER = ArclightI18nLogger.getLogger("MinecraftServer");
     @Shadow
     @Final
     static Logger LOGGER;
-    private static final org.apache.logging.log4j.Logger ARCLIGHT_LOGGER = ArclightI18nLogger.getLogger("MinecraftServer");
     private static int currentTick = (int) (System.currentTimeMillis() / 50);
     public final double[] recentTps = new double[3];
     private final Object stopLock = new Object();
@@ -518,7 +518,7 @@ public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<T
         }
 
         if (!worldInfo.isInitialized()) {
-            try{
+            try {
                 if (!config.isDeferSpawnAreaPreparation()) {
                     setInitialSpawn(serverWorld, worldInfo, worldOptions.generateBonusChest(), flag);
                 }

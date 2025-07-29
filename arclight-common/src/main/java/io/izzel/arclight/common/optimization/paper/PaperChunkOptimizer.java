@@ -13,7 +13,7 @@ public class PaperChunkOptimizer {
     public static void optimizeWorldCreationChunks(ServerLevel level) {
         var worldConfig = ArclightConfig.spec().getOptimization().getWorldCreation();
         var chunkConfig = ArclightConfig.spec().getOptimization().getChunkOptimization();
-        
+
         if (!worldConfig.isFastWorldCreation() || !chunkConfig.isOptimizeChunkLoading()) {
             return;
         }
@@ -53,7 +53,7 @@ public class PaperChunkOptimizer {
 
     public static void optimizeChunkUnloading(ServerLevel level) {
         var config = ArclightConfig.spec().getOptimization().getChunkOptimization();
-        
+
         if (!config.isAggressiveChunkUnloading()) {
             return;
         }
@@ -76,6 +76,7 @@ public class PaperChunkOptimizer {
         var config = ArclightConfig.spec().getOptimization().getChunkOptimization();
         level.getChunkSource().tick(() -> true, true);
     }
+
     public static void clearChunkData() {
         chunkAccessTimes.clear();
     }

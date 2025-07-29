@@ -116,10 +116,10 @@ public abstract class ServerPlayNetHandlerMixin implements ServerPlayNetHandlerB
     private static final int CREATIVE_PLACE_DISTANCE_SQUARED = 7 * 7;
     private static final ResourceLocation CUSTOM_REGISTER = new ResourceLocation("register");
     private static final ResourceLocation CUSTOM_UNREGISTER = new ResourceLocation("unregister");
+    private static final org.apache.logging.log4j.Logger ARCLIGHT_LOGGER = ArclightI18nLogger.getLogger("ServerPlayNetHandler");
     @Shadow
     @Final
     private static Logger LOGGER;
-    private static final org.apache.logging.log4j.Logger ARCLIGHT_LOGGER = ArclightI18nLogger.getLogger("ServerPlayNetHandler");
     @Shadow
     public ServerPlayer player;
     @Shadow

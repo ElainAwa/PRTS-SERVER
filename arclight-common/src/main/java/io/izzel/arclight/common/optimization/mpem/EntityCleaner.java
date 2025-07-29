@@ -18,8 +18,8 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.stream.StreamSupport;
 import java.util.regex.Pattern;
+import java.util.stream.StreamSupport;
 
 public class EntityCleaner {
     private static final Logger LOGGER = LogManager.getLogger("Luminara-MPEM-EntityCleaner");

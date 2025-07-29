@@ -11,17 +11,17 @@ import java.util.concurrent.TimeUnit;
 
 public class WorldCreationOptimizer {
     private static ExecutorService worldCreationExecutor;
-    
+
     static {
         var config = ArclightConfig.spec().getOptimization().getWorldCreation();
         if (config.isParallelWorldInitialization()) {
             worldCreationExecutor = Executors.newFixedThreadPool(
-                config.getMaxConcurrentWorldLoads(),
-                r -> {
-                    Thread t = new Thread(r, "Luminara-Paper-WorldCreation");
-                    t.setDaemon(true);
-                    return t;
-                }
+                    config.getMaxConcurrentWorldLoads(),
+                    r -> {
+                        Thread t = new Thread(r, "Luminara-Paper-WorldCreation");
+                        t.setDaemon(true);
+                        return t;
+                    }
             );
         }
     }
@@ -29,11 +29,10 @@ public class WorldCreationOptimizer {
 
     public static void optimizeWorldInit(ServerLevel world, ServerLevelData worldData) {
         var config = ArclightConfig.spec().getOptimization().getWorldCreation();
-        
+
         if (!config.isFastWorldCreation()) {
             return;
         }
-
 
 
         if (config.isAsyncWorldDataLoading()) {
@@ -83,9 +82,9 @@ public class WorldCreationOptimizer {
             for (int x = -radius; x <= radius; x++) {
                 for (int z = -radius; z <= radius; z++) {
                     world.getChunkSource().addRegionTicket(
-                        net.minecraft.server.level.TicketType.START,
-                        new net.minecraft.world.level.ChunkPos(spawn.offset(x * 16, 0, z * 16)),
-                        2, net.minecraft.util.Unit.INSTANCE
+                            net.minecraft.server.level.TicketType.START,
+                            new net.minecraft.world.level.ChunkPos(spawn.offset(x * 16, 0, z * 16)),
+                            2, net.minecraft.util.Unit.INSTANCE
                     );
                 }
             }
@@ -95,7 +94,7 @@ public class WorldCreationOptimizer {
 
     public static boolean shouldSkipWorldCreation(String worldName) {
         var config = ArclightConfig.spec().getOptimization().getWorldCreation();
-        
+
         if (!config.isFastWorldCreation()) {
             return false;
         }
@@ -105,7 +104,7 @@ public class WorldCreationOptimizer {
 
     public static void optimizeWorldBorder(ServerLevel world) {
         var config = ArclightConfig.spec().getOptimization().getWorldCreation();
-        
+
         if (!config.isOptimizeWorldBorderSetup()) {
             return;
         }
