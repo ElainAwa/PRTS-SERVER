@@ -11,7 +11,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
-import org.apache.logging.log4j.LogManager;
+import io.izzel.arclight.common.mod.util.log.ArclightI18nLogger;
 import org.apache.logging.log4j.Logger;
 
 import java.util.*;
@@ -22,7 +22,7 @@ import java.util.regex.Pattern;
 import java.util.stream.StreamSupport;
 
 public class EntityCleaner {
-    private static final Logger LOGGER = LogManager.getLogger("Luminara-MPEM-EntityCleaner");
+    private static final Logger LOGGER = ArclightI18nLogger.getLogger("Luminara-MPEM-EntityCleaner");
     private static final int CLEAN_INTERVAL_TICKS = 12000;
     // Entity type patterns for filtering (similar to EClean's regex support)
     private static final Map<String, Pattern> entityPatterns = new ConcurrentHashMap<>();
@@ -111,14 +111,18 @@ public class EntityCleaner {
             CleanupStats stats = new CleanupStats();
 
             for (ServerLevel level : server.getAllLevels()) {
-                // Update chunk entity counts first
-                updateChunkEntityCounts(level);
+                try {
+                    // Update chunk entity counts first
+                    updateChunkEntityCounts(level);
 
-                // Perform different types of cleanup
-                totalCleaned += cleanupDeadEntities(level, cleanupThreshold, stats);
-                totalCleaned += cleanupOldItems(level, stats);
-                totalCleaned += cleanupDenseChunks(level, stats);
-                totalCleaned += cleanupExcessEntities(level, stats);
+                    // Perform different types of cleanup
+                    totalCleaned += cleanupDeadEntities(level, cleanupThreshold, stats);
+                    totalCleaned += cleanupOldItems(level, stats);
+                    totalCleaned += cleanupDenseChunks(level, stats);
+                    totalCleaned += cleanupExcessEntities(level, stats);
+                } catch (Exception e) {
+                    LOGGER.warn("optimization.entity-cleanup.level-error", level.dimension().location(), e.getMessage());
+                }
             }
 
             // Send completion notification
@@ -162,24 +166,33 @@ public class EntityCleaner {
     private static int cleanupDeadEntities(ServerLevel level, int threshold, CleanupStats stats) {
         int cleaned = 0;
 
-        for (Entity entity : level.getEntities().getAll()) {
-            if (entity instanceof Player) continue;
+        try {
+            for (Entity entity : level.getEntities().getAll()) {
+                if (entity instanceof Player) continue;
 
-            // Clean truly dead entities
-            if (!entity.isAlive() && entity.tickCount > threshold) {
-                if (shouldCleanEntity(entity)) {
-                    entity.discard();
-                    cleaned++;
-                    stats.deadEntities++;
+                try {
+                    // Clean truly dead entities
+                    if (!entity.isAlive() && entity.tickCount > threshold) {
+                        if (shouldCleanEntity(entity)) {
+                            entity.discard();
+                            cleaned++;
+                            stats.deadEntities++;
+                        }
+                    }
+
+                    // Clean entities that are stuck or invalid
+                    if (entity.isAlive() && isStuckEntity(entity)) {
+                        entity.discard();
+                        cleaned++;
+                        stats.deadEntities++;
+                    }
+                } catch (Exception e) {
+                    // Skip problematic entity and continue
+                    continue;
                 }
             }
-
-            // Clean entities that are stuck or invalid
-            if (entity.isAlive() && isStuckEntity(entity)) {
-                entity.discard();
-                cleaned++;
-                stats.deadEntities++;
-            }
+        } catch (Exception e) {
+            LOGGER.warn("optimization.entity-cleanup.dead-entities-error", e.getMessage());
         }
 
         return cleaned;
@@ -190,17 +203,26 @@ public class EntityCleaner {
         int cleaned = 0;
         long maxAge = config.getItemMaxAge();
 
-        for (Entity entity : level.getEntities().getAll()) {
-            if (entity instanceof ItemEntity itemEntity) {
-                // Don't clean valuable items unless configured to do so
-                if (!config.isCleanValuableItems() && isValuableItem(itemEntity)) continue;
+        try {
+            for (Entity entity : level.getEntities().getAll()) {
+                if (entity instanceof ItemEntity itemEntity) {
+                    try {
+                        // Don't clean valuable items unless configured to do so
+                        if (!config.isCleanValuableItems() && isValuableItem(itemEntity)) continue;
 
-                if (itemEntity.getAge() > maxAge) {
-                    itemEntity.discard();
-                    cleaned++;
-                    stats.oldItems++;
+                        if (itemEntity.getAge() > maxAge) {
+                            itemEntity.discard();
+                            cleaned++;
+                            stats.oldItems++;
+                        }
+                    } catch (Exception e) {
+                        // Skip problematic item and continue
+                        continue;
+                    }
                 }
             }
+        } catch (Exception e) {
+            LOGGER.warn("optimization.entity-cleanup.old-items-error", e.getMessage());
         }
 
         return cleaned;
