@@ -61,24 +61,13 @@
 ### 📖 文档
 
 - [Arclight文档](https://wiki.izzel.io/s/arclight-docs) - 详细的使用指南和配置说明
+- [待办事项](TODO.md)
 
 ### 🐛 问题反馈
 
 - [提交 Bug](https://github.com/QianMoo0121/Luminara/issues/new/choose) - 遇到问题请在这里报告
 - [讨论区](https://github.com/QianMoo0121/Luminara/discussions) - 提问和讨论
 - 请勿将本服务端的问题反馈到Arclight！
-
-## ✏️ Release 1.0.8 待办事项
-
-- [x] 1.0.8-PRE1：支持Velocity Modern转发（Port Mohist and *①PCF）
-- [x] 1.0.8-PRE2：并入*②MPEM的部分优化项
-- [x] 1.0.8-PRE2：支持Adventure库
-- [x] 1.0.8-PRE3：使用Paper方法优化初始化世界的速度
-- [ ] 1.0.8-RELEASE：更多i18n（打算用AI，我很懒）
-
-*①PCF：指Proxy Compatible Forge（Velocity代理兼容Forge）模组
-
-*②MPEM：指Moonlit Performance Enhancement Module（月夜性能优化）模组
 
 ## 📄 开源协议
 

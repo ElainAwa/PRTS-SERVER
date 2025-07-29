@@ -275,7 +275,6 @@ public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<T
             }
             ServerLifecycleHooks.handleServerStarted((MinecraftServer) (Object) this);
             long endTime = Util.getMillis();
-            ARCLIGHT_LOGGER.info("server.started", endTime - this.nextTickTime);
             this.nextTickTime = endTime;
             this.statusIcon = this.loadStatusIcon().orElse(null);
             this.status = this.buildServerStatus();
@@ -745,5 +744,7 @@ public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<T
     public boolean isDebugging() {
         return false;
     }
+
+
 }
 

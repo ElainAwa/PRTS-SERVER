@@ -5,6 +5,9 @@
 - [ ] 1.0.8-RELEASE：更多i18n（打算用AI，我很懒）
 
 ## 🚀 Paper优化
+
+### 1.1.0-PRE1
+
 - [ ] 集成Starlight光照引擎 (0016-Starlight.patch)
 - [ ] 集成新的chunk加载系统 (0019-Rewrite-chunk-system.patch)
 - [ ] 集成Entity Activation Range 2.0 (0337-Entity-Activation-Range-2.0.patch)
@@ -19,6 +22,7 @@
 - [ ] 优化网络数据包处理 (0298-Optimize-Network-Manager.patch)
 - [ ] 实现异步网络处理 (0104-Avoid-blocking-on-Network-Manager-creation.patch)
 
+### 1.1.0-PRE2
 
 - [ ] 优化HashMapPalette (0737-Optimize-HashMapPalette.patch)
 - [ ] 实现更高效的数据容器 (0087-Optimize-DataBits.patch)
@@ -29,6 +33,7 @@
 - [ ] 优化实体数据管理器 (0982-Array-backed-synched-entity-data.patch)
 - [ ] 实现缓存优化 (0772-Use-a-CHM-for-StructureTemplate.Pallete-cache.patch)
 
+### 1.1.0-PRE3
 
 - [ ] 优化寻路算法 (0081-EntityPathfindEvent.patch)
 - [ ] 集成村民AI优化 (0706-Remove-streams-for-villager-AI.patch)
@@ -40,10 +45,7 @@
 - [ ] 优化碰撞检测 (0739-Highly-optimise-single-and-multi-AABB-VoxelShapes-an.patch)
 
 
-- [ ] 集成Paper配置文件系统集成到arclight.conf (0005-Paper-config-files.patch)
-- [ ] 添加动态配置重载 (0067-Allow-Reloading-of-Custom-Permissions.patch)
-- [ ] 添加更多可配置选项 (0020-0100系列多个patch)
-
+### 1.1.0-PRE4
 
 - [ ] 添加更多实体API (0033-Entity-Origin-API.patch, 0079-Entity-AddTo-RemoveFrom-World-Events.patch)
 - [ ] 实现高级世界API (0071-Add-World-Util-Methods.patch, 0215-Implement-World.getEntity-UUID-API.patch)
@@ -53,11 +55,18 @@
 - [ ] 集成自定义事件系统 (0045-0200系列多个事件patch)
 - [ ] 添加Brigadier API支持 (0295-Implement-Brigadier-Mojang-API.patch)
 
+### 1.1.0-PRE5
 
 - [ ] 修复chunk加载相关bug (0064-Chunk-Save-Reattempt.patch, 0316-Fix-World-isChunkGenerated-calls.patch)
 - [ ] 实现自动恢复功能 (0131-Properly-handle-async-calls-to-restart-the-server.patch)
 - [ ] 优化错误处理 (0679-Improve-and-expand-AsyncCatcher.patch)
 - [ ] 修复数据同步问题 (0785-Fix-Entity-Position-Desync.patch)
+
+### 1.1.0-PRE6
+
+- [ ] 集成Paper配置文件系统集成到arclight.conf (0005-Paper-config-files.patch)
+- [ ] 添加动态配置重载 (0067-Allow-Reloading-of-Custom-Permissions.patch)
+- [ ] 添加更多可配置选项 (0020-0100系列多个patch)
 
 ## ✅ 已完成
 
