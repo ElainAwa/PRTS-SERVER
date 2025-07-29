@@ -54,11 +54,6 @@ public abstract class DedicatedServerMixin extends MinecraftServerMixin {
     }
 
 
-    @Redirect(method = "initServer", at = @At(value = "INVOKE", target = "Lorg/slf4j/Logger;info(Ljava/lang/String;Ljava/lang/Object;)V", ordinal = -1))
-    public void arclight$replaceDoneMessage(org.slf4j.Logger logger, String message, Object arg) {
-        io.izzel.arclight.common.mod.util.log.ArclightI18nLogger.getLogger("DedicatedServer").info("server.done", arg);
-    }
-
     @Redirect(method = "handleConsoleInputs", at = @At(value = "INVOKE", target = "Lnet/minecraft/commands/Commands;performPrefixedCommand(Lnet/minecraft/commands/CommandSourceStack;Ljava/lang/String;)I"))
     private int arclight$serverCommandEvent(Commands commands, CommandSourceStack source, String command) {
         if (command.isEmpty()) {

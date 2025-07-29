@@ -52,65 +52,61 @@ public class ArclightI18nLogger extends ExtendedLoggerWrapper {
 
     @Override
     protected void logMessage(String fqcn, Level level, Marker marker, String message, Object... params) {
-        super.logMessage(fqcn, level, marker, ArclightLocale.getInstance().format(message, params));
+        super.logMessage(fqcn, level, marker, ArclightLocale.getInstance().get(message), params);
     }
 
     @Override
     protected void logMessage(String fqcn, Level level, Marker marker, String message, Object p0) {
-        super.logMessage(fqcn, level, marker, ArclightLocale.getInstance().format(message, p0));
+        super.logMessage(fqcn, level, marker, ArclightLocale.getInstance().get(message), p0);
     }
 
     @Override
     protected void logMessage(String fqcn, Level level, Marker marker, String message, Object p0, Object p1) {
-        super.logMessage(fqcn, level, marker, ArclightLocale.getInstance().format(message, p0, p1));
+        super.logMessage(fqcn, level, marker, ArclightLocale.getInstance().get(message), p0, p1);
     }
 
     @Override
     protected void logMessage(String fqcn, Level level, Marker marker, String message, Object p0, Object p1, Object p2) {
-        super.logMessage(fqcn, level, marker, ArclightLocale.getInstance().format(message, p0, p1, p2));
+        super.logMessage(fqcn, level, marker, ArclightLocale.getInstance().get(message), p0, p1, p2);
     }
 
     @Override
     protected void logMessage(String fqcn, Level level, Marker marker, String message, Object p0, Object p1, Object p2, Object p3) {
-        super.logMessage(fqcn, level, marker, ArclightLocale.getInstance().format(message, p0, p1, p2, p3));
+        super.logMessage(fqcn, level, marker, ArclightLocale.getInstance().get(message), p0, p1, p2, p3);
     }
 
     @Override
     protected void logMessage(String fqcn, Level level, Marker marker, String message, Object p0, Object p1, Object p2, Object p3, Object p4) {
-        super.logMessage(fqcn, level, marker, ArclightLocale.getInstance().format(message, p0, p1, p2, p3, p4));
+        super.logMessage(fqcn, level, marker, ArclightLocale.getInstance().get(message), p0, p1, p2, p3, p4);
     }
 
     @Override
     protected void logMessage(String fqcn, Level level, Marker marker, String message, Object p0, Object p1, Object p2, Object p3, Object p4, Object p5) {
-        super.logMessage(fqcn, level, marker, ArclightLocale.getInstance().format(message, p0, p1, p2, p3, p4, p5));
+        super.logMessage(fqcn, level, marker, ArclightLocale.getInstance().get(message), p0, p1, p2, p3, p4, p5);
     }
 
     @Override
     protected void logMessage(String fqcn, Level level, Marker marker, String message, Object p0, Object p1, Object p2, Object p3, Object p4, Object p5, Object p6) {
-        super.logMessage(fqcn, level, marker, ArclightLocale.getInstance().format(message, p0, p1, p2, p3, p4, p5, p6));
+        super.logMessage(fqcn, level, marker, ArclightLocale.getInstance().get(message), p0, p1, p2, p3, p4, p5, p6);
     }
 
     @Override
     protected void logMessage(String fqcn, Level level, Marker marker, String message, Object p0, Object p1, Object p2, Object p3, Object p4, Object p5, Object p6, Object p7) {
-        super.logMessage(fqcn, level, marker, ArclightLocale.getInstance().format(message, p0, p1, p2, p3, p4, p5, p6, p7));
+        super.logMessage(fqcn, level, marker, ArclightLocale.getInstance().get(message), p0, p1, p2, p3, p4, p5, p6, p7);
     }
 
     @Override
     protected void logMessage(String fqcn, Level level, Marker marker, String message, Object p0, Object p1, Object p2, Object p3, Object p4, Object p5, Object p6, Object p7, Object p8) {
-        super.logMessage(fqcn, level, marker, ArclightLocale.getInstance().format(message, p0, p1, p2, p3, p4, p5, p6, p7, p8));
+        super.logMessage(fqcn, level, marker, ArclightLocale.getInstance().get(message), p0, p1, p2, p3, p4, p5, p6, p7, p8);
     }
 
     @Override
     protected void logMessage(String fqcn, Level level, Marker marker, String message, Object p0, Object p1, Object p2, Object p3, Object p4, Object p5, Object p6, Object p7, Object p8, Object p9) {
-        super.logMessage(fqcn, level, marker, ArclightLocale.getInstance().format(message, p0, p1, p2, p3, p4, p5, p6, p7, p8, p9));
+        super.logMessage(fqcn, level, marker, ArclightLocale.getInstance().get(message), p0, p1, p2, p3, p4, p5, p6, p7, p8, p9);
     }
 
     @Override
     protected void logMessage(String fqcn, Level level, Marker marker, String message, Supplier<?>... paramSuppliers) {
-        Object[] params = new Object[paramSuppliers.length];
-        for (int i = 0; i < paramSuppliers.length; i++) {
-            params[i] = paramSuppliers[i].get();
-        }
-        super.logMessage(fqcn, level, marker, ArclightLocale.getInstance().format(message, params));
+        super.logMessage(fqcn, level, marker, ArclightLocale.getInstance().get(message), paramSuppliers);
     }
 }
