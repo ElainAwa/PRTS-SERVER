@@ -88,7 +88,7 @@ import org.bukkit.inventory.CraftingInventory;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.InventoryView;
 import org.bukkit.inventory.SmithingInventory;
-import org.apache.logging.log4j.Logger;
+import org.slf4j.Logger;
 import org.spigotmc.SpigotConfig;
 import org.spongepowered.asm.mixin.*;
 import org.spongepowered.asm.mixin.injection.At;
