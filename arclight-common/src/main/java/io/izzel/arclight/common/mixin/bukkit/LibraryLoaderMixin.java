@@ -5,6 +5,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.ModifyArg;
 import org.spongepowered.asm.mixin.injection.Redirect;
 
 import java.net.URL;
@@ -27,10 +28,26 @@ public class LibraryLoaderMixin {
                 if (!repo.isEmpty()) {
                     String repoUrl = repo.endsWith("/") ? repo : repo + "/";
                     System.setProperty(BUKKIT_REPO_PROPERTY, repoUrl);
-                    LOGGER.info("Using custom Maven repository: {}", repoUrl);
                 }
             }
         }
+    }
+
+    @ModifyArg(method = "<init>", at = @At(value = "INVOKE", target = "Ljava/lang/System;getProperty(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;"), index = 1)
+    private String arclight$replaceDefaultRepo(String defaultValue) {
+        String customRepo = System.getProperty(LUMINARA_MAVEN_REPO_PROPERTY);
+        if (customRepo != null && !customRepo.trim().isEmpty()) {
+            String[] repos = customRepo.split(",");
+            if (repos.length > 0) {
+                String repo = repos[0].trim();
+                if (!repo.isEmpty()) {
+                    String repoUrl = repo.endsWith("/") ? repo : repo + "/";
+                    LOGGER.info("Replacing default Maven repository with: {}", repoUrl);
+                    return repoUrl;
+                }
+            }
+        }
+        return defaultValue;
     }
 
     @Redirect(method = "createLoader", at = @At(value = "NEW", target = "java/net/URLClassLoader"))
