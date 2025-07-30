@@ -30,7 +30,7 @@ public class EntityCleaner {
     // Chunk density tracking
     private static final Map<ChunkPos, Map<String, Integer>> chunkEntityCounts = new ConcurrentHashMap<>();
     private static final AtomicBoolean cleanupInProgress = new AtomicBoolean(false);
-    private static long lastCleanTime = 0;
+    private static volatile long lastCleanTime = System.currentTimeMillis() / 50; // Initialize to current tick time
     // Cleanup scheduling
     private static ScheduledFuture<?> scheduledCleanup = null;
 
@@ -52,7 +52,19 @@ public class EntityCleaner {
         if (!config.isEntityCleanupEnabled()) return;
 
         long currentTime = event.getServer().getTickCount();
-        if (currentTime - lastCleanTime > CLEAN_INTERVAL_TICKS) {
+        long timeDiff = currentTime - lastCleanTime;
+
+        if (timeDiff < 1200) {
+            return;
+        }
+
+        if (currentTime % 1000 == 0) {
+            LOGGER.debug("Entity cleanup timing check: currentTime={}, lastCleanTime={}, diff={}, threshold={}",
+                currentTime, lastCleanTime, timeDiff, CLEAN_INTERVAL_TICKS);
+        }
+
+        if (timeDiff > CLEAN_INTERVAL_TICKS) {
+            LOGGER.debug("Entity cleanup triggered: timeDiff={} > threshold={}", timeDiff, CLEAN_INTERVAL_TICKS);
             lastCleanTime = currentTime;
             scheduleCleanupWithNotification(event.getServer());
         }
@@ -61,18 +73,15 @@ public class EntityCleaner {
     private static void scheduleCleanupWithNotification(net.minecraft.server.MinecraftServer server) {
         var config = ArclightConfig.spec().getOptimization().getEntityOptimization();
 
-
         if (scheduledCleanup != null && !scheduledCleanup.isDone()) {
             scheduledCleanup.cancel(false);
             LOGGER.info("optimization.entity-cleanup.cancelled");
         }
 
         if (!config.isCleanupNotificationEnabled()) {
-
             performEntityCleanup(server);
             return;
         }
-
 
         if (cleanupInProgress.get()) {
             return;
@@ -80,7 +89,6 @@ public class EntityCleaner {
 
         int warningTime = config.getCleanupWarningTime();
         String startMessage = config.getCleanupStartMessage();
-
 
         scheduledCleanup = NotificationManager.scheduleCountdownNotification(
                 server,

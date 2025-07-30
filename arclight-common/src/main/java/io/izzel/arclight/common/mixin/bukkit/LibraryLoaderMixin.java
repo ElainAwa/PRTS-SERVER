@@ -1,6 +1,8 @@
 package io.izzel.arclight.common.mixin.bukkit;
 
 import io.izzel.arclight.common.mod.util.remapper.generated.RemappingURLClassLoader;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
@@ -11,10 +13,12 @@ import java.net.URLClassLoader;
 @Mixin(targets = "org.bukkit.plugin.java.LibraryLoader", remap = false)
 public class LibraryLoaderMixin {
 
+    private static final Logger LOGGER = LogManager.getLogger("Luminara");
     private static final String LUMINARA_MAVEN_REPO_PROPERTY = "luminara.maven.repo";
     private static final String BUKKIT_REPO_PROPERTY = "org.bukkit.plugin.java.LibraryLoader.centralURL";
 
     static {
+        // Set the Bukkit repository property based on Luminara property
         String customRepo = System.getProperty(LUMINARA_MAVEN_REPO_PROPERTY);
         if (customRepo != null && !customRepo.trim().isEmpty()) {
             String[] repos = customRepo.split(",");
@@ -23,6 +27,7 @@ public class LibraryLoaderMixin {
                 if (!repo.isEmpty()) {
                     String repoUrl = repo.endsWith("/") ? repo : repo + "/";
                     System.setProperty(BUKKIT_REPO_PROPERTY, repoUrl);
+                    LOGGER.info("Using custom Maven repository: {}", repoUrl);
                 }
             }
         }
@@ -32,6 +37,4 @@ public class LibraryLoaderMixin {
     private URLClassLoader arclight$useRemapped(URL[] urls, ClassLoader loader) {
         return new RemappingURLClassLoader(urls, loader);
     }
-
-
 }
