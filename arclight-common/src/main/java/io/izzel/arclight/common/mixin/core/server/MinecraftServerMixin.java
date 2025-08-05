@@ -333,7 +333,7 @@ public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<T
 
             // Use the new crash handler to determine if we should continue
             boolean shouldContinue = io.izzel.arclight.common.mod.util.ArclightCrashHandler.handleCrash(
-                throwable1, crashreport, this.getServerDirectory()
+                    throwable1, crashreport, this.getServerDirectory()
             );
 
             if (!shouldContinue) {

@@ -1,5 +1,6 @@
 package io.izzel.arclight.common.optimization.mpem;
 
+import io.izzel.arclight.common.mod.util.log.ArclightI18nLogger;
 import io.izzel.arclight.common.util.NotificationManager;
 import io.izzel.arclight.i18n.ArclightConfig;
 import net.minecraft.core.BlockPos;
@@ -11,7 +12,6 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
-import io.izzel.arclight.common.mod.util.log.ArclightI18nLogger;
 import org.apache.logging.log4j.Logger;
 
 import java.util.*;
@@ -60,7 +60,7 @@ public class EntityCleaner {
 
         if (currentTime % 1000 == 0) {
             LOGGER.debug("Entity cleanup timing check: currentTime={}, lastCleanTime={}, diff={}, threshold={}",
-                currentTime, lastCleanTime, timeDiff, CLEAN_INTERVAL_TICKS);
+                    currentTime, lastCleanTime, timeDiff, CLEAN_INTERVAL_TICKS);
         }
 
         if (timeDiff > CLEAN_INTERVAL_TICKS) {
