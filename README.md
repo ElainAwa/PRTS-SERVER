@@ -14,7 +14,7 @@
 
 > **当前主要维护版本：Minecraft 1.20.1**
 >
-> - **Forge 版本**：47.4.6
+> - **Forge 版本**：47.4.9
 > - **稳定性**：较好
 > - **插件兼容性**：一般，仅Spigot
 > - **模组兼容性**：优秀
@@ -23,16 +23,16 @@
 
 ### 稳定版本
 
-- [GitHub Releases](https://github.com/QianMoo0121/Luminara/releases) - 推荐用于生产环境
+- [GitHub Releases](https://github.com/QianMo0721/Luminara/releases) - 推荐用于生产环境
 
 ### 开发版本
 
-- [每日构建版本](https://github.com/QianMoo0121/Luminara/actions/workflows/gradle.yml?query=branch%3ATrials) *(需要
+- [每日构建版本](https://github.com/QianMo0721/Luminara/actions/workflows/gradle.yml?query=branch%3ATrials) *(需要
   GitHub 登录)*
 
 ### 自行构建
 
-- 克隆本项目到本地 `git clone -b <分支> https://github.com/QianMoo0121/Luminara.git`
+- 克隆本项目到本地 `git clone -b <分支> https://github.com/QianMo0721/Luminara.git`
 - 运行 `./gradlew cleanBuild remapSpigotJar idea --no-daemon -i --stacktrace --refresh-dependencies` 进行配置
 - 运行 `./gradlew build collect` 构建项目
 - 构建完成后，jar 文件位于 `./build/libs` 目录下
@@ -65,8 +65,8 @@
 
 ### 🐛 问题反馈
 
-- [提交 Bug](https://github.com/QianMoo0121/Luminara/issues/new/choose) - 遇到问题请在这里报告
-- [讨论区](https://github.com/QianMoo0121/Luminara/discussions) - 提问和讨论
+- [提交 Bug](https://github.com/QianMo0721/Luminara/issues/new/choose) - 遇到问题请在这里报告
+- [讨论区](https://github.com/QianMo0721/Luminara/discussions) - 提问和讨论
 - 请勿将本服务端的问题反馈到Arclight！
 
 ## 📄 开源协议

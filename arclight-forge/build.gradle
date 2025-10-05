@@ -189,7 +189,7 @@ task generateInstallerInfo {
 project.sourceSets.main.output.dir file("${project.buildDir}/arclight_installer"), builtBy: tasks.generateInstallerInfo
 
 compileJava {
-    sourceCompatibility = targetCompatibility = JavaVersion.VERSION_16
+    sourceCompatibility = targetCompatibility = JavaVersion.VERSION_17
     options.compilerArgs << '-XDignore.symbol.file' << '-XDenableSunApiLintControl'
     options.encoding = 'UTF-8'
 }
