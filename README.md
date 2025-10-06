@@ -1,74 +1,79 @@
 # Luminara
 
-一个Arclight fork，争取在Arclight上做出更多优化与改进（1.20.1）
-> 使用本服务端过程中出现的任何问题请在本项目Issue反馈，请勿在Arclight项目Issue反馈！
+[简体中文](README_zh.md)
 
-## ✨ 特性
+An Arclight fork, aiming to make more optimizations and improvements on Arclight (1.20.1)
+> Any issues encountered while using this server software should be reported in this project's Issues, not in the
+> Arclight project Issues!
 
-- 🔧 **兼容性强** - 支持 Bukkit/Spigot 插件与 Forge 模组同时运行
-- 🚀 **高性能** - 并入了MPEM部分优化项，异步保存世界...
-- 🛠️ **易于使用** - 简单的安装与使用
-- 🌐 **Velocity支持** - 支持Velocity Modern转发，实现跨服功能
+## ✨ Features
 
-## 🎯 主要维护版本
+- 🔧 **Strong Compatibility** - Supports Bukkit/Spigot plugins and Forge mods running simultaneously
+- 🚀 **High Performance** - Incorporates some MPEM optimizations, asynchronous world saving...
+- 🛠️ **Easy to Use** - Simple installation and usage
+- 🌐 **Velocity Support** - Supports Velocity Modern forwarding, enabling cross-server functionality
 
-> **当前主要维护版本：Minecraft 1.20.1**
+## 🎯 Main Maintained Version
+
+> **Currently Main Maintained Version: Minecraft 1.20.1**
 >
-> - **Forge 版本**：47.4.9
-> - **稳定性**：较好
-> - **插件兼容性**：一般，仅Spigot
-> - **模组兼容性**：优秀
+> - **Forge Version**: 47.4.9
+> - **Stability**: Good
+> - **Plugin Compatibility**: Average, Spigot only
+> - **Mod Compatibility**: Excellent
 
-## 📥 下载
+## 📥 Download
 
-### 稳定版本
+### Stable Versions
 
-- [GitHub Releases](https://github.com/QianMo0721/Luminara/releases) - 推荐用于生产环境
+- [GitHub Releases](https://github.com/QianMo0721/Luminara/releases) - Recommended for production environments
 
-### 开发版本
+### Development Versions
 
-- [每日构建版本](https://github.com/QianMo0721/Luminara/actions/workflows/gradle.yml?query=branch%3ATrials) *(需要
-  GitHub 登录)*
+- [Daily Build Versions](https://github.com/QianMo0721/Luminara/actions/workflows/gradle.yml?query=branch%3ATrials) *(
+  Requires
+  GitHub login)*
 
-### 自行构建
+### Self-Build
 
-- 克隆本项目到本地 `git clone -b <分支> https://github.com/QianMo0721/Luminara.git`
-- 运行 `./gradlew cleanBuild remapSpigotJar idea --no-daemon -i --stacktrace --refresh-dependencies` 进行配置
-- 运行 `./gradlew build collect` 构建项目
-- 构建完成后，jar 文件位于 `./build/libs` 目录下
+- Clone this project locally `git clone -b <branch> https://github.com/QianMo0721/Luminara.git`
+- Run `./gradlew cleanBuild remapSpigotJar idea --no-daemon -i --stacktrace --refresh-dependencies` for configuration
+- Run `./gradlew build collect` to build the project
+- After building, the jar file is located in the `./build/libs` directory
 
-## 🚀 安装使用
+## 🚀 Installation and Usage
 
-1. **下载** jar 文件
-2. **启动服务器**：
+1. **Download** the jar file
+2. **Start the server**:
    ```bash
    java -jar luminara.jar nogui
    ```
-   > `nogui` 参数将禁用服务器控制面板
+   > The `nogui` parameter will disable the server control panel
 
-## ❌ 不兼容
+## ❌ Incompatibilities
 
-- 与所有的优化模组/插件不兼容
+- Not compatible with all optimization mods/plugins
 
-> 已包含MPEM的部分优化
+> MPEM optimizations are already included
 
-- 与清理模组/插件不兼容
+- Not compatible with entity cleaning mods/plugins
 
-> 已包含实体清理，如果你仍然想用模组/插件来提供实体清理功能，请在arclight.conf关闭实体清理功能
+> Entity cleaning is already included. If you still want to use a mod/plugin to provide entity cleaning functionality,
+> please disable the entity cleaning feature in arclight.conf
 
-## 📚 支持与帮助
+## 📚 Support and Help
 
-### 📖 文档
+### 📖 Documentation
 
-- [Arclight文档](https://wiki.izzel.io/s/arclight-docs) - 详细的使用指南和配置说明
-- [待办事项](TODO.md)
+- [Arclight Documentation](https://wiki.izzel.io/s/arclight-docs) - Detailed usage guides and configuration instructions
+- [To-Do List](TODO.md)
 
-### 🐛 问题反馈
+### 🐛 Issue Reporting
 
-- [提交 Bug](https://github.com/QianMo0721/Luminara/issues/new/choose) - 遇到问题请在这里报告
-- [讨论区](https://github.com/QianMo0721/Luminara/discussions) - 提问和讨论
-- 请勿将本服务端的问题反馈到Arclight！
+- [Submit Bug](https://github.com/QianMo0721/Luminara/issues/new/choose) - Report problems here
+- [Discussion Forum](https://github.com/QianMo0721/Luminara/discussions) - Ask questions and discuss
+- Do not report issues with this server software to Arclight!
 
-## 📄 开源协议
+## 📄 License
 
-本项目基于 [GPL v3](LICENSE) 协议开源。
+This project is open source under the [GPL v3](LICENSE) license.
