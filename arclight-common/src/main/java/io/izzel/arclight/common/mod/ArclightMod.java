@@ -1,6 +1,7 @@
 package io.izzel.arclight.common.mod;
 
 import io.izzel.arclight.common.mod.server.event.ArclightEventDispatcherRegistry;
+import io.izzel.arclight.common.mod.util.BungeeComponentPreloader;
 import io.izzel.arclight.common.mod.util.log.ArclightI18nLogger;
 import io.izzel.arclight.common.mod.velocity.VelocityManager;
 import io.izzel.arclight.common.optimization.mpem.OptimizationManager;
@@ -31,6 +32,9 @@ public class ArclightMod {
         LOGGER.info("mod-load");
         System.setOut(new LoggingPrintStream("STDOUT", System.out, Level.INFO));
         System.setErr(new LoggingPrintStream("STDERR", System.err, Level.ERROR));
+
+        BungeeComponentPreloader.preloadBungeeClasses();
+        
         ArclightEventDispatcherRegistry.registerAllEventDispatchers();
         context.registerExtensionPoint(IExtensionPoint.DisplayTest.class,
                 () -> new IExtensionPoint.DisplayTest(() -> NetworkConstants.IGNORESERVERONLY, (a, b) -> true));
