@@ -74,10 +74,7 @@ import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Overwrite;
 import org.spongepowered.asm.mixin.Shadow;
-import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.ModifyVariable;
-import org.spongepowered.asm.mixin.injection.Redirect;
+import org.spongepowered.asm.mixin.injection.*;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import org.spongepowered.asm.mixin.injection.callback.LocalCapture;
@@ -303,9 +300,13 @@ public abstract class ServerLevelMixin extends LevelMixin implements ServerWorld
         return this.addFreshEntity(entity);
     }
 
-    @Redirect(method = "tickChunk", at = @At(value = "INVOKE", target = "Lnet/minecraft/server/level/ServerLevel;setBlockAndUpdate(Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/state/BlockState;)Z"))
-    public boolean arclight$snowForm(ServerLevel serverWorld, BlockPos pos, BlockState state) {
-        return CraftEventFactory.handleBlockFormEvent(serverWorld, pos, state, null);
+    @ModifyArg(method = "tickChunk",
+               at = @At(value = "INVOKE", 
+                        target = "Lnet/minecraft/server/level/ServerLevel;setBlockAndUpdate(Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/state/BlockState;)Z"),
+               index = 1)
+    private BlockState arclight$handleBlockFormEvent(BlockPos pos, BlockState state) {
+        CraftEventFactory.handleBlockFormEvent((ServerLevel) (Object) this, pos, state, null);
+        return state;
     }
 
     @Inject(method = "save", at = @At(value = "JUMP", ordinal = 0, opcode = Opcodes.IFNULL))

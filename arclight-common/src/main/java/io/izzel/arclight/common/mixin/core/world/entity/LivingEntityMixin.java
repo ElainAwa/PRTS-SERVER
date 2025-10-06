@@ -68,6 +68,7 @@ import org.spongepowered.asm.mixin.Overwrite;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.ModifyVariable;
 import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
@@ -142,7 +143,7 @@ public abstract class LivingEntityMixin extends EntityMixin implements LivingEnt
     @Final
     private AttributeMap attributes;
     private boolean isTickingEffects = false;
-    private List<Map.Entry<Either<MobEffectInstance, MobEffect>, EntityPotionEffectEvent.Cause>> effectsToProcess = Lists.newArrayList();
+    private final List<Map.Entry<Either<MobEffectInstance, MobEffect>, EntityPotionEffectEvent.Cause>> effectsToProcess = Lists.newArrayList();
     private transient EntityPotionEffectEvent.Action arclight$action;
     private transient boolean arclight$damageResult;
     private transient EntityRegainHealthEvent.RegainReason arclight$regainReason;
@@ -609,167 +610,220 @@ public abstract class LivingEntityMixin extends EntityMixin implements LivingEnt
         }
     }
 
-    /**
-     * @author IzzelAliz
-     * @reason
-     */
-    @Overwrite
-    public boolean hurt(DamageSource source, float amount) {
-        if (!ForgeHooks.onLivingAttack((LivingEntity) (Object) this, source, amount)) return false;
-        if (this.isInvulnerableTo(source)) {
-            return false;
-        } else if (this.level().isClientSide) {
-            return false;
-        } else if (this.dead || this.isRemoved() || this.isDeadOrDying()) {
-            return false;
-        } else if (source.is(DamageTypeTags.IS_FIRE) && this.hasEffect(MobEffects.FIRE_RESISTANCE)) {
-            return false;
-        } else {
-            if (this.isSleeping() && !this.level().isClientSide) {
-                this.stopSleeping();
-            }
+    protected double be_increaseKnockback(double originalStrength, double xRatio, double zRatio) {
+        return originalStrength;
+    }
 
-            this.noActionTime = 0;
-            float f = amount;
-            boolean flag = f > 0.0F && this.isDamageSourceBlocked(source); // Copied from below
-            float f1 = 0.0F;
-            // ShieldBlockEvent implemented in damageEntity0
-
-            if (false && amount > 0.0F && this.isDamageSourceBlocked(source)) {
-                this.hurtCurrentlyUsedShield(amount);
-                f1 = amount;
-                amount = 0.0F;
-                if (!source.is(DamageTypeTags.IS_PROJECTILE)) {
-                    Entity entity = source.getDirectEntity();
-                    if (entity instanceof LivingEntity) {
-                        this.blockUsingShield((LivingEntity) entity);
-                    }
-                }
-
-                flag = true;
-            }
-
-            if (source.is(DamageTypeTags.IS_FREEZING) && this.getType().is(EntityTypeTags.FREEZE_HURTS_EXTRA_TYPES)) {
-                f *= 5.0F;
-            }
-
-            this.walkAnimation.setSpeed(1.5F);
-            boolean flag1 = true;
-            if ((float) this.invulnerableTime > (float) this.invulnerableDuration / 2.0F && !source.is(DamageTypeTags.BYPASSES_COOLDOWN)) {
-                if (amount <= this.lastHurt) {
-                    return false;
-                }
-
-                this.actuallyHurt(source, amount - this.lastHurt);
-                if (!arclight$damageResult) {
-                    return false;
-                }
-                this.lastHurt = amount;
-                flag1 = false;
-            } else {
-                this.actuallyHurt(source, amount);
-                if (!arclight$damageResult) {
-                    return false;
-                }
-                this.lastHurt = amount;
-                this.invulnerableTime = 20;
-                this.hurtDuration = 10;
-                this.hurtTime = this.hurtDuration;
-            }
-
-            if ((Object) this instanceof Animal) {
-                ((Animal) (Object) this).resetLove();
-                if ((Object) this instanceof TamableAnimal) {
-                    ((TamableAnimal) (Object) this).setOrderedToSit(false);
-                }
-            }
-
-            Entity entity1 = source.getEntity();
-            if (entity1 != null) {
-                if (entity1 instanceof LivingEntity && !source.is(DamageTypeTags.NO_ANGER)) {
-                    this.setLastHurtByMob((LivingEntity) entity1);
-                }
-
-                if (entity1 instanceof net.minecraft.world.entity.player.Player) {
-                    this.lastHurtByPlayerTime = 100;
-                    this.lastHurtByPlayer = (net.minecraft.world.entity.player.Player) entity1;
-                } else if (entity1 instanceof TamableAnimal wolfentity) {
-                    if (wolfentity.isTame()) {
-                        this.lastHurtByPlayerTime = 100;
-                        LivingEntity livingentity = wolfentity.getOwner();
-                        if (livingentity instanceof net.minecraft.world.entity.player.Player) {
-                            this.lastHurtByPlayer = (net.minecraft.world.entity.player.Player) livingentity;
-                        } else {
-                            this.lastHurtByPlayer = null;
-                        }
-                    }
-                }
-            }
-
-            if (flag1) {
-                if (flag) {
-                    this.level().broadcastEntityEvent((LivingEntity) (Object) this, (byte) 29);
-                } else {
-                    this.level().broadcastDamageEvent((LivingEntity) (Object) this, source);
-                }
-
-                if (!source.is(DamageTypeTags.NO_IMPACT) && (!flag || amount > 0.0F)) {
-                    this.markHurt();
-                }
-
-                if (entity1 != null && !source.is(DamageTypeTags.IS_EXPLOSION)) {
-                    double d1 = entity1.getX() - this.getX();
-
-                    double d0;
-                    for (d0 = entity1.getZ() - this.getZ(); d1 * d1 + d0 * d0 < 1.0E-4D; d0 = (Math.random() - Math.random()) * 0.01D) {
-                        d1 = (Math.random() - Math.random()) * 0.01D;
-                    }
-
-                    this.knockback(0.4F, d1, d0);
-                    if (!flag) {
-                        this.indicateDamage(d1, d0);
-                    }
-                }
-            }
-
-            if (this.isDeadOrDying()) {
-                if (!this.checkTotemDeathProtection(source)) {
-                    SoundEvent soundevent = this.getDeathSound();
-                    if (flag1 && soundevent != null) {
-                        this.playSound(soundevent, this.getSoundVolume(), this.getVoicePitch());
-                    }
-
-                    this.die(source);
-                }
-            } else if (flag1) {
-                this.playHurtSound(source);
-            }
-
-            boolean flag2 = !flag || amount > 0.0F;
-            if (flag2) {
-                this.lastDamageSource = source;
-                this.lastDamageStamp = this.level().getGameTime();
-            }
-
-            if ((Object) this instanceof ServerPlayer) {
-                CriteriaTriggers.ENTITY_HURT_PLAYER.trigger((ServerPlayer) (Object) this, source, f, amount, flag);
-                if (f1 > 0.0F && f1 < 3.4028235E37F) {
-                    ((ServerPlayer) (Object) this).awardStat(Stats.DAMAGE_BLOCKED_BY_SHIELD, Math.round(f1 * 10.0F));
-                }
-            }
-
-            if (entity1 instanceof ServerPlayer) {
-                CriteriaTriggers.PLAYER_HURT_ENTITY.trigger((ServerPlayer) entity1, (LivingEntity) (Object) this, source, f, amount, flag);
-            }
-
-            return flag2;
+    protected void performKnockback(DamageSource source, double strength, double x, double z, boolean shieldFlag, boolean flag1) {
+        this.knockback(applyKnockbackResistance(strength, source, (LivingEntity) (Object) this, source.getEntity()), x, z);
+        if (!shieldFlag) {
+            this.indicateDamage(x, z);
         }
+    }
+
+
+    protected double applyKnockbackResistance(double originalStrength, DamageSource source, LivingEntity target, Entity entity) {
+        return originalStrength;
+    }
+
+
+    @Redirect(
+            method = "hurt(Lnet/minecraft/world/damagesource/DamageSource;F)Z",
+            at = @At(
+                    value = "INVOKE",
+                    target = "Lnet/minecraft/world/entity/LivingEntity;knockback(DDD)V"
+            )
+    )
+    private void betterend$redirectKnockback(LivingEntity instance, double strength, double x, double z) {
+        instance.knockback(strength, x, z);
+    }
+
+    @Inject(method = "hurt(Lnet/minecraft/world/damagesource/DamageSource;F)Z", at = @At("HEAD"), cancellable = true)
+    public void arclight$hurt(DamageSource source, float amount, CallbackInfoReturnable<Boolean> cir) {
+        if (!ForgeHooks.onLivingAttack((LivingEntity) (Object) this, source, amount)) {
+            cir.cancel();
+            cir.setReturnValue(false);
+            return;
+        }
+        if (this.isInvulnerableTo(source)) {
+            cir.cancel();
+            cir.setReturnValue(false);
+            return;
+        } else if (this.level().isClientSide) {
+            cir.cancel();
+            cir.setReturnValue(false);
+            return;
+        } else if (this.dead || this.isRemoved() || this.isDeadOrDying()) {
+            cir.cancel();
+            cir.setReturnValue(false);
+            return;
+        } else if (source.is(DamageTypeTags.IS_FIRE) && this.hasEffect(MobEffects.FIRE_RESISTANCE)) {
+            cir.cancel();
+            cir.setReturnValue(false);
+            return;
+        }
+
+        if (this.isSleeping() && !this.level().isClientSide) {
+            this.stopSleeping();
+        }
+
+        this.noActionTime = 0;
+        float f = amount;
+        boolean flag = f > 0.0F && this.isDamageSourceBlocked(source); // Copied from below
+        float f1 = 0.0F;
+        // ShieldBlockEvent implemented in damageEntity0
+
+        if (false) {
+            this.hurtCurrentlyUsedShield(amount);
+            f1 = amount;
+            amount = 0.0F;
+            if (!source.is(DamageTypeTags.IS_PROJECTILE)) {
+                Entity entity = source.getDirectEntity();
+                if (entity instanceof LivingEntity) {
+                    this.blockUsingShield((LivingEntity) entity);
+                }
+            }
+
+            flag = true;
+        }
+
+        if (source.is(DamageTypeTags.IS_FREEZING) && this.getType().is(EntityTypeTags.FREEZE_HURTS_EXTRA_TYPES)) {
+            f *= 5.0F;
+        }
+
+        this.walkAnimation.setSpeed(1.5F);
+        boolean flag1 = true;
+        if ((float) this.invulnerableTime > (float) this.invulnerableDuration / 2.0F && !source.is(DamageTypeTags.BYPASSES_COOLDOWN)) {
+            if (amount <= this.lastHurt) {
+                cir.cancel();
+                cir.setReturnValue(false);
+                return;
+            }
+
+            this.actuallyHurt(source, amount - this.lastHurt);
+            if (!arclight$damageResult) {
+                cir.cancel();
+                cir.setReturnValue(false);
+                return;
+            }
+            this.lastHurt = amount;
+            flag1 = false;
+        } else {
+            this.actuallyHurt(source, amount);
+            if (!arclight$damageResult) {
+                cir.cancel();
+                cir.setReturnValue(false);
+                return;
+            }
+            this.lastHurt = amount;
+            this.invulnerableTime = 20;
+            this.hurtDuration = 10;
+            this.hurtTime = this.hurtDuration;
+        }
+
+        if ((Object) this instanceof Animal) {
+            ((Animal) (Object) this).resetLove();
+            if ((Object) this instanceof TamableAnimal) {
+                ((TamableAnimal) (Object) this).setOrderedToSit(false);
+            }
+        }
+
+        Entity entity1 = source.getEntity();
+        if (entity1 != null) {
+            if (entity1 instanceof LivingEntity && !source.is(DamageTypeTags.NO_ANGER)) {
+                this.setLastHurtByMob((LivingEntity) entity1);
+            }
+
+            if (entity1 instanceof net.minecraft.world.entity.player.Player) {
+                this.lastHurtByPlayerTime = 100;
+                this.lastHurtByPlayer = (net.minecraft.world.entity.player.Player) entity1;
+            } else if (entity1 instanceof TamableAnimal wolfentity) {
+                if (wolfentity.isTame()) {
+                    this.lastHurtByPlayerTime = 100;
+                    LivingEntity livingentity = wolfentity.getOwner();
+                    if (livingentity instanceof net.minecraft.world.entity.player.Player) {
+                        this.lastHurtByPlayer = (net.minecraft.world.entity.player.Player) livingentity;
+                    } else {
+                        this.lastHurtByPlayer = null;
+                    }
+                }
+            }
+        }
+
+        if (flag1) {
+            if (flag) {
+                this.level().broadcastEntityEvent((LivingEntity) (Object) this, (byte) 29);
+            } else {
+                this.level().broadcastDamageEvent((LivingEntity) (Object) this, source);
+            }
+
+            if (!source.is(DamageTypeTags.NO_IMPACT) && (!flag || amount > 0.0F)) {
+                this.markHurt();
+            }
+
+            if (entity1 != null && !source.is(DamageTypeTags.IS_EXPLOSION)) {
+                double d1 = entity1.getX() - this.getX();
+
+                double d0;
+                for (d0 = entity1.getZ() - this.getZ(); d1 * d1 + d0 * d0 < 1.0E-4D; d0 = (Math.random() - Math.random()) * 0.01D) {
+                    d1 = (Math.random() - Math.random()) * 0.01D;
+                }
+
+                double knockbackStrength = this.be_increaseKnockback(0.4F, d1, d0);
+                performKnockback(source, knockbackStrength, d1, d0, flag, flag1);
+            }
+        }
+
+        if (this.isDeadOrDying()) {
+            if (!this.checkTotemDeathProtection(source)) {
+                SoundEvent soundevent = this.getDeathSound();
+                if (flag1 && soundevent != null) {
+                    this.playSound(soundevent, this.getSoundVolume(), this.getVoicePitch());
+                }
+
+                this.die(source);
+            }
+        } else if (flag1) {
+            this.playHurtSound(source);
+        }
+
+        boolean flag2 = !flag || amount > 0.0F;
+        if (flag2) {
+            this.lastDamageSource = source;
+            this.lastDamageStamp = this.level().getGameTime();
+        }
+
+        if ((Object) this instanceof ServerPlayer) {
+            CriteriaTriggers.ENTITY_HURT_PLAYER.trigger((ServerPlayer) (Object) this, source, f, amount, flag);
+            if (f1 > 0.0F && f1 < 3.4028235E37F) {
+                ((ServerPlayer) (Object) this).awardStat(Stats.DAMAGE_BLOCKED_BY_SHIELD, Math.round(f1 * 10.0F));
+            }
+        }
+
+        if (entity1 instanceof ServerPlayer) {
+            CriteriaTriggers.PLAYER_HURT_ENTITY.trigger((ServerPlayer) entity1, (LivingEntity) (Object) this, source, f, amount, flag);
+        }
+
+        cir.cancel();
+        cir.setReturnValue(flag2);
     }
 
     @Inject(method = "actuallyHurt", cancellable = true, at = @At("HEAD"))
     public void arclight$redirectDamageEntity(DamageSource damageSrc, float damageAmount, CallbackInfo ci) {
         damageEntity0(damageSrc, damageAmount);
         ci.cancel();
+    }
+
+    @ModifyVariable(
+            method = "hurt(Lnet/minecraft/world/damagesource/DamageSource;F)Z",
+            at = @At(value = "INVOKE",
+                    target = "Lnet/minecraft/world/entity/LivingEntity;knockback(DDD)V",
+                    shift = At.Shift.BEFORE),
+            ordinal = 0,
+            require = 0
+    )
+    private double betterend$be_increaseKnockback(double strength) {
+        return strength;
     }
 
     protected boolean damageEntity0(DamageSource damagesource, float f) {

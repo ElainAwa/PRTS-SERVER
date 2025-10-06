@@ -34,7 +34,7 @@ public abstract class BeeMixin extends AnimalMixin {
             return false;
         } else {
             Entity entity = source.getEntity();
-            boolean ret = super.hurt(source, amount);
+            boolean ret = this.damageEntity0(source, amount);
             if (ret && !this.level().isClientSide) {
                 this.beePollinateGoal.stopPollinating();
             }

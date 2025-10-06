@@ -253,7 +253,7 @@ public abstract class PlayerMixin extends LivingEntityMixin implements PlayerEnt
                     }
                 }
 
-                boolean damaged = super.hurt(source, amount);
+                boolean damaged = this.damageEntity0(source, amount);
                 if (damaged) {
                     this.removeEntitiesOnShoulder();
                 }
@@ -270,8 +270,7 @@ public abstract class PlayerMixin extends LivingEntityMixin implements PlayerEnt
     @Overwrite
     public boolean canHarmPlayer(final net.minecraft.world.entity.player.Player entityhuman) {
         Team team;
-        if (entityhuman instanceof ServerPlayer) {
-            final ServerPlayer thatPlayer = (ServerPlayer) entityhuman;
+        if (entityhuman instanceof ServerPlayer thatPlayer) {
             team = ((ServerPlayerEntityBridge) thatPlayer).bridge$getBukkitEntity().getScoreboard().getPlayerTeam(((ServerPlayerEntityBridge) thatPlayer).bridge$getBukkitEntity());
             if (team == null || team.allowFriendlyFire()) {
                 return true;
@@ -580,12 +579,12 @@ public abstract class PlayerMixin extends LivingEntityMixin implements PlayerEnt
     }
 
     public CraftHumanEntity getBukkitEntity() {
-        return (CraftHumanEntity) ((InternalEntityBridge) this).internal$getBukkitEntity();
+        return (CraftHumanEntity) this.internal$getBukkitEntity();
     }
 
     @Override
     public CraftHumanEntity bridge$getBukkitEntity() {
-        return (CraftHumanEntity) ((InternalEntityBridge) this).internal$getBukkitEntity();
+        return (CraftHumanEntity) this.internal$getBukkitEntity();
     }
 
     @Override

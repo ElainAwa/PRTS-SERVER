@@ -9,7 +9,6 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.stats.Stats;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
-import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.AgeableMob;
 import net.minecraft.world.entity.ExperienceOrb;
 import net.minecraft.world.entity.animal.Animal;
@@ -47,15 +46,6 @@ public abstract class AnimalMixin extends AgeableMobMixin implements AnimalEntit
     @Shadow
     @Nullable
     public abstract ServerPlayer getLoveCause();
-
-    /**
-     * @author IzzelAliz
-     * @reason
-     */
-    @Overwrite
-    public boolean hurt(DamageSource source, float amount) {
-        return super.hurt(source, amount);
-    }
 
     @Inject(method = "setInLove(Lnet/minecraft/world/entity/player/Player;)V", cancellable = true, at = @At("HEAD"))
     private void arclight$enterLove(Player player, CallbackInfo ci) {
