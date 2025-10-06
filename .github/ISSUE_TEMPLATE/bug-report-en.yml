@@ -8,16 +8,18 @@ body:
       value: |
         Read the [FAQ](https://github.com/IzzelAliz/Arclight/wiki/FAQ) first!
 
-        Report with [latest development version](https://ci.appveyor.com/project/IzzelAliz/arclight-18/build/artifacts), your issue is likely to be fixed.
+        Report with [latest development version](https://github.com/QianMo0721/Luminara/actions/workflows/gradle.yml?query=branch%3ATrials), your issue is likely to be fixed.
 
         Make sure you have searched issues and no similar is present.
+        Do not report Luminara issues to the Arclight project!
 
   - type: checkboxes
     id: preliminary
     attributes:
       label: I have confirmed that ...
       options:
-        - label: Arclight is up to date
+        - label: Luminara is up to date
+        - label: unable to reproduce in Arclight
         - label: all dependencies are installed
           required: true
         - label: all plugins and mods are up to date
@@ -30,8 +32,8 @@ body:
   - type: input
     id: version
     attributes:
-      label: Arclight version
-      description: Versions are printed on startup. i.e. arclight-1.15.2-1.0.3-SNAPSHOT-9455d03
+      label: Luminara version
+      description: Versions are printed on startup. i.e. luminara-1.20.1-1.0.8-TRIALS-xxx
     validations:
       required: true
 
@@ -41,7 +43,7 @@ body:
       label: OS & Java versions
       description: Type `java -version` in console
       placeholder: |
-        OS: CentOS 7.3 x64, Java: openjdk version "16.0.1" 2021-04-20
+        OS: CentOS 7.3 x64, Java: openjdk version \"16.0.1\" 2021-04-20
     validations:
       required: true
 
