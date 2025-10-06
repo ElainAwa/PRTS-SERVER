@@ -32,6 +32,9 @@ public class CompatSpec {
     @Setting("lenient-item-tag-match")
     private boolean lenientItemTagMatch;
 
+    @Setting("preload-bungee-chat-classes")
+    private final boolean preloadBungeeChatClasses = true;
+
     public Map<String, MaterialPropertySpec> getMaterials() {
         return materials;
     }
@@ -70,5 +73,9 @@ public class CompatSpec {
 
     public boolean isLenientItemTagMatch() {
         return lenientItemTagMatch;
+    }
+
+    public boolean isPreloadBungeeChatClasses() {
+        return preloadBungeeChatClasses;
     }
 }

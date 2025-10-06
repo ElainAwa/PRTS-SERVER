@@ -5,6 +5,7 @@ import io.izzel.arclight.common.mod.util.BungeeComponentPreloader;
 import io.izzel.arclight.common.mod.util.log.ArclightI18nLogger;
 import io.izzel.arclight.common.mod.velocity.VelocityManager;
 import io.izzel.arclight.common.optimization.mpem.OptimizationManager;
+import io.izzel.arclight.i18n.ArclightConfig;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.server.ServerAboutToStartEvent;
 import net.minecraftforge.fml.IExtensionPoint;
@@ -33,7 +34,9 @@ public class ArclightMod {
         System.setOut(new LoggingPrintStream("STDOUT", System.out, Level.INFO));
         System.setErr(new LoggingPrintStream("STDERR", System.err, Level.ERROR));
 
-        BungeeComponentPreloader.preloadBungeeClasses();
+        if (ArclightConfig.spec().getCompat().isPreloadBungeeChatClasses()) {
+            BungeeComponentPreloader.preloadBungeeClasses();
+        }
         
         ArclightEventDispatcherRegistry.registerAllEventDispatchers();
         context.registerExtensionPoint(IExtensionPoint.DisplayTest.class,
