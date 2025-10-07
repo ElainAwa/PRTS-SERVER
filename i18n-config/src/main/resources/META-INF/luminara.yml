@@ -1,0 +1,97 @@
+# Luminara Configuration File
+# This is the YAML version of the configuration
+
+_v: 1
+
+locale:
+  fallback: "zh_cn"
+
+optimization:
+  cache-plugin-class: true
+  goal-selector-update-interval: 3
+  entity-optimization:
+    disable-entity-collisions: false
+    entity-cleanup-enabled: true
+    entity-cleanup-threshold: 300
+    entity-freeze-timeout: 15000
+    reduce-entity-updates: true
+    clean-valuable-items: false
+    item-max-age: 4800
+    cleanup-notification-enabled: false
+    cleanup-warning-time: 15
+    cleanup-start-message: "&6[Luminara] &eEntity cleanup starting in &c{time} &eseconds..."
+    cleanup-complete-message: "&6[Luminara] &aEntity cleanup completed! Removed &c{total} &aentities (Dead: &c{dead}&a, Items: &c{items}&a, Dense: &c{dense}&a, Excess: &c{excess}&a)"
+    cleanup-cancelled-message: "&6[Luminara] &cEntity cleanup cancelled."
+    entity-check-interval: 200
+    entity-update-distance: 64.0
+    max-entities-per-chunk: 100
+    max-entities-per-type: 150
+    chunk-entity-limit: 20
+  chunk-optimization:
+    aggressive-chunk-unloading: true
+    chunk-unload-delay: 200
+    optimize-chunk-loading: true
+    chunk-load-rate-limit: 8
+  memory-optimization:
+    entity-cleanup-enabled: true
+    cache-cleanup-enabled: true
+    cache-cleanup-interval: 300
+  async-system:
+    enabled: true
+    max-threads: 6
+    async-ai-enabled: true
+    async-collision-enabled: false
+    async-redstone-enabled: false
+    disable-on-error: true
+    event-class-blacklist:
+      - "net.minecraftforge.event.TickEvent"
+      - "net.minecraftforge.event.level.LevelTickEvent"
+      - "net.minecraftforge.event.entity.living.*"
+    mod-blacklist: [ ]
+    strict-class-checking: true
+    timeout-seconds: 20
+  world-creation:
+    fast-world-creation: true
+    skip-spawn-chunk-loading: true
+    force-close-loading-screen: true
+    early-world-list-addition: true
+    parallel-world-initialization: true
+    world-init-timeout-seconds: 45
+    max-concurrent-world-loads: 3
+    optimize-world-border-setup: true
+    defer-spawn-area-preparation: true
+    spawn-area-radius: 8
+    async-world-data-loading: true
+
+compatibility:
+  material-property-overrides: { }
+  entity-property-overrides: { }
+  symlink-world: false
+  extra-logic-worlds:
+    - "com.example.mod.ExtraLogicWorld"
+    - "xyz.nucleoid.fantasy.RuntimeWorld"
+  forward-permission: true
+  valid-username-regex: ""
+  lenient-item-tag-match: true
+  preload-bungee-chat-classes: true
+
+async-catcher:
+  dump: true
+  warn: true
+  defaultOperation: block
+  overrides: { }
+
+async-world-save:
+  enabled: true
+  timeout-seconds: 45
+  save-world-data: true
+
+velocity:
+  enabled: false
+  online-mode: false
+  forwarding-secret: ""
+  debug-logging: false
+
+error-handling:
+  continue-on-crash: false
+  crash-report-directory: "crash-reports"

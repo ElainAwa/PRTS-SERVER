@@ -59,7 +59,7 @@ An Arclight fork, aiming to make more optimizations and improvements on Arclight
 - Not compatible with entity cleaning mods/plugins
 
 > Entity cleaning is already included. If you still want to use a mod/plugin to provide entity cleaning functionality,
-> please disable the entity cleaning feature in arclight.conf
+> please disable the entity cleaning feature in luminara.yml
 
 ## 📚 Support and Help
 

@@ -13,5 +13,5 @@ repositories {
 }
 
 dependencies {
-    implementation 'org.spongepowered:configurate-hocon:3.6.1'
+    implementation 'org.spongepowered:configurate-yaml:3.6.1'
 }
