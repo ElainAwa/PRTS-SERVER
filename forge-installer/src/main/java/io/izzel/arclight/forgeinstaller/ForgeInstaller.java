@@ -82,6 +82,8 @@ public class ForgeInstaller {
                         method.invoke(null, (Object) new String[]{"--installServer", ".", "--debug"});
                     }
                 }
+                // Cleanup installation files after successful Forge installation
+                cleanupInstallationFiles(installInfo);
             }
             handleFutures(System.out::println, array);
             pool.shutdownNow();
@@ -520,6 +522,24 @@ public class ForgeInstaller {
                 throw new RuntimeException(throwable);
             }
         }))));
+    }
+
+    private static void cleanupInstallationFiles(InstallInfo installInfo) {
+        try {
+            System.out.println("Cleaning up installation files...");
+
+            // Delete run scripts
+            Files.deleteIfExists(Paths.get("run.bat"));
+            Files.deleteIfExists(Paths.get("run.sh"));
+
+            // Delete Forge installer jar
+            String installerFileName = String.format("forge-%s-%s-installer.jar", installInfo.installer.minecraft, installInfo.installer.forge);
+            Files.deleteIfExists(Paths.get(installerFileName));
+
+            System.out.println("Installation files cleaned up successfully.");
+        } catch (IOException e) {
+            System.err.println("Failed to clean up installation files: " + e.getMessage());
+        }
     }
 
     private record MinecraftData(String mirror, String serverUrl, String serverHash, String mappingUrl,
