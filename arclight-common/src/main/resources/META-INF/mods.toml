@@ -3,7 +3,7 @@ loaderVersion = "[44,]"
 license = "GNU GENERAL PUBLIC LICENSE Version 3"
 
 [[mods]]
-modId = "arclight"
+modId = "luminara"
 version = "${version}"
 displayName = "Luminara Mod"
 credits = "lona,夜幕"

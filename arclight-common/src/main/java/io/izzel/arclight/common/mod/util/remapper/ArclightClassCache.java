@@ -125,7 +125,7 @@ public abstract class ArclightClassCache implements AutoCloseable {
 
         private static String currentVersionInfo() {
             var builder = new StringBuilder();
-            var arclight = ModList.get().getModContainerById("arclight")
+            var arclight = ModList.get().getModContainerById("luminara")
                     .orElseThrow(IllegalStateException::new).getModInfo().getVersion().toString();
             builder.append(arclight);
             builder.append("Arclight class cache").append(", ");

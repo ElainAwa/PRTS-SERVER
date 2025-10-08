@@ -44,7 +44,7 @@ public class ArclightLocator_Forge implements IModLocator {
 
     @Override
     public String name() {
-        return "arclight";
+        return "luminara";
     }
 
     @Override
@@ -90,6 +90,6 @@ public class ArclightLocator_Forge implements IModLocator {
 
     private JarMetadata excludePackages(SecureJar secureJar, String version) {
         secureJar.getPackages().removeIf(it -> EXCLUDES.stream().anyMatch(it::startsWith));
-        return new SimpleJarMetadata("arclight", version.substring(version.indexOf('-') + 1), secureJar.getPackages(), List.of());
+        return new SimpleJarMetadata("luminara", version.substring(version.indexOf('-') + 1), secureJar.getPackages(), List.of());
     }
 }

@@ -2,6 +2,8 @@
 
 [简体中文](README_zh.md)
 
+![Luminara Logo](.github/luminara.png)
+
 An Arclight fork, aiming to make more optimizations and improvements on Arclight (1.20.1)
 > Any issues encountered while using this server software should be reported in this project's Issues, not in the
 > Arclight project Issues!
