@@ -5,14 +5,14 @@
 一个Arclight fork，争取在Arclight上做出更多优化与改进（1.20.1）
 > 使用本服务端过程中出现的任何问题请在本项目Issue反馈，请勿在Arclight项目Issue反馈！
 
-## ✨ 特性
+## 特性
 
-- 🔧 **兼容性强** - 支持 Bukkit/Spigot 插件与 Forge 模组同时运行
-- 🚀 **高性能** - 并入了MPEM部分优化项，异步保存世界...
-- 🛠️ **易于使用** - 简单的安装与使用
-- 🌐 **Velocity支持** - 支持Velocity Modern转发，实现跨服功能
+- **兼容性强** - 支持 Bukkit/Spigot 插件与 Forge 模组同时运行
+- **高性能** - 并入了MPEM部分优化项，异步保存世界...
+- **易于使用** - 简单的安装与使用
+- **Velocity支持** - 支持Velocity Modern转发，实现跨服功能
 
-## 🎯 主要维护版本
+## 主要维护版本
 
 > **当前主要维护版本：Minecraft 1.20.1**
 >
@@ -21,7 +21,7 @@
 > - **插件兼容性**：一般，仅Spigot
 > - **模组兼容性**：优秀
 
-## 📥 下载
+## 下载
 
 ### 稳定版本
 
@@ -39,7 +39,7 @@
 - 运行 `./gradlew build collect` 构建项目
 - 构建完成后，jar 文件位于 `./build/libs` 目录下
 
-## 🚀 安装使用
+## 安装使用
 
 1. **下载** jar 文件
 2. **启动服务器**：
@@ -48,7 +48,7 @@
    ```
    > `nogui` 参数将禁用服务器控制面板
 
-## ❌ 不兼容
+## 不兼容
 
 - 与所有的优化模组/插件不兼容
 
@@ -58,19 +58,19 @@
 
 > 已包含实体清理，如果你仍然想用模组/插件来提供实体清理功能，请在luminara.yml关闭实体清理功能
 
-## 📚 支持与帮助
+## 支持与帮助
 
-### 📖 文档
+### 文档
 
 - [Arclight文档](https://wiki.izzel.io/s/arclight-docs) - 详细的使用指南和配置说明
 - [待办事项](TODO.md)
 
-### 🐛 问题反馈
+### 问题反馈
 
 - [提交 Bug](https://github.com/QianMo0721/Luminara/issues/new/choose) - 遇到问题请在这里报告
 - [讨论区](https://github.com/QianMo0721/Luminara/discussions) - 提问和讨论
 - 请勿将本服务端的问题反馈到Arclight！
 
-## 📄 开源协议
+## 开源协议
 
 本项目基于 [GPL v3](LICENSE) 协议开源。

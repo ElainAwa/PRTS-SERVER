@@ -10,14 +10,14 @@ An Arclight fork, aiming to make more optimizations and improvements on Arclight
 > Any issues encountered while using this server software should be reported in this project's Issues, not in the
 > Arclight project Issues!
 
-## ✨ Features
+## Features
 
-- 🔧 **Strong Compatibility** - Supports Bukkit/Spigot plugins and Forge mods running simultaneously
-- 🚀 **High Performance** - Incorporates some MPEM optimizations, asynchronous world saving...
-- 🛠️ **Easy to Use** - Simple installation and usage
-- 🌐 **Velocity Support** - Supports Velocity Modern forwarding, enabling cross-server functionality
+- **Strong Compatibility** - Supports Bukkit/Spigot plugins and Forge mods running simultaneously
+- **High Performance** - Incorporates some MPEM optimizations, asynchronous world saving...
+- **Easy to Use** - Simple installation and usage
+- **Velocity Support** - Supports Velocity Modern forwarding enabling cross-server functionality
 
-## 🎯 Main Maintained Version
+## Main Maintained Version
 
 > **Currently Main Maintained Version: Minecraft 1.20.1**
 >
@@ -26,7 +26,7 @@ An Arclight fork, aiming to make more optimizations and improvements on Arclight
 > - **Plugin Compatibility**: Average, Spigot only
 > - **Mod Compatibility**: Excellent
 
-## 📥 Download
+## Download
 
 ### Stable Versions
 
@@ -45,7 +45,7 @@ An Arclight fork, aiming to make more optimizations and improvements on Arclight
 - Run `./gradlew build collect` to build the project
 - After building, the jar file is located in the `./build/libs` directory
 
-## 🚀 Installation and Usage
+## Installation and Usage
 
 1. **Download** the jar file
 2. **Start the server**:
@@ -54,7 +54,7 @@ An Arclight fork, aiming to make more optimizations and improvements on Arclight
    ```
    > The `nogui` parameter will disable the server control panel
 
-## ❌ Incompatibilities
+## Incompatibilities
 
 - Not compatible with all optimization mods/plugins
 
@@ -65,19 +65,19 @@ An Arclight fork, aiming to make more optimizations and improvements on Arclight
 > Entity cleaning is already included. If you still want to use a mod/plugin to provide entity cleaning functionality,
 > please disable the entity cleaning feature in luminara.yml
 
-## 📚 Support and Help
+## Support and Help
 
-### 📖 Documentation
+### Documentation
 
 - [Arclight Documentation](https://wiki.izzel.io/s/arclight-docs) - Detailed usage guides and configuration instructions
 - [To-Do List](TODO.md)
 
-### 🐛 Issue Reporting
+### Issue Reporting
 
 - [Submit Bug](https://github.com/QianMo0721/Luminara/issues/new/choose) - Report problems here
 - [Discussion Forum](https://github.com/QianMo0721/Luminara/discussions) - Ask questions and discuss
 - Do not report issues with this server software to Arclight!
 
-## 📄 License
+## License
 
 This project is open source under the [GPL v3](LICENSE) license.
