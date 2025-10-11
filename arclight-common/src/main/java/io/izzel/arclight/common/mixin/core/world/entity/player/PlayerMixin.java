@@ -220,27 +220,31 @@ public abstract class PlayerMixin extends LivingEntityMixin implements PlayerEnt
         }
     }
 
-    /**
-     * @author IzzelAliz
-     * @reason
-     */
-    @Overwrite
-    public boolean hurt(DamageSource source, float amount) {
-        if (!ForgeHooks.onPlayerAttack((net.minecraft.world.entity.player.Player) (Object) this, source, amount))
-            return false;
+    @Inject(method = "hurt", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/damagesource/DamageSource;scalesWithDifficulty()Z", shift = At.Shift.BEFORE), cancellable = true)
+    private void arclight$playerHurt(DamageSource source, float amount, CallbackInfoReturnable<Boolean> cir) {
+        if (!ForgeHooks.onPlayerAttack((net.minecraft.world.entity.player.Player) (Object) this, source, amount)) {
+            cir.cancel();
+            cir.setReturnValue(false);
+            return;
+        }
         if (this.isInvulnerableTo(source)) {
-            return false;
+            cir.cancel();
+            cir.setReturnValue(false);
         } else if (this.abilities.invulnerable && !source.is(DamageTypeTags.BYPASSES_INVULNERABILITY)) {
-            return false;
+            cir.cancel();
+            cir.setReturnValue(false);
         } else {
             this.noActionTime = 0;
             if (this.getHealth() <= 0.0F) {
-                return false;
+                cir.cancel();
+                cir.setReturnValue(false);
             } else {
                 if (source.scalesWithDifficulty()) {
                     if (this.level().getDifficulty() == Difficulty.PEACEFUL) {
                         // amount = 0.0F;
-                        return false;
+                        cir.cancel();
+                        cir.setReturnValue(false);
+                        return;
                     }
 
                     if (this.level().getDifficulty() == Difficulty.EASY) {
@@ -256,8 +260,8 @@ public abstract class PlayerMixin extends LivingEntityMixin implements PlayerEnt
                 if (damaged) {
                     this.removeEntitiesOnShoulder();
                 }
-                return damaged;
-                //return amount == 0.0F ? false : super.attackEntityFrom(source, amount);
+                cir.cancel();
+                cir.setReturnValue(damaged);
             }
         }
     }

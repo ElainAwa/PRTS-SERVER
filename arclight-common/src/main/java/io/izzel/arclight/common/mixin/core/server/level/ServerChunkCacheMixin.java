@@ -7,7 +7,6 @@ import io.izzel.arclight.common.bridge.core.world.server.ServerChunkProviderBrid
 import io.izzel.arclight.common.bridge.core.world.server.TicketManagerBridge;
 import net.minecraft.server.level.*;
 import net.minecraft.world.level.ChunkPos;
-import net.minecraft.world.level.GameRules;
 import net.minecraft.world.level.chunk.ChunkGenerator;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.storage.LevelData;
@@ -93,9 +92,9 @@ public abstract class ServerChunkCacheMixin implements ServerChunkProviderBridge
         }
     }
 
-    @Redirect(method = "tickChunks", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/GameRules;getBoolean(Lnet/minecraft/world/level/GameRules$Key;)Z"))
-    private boolean arclight$noPlayer(GameRules gameRules, GameRules.Key<GameRules.BooleanValue> key) {
-        return gameRules.getBoolean(key) && !this.level.players().isEmpty();
+    @ModifyVariable(method = "tickChunks", ordinal = 0, name = "flag2", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/GameRules;getBoolean(Lnet/minecraft/world/level/GameRules$Key;)Z", ordinal = 0, shift = At.Shift.AFTER))
+    private boolean arclight$noPlayer(boolean originalFlag) {
+        return originalFlag && !this.level.players().isEmpty();
     }
 
     @Redirect(method = "tickChunks", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/storage/LevelData;getGameTime()J"))
