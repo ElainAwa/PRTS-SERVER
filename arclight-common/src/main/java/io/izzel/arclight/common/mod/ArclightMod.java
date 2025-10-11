@@ -37,7 +37,7 @@ public class ArclightMod {
         if (ArclightConfig.spec().getCompat().isPreloadBungeeChatClasses()) {
             BungeeComponentPreloader.preloadBungeeClasses();
         }
-        
+
         ArclightEventDispatcherRegistry.registerAllEventDispatchers();
         context.registerExtensionPoint(IExtensionPoint.DisplayTest.class,
                 () -> new IExtensionPoint.DisplayTest(() -> NetworkConstants.IGNORESERVERONLY, (a, b) -> true));

@@ -94,6 +94,7 @@ public abstract class LivingEntityMixin extends EntityMixin implements LivingEnt
     @Shadow
     @Final
     private static EntityDataAccessor<Boolean> DATA_EFFECT_AMBIENCE_ID;
+    private final List<Map.Entry<Either<MobEffectInstance, MobEffect>, EntityPotionEffectEvent.Cause>> effectsToProcess = Lists.newArrayList();
     @Shadow
     public net.minecraft.world.entity.player.Player lastHurtByPlayer;
     @Shadow
@@ -143,7 +144,6 @@ public abstract class LivingEntityMixin extends EntityMixin implements LivingEnt
     @Final
     private AttributeMap attributes;
     private boolean isTickingEffects = false;
-    private final List<Map.Entry<Either<MobEffectInstance, MobEffect>, EntityPotionEffectEvent.Cause>> effectsToProcess = Lists.newArrayList();
     private transient EntityPotionEffectEvent.Action arclight$action;
     private transient boolean arclight$damageResult;
     private transient EntityRegainHealthEvent.RegainReason arclight$regainReason;

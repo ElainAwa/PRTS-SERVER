@@ -162,10 +162,6 @@ public class ArclightConfig {
         Files.write(configPath, result.toString().getBytes(StandardCharsets.UTF_8));
     }
 
-    public ConfigSpec getSpec() {
-        return spec;
-    }
-
     private static String extractKeyFromLine(String line) {
         String trimmed = line.trim();
         if (trimmed.isEmpty() || trimmed.startsWith("#")) {
@@ -212,6 +208,10 @@ public class ArclightConfig {
             indentLength++;
         }
         return indentLength;
+    }
+
+    public ConfigSpec getSpec() {
+        return spec;
     }
 
     public ConfigurationNode getNode() {

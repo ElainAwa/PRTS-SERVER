@@ -11,29 +11,22 @@ import java.util.Optional;
 @ConfigSerializable
 public class CompatSpec {
 
-    @Setting("material-property-overrides")
-    private Map<String, MaterialPropertySpec> materials;
-
-    @Setting("entity-property-overrides")
-    private Map<String, EntityPropertySpec> entities;
-
-    @Setting("symlink-world")
-    private boolean symlinkWorld;
-
-    @Setting("extra-logic-worlds")
-    private List<String> extraLogicWorlds;
-
-    @Setting("forward-permission")
-    private String forwardPermission;
-
-    @Setting("valid-username-regex")
-    private String validUsernameRegex;
-
-    @Setting("lenient-item-tag-match")
-    private boolean lenientItemTagMatch;
-
     @Setting("preload-bungee-chat-classes")
     private final boolean preloadBungeeChatClasses = true;
+    @Setting("material-property-overrides")
+    private Map<String, MaterialPropertySpec> materials;
+    @Setting("entity-property-overrides")
+    private Map<String, EntityPropertySpec> entities;
+    @Setting("symlink-world")
+    private boolean symlinkWorld;
+    @Setting("extra-logic-worlds")
+    private List<String> extraLogicWorlds;
+    @Setting("forward-permission")
+    private String forwardPermission;
+    @Setting("valid-username-regex")
+    private String validUsernameRegex;
+    @Setting("lenient-item-tag-match")
+    private boolean lenientItemTagMatch;
 
     public Map<String, MaterialPropertySpec> getMaterials() {
         return materials;
