@@ -203,6 +203,9 @@ network:
   packet:
     handle-failed: 패킷 {} 처리 실패, 오류 억제
 optimization:
+  chunk-optimization:
+    comment:
+      - '주의: C2ME 또는 Noisium 모드가 존재하면 충돌을 피하기 위해 청크 최적화가 자동으로 비활성화됩니다'
   async-ai:
     calculation-error: AI 계산 중 오류
     processing-error: 비동기 AI에서 엔티티 {} 처리 중 오류 발생

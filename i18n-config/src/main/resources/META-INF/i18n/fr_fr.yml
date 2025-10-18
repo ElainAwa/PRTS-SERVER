@@ -82,6 +82,9 @@ server:
 
 # Optimization system messages (合并所有optimization相关配置)
 optimization:
+  chunk-optimization:
+    comment:
+      - "Remarque : L’optimisation des chunks sera automatiquement désactivée lorsque le mod C2ME ou Noisium est présent afin d’éviter les conflits"
   chunk:
     unloading: "Déchargement du chunk [{}, {}] dans le monde {}"
     unloaded: "{} chunks déchargés"

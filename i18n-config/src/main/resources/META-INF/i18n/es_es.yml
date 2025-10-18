@@ -119,6 +119,9 @@ server:
 
 # Optimization system messages (合并所有optimization相关配置)
 optimization:
+  chunk-optimization:
+    comment:
+      - "Nota: La optimización de chunks se deshabilitará automáticamente cuando esté presente el mod C2ME o Noisium para evitar conflictos"
   chunk:
     unloading: "Descargando chunk [{}, {}] en el mundo {}"
     unloaded: "{} chunks descargados"

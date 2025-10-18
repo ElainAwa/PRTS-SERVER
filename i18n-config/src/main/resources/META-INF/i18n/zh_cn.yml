@@ -133,7 +133,9 @@ comments:
         comment: 区块加载速率限制
       chunk-unload-delay:
         comment: 区块卸载延迟（tick）
-      comment: 区块优化相关设置
+      comment:
+        - 区块优化相关设置
+        - 注意：当C2ME或Noisium模组存在时，区块优化将自动禁用以避免冲突
       optimize-chunk-loading:
         comment: 是否优化区块加载
     comment: 服务端优化相关设置
@@ -167,7 +169,9 @@ comments:
     world-creation:
       async-world-data-loading:
         comment: 是否异步加载世界数据
-      comment: 世界创建相关设置
+      comment:
+        - 世界创建相关设置
+        - 注意：当ModernFix模组存在时，并行世界加载将自动禁用以避免冲突
       defer-spawn-area-preparation:
         comment: 是否延迟出生区域准备
       early-world-list-addition:

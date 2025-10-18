@@ -88,6 +88,9 @@ server:
 
 # Optimization system messages (合并所有optimization相关配置)
 optimization:
+  chunk-optimization:
+    comment:
+      - "Примечание: Оптимизация чанков будет автоматически отключена при наличии мода C2ME или Noisium, чтобы избежать конфликтов"
   chunk:
     unloading: "Выгрузка чанка [{}, {}] в мире {}"
     unloaded: "{} чанков выгружено"

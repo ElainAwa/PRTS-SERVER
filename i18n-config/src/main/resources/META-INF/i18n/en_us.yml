@@ -123,7 +123,9 @@ comments:
         comment: Chunk loading rate limit
       chunk-unload-delay:
         comment: Chunk unload delay (ticks)
-      comment: Chunk optimization related settings
+      comment:
+        - Chunk optimization related settings
+        - Note: Chunk optimization will be automatically disabled when C2ME or Noisium mod is present to avoid conflicts
       optimize-chunk-loading:
         comment: Whether to optimize chunk loading
     comment: Server optimization related settings
@@ -179,7 +181,9 @@ comments:
     world-creation:
       async-world-data-loading:
         comment: Whether to load world data asynchronously
-      comment: World creation related settings
+      comment:
+        - World creation related settings
+        - Note: Parallel world loading will be automatically disabled when ModernFix mod is present to avoid conflicts
       defer-spawn-area-preparation:
         comment: Whether to defer spawn area preparation
       early-world-list-addition:
