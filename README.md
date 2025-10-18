@@ -59,7 +59,6 @@ An Arclight fork, aiming to make more optimizations and improvements on Arclight
 - May not be compatible with some optimization mods.
 - Incompatible with all optimized Bukkit plugins
 
-
 ## Support and Help
 
 ### Documentation

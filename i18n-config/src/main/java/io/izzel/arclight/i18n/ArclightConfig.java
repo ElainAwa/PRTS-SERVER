@@ -216,18 +216,6 @@ public class ArclightConfig {
         return indentLength;
     }
 
-    public ConfigSpec getSpec() {
-        return spec;
-    }
-
-    public ConfigurationNode getNode() {
-        return node;
-    }
-
-    public ConfigurationNode get(String path) {
-        return this.node.getNode((Object) path.split("\\."));
-    }
-
     private static void applyLoggingConfiguration() {
         try {
             boolean useSimpleFormat;
@@ -262,5 +250,17 @@ public class ArclightConfig {
             System.err.println("Failed to reconfigure logging: " + e.getMessage());
             System.setProperty("log4j.configurationFile", configFile);
         }
+    }
+
+    public ConfigSpec getSpec() {
+        return spec;
+    }
+
+    public ConfigurationNode getNode() {
+        return node;
+    }
+
+    public ConfigurationNode get(String path) {
+        return this.node.getNode((Object) path.split("\\."));
     }
 }
