@@ -50,6 +50,7 @@
     "Registry_SimpleRegistryMixin",
     "StandardMessengerMixin",
     "WatchdogThreadMixin",
+    "World_PaperCompatMixin",
     "adventure.ChatColorAdventureMixin",
     "adventure.CommandSenderAdventureMixin",
     "adventure.CraftMagicNumbersAdventureMixin",
