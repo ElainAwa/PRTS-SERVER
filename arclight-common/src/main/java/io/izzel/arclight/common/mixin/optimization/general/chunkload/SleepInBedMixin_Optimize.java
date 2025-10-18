@@ -1,5 +1,7 @@
 package io.izzel.arclight.common.mixin.optimization.general.chunkload;
 
+import io.izzel.arclight.common.mod.compat.ModIds;
+import io.izzel.arclight.common.mod.mixins.annotation.LoadIfMod;
 import net.minecraft.core.GlobalPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.LivingEntity;
@@ -11,6 +13,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import org.spongepowered.asm.mixin.injection.callback.LocalCapture;
 
+@LoadIfMod(modid = {ModIds.C2ME, ModIds.NOISIUM}, condition = LoadIfMod.ModCondition.ABSENT)
 @Mixin(SleepInBed.class)
 public class SleepInBedMixin_Optimize {
 

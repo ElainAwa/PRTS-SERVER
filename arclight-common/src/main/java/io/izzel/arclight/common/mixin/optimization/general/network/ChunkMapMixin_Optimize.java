@@ -2,6 +2,8 @@ package io.izzel.arclight.common.mixin.optimization.general.network;
 
 import io.izzel.arclight.common.bridge.core.entity.player.ServerPlayerEntityBridge;
 import io.izzel.arclight.common.bridge.core.world.server.ChunkMap_TrackedEntityBridge;
+import io.izzel.arclight.common.mod.compat.ModIds;
+import io.izzel.arclight.common.mod.mixins.annotation.LoadIfMod;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.objects.ObjectArraySet;
 import it.unimi.dsi.fastutil.objects.ObjectCollection;
@@ -23,6 +25,7 @@ import java.util.ArrayList;
 import java.util.Objects;
 import java.util.Set;
 
+@LoadIfMod(modid = {ModIds.C2ME, ModIds.NOISIUM}, condition = LoadIfMod.ModCondition.ABSENT)
 @Mixin(ChunkMap.class)
 public class ChunkMapMixin_Optimize {
 

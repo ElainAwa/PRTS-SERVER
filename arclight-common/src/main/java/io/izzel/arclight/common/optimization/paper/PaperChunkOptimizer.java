@@ -1,5 +1,7 @@
 package io.izzel.arclight.common.optimization.paper;
 
+import io.izzel.arclight.common.mod.ArclightMod;
+import io.izzel.arclight.common.mod.compat.ModIds;
 import io.izzel.arclight.i18n.ArclightConfig;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.ChunkPos;
@@ -11,6 +13,11 @@ public class PaperChunkOptimizer {
     private static final Map<ChunkPos, Long> chunkAccessTimes = new ConcurrentHashMap<>();
 
     public static void optimizeWorldCreationChunks(ServerLevel level) {
+        // Disable chunk optimization when C2ME or Noisium is present
+        if (ArclightMod.isModLoaded(ModIds.C2ME) || ArclightMod.isModLoaded(ModIds.NOISIUM)) {
+            return;
+        }
+
         var worldConfig = ArclightConfig.spec().getOptimization().getWorldCreation();
         var chunkConfig = ArclightConfig.spec().getOptimization().getChunkOptimization();
 
@@ -41,6 +48,11 @@ public class PaperChunkOptimizer {
 
 
     public static boolean isChunkActive(ChunkPos pos) {
+        // Disable chunk optimization when C2ME or Noisium is present
+        if (ArclightMod.isModLoaded(ModIds.C2ME) || ArclightMod.isModLoaded(ModIds.NOISIUM)) {
+            return false;
+        }
+
         var config = ArclightConfig.spec().getOptimization().getChunkOptimization();
         Long lastAccess = chunkAccessTimes.get(pos);
 
@@ -52,6 +64,11 @@ public class PaperChunkOptimizer {
 
 
     public static void optimizeChunkUnloading(ServerLevel level) {
+        // Disable chunk optimization when C2ME or Noisium is present
+        if (ArclightMod.isModLoaded(ModIds.C2ME) || ArclightMod.isModLoaded(ModIds.NOISIUM)) {
+            return;
+        }
+
         var config = ArclightConfig.spec().getOptimization().getChunkOptimization();
 
         if (!config.isAggressiveChunkUnloading()) {
@@ -73,6 +90,11 @@ public class PaperChunkOptimizer {
     }
 
     public static void performPaperChunkGC(ServerLevel level) {
+        // Disable chunk optimization when C2ME or Noisium is present
+        if (ArclightMod.isModLoaded(ModIds.C2ME) || ArclightMod.isModLoaded(ModIds.NOISIUM)) {
+            return;
+        }
+
         var config = ArclightConfig.spec().getOptimization().getChunkOptimization();
         level.getChunkSource().tick(() -> true, true);
     }
