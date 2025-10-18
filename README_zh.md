@@ -3,6 +3,7 @@
 ![Luminara Logo](.github/luminara.png)
 
 一个Arclight fork，争取在Arclight上做出更多优化与改进（1.20.1）
+
 > 使用本服务端过程中出现的任何问题请在本项目Issue反馈，请勿在Arclight项目Issue反馈！
 
 ## 特性
@@ -16,7 +17,7 @@
 
 > **当前主要维护版本：Minecraft 1.20.1**
 >
-> - **Forge 版本**：47.4.9
+> - **Forge 版本**：47.4.10
 > - **稳定性**：较好
 > - **插件兼容性**：一般，仅Spigot
 > - **模组兼容性**：优秀
@@ -46,7 +47,10 @@
    ```bash
    java -jar luminara.jar nogui
    ```
+
    > `nogui` 参数将禁用服务器控制面板
+
+>
 
 ## 不兼容
 
