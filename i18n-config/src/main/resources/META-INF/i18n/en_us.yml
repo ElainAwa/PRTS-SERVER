@@ -197,9 +197,7 @@ comments:
       optimize-world-border-setup:
         comment: Whether to optimize world border setup
       parallel-world-initialization:
-        comment:
-          - Whether to initialize worlds in parallel
-          - Note: Parallel world loading will be automatically disabled when ModernFix mod is present to avoid conflicts
+        comment: Whether to initialize worlds in parallel
       skip-spawn-chunk-loading:
         comment: Whether to skip spawn chunk loading
       spawn-area-radius:

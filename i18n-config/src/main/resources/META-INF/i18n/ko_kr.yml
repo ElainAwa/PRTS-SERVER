@@ -203,10 +203,6 @@ network:
   packet:
     handle-failed: 패킷 {} 처리 실패, 오류 억제
 optimization:
-  world-creation:
-    parallel-world-initialization:
-      comment:
-        - '주의: ModernFix 모드가 존재하면 충돌을 피하기 위해 병렬 월드 로딩이 자동으로 비활성화됩니다'
   chunk-optimization:
     comment:
       - '주의: C2ME 또는 Noisium 모드가 존재하면 충돌을 피하기 위해 청크 최적화가 자동으로 비활성화됩니다'

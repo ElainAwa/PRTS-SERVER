@@ -185,9 +185,7 @@ comments:
       optimize-world-border-setup:
         comment: 是否优化世界边界设置
       parallel-world-initialization:
-        comment:
-          - 是否并行初始化世界
-          - 注意：当ModernFix模组存在时，并行世界加载将自动禁用以避免冲突
+        comment: 是否并行初始化世界
       skip-spawn-chunk-loading:
         comment: 是否跳过出生点区块加载
       spawn-area-radius:
