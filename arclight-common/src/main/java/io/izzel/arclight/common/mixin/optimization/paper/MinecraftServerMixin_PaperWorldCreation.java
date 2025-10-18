@@ -1,12 +1,15 @@
 package io.izzel.arclight.common.mixin.optimization.paper;
 
 import io.izzel.arclight.common.bridge.optimization.paper.WorldCreationBridge;
+import io.izzel.arclight.common.mod.compat.ModIds;
+import io.izzel.arclight.common.mod.mixins.annotation.LoadIfMod;
 import net.minecraft.server.MinecraftServer;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+@LoadIfMod(modid = {ModIds.MODERNFIX}, condition = LoadIfMod.ModCondition.ABSENT)
 @Mixin(MinecraftServer.class)
 public class MinecraftServerMixin_PaperWorldCreation implements WorldCreationBridge {
 

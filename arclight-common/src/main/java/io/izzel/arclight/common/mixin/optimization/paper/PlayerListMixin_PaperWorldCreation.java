@@ -1,5 +1,7 @@
 package io.izzel.arclight.common.mixin.optimization.paper;
 
+import io.izzel.arclight.common.mod.compat.ModIds;
+import io.izzel.arclight.common.mod.mixins.annotation.LoadIfMod;
 import io.izzel.arclight.i18n.ArclightConfig;
 import net.minecraft.network.protocol.game.ClientboundLevelChunkWithLightPacket;
 import net.minecraft.server.level.ServerLevel;
@@ -10,6 +12,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+@LoadIfMod(modid = {ModIds.MODERNFIX}, condition = LoadIfMod.ModCondition.ABSENT)
 @Mixin(PlayerList.class)
 public class PlayerListMixin_PaperWorldCreation {
 

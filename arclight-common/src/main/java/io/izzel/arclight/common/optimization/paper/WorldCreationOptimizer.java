@@ -1,5 +1,7 @@
 package io.izzel.arclight.common.optimization.paper;
 
+import io.izzel.arclight.common.mod.ArclightMod;
+import io.izzel.arclight.common.mod.compat.ModIds;
 import io.izzel.arclight.i18n.ArclightConfig;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.storage.ServerLevelData;
@@ -15,14 +17,17 @@ public class WorldCreationOptimizer {
     static {
         var config = ArclightConfig.spec().getOptimization().getWorldCreation();
         if (config.isParallelWorldInitialization()) {
-            worldCreationExecutor = Executors.newFixedThreadPool(
-                    config.getMaxConcurrentWorldLoads(),
-                    r -> {
-                        Thread t = new Thread(r, "Luminara-Paper-WorldCreation");
-                        t.setDaemon(true);
-                        return t;
-                    }
-            );
+            // Disable parallel world loading when ModernFix is present to avoid conflicts
+            if (!ArclightMod.isModLoaded(ModIds.MODERNFIX)) {
+                worldCreationExecutor = Executors.newFixedThreadPool(
+                        config.getMaxConcurrentWorldLoads(),
+                        r -> {
+                            Thread t = new Thread(r, "Luminara-Paper-WorldCreation");
+                            t.setDaemon(true);
+                            return t;
+                        }
+                );
+            }
         }
     }
 
@@ -106,7 +111,6 @@ public class WorldCreationOptimizer {
         var config = ArclightConfig.spec().getOptimization().getWorldCreation();
 
         if (!config.isOptimizeWorldBorderSetup()) {
-            return;
         }
 
 
