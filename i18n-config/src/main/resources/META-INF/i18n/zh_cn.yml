@@ -366,7 +366,7 @@ server:
   continuing-after-crash: 根据配置，服务器将在崩溃后继续运行
   crash-report-failed: 无法将崩溃报告保存到磁盘
   crash-report-saved: '崩溃报告已保存到: {}'
-  overload-warning: 服务器无法跟上！服务器过载了吗？运行 {} 毫秒或 {} 个tick落后
+  overload-warning: 服务器无法跟上！服务器过载了吗？落后了 {} 毫秒或 {} 个tick
   preparing-start-region: 为维度 {} 准备起始区域
   starting: 正在启动 Luminara...
   stop-exception: 关闭服务器时发生异常
