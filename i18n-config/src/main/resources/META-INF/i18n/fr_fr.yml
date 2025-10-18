@@ -324,6 +324,13 @@ comments:
     - ""
     - "Numéro de version de la configuration, ne pas modifier."
   locale.comment: "Langage/paramètres I18n"
+  logging:
+    comment: "Paramètres liés à la sortie des logs"
+    use-simple-format:
+      comment:
+        - "Utiliser ou non le format simplifié pour la sortie des logs"
+        - "true - Utiliser le format simple (masquer les noms de threads et de classes)"
+        - "false - Utiliser le format détaillé (afficher les noms complets de threads, classes et autres informations de débogage)"
   optimization:
     comment: "Paramètres d'optimisation"
     goal-selector-update-interval.comment:

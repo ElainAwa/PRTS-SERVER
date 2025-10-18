@@ -97,6 +97,13 @@ comments:
       comment: 크래시 리포트 파일 저장 디렉토리
   locale:
     comment: 언어/I18n 설정
+  logging:
+    comment: 로그 출력 관련 설정
+    use-simple-format:
+      comment:
+        - 단순화된 로그 출력 형식을 사용할지 여부
+        - true - 단순 형식 사용 (스레드명과 클래스명 숨김)
+        - false - 상세 형식 사용 (전체 스레드명, 클래스명 및 기타 디버그 정보 표시)
   optimization:
     comment: 최적화 관련 설정
     goal-selector-update-interval:

@@ -30,6 +30,9 @@ public class ConfigSpec {
     @Setting("error-handling")
     private ErrorHandlingSpec errorHandlingSpec;
 
+    @Setting("logging")
+    private LoggingSpec loggingSpec;
+
     public int getVersion() {
         return version;
     }
@@ -60,5 +63,9 @@ public class ConfigSpec {
 
     public ErrorHandlingSpec getErrorHandling() {
         return errorHandlingSpec;
+    }
+
+    public LoggingSpec getLogging() {
+        return loggingSpec;
     }
 }

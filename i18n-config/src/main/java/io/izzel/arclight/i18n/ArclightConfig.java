@@ -5,14 +5,18 @@ import io.izzel.arclight.i18n.conf.ConfigSpec;
 import ninja.leaping.configurate.ConfigurationNode;
 import ninja.leaping.configurate.objectmapping.ObjectMappingException;
 import ninja.leaping.configurate.yaml.YAMLConfigurationLoader;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.core.LoggerContext;
 
 import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Objects;
 
 public class ArclightConfig {
 
@@ -68,6 +72,8 @@ public class ArclightConfig {
             instance = new ArclightConfig(cur);
 
         }
+
+        applyLoggingConfiguration();
     }
 
     private static boolean fileContainsCurrentLocale(String content, String currentLocale) {
@@ -220,5 +226,41 @@ public class ArclightConfig {
 
     public ConfigurationNode get(String path) {
         return this.node.getNode((Object) path.split("\\."));
+    }
+
+    private static void applyLoggingConfiguration() {
+        try {
+            boolean useSimpleFormat;
+            try {
+                useSimpleFormat = instance.spec.getLogging() != null
+                        && instance.spec.getLogging().isUseSimpleFormat();
+            } catch (Exception e) {
+                useSimpleFormat = false;
+            }
+
+            String configFile = useSimpleFormat ? "arclight-log4j2.xml" : "arclight-log4j2-detailed.xml";
+            reconfigureLogging(configFile);
+
+            System.out.println("[Luminara] Applied logging configuration: " +
+                    (useSimpleFormat ? "Simple format" : "Detailed format"));
+
+        } catch (Exception e) {
+            System.err.println("Failed to apply logging configuration: " + e.getMessage());
+        }
+    }
+
+    private static void reconfigureLogging(String configFile) {
+        try {
+            ClassLoader classLoader = ArclightConfig.class.getClassLoader();
+            URI configUri = Objects.requireNonNull(classLoader.getResource(configFile)).toURI();
+
+            LoggerContext context = (LoggerContext) LogManager.getContext(false);
+            context.setConfigLocation(configUri);
+            context.reconfigure();
+
+        } catch (Exception e) {
+            System.err.println("Failed to reconfigure logging: " + e.getMessage());
+            System.setProperty("log4j.configurationFile", configFile);
+        }
     }
 }

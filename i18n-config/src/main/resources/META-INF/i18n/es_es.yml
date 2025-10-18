@@ -330,6 +330,13 @@ comments:
     - ""
     - "Versión de la configuración, no editar."
   locale.comment: "Idioma/ajustes I18n"
+  logging:
+    comment: "Configuración relacionada con la salida de logs"
+    use-simple-format:
+      comment:
+        - "Si usar formato simplificado para la salida de logs"
+        - "true - Usar formato simple (ocultar nombres de hilos y clases)"
+        - "false - Usar formato detallado (mostrar nombres completos de hilos, clases y otra información de depuración)"
   optimization:
     comment: "Ajustes relacionados con la optimización"
     goal-selector-update-interval.comment:

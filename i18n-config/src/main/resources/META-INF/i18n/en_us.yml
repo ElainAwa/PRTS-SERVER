@@ -84,6 +84,13 @@ comments:
       comment: Directory for storing crash report files
   locale:
     comment: Language/I18n settings
+  logging:
+    comment: Logging output related settings
+    use-simple-format:
+      comment:
+        - Whether to use simplified log output format
+        - true - Use simple format (hide thread names and class names)
+        - false - Use detailed format (show full thread names, class names and other debug info)
   optimization:
     async-system:
       async-ai-enabled:

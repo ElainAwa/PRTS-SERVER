@@ -94,6 +94,13 @@ comments:
       comment: 崩溃报告文件存储目录
   locale:
     comment: 语言/国际化相关设置
+  logging:
+    comment: 日志输出相关设置
+    use-simple-format:
+      comment:
+        - 是否使用简化的日志输出格式
+        - true - 使用简洁格式（隐藏线程名和类名，类似Mohist风格）
+        - false - 使用详细格式（显示完整的线程名、类名等调试信息）
   optimization:
     async-system:
       async-ai-enabled:

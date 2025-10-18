@@ -95,3 +95,6 @@ velocity:
 error-handling:
   continue-on-crash: false
   crash-report-directory: "crash-reports"
+
+logging:
+  use-simple-format: false
