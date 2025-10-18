@@ -119,6 +119,13 @@ server:
 
 # Optimization system messages (合并所有optimization相关配置)
 optimization:
+  world-creation:
+    parallel-world-initialization:
+      comment:
+        - "Nota: La carga paralela de mundos se deshabilitará automáticamente cuando esté presente el mod ModernFix para evitar conflictos"
+  chunk-optimization:
+    comment:
+      - "Nota: La optimización de chunks se deshabilitará automáticamente cuando esté presente el mod C2ME o Noisium para evitar conflictos"
   chunk:
     unloading: "Descargando chunk [{}, {}] en el mundo {}"
     unloaded: "{} chunks descargados"

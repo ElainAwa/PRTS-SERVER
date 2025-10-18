@@ -88,6 +88,13 @@ server:
 
 # Optimization system messages (合并所有optimization相关配置)
 optimization:
+  world-creation:
+    parallel-world-initialization:
+      comment:
+        - "Примечание: Параллельная загрузка миров будет автоматически отключена при наличии мода ModernFix, чтобы избежать конфликтов"
+  chunk-optimization:
+    comment:
+      - "Примечание: Оптимизация чанков будет автоматически отключена при наличии мода C2ME или Noisium, чтобы избежать конфликтов"
   chunk:
     unloading: "Выгрузка чанка [{}, {}] в мире {}"
     unloaded: "{} чанков выгружено"
