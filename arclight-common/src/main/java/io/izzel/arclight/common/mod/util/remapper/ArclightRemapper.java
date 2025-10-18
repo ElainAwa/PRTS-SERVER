@@ -103,6 +103,7 @@ public class ArclightRemapper {
         inheritanceProvider.add(new ClassLoaderProvider(ClassLoader.getSystemClassLoader()));
         this.toNmsMapping.setFallbackInheritanceProvider(inheritanceProvider);
         this.toBukkitMapping.setFallbackInheritanceProvider(inheritanceProvider);
+        this.transformerList.add(CraftBukkitVersionRemapper.INSTANCE);
         this.transformerList.add(ArclightInterfaceInvokerGen.INSTANCE);
         this.transformerList.add(ArclightRedirectAdapter.INSTANCE);
         this.transformerList.add(ClassLoaderAdapter.INSTANCE);
