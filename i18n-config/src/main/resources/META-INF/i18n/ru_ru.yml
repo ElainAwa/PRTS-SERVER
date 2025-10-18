@@ -88,13 +88,6 @@ server:
 
 # Optimization system messages (合并所有optimization相关配置)
 optimization:
-  entity-cleanup:
-    starting: "Начинается очистка сущностей, ожидается очистка {} сущностей"
-    mpem-completed: "Очистка сущностей Luminara-MPEM завершена. Очищено {} сущностей (мертвые: {}, предметы: {}, плотные: {}, избыток: {})"
-    cancelled: "Очистка сущностей отменена"
-    level-error: "Ошибка при очистке сущностей в измерении {}: {}"
-    dead-entities-error: "Ошибка при очистке мертвых сущностей: {}"
-    old-items-error: "Ошибка при очистке старых предметов: {}"
   chunk:
     unloading: "Выгрузка чанка [{}, {}] в мире {}"
     unloaded: "{} чанков выгружено"
@@ -130,9 +123,6 @@ optimization:
     shutdown-interrupted: "Прерван во время завершения пула {}"
   thread:
     uncaught-exception: "Неперехваченное исключение в потоке {}"
-  entity-cleaner:
-    forcing-cleanup: "Принудительная очистка сущностей..."
-    scheduled-cancelled: "Запланированная очистка сущностей отменена"
   async-redstone:
     update-error: "Ошибка при обработке асинхронного обновления редстоуна в {}"
     calculation-error: "Ошибка при вычислении сигнала редстоуна"

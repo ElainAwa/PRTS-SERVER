@@ -13,7 +13,7 @@ An Arclight fork, aiming to make more optimizations and improvements on Arclight
 ## Features
 
 - **Strong Compatibility** - Supports Bukkit/Spigot plugins and Forge mods running simultaneously
-- **High Performance** - Incorporates some MPEM optimizations, asynchronous world saving...
+- **High Performance** - Asynchronous world saving, chunk optimization...
 - **Easy to Use** - Simple installation and usage
 - **Velocity Support** - Supports Velocity Modern forwarding enabling cross-server functionality
 
@@ -56,14 +56,9 @@ An Arclight fork, aiming to make more optimizations and improvements on Arclight
 
 ## Incompatibilities
 
-- Not compatible with all optimization mods/plugins
+- May not be compatible with some optimization mods.
+- Incompatible with all optimized Bukkit plugins
 
-> MPEM optimizations are already included
-
-- Not compatible with entity cleaning mods/plugins
-
-> Entity cleaning is already included. If you still want to use a mod/plugin to provide entity cleaning functionality,
-> please disable the entity cleaning feature in luminara.yml
 
 ## Support and Help
 

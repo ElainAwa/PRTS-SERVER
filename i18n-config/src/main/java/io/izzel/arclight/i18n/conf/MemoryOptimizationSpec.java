@@ -6,18 +6,11 @@ import ninja.leaping.configurate.objectmapping.serialize.ConfigSerializable;
 @ConfigSerializable
 public class MemoryOptimizationSpec {
 
-    @Setting("entity-cleanup-enabled")
-    private boolean entityCleanupEnabled = true;
-
     @Setting("cache-cleanup-enabled")
-    private boolean cacheCleanupEnabled = true;
+    private final boolean cacheCleanupEnabled = true;
 
     @Setting("cache-cleanup-interval")
-    private int cacheCleanupInterval = 300;
-
-    public boolean isEntityCleanupEnabled() {
-        return entityCleanupEnabled;
-    }
+    private final int cacheCleanupInterval = 300;
 
     public boolean isCacheCleanupEnabled() {
         return cacheCleanupEnabled;

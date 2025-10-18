@@ -119,13 +119,6 @@ server:
 
 # Optimization system messages (合并所有optimization相关配置)
 optimization:
-  entity-cleanup:
-    starting: "Iniciando limpieza de entidades, se espera limpiar {} entidades"
-    mpem-completed: "Limpieza de entidades Luminara-MPEM completada. Limpiadas {} entidades (muertas: {}, objetos: {}, densas: {}, exceso: {})"
-    cancelled: "Limpieza de entidades cancelada"
-    level-error: "Error durante la limpieza de entidades en la dimensión {}: {}"
-    dead-entities-error: "Error durante la limpieza de entidades muertas: {}"
-    old-items-error: "Error durante la limpieza de objetos antiguos: {}"
   chunk:
     unloading: "Descargando chunk [{}, {}] en el mundo {}"
     unloaded: "{} chunks descargados"
@@ -162,9 +155,6 @@ optimization:
     shutdown-interrupted: "Interrumpido mientras se apagaba el pool {}"
   thread:
     uncaught-exception: "Excepción no capturada en hilo {}"
-  entity-cleaner:
-    forcing-cleanup: "Forzando limpieza de entidades..."
-    scheduled-cancelled: "Limpieza de entidades programada cancelada"
   async-redstone:
     update-error: "Error procesando actualización de redstone asíncrona en {}"
     calculation-error: "Error calculando señal de redstone"

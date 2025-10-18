@@ -303,16 +303,6 @@ optimization:
     rate-limit: 'Chunk loading rate limit: original {} -> limited {}'
     unloaded: Unloaded {} chunks
     unloading: Unloading chunk [{}, {}] in world {}
-  entity-cleaner:
-    forcing-cleanup: Forcing entity cleanup...
-    scheduled-cancelled: Scheduled entity cleanup cancelled
-  entity-cleanup:
-    cancelled: Entity cleanup cancelled
-    dead-entities-error: 'Error during dead entities cleanup: {}'
-    level-error: 'Error during entity cleanup in level {}: {}'
-    mpem-completed: 'Luminara-MPEM entity cleanup completed. Cleaned {} entities (dead: {}, items: {}, dense: {}, excess: {})'
-    old-items-error: 'Error during old items cleanup: {}'
-    starting: Entity cleanup starting, expected to clean {} entities
   manager:
     shutdown-error: Error during optimization system shutdown
   memory:

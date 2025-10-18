@@ -2,7 +2,6 @@ package io.izzel.arclight.common.mod.command.subcommands;
 
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
-import io.izzel.arclight.common.optimization.mpem.MemoryOptimizer;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
@@ -18,7 +17,7 @@ public class GCSubCommand implements LuminaraSubCommand {
 
     @Override
     public String getDescription() {
-        return "Force cache cleanup and garbage collection";
+        return "Force garbage collection";
     }
 
     @Override
@@ -32,21 +31,23 @@ public class GCSubCommand implements LuminaraSubCommand {
         CommandSourceStack source = context.getSource();
 
         try {
-            double beforeUsage = MemoryOptimizer.getMemoryUsage();
-            MemoryOptimizer.forceCleanup();
+            Runtime runtime = Runtime.getRuntime();
+            long beforeGC = runtime.totalMemory() - runtime.freeMemory();
+            
             System.gc();
-
             Thread.sleep(1000);
 
-            double afterUsage = MemoryOptimizer.getMemoryUsage();
-            double freed = (beforeUsage - afterUsage) * 100;
+            long afterGC = runtime.totalMemory() - runtime.freeMemory();
+            long freed = beforeGC - afterGC;
+            double freedMB = freed / (1024.0 * 1024.0);
 
-            source.sendSuccess(() -> Component.literal(String.format("Cache cleanup and GC completed. Freed: %.2f%%", freed)), true);
-            source.sendSuccess(() -> Component.literal(String.format("Memory usage: %.2f%% -> %.2f%%", beforeUsage * 100, afterUsage * 100)), false);
+            source.sendSuccess(() -> Component.literal(String.format("Garbage collection completed. Freed: %.2f MB", freedMB)), true);
+            source.sendSuccess(() -> Component.literal(String.format("Memory usage: %.2f MB -> %.2f MB",
+                    beforeGC / (1024.0 * 1024.0), afterGC / (1024.0 * 1024.0))), false);
 
             return 1;
         } catch (Exception e) {
-            source.sendFailure(Component.literal("Failed to perform cleanup: " + e.getMessage()));
+            source.sendFailure(Component.literal("Failed to perform garbage collection: " + e.getMessage()));
             return 0;
         }
     }

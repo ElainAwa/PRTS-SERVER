@@ -140,33 +140,13 @@ comments:
     entity-optimization:
       chunk-entity-limit:
         comment: 区块实体限制
-      clean-valuable-items:
-        comment: 是否清理有价值的物品
-      cleanup-cancelled-message:
-        comment: 清理取消消息模板
-      cleanup-complete-message:
-        comment: 清理完成消息模板
-      cleanup-notification-enabled:
-        comment: 是否启用清理通知
-      cleanup-start-message:
-        comment: 清理开始消息模板
-      cleanup-warning-time:
-        comment: 清理警告时间（秒）
       comment: 实体优化相关设置
       disable-entity-collisions:
         comment: 是否禁用实体碰撞检测
       entity-check-interval:
         comment: 实体检查间隔（tick）
-      entity-cleanup-enabled:
-        comment: 是否启用实体清理功能
-      entity-cleanup-threshold:
-        comment: 触发实体清理的实体数量阈值
-      entity-freeze-timeout:
-        comment: 实体冻结超时时间（毫秒）
       entity-update-distance:
         comment: 实体更新距离
-      item-max-age:
-        comment: 物品最大存在时间（tick）
       max-entities-per-chunk:
         comment: 每个区块最大实体数量
       max-entities-per-type:
@@ -184,8 +164,6 @@ comments:
       cache-cleanup-interval:
         comment: 缓存清理间隔（秒）
       comment: 内存优化相关设置
-      entity-cleanup-enabled:
-        comment: 是否启用实体清理
     world-creation:
       async-world-data-loading:
         comment: 是否异步加载世界数据
@@ -309,16 +287,6 @@ optimization:
     rate-limit: '区块加载速率限制: 原始 {} -> 限制 {}'
     unloaded: 已卸载 {} 个区块
     unloading: 正在卸载区块 [{}, {}] 在世界 {}
-  entity-cleaner:
-    forcing-cleanup: 强制实体清理...
-    scheduled-cancelled: 计划的实体清理已取消
-  entity-cleanup:
-    cancelled: 实体清理已取消
-    dead-entities-error: '清理死亡实体时出错: {}'
-    level-error: '在维度 {} 中进行实体清理时出错: {}'
-    mpem-completed: 'Luminara-MPEM 实体清理完成。清理了 {} 个实体 (死亡: {}, 物品: {}, 密集: {}, 过量: {})'
-    old-items-error: '清理旧物品时出错: {}'
-    starting: 实体清理开始，预计清理 {} 个实体
   error-handling:
     continue-on-crash-disabled: 崩溃后继续运行已禁用，服务器将停止
     continue-on-crash-warning: '警告: 崩溃后继续运行已启用，这可能导致数据损坏'

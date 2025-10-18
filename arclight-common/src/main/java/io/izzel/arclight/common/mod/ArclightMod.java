@@ -4,7 +4,6 @@ import io.izzel.arclight.common.mod.server.event.ArclightEventDispatcherRegistry
 import io.izzel.arclight.common.mod.util.BungeeComponentPreloader;
 import io.izzel.arclight.common.mod.util.log.ArclightI18nLogger;
 import io.izzel.arclight.common.mod.velocity.VelocityManager;
-import io.izzel.arclight.common.optimization.mpem.OptimizationManager;
 import io.izzel.arclight.i18n.ArclightConfig;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.server.ServerAboutToStartEvent;
@@ -52,7 +51,7 @@ public class ArclightMod {
     }
 
     private void onCommonSetup(FMLCommonSetupEvent event) {
-        OptimizationManager.initialize(event);
+        // Common setup complete
     }
 
     private void onServerAboutToStart(ServerAboutToStartEvent event) {

@@ -223,16 +223,6 @@ optimization:
     rate-limit: '청크 로딩 속도 제한: 원본 {} -> 제한 {}'
     unloaded: '{} 개의 청크가 언로드되었습니다'
     unloading: 월드 {}의 청크 [{}, {}] 언로드 중
-  entity-cleaner:
-    forcing-cleanup: 엔티티 정리 강제 실행...
-    scheduled-cancelled: 예정된 엔티티 정리가 취소되었습니다
-  entity-cleanup:
-    cancelled: 엔티티 정리가 취소되었습니다
-    dead-entities-error: '사망한 엔티티 정리 중 오류 발생: {}'
-    level-error: '차원 {}에서 엔티티 정리 중 오류 발생: {}'
-    mpem-completed: 'Luminara-MPEM 엔티티 정리 완료. {} 개 엔티티 정리됨 (사망: {}, 아이템: {}, 밀집: {}, 과다: {})'
-    old-items-error: '오래된 아이템 정리 중 오류 발생: {}'
-    starting: 엔티티 정리 시작, {} 개의 엔티티 정리 예정
   error-handling:
     continue-on-crash-disabled: 크래시 후 계속 실행이 비활성화되어 있습니다. 서버가 중지됩니다
     continue-on-crash-warning: '경고: 크래시 후 계속 실행이 활성화되어 있습니다. 이는 데이터 손상을 일으킬 수 있습니다'
