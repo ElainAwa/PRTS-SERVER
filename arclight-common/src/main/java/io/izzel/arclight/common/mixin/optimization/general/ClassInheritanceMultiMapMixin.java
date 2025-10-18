@@ -10,7 +10,7 @@ import org.spongepowered.asm.mixin.injection.Redirect;
 import java.util.*;
 
 @Mixin(ClassInstanceMultiMap.class)
-@LoadIfMod(modid = {ModIds.RECRUITS}, condition = LoadIfMod.ModCondition.ABSENT)
+@LoadIfMod(modid = {ModIds.RECRUITS, ModIds.RADIUM, ModIds.CANARY}, condition = LoadIfMod.ModCondition.ABSENT)
 public class ClassInheritanceMultiMapMixin<T> {
 
     private static final ArrayList<?> EMPTY_LIST = new ArrayList<>();
