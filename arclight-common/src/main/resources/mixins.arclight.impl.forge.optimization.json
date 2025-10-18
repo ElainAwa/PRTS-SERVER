@@ -8,7 +8,6 @@
   "mixins": [
     "ClassInheritanceMultiMapMixin",
     "EntityDataManagerMixin_Optimize",
-    "EntityMixin_EnhancedOptimize",
     "EntityMixin_Optimize",
     "GoalMixin",
     "MobMixin_Optimization",
@@ -17,7 +16,6 @@
     "chunkload.SleepInBedMixin_Optimize",
     "network.ChunkMapMixin_Optimize",
     "network.ChunkMapMixin_Optimize$TrackedEntityMixin",
-    "network.ServerEntityMixin_EnhancedOptimize",
     "network.ServerGamePacketListenerImplMixin_Optimize",
     "network.ServerPlayerMixin_Optimize",
     "realtime.ItemEntityMixin_Realtime",
