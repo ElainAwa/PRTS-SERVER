@@ -44,13 +44,14 @@
 
 1. **下载** jar 文件
 2. **启动服务器**：
+
    ```bash
    java -jar luminara.jar nogui
    ```
 
    > `nogui` 参数将禁用服务器控制面板
-
->
+   >
+3. 在每次更新前，请将新的JAR替换旧的JAR，然后删除.arclight文件夹，否则某些修复将不生效！
 
 ## 不兼容
 

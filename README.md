@@ -50,13 +50,14 @@ An Arclight fork, aiming to make more optimizations and improvements on Arclight
 
 1. **Download** the jar file
 2. **Start the server**:
+
    ```bash
    java -jar luminara.jar nogui
    ```
 
    > The `nogui` parameter will disable the server control panel
-
->
+   >
+3. Before each update, replace the old JAR file with the new one, then delete the .arclight folder. Otherwise, certain fixes will not take effect!
 
 ## Incompatibilities
 
