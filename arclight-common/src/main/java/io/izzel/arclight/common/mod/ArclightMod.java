@@ -3,10 +3,7 @@ package io.izzel.arclight.common.mod;
 import io.izzel.arclight.common.mod.server.event.ArclightEventDispatcherRegistry;
 import io.izzel.arclight.common.mod.util.BungeeComponentPreloader;
 import io.izzel.arclight.common.mod.util.log.ArclightI18nLogger;
-import io.izzel.arclight.common.mod.velocity.VelocityManager;
 import io.izzel.arclight.i18n.ArclightConfig;
-import net.minecraftforge.common.MinecraftForge;
-import net.minecraftforge.event.server.ServerAboutToStartEvent;
 import net.minecraftforge.fml.IExtensionPoint;
 import net.minecraftforge.fml.ModList;
 import net.minecraftforge.fml.common.Mod;
@@ -42,8 +39,6 @@ public class ArclightMod {
                 () -> new IExtensionPoint.DisplayTest(() -> NetworkConstants.IGNORESERVERONLY, (a, b) -> true));
 
         context.getModEventBus().addListener(this::onCommonSetup);
-
-        MinecraftForge.EVENT_BUS.addListener(this::onServerAboutToStart);
     }
 
     public static boolean isModLoaded(String modid) {
@@ -52,12 +47,6 @@ public class ArclightMod {
 
     private void onCommonSetup(FMLCommonSetupEvent event) {
         // Common setup complete
-    }
-
-    private void onServerAboutToStart(ServerAboutToStartEvent event) {
-        // Initialize Velocity forwarding
-        VelocityManager.getInstance().initialize();
-        LOGGER.info("server-initialization-completed");
     }
 
     private static class LoggingPrintStream extends PrintStream {

@@ -2,6 +2,7 @@ package io.izzel.arclight.common.mixin.core.network.protocol.game;
 
 import com.mojang.brigadier.arguments.ArgumentType;
 import io.izzel.arclight.common.mod.ArclightMod;
+import io.izzel.arclight.i18n.ArclightConfig;
 import io.netty.buffer.Unpooled;
 import net.minecraft.commands.synchronization.ArgumentTypeInfo;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -21,7 +22,12 @@ public class ClientboundCommandsPacket_ArgumentNodeStubMixin {
     @Inject(method = "serializeCap(Lnet/minecraft/network/FriendlyByteBuf;Lnet/minecraft/commands/synchronization/ArgumentTypeInfo;Lnet/minecraft/commands/synchronization/ArgumentTypeInfo$Template;)V",
             cancellable = true, at = @At("HEAD"))
     private static <A extends ArgumentType<?>, T extends ArgumentTypeInfo.Template<A>> void arclight$wrapArgument(FriendlyByteBuf buf, ArgumentTypeInfo<A, T> type, ArgumentTypeInfo.Template<A> node, CallbackInfo ci) {
-        if (!SpigotConfig.bungee) {
+        boolean velocityEnabled = false;
+        try {
+            var spec = ArclightConfig.spec().getVelocity();
+            velocityEnabled = spec != null && spec.isEnabled();
+        } catch (Throwable ignored) {}
+        if (!(SpigotConfig.bungee || velocityEnabled)) {
             return;
         }
         var key = ForgeRegistries.COMMAND_ARGUMENT_TYPES.getKey(type);
