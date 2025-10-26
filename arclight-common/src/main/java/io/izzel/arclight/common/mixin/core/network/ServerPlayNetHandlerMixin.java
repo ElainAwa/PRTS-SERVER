@@ -764,16 +764,10 @@ public abstract class ServerPlayNetHandlerMixin implements ServerPlayNetHandlerB
                     if (swapItemsEvent.isCancelled()) {
                         return;
                     }
-                    if (swapItemsEvent.getOffHandItem().equals(offHand)) {
-                        this.player.setItemInHand(InteractionHand.OFF_HAND, originMainHand);
-                    } else {
-                        this.player.setItemInHand(InteractionHand.OFF_HAND, CraftItemStack.asNMSCopy(swapItemsEvent.getOffHandItem()));
-                    }
-                    if (swapItemsEvent.getMainHandItem().equals(mainHand)) {
-                        this.player.setItemInHand(InteractionHand.MAIN_HAND, itemstack);
-                    } else {
-                        this.player.setItemInHand(InteractionHand.MAIN_HAND, CraftItemStack.asNMSCopy(swapItemsEvent.getMainHandItem()));
-                    }
+                    // Avoid CraftLegacy initialization via CraftItemStack#isSimilar triggered by Bukkit ItemStack#equals
+                    // Always apply the (possibly modified) event items directly
+                    this.player.setItemInHand(InteractionHand.OFF_HAND, CraftItemStack.asNMSCopy(swapItemsEvent.getOffHandItem()));
+                    this.player.setItemInHand(InteractionHand.MAIN_HAND, CraftItemStack.asNMSCopy(swapItemsEvent.getMainHandItem()));
                     this.player.stopUsingItem();
                 }
                 return;
