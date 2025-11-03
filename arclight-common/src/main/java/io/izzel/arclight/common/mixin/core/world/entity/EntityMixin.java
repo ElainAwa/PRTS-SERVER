@@ -127,6 +127,7 @@ public abstract class EntityMixin implements InternalEntityBridge, EntityBridge,
     public BlockPos lastLavaContact;
     public int maxAirTicks = getDefaultMaxAirSupply();
     public boolean visibleByDefault = true;
+    public int lastLavaDamageTick = -100; // Luminara: lava damage cooldown
     @Shadow
     protected int boardingCooldown;
     @Shadow
@@ -552,6 +553,18 @@ public abstract class EntityMixin implements InternalEntityBridge, EntityBridge,
             this.lastLavaContact = null;
         }
         return ret;
+    }
+
+    @Inject(method = "lavaHurt", at = @At("HEAD"), cancellable = true)
+    private void luminara$lavaDamageCooldown(CallbackInfo ci) {
+        if ((Object) this instanceof LivingEntity) {
+            int ticksSinceLastDamage = this.tickCount - this.lastLavaDamageTick;
+            if (ticksSinceLastDamage < 20) {
+                ci.cancel();
+                return;
+            }
+            this.lastLavaDamageTick = this.tickCount;
+        }
     }
 
     @Redirect(method = "lavaHurt", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/Entity;setSecondsOnFire(I)V"))
