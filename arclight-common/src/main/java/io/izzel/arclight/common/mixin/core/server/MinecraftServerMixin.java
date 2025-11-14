@@ -11,6 +11,7 @@ import io.izzel.arclight.common.mod.util.ArclightCaptures;
 import io.izzel.arclight.common.mod.util.BukkitOptionParser;
 import io.izzel.arclight.common.mod.util.log.ArclightI18nLogger;
 import io.izzel.arclight.common.optimization.paper.WorldCreationOptimizer;
+import io.izzel.arclight.common.mod.metrics.MetricsManager;
 import it.unimi.dsi.fastutil.longs.LongIterator;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
@@ -388,6 +389,7 @@ public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<T
         if (this.server != null) {
             this.server.disablePlugins();
         }
+        MetricsManager.shutdown();
     }
 
     @Inject(method = "stopServer", at = @At(value = "INVOKE", target = "Lnet/minecraft/server/MinecraftServer;saveAllChunks(ZZZ)Z"))
@@ -408,7 +410,14 @@ public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<T
         BukkitRegistry.lockRegistries();
         this.server.getPluginManager().callEvent(new ServerLoadEvent(ServerLoadEvent.LoadType.STARTUP));
 
-
+        try {
+            MetricsManager.initialize(
+                ArclightVersion.current().getReleaseName(),
+                this.getServerDirectory()
+            );
+        } catch (Exception e) {
+            ARCLIGHT_LOGGER.error("Failed to initialize metrics", e);
+        }
     }
 
     private void executeModerately() {
