@@ -355,9 +355,6 @@ public abstract class ServerPlayerMixin extends PlayerMixin implements ServerPla
         if (net.minecraftforge.common.ForgeHooks.onLivingDeath((ServerPlayer) (Object) this, damagesource))
             return;
         boolean flag = this.level().getGameRules().getBoolean(GameRules.RULE_SHOWDEATHMESSAGES);
-        if (this.isRemoved()) {
-            return;
-        }
         boolean keepInventory = this.level().getGameRules().getBoolean(GameRules.RULE_KEEPINVENTORY) || this.isSpectator();
         Inventory copyInv;
         if (keepInventory) {
@@ -387,13 +384,21 @@ public abstract class ServerPlayerMixin extends PlayerMixin implements ServerPla
             this.closeContainer();
         }
         String deathMessage = event.getDeathMessage();
-        if (deathMessage != null && deathMessage.length() > 0 && flag) {
-            Component itextcomponent;
+        final Component itextcomponent;
+        if (deathMessage == null) {
+            // fallback to vanilla message when plugins do not explicitly provide one
+            itextcomponent = this.getCombatTracker().getDeathMessage();
+        } else if (!deathMessage.isEmpty()) {
             if (deathMessage.equals(deathmessage)) {
                 itextcomponent = this.getCombatTracker().getDeathMessage();
             } else {
                 itextcomponent = CraftChatMessage.fromStringOrNull(deathMessage);
             }
+        } else {
+            itextcomponent = null;
+        }
+
+        if (flag && itextcomponent != null) {
             this.connection.send(new ClientboundPlayerCombatKillPacket(this.getId(), itextcomponent), PacketSendListener.exceptionallySend(() -> {
                 String s = itextcomponent.getString(256);
                 Component component1 = Component.translatable("death.attack.message_too_long", Component.literal(s).withStyle(ChatFormatting.YELLOW));
@@ -413,6 +418,9 @@ public abstract class ServerPlayerMixin extends PlayerMixin implements ServerPla
                 this.server.getPlayerList().broadcastSystemMessage(itextcomponent, false);
             }
         } else {
+            // Either showDeathMessages gamerule is false, or a plugin intentionally
+            // cleared the death message (empty string). Only send an empty combat
+            // packet so the client still gets the death screen but no chat message.
             this.connection.send(new ClientboundPlayerCombatKillPacket(this.getId(), CommonComponents.EMPTY));
         }
         this.removeEntitiesOnShoulder();

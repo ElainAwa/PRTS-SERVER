@@ -223,46 +223,8 @@ public abstract class PlayerMixin extends LivingEntityMixin implements PlayerEnt
     @Inject(method = "hurt", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/damagesource/DamageSource;scalesWithDifficulty()Z", shift = At.Shift.BEFORE), cancellable = true)
     private void arclight$playerHurt(DamageSource source, float amount, CallbackInfoReturnable<Boolean> cir) {
         if (!ForgeHooks.onPlayerAttack((net.minecraft.world.entity.player.Player) (Object) this, source, amount)) {
-            cir.cancel();
             cir.setReturnValue(false);
-            return;
-        }
-        if (this.isInvulnerableTo(source)) {
             cir.cancel();
-            cir.setReturnValue(false);
-        } else if (this.abilities.invulnerable && !source.is(DamageTypeTags.BYPASSES_INVULNERABILITY)) {
-            cir.cancel();
-            cir.setReturnValue(false);
-        } else {
-            this.noActionTime = 0;
-            if (this.getHealth() <= 0.0F) {
-                cir.cancel();
-                cir.setReturnValue(false);
-            } else {
-                if (source.scalesWithDifficulty()) {
-                    if (this.level().getDifficulty() == Difficulty.PEACEFUL) {
-                        // amount = 0.0F;
-                        cir.cancel();
-                        cir.setReturnValue(false);
-                        return;
-                    }
-
-                    if (this.level().getDifficulty() == Difficulty.EASY) {
-                        amount = Math.min(amount / 2.0F + 1.0F, amount);
-                    }
-
-                    if (this.level().getDifficulty() == Difficulty.HARD) {
-                        amount = amount * 3.0F / 2.0F;
-                    }
-                }
-
-                boolean damaged = this.damageEntity0(source, amount);
-                if (damaged) {
-                    this.removeEntitiesOnShoulder();
-                }
-                cir.cancel();
-                cir.setReturnValue(damaged);
-            }
         }
     }
 
