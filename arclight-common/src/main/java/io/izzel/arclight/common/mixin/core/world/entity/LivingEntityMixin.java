@@ -693,8 +693,7 @@ public abstract class LivingEntityMixin extends EntityMixin implements LivingEnt
 
         this.walkAnimation.setSpeed(1.5F);
         boolean flag1 = true;
-        boolean bypassesCooldown = source.is(DamageTypeTags.BYPASSES_COOLDOWN) && !source.is(DamageTypeTags.IS_FIRE);
-        if ((float) this.invulnerableTime > (float) this.invulnerableDuration / 2.0F && !bypassesCooldown) {
+        if ((float) this.invulnerableTime > (float) this.invulnerableDuration / 2.0F && !source.is(DamageTypeTags.BYPASSES_COOLDOWN)) {
             if (amount <= this.lastHurt) {
                 cir.cancel();
                 cir.setReturnValue(false);
@@ -942,7 +941,7 @@ public abstract class LivingEntityMixin extends EntityMixin implements LivingEnt
                 ((net.minecraft.world.entity.player.Player) damagesource.getEntity()).awardStat(Stats.DAMAGE_DEALT_ABSORBED, Math.round(f2 * 10.0F));
             }
 
-                f = net.minecraftforge.common.ForgeHooks.onLivingDamage((LivingEntity) (Object) this, damagesource, f);
+            f = net.minecraftforge.common.ForgeHooks.onLivingDamage((LivingEntity) (Object) this, damagesource, f);
 
             if (f > 0 || !human) {
                 if (human) {
@@ -955,13 +954,6 @@ public abstract class LivingEntityMixin extends EntityMixin implements LivingEnt
                 }
                 // CraftBukkit end
                 float f3 = this.getHealth();
-
-                if (f3 - f <= 0.0F) {
-                    if (this.checkTotemDeathProtection(damagesource)) {
-                        this.getCombatTracker().recordDamage(damagesource, f);
-                        return arclight$damageResult = false;
-                    }
-                }
 
                 this.getCombatTracker().recordDamage(damagesource, f);
                 this.setHealth(f3 - f); // Forge: moved to fix MC-121048
