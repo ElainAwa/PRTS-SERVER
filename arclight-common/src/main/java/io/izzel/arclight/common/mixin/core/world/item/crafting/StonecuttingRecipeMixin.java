@@ -26,7 +26,7 @@ public abstract class StonecuttingRecipeMixin extends SingleItemRecipe implement
         }
         CraftItemStack result = CraftItemStack.asCraftMirror(this.result);
         CraftStonecuttingRecipe recipe = new CraftStonecuttingRecipe(CraftNamespacedKey.fromMinecraft(this.getId()), result, CraftRecipe.toBukkit(this.ingredient));
-        recipe.setGroup(this.group);
+        recipe.setGroup(this.group == null ? "" : this.group);
         return recipe;
     }
 }

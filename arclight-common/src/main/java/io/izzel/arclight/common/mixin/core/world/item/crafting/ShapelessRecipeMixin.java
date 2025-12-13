@@ -32,7 +32,7 @@ public abstract class ShapelessRecipeMixin implements IRecipeBridge {
         }
         CraftItemStack result = CraftItemStack.asCraftMirror(this.result);
         CraftShapelessRecipe recipe = new CraftShapelessRecipe(result, (ShapelessRecipe) (Object) this);
-        recipe.setGroup(this.group);
+        recipe.setGroup(this.group == null ? "" : this.group);
         recipe.setCategory(CraftRecipe.getCategory(this.category()));
         for (Ingredient list : this.ingredients) {
             recipe.addIngredient(CraftRecipe.toBukkit(list));

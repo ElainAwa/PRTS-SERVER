@@ -26,7 +26,7 @@ public abstract class SmokingRecipeMixin extends AbstractCookingRecipe implement
         }
         CraftItemStack result = CraftItemStack.asCraftMirror(this.result);
         CraftSmokingRecipe recipe = new CraftSmokingRecipe(CraftNamespacedKey.fromMinecraft(this.getId()), result, CraftRecipe.toBukkit(this.ingredient), this.experience, this.cookingTime);
-        recipe.setGroup(this.group);
+        recipe.setGroup(this.group == null ? "" : this.group);
         recipe.setCategory(CraftRecipe.getCategory(this.category()));
         return recipe;
     }

@@ -26,7 +26,7 @@ public abstract class CampfireCookingRecipeMixin extends AbstractCookingRecipe i
         }
         CraftItemStack result = CraftItemStack.asCraftMirror(this.result);
         CraftCampfireRecipe recipe = new CraftCampfireRecipe(CraftNamespacedKey.fromMinecraft(this.getId()), result, CraftRecipe.toBukkit(this.ingredient), this.experience, this.cookingTime);
-        recipe.setGroup(this.group);
+        recipe.setGroup(this.group == null ? "" : this.group);
         recipe.setCategory(CraftRecipe.getCategory(this.category()));
         return recipe;
     }

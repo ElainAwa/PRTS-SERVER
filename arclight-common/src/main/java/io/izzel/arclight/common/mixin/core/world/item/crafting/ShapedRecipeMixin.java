@@ -35,7 +35,7 @@ public abstract class ShapedRecipeMixin implements IRecipeBridge {
         }
         CraftItemStack result = CraftItemStack.asCraftMirror(this.result);
         CraftShapedRecipe recipe = new CraftShapedRecipe(result, (ShapedRecipe) (Object) this);
-        recipe.setGroup(this.group);
+        recipe.setGroup(this.group == null ? "" : this.group);
         recipe.setCategory(CraftRecipe.getCategory(this.category()));
 
         switch (this.getHeight()) {
