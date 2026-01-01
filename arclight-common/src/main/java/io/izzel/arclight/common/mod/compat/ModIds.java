@@ -7,4 +7,5 @@ public class ModIds {
     public static final String NOISIUM = "noisium";
     public static final String RADIUM = "radium";
     public static final String CANARY = "canary";
+    public static final String CERBONS_API = "cerbons_api";
 }

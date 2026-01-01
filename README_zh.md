@@ -1,7 +1,5 @@
 # Luminara
 
-![Luminara Logo](.github/luminara.png)
-
 一个Arclight fork，争取在Arclight上做出更多优化与改进（1.20.1）
 
 > 使用本服务端过程中出现的任何问题请在本项目Issue反馈，请勿在Arclight项目Issue反馈！

@@ -2,9 +2,7 @@
 
 [简体中文](README_zh.md)
 
-![Luminara Logo](.github/luminara.png)
-
-中国/简体中文[QQ交流群](https://qun.qq.com/universal-share/share?ac=1&authKey=yQkhQe55waZU8xE6eX7Fd%2BvpwUF9KAFM4ZJwF7L6nnXmpugVlU59bUF6KwEmO4UT&busi_data=eyJncm91cENvZGUiOiI2NDg2NzE2NjYiLCJ0b2tlbiI6ImZOTzRMWFU0NkZLNXpOSHB5YjJHcHpwdnBQeUcyN0kxR3ZDM2ZWOVg3V0VNMlJXRnVySGN4OEFmVVBTc0dXSVgiLCJ1aW4iOiIzMTQyMTUwNjkxIn0%3D&data=gdk6byrm3D3fbPcziZS4OxW0De03PQfPtQuS3W4OgguRMRgMWxqysa3G3RsWxl-8uBOB2Sff1mJObv5W8-AF2A&svctype=4&tempid=h5_group_info)
+中国 / 简体中文用户请加入 [CraftAmethyst 社区 QQ 交流群](https://qm.qq.com/q/u3Dylx2ls6)
 
 An Arclight fork, aiming to make more optimizations and improvements on Arclight (1.20.1)
 
