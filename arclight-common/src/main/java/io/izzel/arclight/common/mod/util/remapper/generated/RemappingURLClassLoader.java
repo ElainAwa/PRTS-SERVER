@@ -48,7 +48,7 @@ public class RemappingURLClassLoader extends URLClassLoader implements Remapping
     protected Class<?> findClass(String name) throws ClassNotFoundException {
         Class<?> result = null;
         String path = name.replace('.', '/').concat(".class");
-        URL resource = this.getResource(path);
+        URL resource = this.findResource(path);
         if (resource != null) {
             URLConnection connection;
             Callable<byte[]> byteSource;
@@ -88,9 +88,45 @@ public class RemappingURLClassLoader extends URLClassLoader implements Remapping
             result = this.defineClass(name, classBytes._1, 0, classBytes._1.length, classBytes._2);
         }
         if (result == null) {
+            Class<?> fallback = tryFallbackLoad(name);
+            if (fallback != null) {
+                return fallback;
+            }
             throw new ClassNotFoundException(name);
         }
         return result;
+    }
+
+    private Class<?> tryFallbackLoad(String name) {
+        ClassLoader parent = getParent();
+        if (parent != null && parent != this) {
+            try {
+                return Class.forName(name, false, parent);
+            } catch (ClassNotFoundException ignored) {
+            }
+        }
+        ClassLoader context = Thread.currentThread().getContextClassLoader();
+        if (context != null && context != this && context != parent) {
+            try {
+                return Class.forName(name, false, context);
+            } catch (ClassNotFoundException ignored) {
+            }
+        }
+        ClassLoader arclight = RemappingURLClassLoader.class.getClassLoader();
+        if (arclight != null && arclight != this && arclight != parent && arclight != context) {
+            try {
+                return Class.forName(name, false, arclight);
+            } catch (ClassNotFoundException ignored) {
+            }
+        }
+        ClassLoader system = ClassLoader.getSystemClassLoader();
+        if (system != null && system != this && system != parent && system != context && system != arclight) {
+            try {
+                return Class.forName(name, false, system);
+            } catch (ClassNotFoundException ignored) {
+            }
+        }
+        return null;
     }
 
     @Override
