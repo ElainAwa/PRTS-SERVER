@@ -64,8 +64,6 @@ public abstract class ServerLoginNetHandlerMixin {
     // Velocity Modern Forwarding constants/state
     private static final int LUMINARA_VELOCITY_QUERY_ID = 1203961429; // same as PCF
     private static final ResourceLocation LUMINARA_VELOCITY_CHANNEL = new ResourceLocation("velocity", "player_info");
-    private volatile boolean luminara$velocityListen = false;
-
     @Shadow
     @Final
     private static AtomicInteger UNIQUE_THREAD_ID;
@@ -75,6 +73,7 @@ public abstract class ServerLoginNetHandlerMixin {
     @Shadow
     @Final
     public Connection connection;
+    private volatile boolean luminara$velocityListen = false;
     // @formatter:off
     @Shadow private ServerLoginPacketListenerImpl.State state;
     @Shadow @Final private MinecraftServer server;

@@ -26,7 +26,8 @@ public class ClientboundCommandsPacket_ArgumentNodeStubMixin {
         try {
             var spec = ArclightConfig.spec().getVelocity();
             velocityEnabled = spec != null && spec.isEnabled();
-        } catch (Throwable ignored) {}
+        } catch (Throwable ignored) {
+        }
         if (!(SpigotConfig.bungee || velocityEnabled)) {
             return;
         }

@@ -1,7 +1,6 @@
 package io.izzel.arclight.common.mod.metrics;
 
 import io.izzel.arclight.common.mod.ArclightMod;
-import net.minecraftforge.fml.ModList;
 import org.bukkit.Bukkit;
 
 import java.io.BufferedReader;
@@ -15,8 +14,8 @@ import java.util.Map;
 
 public class MetricsManager {
 
-    private static Metrics metrics;
     private static final int SERVICE_ID = 27601;
+    private static Metrics metrics;
 
     public static void initialize(String serverVersion, File dataFolder) {
         if (metrics != null) {
@@ -32,22 +31,22 @@ public class MetricsManager {
             metrics.addCustomChart(new Metrics.SingleLineChart("servers", () -> 1));
 
             // player count
-            metrics.addCustomChart(new Metrics.SingleLineChart("players", 
-                () -> Bukkit.getOnlinePlayers().size()));
+            metrics.addCustomChart(new Metrics.SingleLineChart("players",
+                    () -> Bukkit.getOnlinePlayers().size()));
 
             // simple pie
 
             // cpu core count
-            metrics.addCustomChart(new Metrics.SimplePie("coreCount", 
-                () -> String.valueOf(Runtime.getRuntime().availableProcessors())));
+            metrics.addCustomChart(new Metrics.SimplePie("coreCount",
+                    () -> String.valueOf(Runtime.getRuntime().availableProcessors())));
 
             // os architecture
-            metrics.addCustomChart(new Metrics.SimplePie("osArch", 
-                () -> System.getProperty("os.arch")));
+            metrics.addCustomChart(new Metrics.SimplePie("osArch",
+                    () -> System.getProperty("os.arch")));
 
             // os name
-            metrics.addCustomChart(new Metrics.SimplePie("os", 
-                () -> System.getProperty("os.name") + " " + System.getProperty("os.version")));
+            metrics.addCustomChart(new Metrics.SimplePie("os",
+                    () -> System.getProperty("os.name") + " " + System.getProperty("os.version")));
 
             // country
             metrics.addCustomChart(new Metrics.SimplePie("location", () -> {
@@ -95,7 +94,7 @@ public class MetricsManager {
             connection.setConnectTimeout(5000);
             connection.setReadTimeout(5000);
             connection.setRequestProperty("User-Agent", "Luminara-Metrics/1.0");
-            
+
             try (BufferedReader reader = new BufferedReader(
                     new InputStreamReader(connection.getInputStream(), StandardCharsets.UTF_8))) {
                 String country = reader.readLine();

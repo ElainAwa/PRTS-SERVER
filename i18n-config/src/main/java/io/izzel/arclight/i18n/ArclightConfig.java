@@ -77,7 +77,6 @@ public class ArclightConfig {
     }
 
 
-
     public ConfigSpec getSpec() {
         return spec;
     }

@@ -6,12 +6,12 @@ import io.izzel.arclight.common.bridge.core.command.ICommandSourceBridge;
 import io.izzel.arclight.common.bridge.core.server.MinecraftServerBridge;
 import io.izzel.arclight.common.bridge.core.world.WorldBridge;
 import io.izzel.arclight.common.mod.ArclightConstants;
+import io.izzel.arclight.common.mod.metrics.MetricsManager;
 import io.izzel.arclight.common.mod.server.BukkitRegistry;
 import io.izzel.arclight.common.mod.util.ArclightCaptures;
 import io.izzel.arclight.common.mod.util.BukkitOptionParser;
 import io.izzel.arclight.common.mod.util.log.ArclightI18nLogger;
 import io.izzel.arclight.common.optimization.paper.WorldCreationOptimizer;
-import io.izzel.arclight.common.mod.metrics.MetricsManager;
 import it.unimi.dsi.fastutil.longs.LongIterator;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
@@ -412,8 +412,8 @@ public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<T
 
         try {
             MetricsManager.initialize(
-                ArclightVersion.current().getReleaseName(),
-                this.getServerDirectory()
+                    ArclightVersion.current().getReleaseName(),
+                    this.getServerDirectory()
             );
         } catch (Exception e) {
             ARCLIGHT_LOGGER.error("Failed to initialize metrics", e);

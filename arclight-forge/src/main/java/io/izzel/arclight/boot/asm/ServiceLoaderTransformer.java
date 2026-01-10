@@ -9,7 +9,6 @@ import org.objectweb.asm.tree.MethodInsnNode;
 import java.util.ServiceLoader;
 
 public class ServiceLoaderTransformer implements Implementer {
-
     private static final String SERVICE_LOADER = "java/util/ServiceLoader";
     private static final String LOAD_DESC = "(Ljava/lang/Class;)Ljava/util/ServiceLoader;";
 
