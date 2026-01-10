@@ -12,6 +12,9 @@ public class OptimizationSpec {
     @Setting("goal-selector-update-interval")
     private int goalSelectorInterval;
 
+    @Setting("use-activation-and-tracking-range")
+    private boolean useActivationAndTrackingRange;
+
     // Entity optimization settings
     @Setting("entity-optimization")
     private EntityOptimizationSpec entityOptimization;
@@ -38,6 +41,10 @@ public class OptimizationSpec {
 
     public int getGoalSelectorInterval() {
         return goalSelectorInterval;
+    }
+
+    public boolean useActivationAndTrackingRange() {
+        return useActivationAndTrackingRange;
     }
 
     public EntityOptimizationSpec getEntityOptimization() {

@@ -170,6 +170,8 @@ comments:
         - Entity goal selector update interval
         - Higher values consume less resources
         - Causes entities to change goals less frequently
+    use-activation-and-tracking-range:
+      comment: Whether to use Spigot Activation Range and Tracking Range optimization
     memory-optimization:
       cache-cleanup-enabled:
         comment: Whether to enable cache cleanup
@@ -436,4 +438,3 @@ world:
   unknown-level-stem: Assign {} to unknown level stem {}
   unloaded: World {} unloaded
   unloading: Unloading world {}
-

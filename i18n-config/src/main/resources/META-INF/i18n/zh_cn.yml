@@ -160,6 +160,8 @@ comments:
         - 实体目标选择器的更新间隔
         - 数值越高消耗资源越少
         - 导致实体更改目标速度变慢
+    use-activation-and-tracking-range:
+      comment: 是否使用Spigot Activation Range和Tracking Range优化
     memory-optimization:
       cache-cleanup-enabled:
         comment: 是否启用缓存清理

@@ -9,6 +9,7 @@ locale:
 optimization:
   cache-plugin-class: true
   goal-selector-update-interval: 3
+  use-activation-and-tracking-range: true
   entity-optimization:
     disable-entity-collisions: false
     reduce-entity-updates: true
