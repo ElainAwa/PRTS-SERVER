@@ -4,7 +4,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonParseException;
 import io.izzel.arclight.common.bridge.core.inventory.IInventoryBridge;
 import io.izzel.arclight.common.bridge.core.item.crafting.RecipeManagerBridge;
 import io.izzel.arclight.common.mod.util.log.ArclightI18nLogger;
@@ -12,20 +11,21 @@ import it.unimi.dsi.fastutil.objects.Object2ObjectLinkedOpenHashMap;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.resources.ResourceManager;
-import net.minecraft.util.GsonHelper;
 import net.minecraft.util.profiling.ProfilerFiller;
 import net.minecraft.world.Container;
 import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.world.item.crafting.RecipeManager;
 import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraft.world.level.Level;
-import net.minecraftforge.common.crafting.CraftingHelper;
 import net.minecraftforge.common.crafting.conditions.ICondition;
-import org.slf4j.Logger;
-import org.spongepowered.asm.mixin.Final;
+import org.apache.logging.log4j.Logger;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Overwrite;
 import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.Redirect;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -34,62 +34,79 @@ import java.util.Optional;
 @Mixin(RecipeManager.class)
 public abstract class RecipeManagerMixin implements RecipeManagerBridge {
 
-    private static final org.apache.logging.log4j.Logger ARCLIGHT_LOGGER = ArclightI18nLogger.getLogger("RecipeManager");
-    @Shadow
-    @Final
-    private static Logger LOGGER;
+    private static final Logger ARCLIGHT_LOGGER = ArclightI18nLogger.getLogger("RecipeManager");
+
     // @formatter:off
     @Shadow public Map<RecipeType<?>, Map<ResourceLocation, Recipe<?>>> recipes;
     @Shadow private boolean hasErrors;
     @Shadow private Map<ResourceLocation, Recipe<?>> byName;
-    @Shadow(remap = false) @Final private ICondition.IContext context;
-
-    @Shadow(remap = false) public static Recipe<?> fromJson(ResourceLocation recipeId, JsonObject json, ICondition.IContext context) { return null; }
 
     @Shadow protected abstract <C extends Container, T extends Recipe<C>> Map<ResourceLocation, T> byType(RecipeType<T> p_44055_);
     // @formatter:on
 
-    /**
-     * @author IzzelAluz
-     * @reason
-     */
-    @Overwrite
+    @Inject(method = "apply", at = @At("TAIL"))
     @SuppressWarnings("unchecked")
-    protected void apply(Map<ResourceLocation, JsonElement> objectIn, ResourceManager resourceManagerIn, ProfilerFiller profilerIn) {
-        this.hasErrors = false;
-        Map<RecipeType<?>, Object2ObjectLinkedOpenHashMap<ResourceLocation, Recipe<?>>> map = Maps.newHashMap();
-
+    private void arclight$afterApply(Map<ResourceLocation, JsonElement> objectIn, ResourceManager resourceManagerIn,
+                                     ProfilerFiller profilerIn, CallbackInfo ci) {
+        Map<RecipeType<?>, Map<ResourceLocation, Recipe<?>>> rebuilt = Maps.newHashMap();
         for (RecipeType<?> type : BuiltInRegistries.RECIPE_TYPE) {
-            map.put(type, new Object2ObjectLinkedOpenHashMap<>());
-        }
-
-        ImmutableMap.Builder<ResourceLocation, Recipe<?>> builder = ImmutableMap.builder();
-        for (Map.Entry<ResourceLocation, JsonElement> entry : objectIn.entrySet()) {
-            ResourceLocation resourcelocation = entry.getKey();
-            if (resourcelocation.getPath().startsWith("_"))
-                continue; //Forge: filter anything beginning with "_" as it's used for metadata.
-
-            try {
-                if (entry.getValue().isJsonObject() && !CraftingHelper.processConditions(entry.getValue().getAsJsonObject(), "conditions", this.context)) {
-                    LOGGER.debug("Skipping loading recipe {} as it's conditions were not met", resourcelocation);
-                    continue;
-                }
-                Recipe<?> irecipe = fromJson(resourcelocation, GsonHelper.convertToJsonObject(entry.getValue(), "top element"), this.context);
-                if (irecipe == null) {
-                    ARCLIGHT_LOGGER.info("recipe.loading.skip-null-serializer", resourcelocation);
-                    continue;
-                }
-                map.computeIfAbsent(irecipe.getType(), (recipeType) -> new Object2ObjectLinkedOpenHashMap<>())
-                        .putAndMoveToFirst(resourcelocation, irecipe);
-                builder.put(resourcelocation, irecipe);
-            } catch (IllegalArgumentException | JsonParseException jsonparseexception) {
-                ARCLIGHT_LOGGER.error("recipe.loading.parsing-error", resourcelocation, jsonparseexception);
+            Map<ResourceLocation, Recipe<?>> existing = this.recipes.get(type);
+            if (existing == null) {
+                rebuilt.put(type, new Object2ObjectLinkedOpenHashMap<>());
+                continue;
+            }
+            if (existing instanceof Object2ObjectLinkedOpenHashMap) {
+                rebuilt.put(type, existing);
+            } else {
+                Object2ObjectLinkedOpenHashMap<ResourceLocation, Recipe<?>> copy = new Object2ObjectLinkedOpenHashMap<>();
+                copy.putAll(existing);
+                rebuilt.put(type, copy);
             }
         }
+        this.recipes = rebuilt;
+        if (this.byName instanceof ImmutableMap) {
+            this.byName = new HashMap<>(this.byName);
+        }
+    }
 
-        this.recipes = (Map) map;
-        this.byName = Maps.newHashMap(builder.build());
-        ARCLIGHT_LOGGER.info("recipe.loading.completed", map.size());
+    @Redirect(
+            method = "apply",
+            at = @At(
+                    value = "INVOKE",
+                    target = "Lnet/minecraft/world/item/crafting/RecipeManager;fromJson(Lnet/minecraft/resources/ResourceLocation;Lcom/google/gson/JsonObject;Lnet/minecraftforge/common/crafting/conditions/ICondition$IContext;)Lnet/minecraft/world/item/crafting/Recipe;"
+            ),
+            require = 0
+    )
+    private Recipe<?> arclight$fromJsonForge(ResourceLocation recipeId, JsonObject json, ICondition.IContext context) {
+        Recipe<?> recipe = RecipeManager.fromJson(recipeId, json, context);
+        if (recipe == null) {
+            ARCLIGHT_LOGGER.info("recipe.loading.skip-null-serializer", recipeId);
+        }
+        return recipe;
+    }
+
+    @Redirect(
+            method = "apply",
+            at = @At(
+                    value = "INVOKE",
+                    target = "Lorg/slf4j/Logger;error(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V"
+            ),
+            require = 0
+    )
+    private void arclight$logParsingError(org.slf4j.Logger logger, String message, Object recipeId, Object exception) {
+        ARCLIGHT_LOGGER.error("recipe.loading.parsing-error", recipeId, exception);
+    }
+
+    @Redirect(
+            method = "apply",
+            at = @At(
+                    value = "INVOKE",
+                    target = "Lorg/slf4j/Logger;info(Ljava/lang/String;Ljava/lang/Object;)V"
+            ),
+            require = 0
+    )
+    private void arclight$logLoadedRecipes(org.slf4j.Logger logger, String message, Object count) {
+        ARCLIGHT_LOGGER.info("recipe.loading.completed", count);
     }
 
     /**
