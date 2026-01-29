@@ -27,6 +27,8 @@ public class CompatSpec {
     private String validUsernameRegex;
     @Setting("lenient-item-tag-match")
     private boolean lenientItemTagMatch;
+    @Setting("enable-bukkit-reload-command")
+    private final boolean enableBukkitReloadCommand = true;
 
     public Map<String, MaterialPropertySpec> getMaterials() {
         return materials;
@@ -70,5 +72,9 @@ public class CompatSpec {
 
     public boolean isPreloadBungeeChatClasses() {
         return preloadBungeeChatClasses;
+    }
+
+    public boolean isEnableBukkitReloadCommand() {
+        return enableBukkitReloadCommand;
     }
 }

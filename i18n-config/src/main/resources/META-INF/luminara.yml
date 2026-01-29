@@ -62,6 +62,7 @@ compatibility:
   valid-username-regex: ""
   lenient-item-tag-match: true
   preload-bungee-chat-classes: true
+  enable-bukkit-reload-command: true
 
 async-catcher:
   dump: true
