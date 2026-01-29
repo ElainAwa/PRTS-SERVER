@@ -311,20 +311,29 @@ public class ForgeInstaller {
                 } else if (arg.startsWith("-D")) {
                     var split = arg.substring(2).split("=", 2);
                     if (split[0].equals("legacyClassPath")) {
-                        split[1] =
-                                Stream.concat(
-                                        Stream.concat(Stream.concat(Stream.of(self.toString()), Arrays.stream(split[1].split(File.pathSeparator))), installInfo.libraries.keySet().stream()
-                                                .map(it -> Paths.get("libraries", Util.mavenToPath(it)))
-                                                .peek(it -> {
-                                                    var name = it.getFileName().toString();
-                                                    if (name.contains("maven-model")) {
-                                                        merges.add(name);
-                                                    }
-                                                })
-                                                .map(Path::toString)),
-                                        Stream.empty()
-                                        //Stream.of(self)
-                                ).sorted((a, b) -> {
+                        List<String> legacy = Arrays.stream(split[1].split(File.pathSeparator))
+                                .filter(p -> !isGsonPath(p))
+                                .collect(Collectors.toList());
+                        List<String> extra = installInfo.libraries.keySet().stream()
+                                .map(it -> Paths.get("libraries", Util.mavenToPath(it)))
+                                .peek(it -> {
+                                    var name = it.getFileName().toString();
+                                    if (name.contains("maven-model")) {
+                                        merges.add(name);
+                                    }
+                                })
+                                .map(Path::toString)
+                                .collect(Collectors.toList());
+                        String gsonPath = extra.stream().filter(ForgeInstaller::isGsonPath).findFirst().orElse(null);
+
+                        Stream<String> classpath = Stream.of(self.toString());
+                        if (gsonPath != null) {
+                            classpath = Stream.concat(classpath, Stream.of(gsonPath));
+                        }
+                        classpath = Stream.concat(classpath, legacy.stream());
+                        classpath = Stream.concat(classpath, extra.stream().filter(p -> !p.equals(gsonPath)));
+
+                        split[1] = classpath.sorted((a, b) -> {
                                     // damn stupid jpms
                                     if (a.contains("maven-repository-metadata")) {
                                         return -1;
@@ -424,6 +433,14 @@ public class ForgeInstaller {
             return null;
         }
         return new ParserData(source[0], source[1], all[1]);
+    }
+
+    private static boolean isGsonPath(String path) {
+        if (path == null || path.isEmpty()) {
+            return false;
+        }
+        String normalized = path.replace('\\', '/');
+        return normalized.contains("/com/google/code/gson/") || normalized.contains("/gson-");
     }
 
     private static void addExtra(List<String> extras, MethodHandle implAddExtraMH, MethodHandle implAddExtraToAllUnnamedMH) {

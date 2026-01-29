@@ -68,7 +68,7 @@ dependencies {
     implementation 'cpw.mods:modlauncher:9.0.24'
     implementation 'cpw.mods:securejarhandler:2.1.4'
     implementation 'net.minecraftforge:forgespi:6.0.0'
-    gson 'com.google.code.gson:gson:2.9.0'
+    gson 'com.google.code.gson:gson:2.10.1'
     implementation 'org.apache.logging.log4j:log4j-api:2.17.2'
     implementation 'org.apache.logging.log4j:log4j-core:2.17.2'
     implementation 'org.jetbrains:annotations:23.0.0'
@@ -78,6 +78,7 @@ dependencies {
     for (def lib : embedLibs) {
         installer lib
     }
+    installer 'com.google.code.gson:gson:2.10.1'
     embed 'io.izzel.arclight:mixin-tools:1.0.1'
     embed "io.izzel:tools:$toolsVersion"
     embed "io.izzel.arclight:arclight-api:$apiVersion"
