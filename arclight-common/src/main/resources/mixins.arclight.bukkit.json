@@ -44,6 +44,7 @@
     "JavaPluginMixin",
     "LibraryLoaderMixin",
     "MaterialMixin",
+    "PlayerLocaleMixin",
     "PluginClassLoaderMixin",
     "PotionEffectTypeMixin",
     "RecipeIteratorMixin",
