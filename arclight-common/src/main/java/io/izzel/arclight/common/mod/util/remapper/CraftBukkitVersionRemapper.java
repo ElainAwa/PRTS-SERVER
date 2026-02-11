@@ -49,6 +49,22 @@ public class CraftBukkitVersionRemapper implements PluginTransformer {
         }
     }
 
+    private void remapFrameTypes(java.util.List<Object> frameTypes) {
+        if (frameTypes == null) {
+            return;
+        }
+        for (int i = 0; i < frameTypes.size(); i++) {
+            Object entry = frameTypes.get(i);
+            if (entry instanceof String internalName) {
+                if (internalName.startsWith("[")) {
+                    frameTypes.set(i, remapDescriptor(internalName));
+                } else {
+                    frameTypes.set(i, remapInternalName(internalName));
+                }
+            }
+        }
+    }
+
     public static String remapBinaryName(String binaryName) {
         if (binaryName == null) {
             return null;
@@ -153,6 +169,9 @@ public class CraftBukkitVersionRemapper implements PluginTransformer {
                     }
                 } else if (insn instanceof MultiANewArrayInsnNode multiArrayInsn) {
                     multiArrayInsn.desc = remapDescriptor(multiArrayInsn.desc);
+                } else if (insn instanceof FrameNode frameNode) {
+                    remapFrameTypes(frameNode.local);
+                    remapFrameTypes(frameNode.stack);
                 }
             }
 

@@ -18,6 +18,7 @@ public class IntegratedPatcher implements PluginPatcher {
     static {
         SPECIFIC.put("com/sk89q/worldedit/bukkit/BukkitAdapter", WorldEdit::handleBukkitAdapter);
         SPECIFIC.put("com/sk89q/worldedit/bukkit/adapter/Refraction", WorldEdit::handlePickName);
+        SPECIFIC.put("com/Zrips/CMI/utils/CMIThread", CMI::handleThreadExecutor);
         GENERAL.add(WorldEdit::handleWatchdog);
     }
 

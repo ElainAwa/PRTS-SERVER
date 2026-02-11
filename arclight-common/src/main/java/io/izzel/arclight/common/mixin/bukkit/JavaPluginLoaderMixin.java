@@ -23,13 +23,19 @@ import org.spongepowered.asm.mixin.Overwrite;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.gen.Accessor;
 import org.spongepowered.asm.mixin.gen.Invoker;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.net.URLClassLoader;
 import java.util.*;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
@@ -41,6 +47,7 @@ public abstract class JavaPluginLoaderMixin implements JavaPluginLoaderBridge {
     private static final Cache<Method, Class<? extends EventExecutor>> EXECUTOR_CACHE = CacheBuilder.newBuilder()
             .expireAfterAccess(1, TimeUnit.HOURS)
             .build();
+    private static final AtomicInteger CMI_THREAD_COUNTER = new AtomicInteger();
     private static final String HIDDEN_FORM =
             Float.parseFloat(System.getProperty("java.class.version")) < 57
                     ? "Ljava/lang/invoke/LambdaForm$Hidden;"
@@ -52,6 +59,39 @@ public abstract class JavaPluginLoaderMixin implements JavaPluginLoaderBridge {
     @Invoker("setClass") public abstract void bridge$setClass(final String name, final Class<?> clazz);
 
     @Accessor("loaders") public abstract List<URLClassLoader> bridge$getLoaders();
+
+    @Inject(method = "enablePlugin", at = @At("HEAD"), require = 0)
+    private void arclight$reviveCmiExecutor(Plugin plugin, CallbackInfo ci) {
+        if (plugin == null || !"CMI".equalsIgnoreCase(plugin.getName())) {
+            return;
+        }
+        try {
+            ClassLoader loader = plugin.getClass().getClassLoader();
+            Class<?> threadClass = Class.forName("com.Zrips.CMI.utils.CMIThread", false, loader);
+            Field executorField = threadClass.getDeclaredField("EXECUTOR");
+            executorField.setAccessible(true);
+            ExecutorService executor = (ExecutorService) executorField.get(null);
+            if (executor != null && !executor.isShutdown() && !executor.isTerminated()) {
+                return;
+            }
+
+            int poolSize = Math.max(2, Runtime.getRuntime().availableProcessors() - 1);
+            ExecutorService replacement = Executors.newFixedThreadPool(poolSize, runnable -> {
+                Thread thread = new Thread(runnable);
+                thread.setName("CMI Thread-" + CMI_THREAD_COUNTER.incrementAndGet());
+                thread.setDaemon(true);
+                return thread;
+            });
+
+            Object base = Unsafe.staticFieldBase(executorField);
+            long offset = Unsafe.staticFieldOffset(executorField);
+            Unsafe.putObjectVolatile(base, offset, replacement);
+            plugin.getLogger().warning("[Arclight] Revived terminated CMI async executor to avoid startup failure.");
+        } catch (ClassNotFoundException ignored) {
+        } catch (Throwable throwable) {
+            plugin.getLogger().log(Level.WARNING, "[Arclight] Failed to revive CMI async executor.", throwable);
+        }
+    }
 
     /**
      * @author IzzelAliz

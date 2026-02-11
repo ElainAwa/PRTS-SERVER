@@ -7,7 +7,6 @@ import io.izzel.arclight.common.util.Enumerations;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.Type;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.invoke.MethodHandle;
@@ -17,7 +16,6 @@ import java.lang.invoke.VarHandle;
 import java.lang.reflect.*;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.net.URLClassLoader;
 import java.nio.ByteBuffer;
 import java.security.CodeSource;
 import java.security.Permissions;
@@ -27,16 +25,11 @@ import java.util.Enumeration;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.StringJoiner;
-import java.util.jar.JarFile;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 @SuppressWarnings("unused")
 public class ArclightReflectionHandler extends ClassLoader {
 
     private static final String PREFIX = "net.minecraft.";
-    private static final Pattern VERSIONED_CLASS_PATTERN = Pattern.compile("(.+)([.$])v(\\d+)_(\\d+)_R(\\d+)$");
-
     public static ClassLoaderRemapper remapper;
 
     public static Method[] redirectGetDeclaredMethods(Class<?> cl) {
@@ -258,18 +251,11 @@ public class ArclightReflectionHandler extends ClassLoader {
             }
             try {
                 return Class.forName(binaryName, initialize, loader);
-            } catch (ClassNotFoundException | NoClassDefFoundError ex) {
+            } catch (ClassNotFoundException | LinkageError ex) {
                 if (firstFailure == null) {
                     firstFailure = ex;
                 }
             }
-        }
-
-        // Fallback for plugins that hardcode only one NMS revision class
-        // (e.g. ...$v1_20_R1) while shipping a nearby revision or a generic class.
-        Class<?> fallback = tryLoadVersionedFallback(binaryName, initialize, loaders);
-        if (fallback != null) {
-            return fallback;
         }
 
         if (firstFailure instanceof ClassNotFoundException cnfe) {
@@ -302,105 +288,6 @@ public class ArclightReflectionHandler extends ClassLoader {
         return remapper.mapType(binaryName.replace('.', '/')).replace('/', '.');
     }
 
-    private static Class<?> tryLoadVersionedFallback(String binaryName, boolean initialize, Set<ClassLoader> loaders) {
-        Matcher matcher = VERSIONED_CLASS_PATTERN.matcher(binaryName);
-        if (!matcher.matches()) {
-            return null;
-        }
-
-        String owner = matcher.group(1);
-        String separator = matcher.group(2);
-        String alternateSeparator = "$".equals(separator) ? "." : "$";
-        String major = matcher.group(3);
-        String minor = matcher.group(4);
-        int requestedRevision = Integer.parseInt(matcher.group(5));
-
-        Set<String> candidates = new LinkedHashSet<>();
-        // Same revision with alternate separator first
-        candidates.add(owner + alternateSeparator + "v" + major + "_" + minor + "_R" + requestedRevision);
-        // Alternate revisions in the same major/minor line.
-        for (int rev = 1; rev <= 10; rev++) {
-            if (rev != requestedRevision) {
-                candidates.add(owner + separator + "v" + major + "_" + minor + "_R" + rev);
-                candidates.add(owner + alternateSeparator + "v" + major + "_" + minor + "_R" + rev);
-            }
-        }
-        // Generic class variants frequently used by plugins.
-        candidates.add(owner + separator + "v");
-        candidates.add(owner + alternateSeparator + "v");
-        candidates.add(owner + "$v");
-        candidates.add(owner + ".v");
-        candidates.add(owner);
-        collectJarDerivedVersionCandidates(owner, loaders, candidates);
-
-        for (String candidate : candidates) {
-            for (ClassLoader loader : loaders) {
-                if (loader == null) {
-                    continue;
-                }
-                try {
-                    return Class.forName(candidate, initialize, loader);
-                } catch (ClassNotFoundException | NoClassDefFoundError ignored) {
-                }
-            }
-        }
-
-        // As a final fallback, inspect declared inner classes on the owner type.
-        for (ClassLoader loader : loaders) {
-            if (loader == null) {
-                continue;
-            }
-            try {
-                Class<?> ownerClass = Class.forName(owner, false, loader);
-                Class<?> bestMatch = null;
-                for (Class<?> nested : ownerClass.getDeclaredClasses()) {
-                    String nestedName = nested.getName();
-                    if (nestedName.matches(Pattern.quote(owner) + "\\$v\\d+_\\d+_R\\d+")) {
-                        if (nestedName.contains("$v" + major + "_" + minor + "_R")) {
-                            return nested;
-                        }
-                        if (bestMatch == null) {
-                            bestMatch = nested;
-                        }
-                    }
-                    if (nestedName.equals(owner + "$v")) {
-                        return nested;
-                    }
-                }
-                if (bestMatch != null) {
-                    return bestMatch;
-                }
-            } catch (ClassNotFoundException | NoClassDefFoundError ignored) {
-            }
-        }
-        return null;
-    }
-
-    private static void collectJarDerivedVersionCandidates(String owner, Set<ClassLoader> loaders, Set<String> candidates) {
-        String ownerPath = owner.replace('.', '/');
-        for (ClassLoader loader : loaders) {
-            if (!(loader instanceof URLClassLoader urlClassLoader)) {
-                continue;
-            }
-            for (URL url : urlClassLoader.getURLs()) {
-                String path = url.getPath();
-                if (path == null || !path.endsWith(".jar")) {
-                    continue;
-                }
-                try (JarFile jar = new JarFile(new File(url.toURI()))) {
-                    jar.stream()
-                            .map(entry -> entry.getName())
-                            .filter(name -> name.endsWith(".class"))
-                            .filter(name -> name.startsWith(ownerPath + "$") || name.startsWith(ownerPath + "/"))
-                            .map(name -> name.substring(0, name.length() - 6).replace('/', '.'))
-                            .filter(name -> name.startsWith(owner + "$v") || name.startsWith(owner + ".v"))
-                            .forEach(candidates::add);
-                } catch (Throwable ignored) {
-                }
-            }
-        }
-    }
-
     // bukkit -> srg
     public static Class<?> redirectClassForName(String cl, boolean initialize, ClassLoader classLoader) throws ClassNotFoundException {
         String normalizedName = normalizeReflectionClassName(cl);
@@ -414,8 +301,23 @@ public class ArclightReflectionHandler extends ClassLoader {
                 } catch (ClassNotFoundException ignored) {
                 }
             }
+            // For non-NMS/Bukkit plugin classes, '$' can be used incorrectly as a package separator.
+            // Try dotted fallback first and skip nested-class probing for these names.
+            if (normalizedName.indexOf('$') >= 0 && !shouldMapTypeName(normalizedName)) {
+                try {
+                    return tryLoadClass(normalizedName.replace('$', '.'), initialize, classLoader);
+                } catch (ClassNotFoundException ignored) {
+                    throw e;
+                }
+            }
             int i = normalizedName.lastIndexOf('.');
             if (i > 0) {
+                String simpleName = normalizedName.substring(i + 1);
+                // Keep plugin package-style version classes as dotted names:
+                // e.g. com.Zrips.CMI.NBT.v1_20_R1
+                if (simpleName.matches("v\\d+_\\d+_R\\d+")) {
+                    throw e;
+                }
                 String nestedName = normalizedName.substring(0, i).replace('.', '/') + "$" + normalizedName.substring(i + 1);
                 String mappedNestedName = mapTypeForReflection(nestedName.replace('/', '.'));
                 try {
@@ -621,11 +523,11 @@ public class ArclightReflectionHandler extends ClassLoader {
         String mappedName = mapTypeForReflection(normalizedName);
         try {
             return loader.loadClass(mappedName);
-        } catch (ClassNotFoundException | NoClassDefFoundError e) {
+        } catch (ClassNotFoundException | LinkageError e) {
             if (!mappedName.equals(normalizedName)) {
                 try {
                     return loader.loadClass(normalizedName);
-                } catch (ClassNotFoundException | NoClassDefFoundError ignored) {
+                } catch (ClassNotFoundException | LinkageError ignored) {
                     return tryLoadClass(normalizedName, false, loader);
                 }
             }
