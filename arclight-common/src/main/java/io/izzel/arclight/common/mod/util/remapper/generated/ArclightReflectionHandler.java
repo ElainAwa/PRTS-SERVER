@@ -7,6 +7,7 @@ import io.izzel.arclight.common.util.Enumerations;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.Type;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.invoke.MethodHandle;
@@ -16,18 +17,25 @@ import java.lang.invoke.VarHandle;
 import java.lang.reflect.*;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.net.URLClassLoader;
 import java.nio.ByteBuffer;
 import java.security.CodeSource;
 import java.security.Permissions;
 import java.security.ProtectionDomain;
 import java.security.SecureClassLoader;
 import java.util.Enumeration;
+import java.util.LinkedHashSet;
+import java.util.Set;
 import java.util.StringJoiner;
+import java.util.jar.JarFile;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @SuppressWarnings("unused")
 public class ArclightReflectionHandler extends ClassLoader {
 
     private static final String PREFIX = "net.minecraft.";
+    private static final Pattern VERSIONED_CLASS_PATTERN = Pattern.compile("(.+)([.$])v(\\d+)_(\\d+)_R(\\d+)$");
 
     public static ClassLoaderRemapper remapper;
 
@@ -220,17 +228,201 @@ public class ArclightReflectionHandler extends ClassLoader {
         return redirectClassForName(cl, true, Unsafe.getCallerClass().getClassLoader());
     }
 
+    private static String normalizeReflectionClassName(String className) {
+        if (className == null || className.isEmpty()) {
+            return className;
+        }
+        if (className.startsWith("L") && className.endsWith(";")) {
+            String elementType = className.substring(1, className.length() - 1);
+            return "L" + CraftBukkitVersionRemapper.remapBinaryName(elementType) + ";";
+        }
+        // Array binary name, e.g. [Lorg.bukkit.craftbukkit.v1_20_R1.entity.CraftPlayer;
+        if (className.startsWith("[L") && className.endsWith(";")) {
+            String elementType = className.substring(2, className.length() - 1);
+            return "[L" + CraftBukkitVersionRemapper.remapBinaryName(elementType) + ";";
+        }
+        return CraftBukkitVersionRemapper.remapBinaryName(className);
+    }
+
+    private static Class<?> tryLoadClass(String binaryName, boolean initialize, ClassLoader preferredLoader) throws ClassNotFoundException {
+        Set<ClassLoader> loaders = new LinkedHashSet<>();
+        loaders.add(preferredLoader);
+        loaders.add(ArclightReflectionHandler.class.getClassLoader());
+        loaders.add(Thread.currentThread().getContextClassLoader());
+        loaders.add(ClassLoader.getSystemClassLoader());
+
+        Throwable firstFailure = null;
+        for (ClassLoader loader : loaders) {
+            if (loader == null) {
+                continue;
+            }
+            try {
+                return Class.forName(binaryName, initialize, loader);
+            } catch (ClassNotFoundException | NoClassDefFoundError ex) {
+                if (firstFailure == null) {
+                    firstFailure = ex;
+                }
+            }
+        }
+
+        // Fallback for plugins that hardcode only one NMS revision class
+        // (e.g. ...$v1_20_R1) while shipping a nearby revision or a generic class.
+        Class<?> fallback = tryLoadVersionedFallback(binaryName, initialize, loaders);
+        if (fallback != null) {
+            return fallback;
+        }
+
+        if (firstFailure instanceof ClassNotFoundException cnfe) {
+            throw cnfe;
+        }
+        throw new ClassNotFoundException(binaryName, firstFailure);
+    }
+
+    private static boolean shouldMapTypeName(String binaryName) {
+        return binaryName.startsWith("net.minecraft.")
+                || binaryName.startsWith("org.bukkit.")
+                || binaryName.startsWith("com.mojang.");
+    }
+
+    private static String mapTypeForReflection(String binaryName) {
+        if (binaryName == null || binaryName.isEmpty()) {
+            return binaryName;
+        }
+        if (binaryName.startsWith("[L") && binaryName.endsWith(";")) {
+            String elementType = binaryName.substring(2, binaryName.length() - 1);
+            return "[L" + mapTypeForReflection(elementType) + ";";
+        }
+        if (binaryName.startsWith("L") && binaryName.endsWith(";")) {
+            String elementType = binaryName.substring(1, binaryName.length() - 1);
+            return "L" + mapTypeForReflection(elementType) + ";";
+        }
+        if (!shouldMapTypeName(binaryName)) {
+            return binaryName;
+        }
+        return remapper.mapType(binaryName.replace('.', '/')).replace('/', '.');
+    }
+
+    private static Class<?> tryLoadVersionedFallback(String binaryName, boolean initialize, Set<ClassLoader> loaders) {
+        Matcher matcher = VERSIONED_CLASS_PATTERN.matcher(binaryName);
+        if (!matcher.matches()) {
+            return null;
+        }
+
+        String owner = matcher.group(1);
+        String separator = matcher.group(2);
+        String alternateSeparator = "$".equals(separator) ? "." : "$";
+        String major = matcher.group(3);
+        String minor = matcher.group(4);
+        int requestedRevision = Integer.parseInt(matcher.group(5));
+
+        Set<String> candidates = new LinkedHashSet<>();
+        // Same revision with alternate separator first
+        candidates.add(owner + alternateSeparator + "v" + major + "_" + minor + "_R" + requestedRevision);
+        // Alternate revisions in the same major/minor line.
+        for (int rev = 1; rev <= 10; rev++) {
+            if (rev != requestedRevision) {
+                candidates.add(owner + separator + "v" + major + "_" + minor + "_R" + rev);
+                candidates.add(owner + alternateSeparator + "v" + major + "_" + minor + "_R" + rev);
+            }
+        }
+        // Generic class variants frequently used by plugins.
+        candidates.add(owner + separator + "v");
+        candidates.add(owner + alternateSeparator + "v");
+        candidates.add(owner + "$v");
+        candidates.add(owner + ".v");
+        candidates.add(owner);
+        collectJarDerivedVersionCandidates(owner, loaders, candidates);
+
+        for (String candidate : candidates) {
+            for (ClassLoader loader : loaders) {
+                if (loader == null) {
+                    continue;
+                }
+                try {
+                    return Class.forName(candidate, initialize, loader);
+                } catch (ClassNotFoundException | NoClassDefFoundError ignored) {
+                }
+            }
+        }
+
+        // As a final fallback, inspect declared inner classes on the owner type.
+        for (ClassLoader loader : loaders) {
+            if (loader == null) {
+                continue;
+            }
+            try {
+                Class<?> ownerClass = Class.forName(owner, false, loader);
+                Class<?> bestMatch = null;
+                for (Class<?> nested : ownerClass.getDeclaredClasses()) {
+                    String nestedName = nested.getName();
+                    if (nestedName.matches(Pattern.quote(owner) + "\\$v\\d+_\\d+_R\\d+")) {
+                        if (nestedName.contains("$v" + major + "_" + minor + "_R")) {
+                            return nested;
+                        }
+                        if (bestMatch == null) {
+                            bestMatch = nested;
+                        }
+                    }
+                    if (nestedName.equals(owner + "$v")) {
+                        return nested;
+                    }
+                }
+                if (bestMatch != null) {
+                    return bestMatch;
+                }
+            } catch (ClassNotFoundException | NoClassDefFoundError ignored) {
+            }
+        }
+        return null;
+    }
+
+    private static void collectJarDerivedVersionCandidates(String owner, Set<ClassLoader> loaders, Set<String> candidates) {
+        String ownerPath = owner.replace('.', '/');
+        for (ClassLoader loader : loaders) {
+            if (!(loader instanceof URLClassLoader urlClassLoader)) {
+                continue;
+            }
+            for (URL url : urlClassLoader.getURLs()) {
+                String path = url.getPath();
+                if (path == null || !path.endsWith(".jar")) {
+                    continue;
+                }
+                try (JarFile jar = new JarFile(new File(url.toURI()))) {
+                    jar.stream()
+                            .map(entry -> entry.getName())
+                            .filter(name -> name.endsWith(".class"))
+                            .filter(name -> name.startsWith(ownerPath + "$") || name.startsWith(ownerPath + "/"))
+                            .map(name -> name.substring(0, name.length() - 6).replace('/', '.'))
+                            .filter(name -> name.startsWith(owner + "$v") || name.startsWith(owner + ".v"))
+                            .forEach(candidates::add);
+                } catch (Throwable ignored) {
+                }
+            }
+        }
+    }
+
     // bukkit -> srg
     public static Class<?> redirectClassForName(String cl, boolean initialize, ClassLoader classLoader) throws ClassNotFoundException {
+        String normalizedName = normalizeReflectionClassName(cl);
+        String mappedName = mapTypeForReflection(normalizedName);
         try {
-            String replace = remapper.mapType(cl.replace('.', '/')).replace('/', '.');
-            return Class.forName(replace, initialize, classLoader);
+            return tryLoadClass(mappedName, initialize, classLoader);
         } catch (ClassNotFoundException e) { // nested/inner class
-            int i = cl.lastIndexOf('.');
+            if (!mappedName.equals(normalizedName)) {
+                try {
+                    return tryLoadClass(normalizedName, initialize, classLoader);
+                } catch (ClassNotFoundException ignored) {
+                }
+            }
+            int i = normalizedName.lastIndexOf('.');
             if (i > 0) {
-                String replace = cl.substring(0, i).replace('.', '/') + "$" + cl.substring(i + 1);
-                replace = remapper.mapType(replace).replace('/', '.').replace('$', '.');
-                return Class.forName(replace, initialize, classLoader);
+                String nestedName = normalizedName.substring(0, i).replace('.', '/') + "$" + normalizedName.substring(i + 1);
+                String mappedNestedName = mapTypeForReflection(nestedName.replace('/', '.'));
+                try {
+                    return tryLoadClass(mappedNestedName, initialize, classLoader);
+                } catch (ClassNotFoundException ignored) {
+                    return tryLoadClass(nestedName.replace('/', '.'), initialize, classLoader);
+                }
             } else throw e;
         }
     }
@@ -419,13 +611,29 @@ public class ArclightReflectionHandler extends ClassLoader {
     }
 
     public static Object[] handleClassLoaderLoadClass(ClassLoader loader, String binaryName) {
-        return new Object[]{loader, remapper.mapType(binaryName.replace('.', '/')).replace('/', '.')};
+        String normalizedName = normalizeReflectionClassName(binaryName);
+        return new Object[]{loader, mapTypeForReflection(normalizedName)};
     }
 
     // bukkit -> srg
     public static Class<?> redirectClassLoaderLoadClass(ClassLoader loader, String binaryName) throws ClassNotFoundException {
-        String replace = remapper.mapType(binaryName.replace('.', '/')).replace('/', '.');
-        return loader.loadClass(replace);
+        String normalizedName = normalizeReflectionClassName(binaryName);
+        String mappedName = mapTypeForReflection(normalizedName);
+        try {
+            return loader.loadClass(mappedName);
+        } catch (ClassNotFoundException | NoClassDefFoundError e) {
+            if (!mappedName.equals(normalizedName)) {
+                try {
+                    return loader.loadClass(normalizedName);
+                } catch (ClassNotFoundException | NoClassDefFoundError ignored) {
+                    return tryLoadClass(normalizedName, false, loader);
+                }
+            }
+            if (e instanceof ClassNotFoundException cnfe) {
+                throw cnfe;
+            }
+            throw new ClassNotFoundException(mappedName, e);
+        }
     }
 
     public static String findMappedResource(Class<?> cl, String name) {
@@ -449,7 +657,7 @@ public class ArclightReflectionHandler extends ClassLoader {
         } else {
             className = name;
         }
-        className = remapper.mapType(className);
+        className = remapper.mapType(CraftBukkitVersionRemapper.remapInternalName(className));
         if (className.startsWith("java/") || className.startsWith("jdk/") || className.startsWith("javax/")) {
             return null;
         } else if (cl != null) return "/" + className + ".class";

@@ -14,7 +14,71 @@ public class CraftBukkitVersionRemapper implements PluginTransformer {
 
     private static final Pattern VERSION_PATTERN = Pattern.compile("v\\d+_\\d+_R\\d+");
     private static final String CRAFTBUKKIT_PREFIX = "org/bukkit/craftbukkit/";
+    private static final String CRAFTBUKKIT_DOT_PREFIX = "org.bukkit.craftbukkit.";
     private static final String GENERIC_VERSION = "v";
+
+    public static String remapInternalName(String internalName) {
+        if (internalName == null || !internalName.startsWith(CRAFTBUKKIT_PREFIX)) {
+            return internalName;
+        }
+
+        String afterPrefix = internalName.substring(CRAFTBUKKIT_PREFIX.length());
+        int slashIndex = afterPrefix.indexOf('/');
+
+        if (slashIndex == -1) {
+            // No slash after prefix, entire string is version
+            if (VERSION_PATTERN.matcher(afterPrefix).matches()) {
+                return CRAFTBUKKIT_PREFIX + GENERIC_VERSION;
+            }
+            return internalName;
+        }
+
+        String versionPart = afterPrefix.substring(0, slashIndex);
+        if (VERSION_PATTERN.matcher(versionPart).matches()) {
+            return CRAFTBUKKIT_PREFIX + GENERIC_VERSION + afterPrefix.substring(slashIndex);
+        }
+
+        return internalName;
+    }
+
+    private void remapAnnotations(java.util.List<AnnotationNode> annotations) {
+        if (annotations != null) {
+            for (AnnotationNode annotation : annotations) {
+                annotation.desc = remapDescriptor(annotation.desc);
+            }
+        }
+    }
+
+    public static String remapBinaryName(String binaryName) {
+        if (binaryName == null) {
+            return null;
+        }
+
+        // Some plugins pass internal-style names (with '/')
+        // into reflection APIs that expect binary names.
+        binaryName = binaryName.replace('/', '.');
+
+        if (!binaryName.startsWith(CRAFTBUKKIT_DOT_PREFIX)) {
+            return binaryName;
+        }
+
+        String afterPrefix = binaryName.substring(CRAFTBUKKIT_DOT_PREFIX.length());
+        int dotIndex = afterPrefix.indexOf('.');
+
+        if (dotIndex == -1) {
+            if (VERSION_PATTERN.matcher(afterPrefix).matches()) {
+                return CRAFTBUKKIT_DOT_PREFIX + GENERIC_VERSION;
+            }
+            return binaryName;
+        }
+
+        String versionPart = afterPrefix.substring(0, dotIndex);
+        if (VERSION_PATTERN.matcher(versionPart).matches()) {
+            return CRAFTBUKKIT_DOT_PREFIX + GENERIC_VERSION + afterPrefix.substring(dotIndex);
+        }
+
+        return binaryName;
+    }
 
     @Override
     public void handleClass(ClassNode node, ClassLoaderRemapper remapper, ArclightRemapConfig config) {
@@ -81,6 +145,12 @@ public class CraftBukkitVersionRemapper implements PluginTransformer {
                             );
                         }
                     }
+                } else if (insn instanceof LdcInsnNode ldcInsn) {
+                    if (ldcInsn.cst instanceof String stringConstant) {
+                        ldcInsn.cst = remapStringConstant(stringConstant);
+                    } else if (ldcInsn.cst instanceof org.objectweb.asm.Type type) {
+                        ldcInsn.cst = org.objectweb.asm.Type.getType(remapDescriptor(type.getDescriptor()));
+                    }
                 } else if (insn instanceof MultiANewArrayInsnNode multiArrayInsn) {
                     multiArrayInsn.desc = remapDescriptor(multiArrayInsn.desc);
                 }
@@ -118,38 +188,6 @@ public class CraftBukkitVersionRemapper implements PluginTransformer {
         }
     }
 
-    private void remapAnnotations(java.util.List<AnnotationNode> annotations) {
-        if (annotations != null) {
-            for (AnnotationNode annotation : annotations) {
-                annotation.desc = remapDescriptor(annotation.desc);
-            }
-        }
-    }
-
-    private String remapInternalName(String internalName) {
-        if (internalName == null || !internalName.startsWith(CRAFTBUKKIT_PREFIX)) {
-            return internalName;
-        }
-
-        String afterPrefix = internalName.substring(CRAFTBUKKIT_PREFIX.length());
-        int slashIndex = afterPrefix.indexOf('/');
-
-        if (slashIndex == -1) {
-            // No slash after prefix, entire string is version
-            if (VERSION_PATTERN.matcher(afterPrefix).matches()) {
-                return CRAFTBUKKIT_PREFIX + GENERIC_VERSION;
-            }
-            return internalName;
-        }
-
-        String versionPart = afterPrefix.substring(0, slashIndex);
-        if (VERSION_PATTERN.matcher(versionPart).matches()) {
-            return CRAFTBUKKIT_PREFIX + GENERIC_VERSION + afterPrefix.substring(slashIndex);
-        }
-
-        return internalName;
-    }
-
     private String remapDescriptor(String descriptor) {
         if (descriptor == null) {
             return null;
@@ -175,6 +213,22 @@ public class CraftBukkitVersionRemapper implements PluginTransformer {
             }
         }
         return result.toString();
+    }
+
+    private String remapStringConstant(String constant) {
+        if (constant == null || constant.isEmpty()) {
+            return constant;
+        }
+        if (constant.startsWith(CRAFTBUKKIT_PREFIX)) {
+            return remapInternalName(constant);
+        }
+        if (constant.startsWith(CRAFTBUKKIT_DOT_PREFIX)) {
+            return remapBinaryName(constant);
+        }
+        if ((constant.startsWith("L") || constant.startsWith("[")) && constant.contains(CRAFTBUKKIT_PREFIX)) {
+            return remapDescriptor(constant);
+        }
+        return constant;
     }
 
     private String remapSignature(String signature) {
