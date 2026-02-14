@@ -20,7 +20,7 @@ An Arclight fork, aiming to make more optimizations and improvements on Arclight
 
 > **Currently Main Maintained Version: Minecraft 1.20.1**
 >
-> - **Forge Version**: 47.4.10
+> - **Forge Version**: 47.4.16
 > - **Stability**: Good
 > - **Plugin Compatibility**: Average, Spigot only
 > - **Mod Compatibility**: Excellent
