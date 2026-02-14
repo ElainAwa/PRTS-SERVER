@@ -102,6 +102,25 @@ public class WorldEdit {
         }
     }
 
+    public static void handleFaweCommandRegistration(ClassNode node, PluginPatcher.ClassRepo repo) {
+        for (MethodNode method : node.methods) {
+            if (!method.name.equals("getCommandMap") || !method.desc.equals("()Lorg/bukkit/command/CommandMap;")) {
+                continue;
+            }
+            for (AbstractInsnNode insn : method.instructions) {
+                if (!(insn instanceof MethodInsnNode methodInsn)) {
+                    continue;
+                }
+                if (methodInsn.owner.equals("io/papermc/lib/PaperLib")
+                        && methodInsn.name.equals("isPaper")
+                        && methodInsn.desc.equals("()Z")) {
+                    method.instructions.set(methodInsn, new InsnNode(Opcodes.ICONST_0));
+                }
+            }
+            return;
+        }
+    }
+
     private static void handleAdapt(ClassNode node, MethodNode standardize, MethodNode method) {
         switch (method.desc) {
             case "(Lcom/sk89q/worldedit/world/item/ItemType;)Lorg/bukkit/Material;":

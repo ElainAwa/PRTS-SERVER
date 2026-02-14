@@ -20,6 +20,7 @@ public class IntegratedPatcher implements PluginPatcher {
         SPECIFIC.put("com/sk89q/worldedit/bukkit/adapter/BukkitImplLoader", WorldEdit::handleFaweBukkitImplLoader);
         SPECIFIC.put("com/sk89q/worldedit/bukkit/adapter/Refraction", WorldEdit::handlePickName);
         SPECIFIC.put("com/fastasyncworldedit/bukkit/util/MinecraftVersion", WorldEdit::handleFaweMinecraftVersion);
+        SPECIFIC.put("com/sk89q/bukkit/util/CommandRegistration", WorldEdit::handleFaweCommandRegistration);
         SPECIFIC.put("com/Zrips/CMI/utils/CMIThread", CMI::handleThreadExecutor);
         GENERAL.add(WorldEdit::handleWatchdog);
     }
