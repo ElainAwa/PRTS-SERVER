@@ -2,6 +2,7 @@ package io.izzel.arclight.common.mixin.core.world.item;
 
 import io.izzel.arclight.common.bridge.core.entity.player.ServerPlayerEntityBridge;
 import io.izzel.arclight.common.bridge.core.item.ItemStackBridge;
+import io.izzel.arclight.common.mod.util.log.ArclightI18nLogger;
 import io.izzel.arclight.i18n.ArclightConfig;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerPlayer;
@@ -12,7 +13,6 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.common.capabilities.CapabilityProvider;
 import net.minecraftforge.registries.ForgeRegistries;
-import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.bukkit.craftbukkit.v.event.CraftEventFactory;
 import org.bukkit.craftbukkit.v.inventory.CraftItemStack;
@@ -35,7 +35,7 @@ import java.util.function.Consumer;
 @Mixin(ItemStack.class)
 public abstract class ItemStackMixin extends CapabilityProvider<ItemStack> implements ItemStackBridge {
 
-    private static final Logger LOG = LogManager.getLogger("Arclight");
+    private static final Logger LOG = ArclightI18nLogger.getLogger("ItemStack");
     // @formatter:off
     @Shadow @Deprecated private Item item;
     @Shadow private int count;
@@ -81,7 +81,7 @@ public abstract class ItemStackMixin extends CapabilityProvider<ItemStack> imple
 
     public void convertStack(int version) {
         if (0 < version && version < CraftMagicNumbers.INSTANCE.getDataVersion()) {
-            LOG.warn("item.legacy-itemstack", this);
+            LOG.warn("i18n.legacy-itemstack", this);
         }
     }
 
