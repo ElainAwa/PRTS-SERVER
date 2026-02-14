@@ -114,6 +114,10 @@ public abstract class CraftServerMixin implements CraftServerBridge {
         return "Luminara";
     }
 
+    public String getMinecraftVersion() {
+        return this.console.getServerVersion();
+    }
+
     @Override
     public void bridge$setPlayerList(PlayerList playerList) {
         this.playerList = (DedicatedPlayerList) playerList;

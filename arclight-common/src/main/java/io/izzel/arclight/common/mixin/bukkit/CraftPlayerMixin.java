@@ -1,6 +1,7 @@
 package io.izzel.arclight.common.mixin.bukkit;
 
 import com.google.common.base.Preconditions;
+import net.minecraft.server.level.ServerPlayer;
 import org.bukkit.craftbukkit.v.entity.CraftPlayer;
 import org.bukkit.event.player.PlayerRegisterChannelEvent;
 import org.bukkit.plugin.messaging.StandardMessenger;
@@ -17,6 +18,9 @@ public abstract class CraftPlayerMixin extends CraftEntityMixin {
     @Shadow
     @Final
     private Set<String> channels;
+
+    @Shadow
+    public abstract ServerPlayer getHandle();
 
     /**
      * @author IzzelAliz

@@ -47,7 +47,11 @@ public class ComponentBridgeHandler {
             // If still not found, try to find method by return type
             if (getSiblingsMethod == null) {
                 for (Method method : componentClass.getDeclaredMethods()) {
-                    if (method.getReturnType().equals(List.class) && method.getParameterCount() == 0) {
+                    // Only accept the abstract sibling accessor, never default helper methods (e.g. toFlatList)
+                    if (method.getReturnType().equals(List.class)
+                            && method.getParameterCount() == 0
+                            && Modifier.isAbstract(method.getModifiers())
+                            && returnsComponentList(method)) {
                         getSiblingsMethod = method;
                         getSiblingsMethod.setAccessible(true);
                         break;
@@ -142,7 +146,7 @@ public class ComponentBridgeHandler {
     // Create an iterator for components (replaces ComponentMixin.iterator())
     public static Iterator<Component> createIterator(Component component) {
         if (component == null) {
-            return List.<Component>of().iterator();
+            return Collections.emptyIterator();
         }
 
         if (!initialized) {
