@@ -11,6 +11,8 @@ import java.util.Locale;
 
 public class WorldEdit {
 
+    private static final String FAWE_COMPAT_OWNER = "io/izzel/arclight/common/mod/compat/FaweCompat";
+
     public static void handleBukkitAdapter(ClassNode node, PluginPatcher.ClassRepo repo) {
         MethodNode standardize = new MethodNode(Opcodes.ACC_PRIVATE | Opcodes.ACC_STATIC | Opcodes.ACC_SYNTHETIC, "patcher$standardize",
                 Type.getMethodDescriptor(Type.getType(String.class), Type.getType(String.class)), null, null);
@@ -47,6 +49,54 @@ public class WorldEdit {
                 method.instructions.clear();
                 method.instructions.add(new VarInsnNode(Opcodes.ALOAD, 1));
                 method.instructions.add(new InsnNode(Opcodes.ARETURN));
+                return;
+            }
+        }
+    }
+
+    public static void handleFaweBukkitImplLoader(ClassNode node, PluginPatcher.ClassRepo repo) {
+        for (MethodNode method : node.methods) {
+            if (!method.name.equals("addFromJar") && !method.name.equals("addFromPath")) {
+                continue;
+            }
+            for (AbstractInsnNode insn : method.instructions) {
+                if (!(insn instanceof MethodInsnNode methodInsn)) {
+                    continue;
+                }
+                if (!methodInsn.owner.equals("java/util/List") || !methodInsn.name.equals("add")) {
+                    continue;
+                }
+                if (methodInsn.desc.equals("(Ljava/lang/Object;)Z")) {
+                    methodInsn.setOpcode(Opcodes.INVOKESTATIC);
+                    methodInsn.owner = FAWE_COMPAT_OWNER;
+                    methodInsn.name = "addFilteredFaweCandidate";
+                    methodInsn.desc = "(Ljava/util/List;Ljava/lang/Object;)Z";
+                    methodInsn.itf = false;
+                } else if (methodInsn.desc.equals("(ILjava/lang/Object;)V")) {
+                    methodInsn.setOpcode(Opcodes.INVOKESTATIC);
+                    methodInsn.owner = FAWE_COMPAT_OWNER;
+                    methodInsn.name = "addFilteredFaweCandidateIndexed";
+                    methodInsn.desc = "(Ljava/util/List;ILjava/lang/Object;)V";
+                    methodInsn.itf = false;
+                }
+            }
+        }
+    }
+
+    public static void handleFaweMinecraftVersion(ClassNode node, PluginPatcher.ClassRepo repo) {
+        for (MethodNode method : node.methods) {
+            if (method.name.equals("getPackageVersion") && method.desc.equals("()Ljava/lang/String;")) {
+                method.instructions.clear();
+                method.instructions.add(new MethodInsnNode(
+                        Opcodes.INVOKESTATIC,
+                        FAWE_COMPAT_OWNER,
+                        "getCraftBukkitPackageVersion",
+                        "()Ljava/lang/String;",
+                        false
+                ));
+                method.instructions.add(new InsnNode(Opcodes.ARETURN));
+                method.tryCatchBlocks.clear();
+                method.localVariables.clear();
                 return;
             }
         }
