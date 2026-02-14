@@ -1,6 +1,5 @@
 package io.izzel.arclight.common.bridge.network.chat;
 
-import com.google.common.collect.Streams;
 import io.izzel.arclight.common.bridge.core.util.text.ITextComponentBridge;
 import io.izzel.arclight.common.mod.util.log.ArclightI18nLogger;
 import net.minecraft.network.chat.Component;
@@ -8,11 +7,12 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.lang.reflect.Method;
-import java.util.Iterator;
-import java.util.List;
+import java.lang.reflect.Modifier;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.function.Function;
 import java.util.stream.Stream;
 
 
@@ -97,6 +97,15 @@ public class ComponentBridgeHandler {
         return List.of();
     }
 
+    private static boolean returnsComponentList(Method method) {
+        Type type = method.getGenericReturnType();
+        if (!(type instanceof ParameterizedType pType)) {
+            return false;
+        }
+        Type[] args = pType.getActualTypeArguments();
+        return args.length == 1 && args[0].getTypeName().contains("net.minecraft.network.chat.Component");
+    }
+
     // Create a stream of components (replaces ComponentMixin.stream())
     public static Stream<Component> createStream(Component component) {
         if (component == null) {
@@ -108,24 +117,22 @@ public class ComponentBridgeHandler {
         }
 
         try {
-            class Func implements Function<Component, Stream<? extends Component>> {
-                @Override
-                public Stream<? extends Component> apply(Component comp) {
-                    // Avoid infinite recursion by directly processing siblings
-                    List<Component> siblings = getSiblings(comp);
-                    if (siblings != null && !siblings.isEmpty()) {
-                        return Streams.concat(Stream.of(comp), siblings.stream());
-                    } else {
-                        return Stream.of(comp);
-                    }
+            Set<Component> visited = Collections.newSetFromMap(new IdentityHashMap<>());
+            List<Component> flattened = new java.util.ArrayList<>();
+            ArrayDeque<Component> queue = new ArrayDeque<>();
+            queue.add(component);
+            while (!queue.isEmpty()) {
+                Component current = queue.pollFirst();
+                if (current == null || !visited.add(current)) {
+                    continue;
+                }
+                flattened.add(current);
+                List<Component> siblings = getSiblings(current);
+                if (siblings != null && !siblings.isEmpty()) {
+                    queue.addAll(siblings);
                 }
             }
-            List<Component> siblings = getSiblings(component);
-            if (siblings != null && !siblings.isEmpty()) {
-                return Streams.concat(Stream.of(component), siblings.stream().flatMap(new Func()));
-            } else {
-                return Stream.of(component);
-            }
+            return flattened.stream();
         } catch (Exception e) {
             ARCLIGHT_LOGGER.error("component.bridge.create-stream-failed", e.getMessage());
             return Stream.of(component);
