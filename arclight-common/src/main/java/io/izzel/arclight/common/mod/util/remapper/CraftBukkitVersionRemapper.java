@@ -1,5 +1,6 @@
 package io.izzel.arclight.common.mod.util.remapper;
 
+import io.izzel.arclight.api.ArclightVersion;
 import io.izzel.arclight.common.mod.ArclightMod;
 import org.apache.logging.log4j.Marker;
 import org.apache.logging.log4j.MarkerManager;
@@ -94,6 +95,60 @@ public class CraftBukkitVersionRemapper implements PluginTransformer {
         }
 
         return binaryName;
+    }
+
+    public static String toVersionedInternalName(String internalName) {
+        if (internalName == null || !internalName.startsWith(CRAFTBUKKIT_PREFIX)) {
+            return internalName;
+        }
+
+        String afterPrefix = internalName.substring(CRAFTBUKKIT_PREFIX.length());
+        int slashIndex = afterPrefix.indexOf('/');
+        String versionPart = slashIndex == -1 ? afterPrefix : afterPrefix.substring(0, slashIndex);
+        if (!GENERIC_VERSION.equals(versionPart)) {
+            return internalName;
+        }
+
+        String version = currentVersion();
+        if (slashIndex == -1) {
+            return CRAFTBUKKIT_PREFIX + version;
+        }
+        return CRAFTBUKKIT_PREFIX + version + afterPrefix.substring(slashIndex);
+    }
+
+    public static String toVersionedBinaryName(String binaryName) {
+        if (binaryName == null) {
+            return null;
+        }
+
+        binaryName = binaryName.replace('/', '.');
+        if (!binaryName.startsWith(CRAFTBUKKIT_DOT_PREFIX)) {
+            return binaryName;
+        }
+
+        String afterPrefix = binaryName.substring(CRAFTBUKKIT_DOT_PREFIX.length());
+        int dotIndex = afterPrefix.indexOf('.');
+        String versionPart = dotIndex == -1 ? afterPrefix : afterPrefix.substring(0, dotIndex);
+        if (!GENERIC_VERSION.equals(versionPart)) {
+            return binaryName;
+        }
+
+        String version = currentVersion();
+        if (dotIndex == -1) {
+            return CRAFTBUKKIT_DOT_PREFIX + version;
+        }
+        return CRAFTBUKKIT_DOT_PREFIX + version + afterPrefix.substring(dotIndex);
+    }
+
+    private static String currentVersion() {
+        try {
+            String current = ArclightVersion.current().packageName();
+            if (current != null && !current.isBlank()) {
+                return current;
+            }
+        } catch (Throwable ignored) {
+        }
+        return GENERIC_VERSION;
     }
 
     @Override

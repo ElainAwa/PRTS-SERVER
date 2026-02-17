@@ -141,20 +141,23 @@ public class ArclightReflectionHandler extends ClassLoader {
 
     // srg -> bukkit
     public static String handleClassGetName(String cl) {
-        return remapper.toBukkitRemapper().mapType(cl.replace('.', '/')).replace('/', '.');
+        String mapped = remapper.toBukkitRemapper().mapType(cl.replace('.', '/')).replace('/', '.');
+        return CraftBukkitVersionRemapper.toVersionedBinaryName(mapped);
     }
 
     // srg -> bukkit
     public static String redirectClassGetName(Class<?> cl) {
         String internalName = Type.getInternalName(cl);
         Type type = Type.getObjectType(remapper.toBukkitRemapper().mapType(internalName));
-        return type.getInternalName().replace('/', '.');
+        return CraftBukkitVersionRemapper.toVersionedBinaryName(type.getInternalName().replace('/', '.'));
     }
 
     // srg -> bukkit
     public static String handlePackageGetName(String name) {
         if (name.startsWith(PREFIX)) {
             return PREFIX + "server." + ArclightVersion.current().packageName();
+        } else if (name.startsWith("org.bukkit.craftbukkit.")) {
+            return CraftBukkitVersionRemapper.toVersionedBinaryName(name);
         } else {
             return name;
         }
