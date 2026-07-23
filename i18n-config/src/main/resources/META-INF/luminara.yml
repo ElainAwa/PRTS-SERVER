@@ -1,0 +1,118 @@
+# Luminara Configuration File
+# This is the YAML version of the configuration
+
+_v: 1
+
+locale:
+  fallback: "zh_cn"
+
+optimization:
+  # 实验性核心优化总开关；罩住 route-b / servercore 等并入模组功能。true=默认开启。
+  experimental-optimizations-enabled: true
+  # ===== 本次并入模组功能的独立开关（默认全开，可单独 A/B；受上面总开关罩着） =====
+  # 空间化实体追踪（源自 HariPlayer 的 use_optimized_entity_tracking / AreaMap）
+  route-b:
+    # 是否启用空间化实体追踪；关闭则回退原版 O(实体×玩家) 全扫描
+    enabled: true
+    # 看门狗硬阈值(ms)：单次 AreaMap tick 超此值，本会话永久回退原版（防主线程冻结导致客户端超时）
+    watchdog-hard-ms: 500
+    # 看门狗软阈值(ms)：超此值仅告警不禁用（诊断偶发慢 tick）
+    watchdog-soft-ms: 100
+  # ServerCore 优化（sync_loads / tickets / biome_lookups / pathfinder，共 12 个 mixin；重启生效）
+  servercore:
+    # 是否启用 ServerCore 优化；关闭则回退原版区块加载/刷怪/寻路
+    enabled: true
+  # 移动零速度跳过（源自 HariPlayer move_zero_velocity；静止实体跳过 move 碰撞/位置计算，零感知）
+  move-zero-velocity:
+    # 是否启用；关闭则回退原版每个 tick 的 move 调用
+    enabled: true
+  # 异步日志 Appender（源自 HariPlayer async_logging；log4j2 AsyncAppender 包裹根日志，零感知）
+  async-logging:
+    # 是否启用；关闭则回退同步日志写入
+    enabled: true
+  # 空间最近玩家索引（AreaMap 桶索引加速 checkDespawn/刷怪笼的全玩家线性扫描；vanilla 记账不动，仅加速查询）
+  nearby-player-index:
+    # 是否启用；默认关闭（观察期后手动开启）。关闭则完全走原版全玩家扫描
+    enabled: false
+    # 双跑校验：索引查询同时跑原版对照，不一致告警并采用原版结果（观察期建议 true，稳定后可关以省开销）
+    verify: true
+  cache-plugin-class: true
+  goal-selector-update-interval: 3
+  use-activation-and-tracking-range: true
+  entity-optimization:
+    disable-entity-collisions: false
+    reduce-entity-updates: true
+    entity-update-distance: 64.0
+    max-entities-per-chunk: 100
+    max-entities-per-type: 150
+  chunk-optimization:
+    aggressive-chunk-unloading: true
+    chunk-unload-delay: 200
+    optimize-chunk-loading: true
+    chunk-load-rate-limit: 8
+  memory-optimization:
+    cache-cleanup-enabled: true
+    cache-cleanup-interval: 300
+  async-system:
+    enabled: true
+    max-threads: 6
+    async-ai-enabled: true
+    async-collision-enabled: false
+    async-redstone-enabled: false
+    disable-on-error: true
+    event-class-blacklist:
+      - "net.minecraftforge.event.TickEvent"
+      - "net.minecraftforge.event.level.LevelTickEvent"
+      - "net.minecraftforge.event.entity.living.*"
+    mod-blacklist: [ ]
+    strict-class-checking: true
+    timeout-seconds: 20
+  world-creation:
+    fast-world-creation: true
+    skip-spawn-chunk-loading: true
+    force-close-loading-screen: true
+    early-world-list-addition: true
+    parallel-world-initialization: true
+    world-init-timeout-seconds: 45
+    max-concurrent-world-loads: 3
+    optimize-world-border-setup: true
+    defer-spawn-area-preparation: true
+    spawn-area-radius: 8
+    async-world-data-loading: true
+
+compatibility:
+  material-property-overrides: { }
+  entity-property-overrides: { }
+  symlink-world: false
+  extra-logic-worlds:
+    - "com.example.mod.ExtraLogicWorld"
+    - "xyz.nucleoid.fantasy.RuntimeWorld"
+  forward-permission: true
+  valid-username-regex: ""
+  lenient-item-tag-match: true
+  preload-bungee-chat-classes: true
+  enable-bukkit-reload-command: true
+
+async-catcher:
+  dump: true
+  warn: true
+  defaultOperation: block
+  overrides: { }
+
+async-world-save:
+  enabled: true
+  timeout-seconds: 45
+  save-world-data: true
+
+velocity:
+  enabled: false
+  online-mode: false
+  forwarding-secret: ""
+  debug-logging: false
+
+error-handling:
+  continue-on-crash: false
+  crash-report-directory: "crash-reports"
+
+logging:
+  use-simple-format: false

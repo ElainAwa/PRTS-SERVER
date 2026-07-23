@@ -1,0 +1,20 @@
+plugins {
+    id 'java'
+}
+
+archivesBaseName = 'luminara-forge-installer'
+java.toolchain.languageVersion = JavaLanguageVersion.of(17)
+
+repositories {
+    mavenCentral()
+    maven {
+        name = 'sponge'
+        url = 'https://repo.spongepowered.org/maven'
+    }
+    maven { url = 'https://maven.izzel.io/releases' }
+}
+
+dependencies {
+    implementation 'com.google.code.gson:gson:2.10.1'
+    implementation "io.izzel.arclight:arclight-api:$apiVersion"
+}
