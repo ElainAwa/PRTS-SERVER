@@ -1,84 +1,108 @@
-# Luminara
+# Luminara-stable-Trials
 
 [简体中文](README_zh.md)
 
-中国 / 简体中文用户请加入 [CraftAmethyst 社区 QQ 交流群](https://qm.qq.com/q/u3Dylx2ls6)
+A private, production-hardened downstream fork of [Luminara](https://github.com/QianMo0721/Luminara)
+(itself an [Arclight](https://github.com/IzzelAliz/Arclight) Hybrid fork) for **Minecraft 1.20.1 / Forge 47.4.16**.
 
-# 永久停更 Permanently discontinued
+This fork is tuned for a **large social-simulation server** (80+ concurrent players, 250+ mods, mixed
+Forge mods + Bukkit/Spigot plugins). Every custom change follows one rule:
 
-Discord: https://discord.gg/H7RqfGCa
+> **Zero-perception, low-level optimizations only.**
+> Never change gameplay — view distance, mob caps, spawning rules, crop growth and chunk ticking all stay vanilla.
+> We only make the *same work* cheaper, or fix crashes.
 
-An Arclight fork, aiming to make more optimizations and improvements on Arclight (1.20.1)
+> [!NOTE]
+> This is a **private** downstream fork. Upstream Luminara is permanently discontinued; all optimizations and
+> crash fixes documented below are maintained here independently. See [CHANGELOG.md](CHANGELOG.md) for the full
+> version history.
 
-> Any issues encountered while using this server software should be reported in this project's Issues, not in the
-> Arclight project Issues!
+## Environment
 
-## Features
+| Item | Value |
+|---|---|
+| Minecraft | 1.20.1 |
+| Loader | Forge 47.4.16 |
+| Base | Arclight Hybrid (Luminara fork) |
+| JDK | 21 (build & runtime) |
+| Current version | see `version` in [`build.gradle`](build.gradle) |
 
-- **Strong Compatibility** - Supports Bukkit/Spigot plugins and Forge mods running simultaneously
-- **High Performance** - Asynchronous world saving, chunk optimization...
-- **Easy to Use** - Simple installation and usage
-- **Velocity Support** - Supports Velocity Modern forwarding enabling cross-server functionality
+## Custom Optimizations (this fork)
 
-## Main Maintained Version
+All optimizations are gated behind config switches in `luminara.yml` and are designed to be **behaviorally
+identical to vanilla** while cheaper. Runtime status is printed with `[Luminara-*]` log tags on boot.
 
-> **Currently Main Maintained Version: Minecraft 1.20.1**
->
-> - **Forge Version**: 47.4.16
-> - **Stability**: Good
-> - **Plugin Compatibility**: Average, Spigot only
-> - **Mod Compatibility**: Excellent
+| Optimization | Log tag | Notes |
+|---|---|---|
+| **routeB spatial entity tracking** | `[Luminara-EntityTrack]` | Spatialized `AreaMap` tracker (HariPlayer-derived) |
+| **ticketpropagator** | `[Luminara-TP]` | Paper-style delayed 8-way ticket distance propagation |
+| **ServerCore (12 items)** | — | Assorted server-tick micro-optimizations |
+| **move-zero-velocity** | — | Skip redundant `move()` for zero-velocity entities |
+| **async-logging** | — | log4j2 AsyncAppender wrapping the root logger |
+| **NearbyPlayerIndex (NPI)** | `[Luminara-NPI]` | Spatial index accelerating `getNearestPlayer` / `hasNearbyAlivePlayer` (default `enabled=false`) |
+| **Native chunk tuning** | — | chunk-load-rate-limit, parallel world init + async data load, async world saving |
+| **Crash fixes (always on)** | `[Luminara-ChampionsFix]` | ChampionsConfig lazy bake; RevelationFix `inWhitelist` null guard |
 
-## Download
+### NearbyPlayerIndex safety model
 
-### Stable Versions
+NPI never touches the chunk packet-dispatch path. It only *accelerates queries* with three layers of safety:
 
-- [GitHub Releases](https://github.com/QianMo0721/Luminara/releases) - Recommended for production environments
+1. **Vanilla accounting is always authoritative** — the index only side-tracks, never overrides packet sending.
+2. **verify double-run** (default on) — every index result is compared against vanilla; on mismatch it logs a
+   `WARN` and uses the vanilla result.
+3. **144-block math guard + self-poisoning** — worst case is "no speedup", never a silent wrong answer.
 
-### Development Versions
+## Building
 
-- [Daily Build Versions](https://github.com/QianMo0721/Luminara/actions/workflows/gradle.yml?query=branch%3ATrials) *(
-  Requires
-  GitHub login)*
+> [!IMPORTANT]
+> This fork has strict build/deploy rules learned the hard way. Read them before building.
 
-### Self-Build
+**Build command** (JDK 21 required):
 
-- Clone this project locally `git clone -b <branch> https://github.com/QianMo0721/Luminara.git`
-- Run `./gradlew cleanBuild remapSpigotJar idea --no-daemon -i --stacktrace --refresh-dependencies` for configuration
-- Run `./gradlew build collect` to build the project
-- After building, the jar file is located in the `./build/libs` directory
+```bash
+# Use a clean environment + the pinned Gradle 8.14.5 + isolated temp dirs.
+gradle --no-daemon collect --rerun-tasks
+```
 
-## Installation and Usage
+The artifact is produced at `arclight-forge/build/libs/luminara-1.20.1-<version>.jar`.
 
-1. **Download** the jar file
-2. **Start the server**:
+**Build iron laws:**
+
+- ✅ Bump `version` in `build.gradle` for **every** new build.
+- ❌ Do **not** run `:arclight-forge:clean` — it deletes the reobf SRG cache and corrupts the refmap.
+- ⚠️ Non-`@Mixin` helper classes must **never** live under a `mixin/...` package (causes `IllegalClassLoadError`);
+  put them under `io.izzel.arclight.common.optimization.general.<feature>`.
+- ⚠️ Before writing any mixin, verify class/field/INVOKE owners with `javap` against the compiled mojmap classes —
+  do not assume symbols from newer MC versions.
+
+## Deployment
+
+1. Copy the new jar to the server root and point your start script at it.
+2. **Force re-unpack** — the outer jar is a launcher; the real classes live inside an inner `common.jar`.
+   You **must** clear both cache dirs, otherwise the old `common.jar` is reused and your fix silently won't apply:
 
    ```bash
-   java -jar luminara.jar nogui
+   rm -rf .arclight/mod_file/*
+   rm -rf .arclight/class_cache/*
    ```
 
-   > The `nogui` parameter will disable the server control panel
-   >
-3. Before each update, replace the old JAR file with the new one, then delete the .arclight folder. Otherwise, certain fixes will not take effect!
+3. Start the server:
 
-## Incompatibilities
+   ```bash
+   java -jar luminara-1.20.1-<version>.jar nogui
+   ```
 
-- May not be compatible with some optimization mods.
-- Incompatible with all optimized Bukkit plugins
+## Compatibility
 
-## Support and Help
+- Runs Forge mods and Bukkit/Spigot plugins simultaneously.
+- May be incompatible with some optimization mods; incompatible with optimization Bukkit plugins.
+- Known-good optimization mods on this server: ModernFix, FerriteCore, Canary, Saturn, KryptonReforged,
+  Noisium, Radium (Lithium), Immersive Optimization, MemoryLeakFix, PacketFixer, Spark.
 
-### Documentation
+## Credits & License
 
-- [Arclight Documentation](https://wiki.izzel.io/s/arclight-docs) - Detailed usage guides and configuration instructions
-- [To-Do List](TODO.md)
+- Built on [Arclight](https://github.com/IzzelAliz/Arclight) by IzzelAliz.
+- Forked from [Luminara](https://github.com/QianMo0721/Luminara) by QianMo0721.
+- Custom optimizations and crash fixes in this fork are maintained by [ElainAwa](https://github.com/ElainAwa).
 
-### Issue Reporting
-
-- [Submit Bug](https://github.com/QianMo0721/Luminara/issues/new/choose) - Report problems here
-- [Discussion Forum](https://github.com/QianMo0721/Luminara/discussions) - Ask questions and discuss
-- Do not report issues with this server software to Arclight!
-
-## License
-
-This project is open source under the [GPL v3](LICENSE) license.
+Licensed under [GPL v3](LICENSE), same as upstream.
