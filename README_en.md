@@ -5,17 +5,16 @@
 A private, production-hardened downstream fork of [Luminara](https://github.com/QianMo0721/Luminara)
 (itself an [Arclight](https://github.com/IzzelAliz/Arclight) Hybrid fork) for **Minecraft 1.20.1 / Forge 47.4.16**.
 
-This fork is tuned for a **heavily-modded, multiplayer** production environment (~250 mods, many concurrent
-players, mixed Forge mods + Bukkit/Spigot plugins). Every custom change follows one rule:
+This fork targets a heavily-modded, multiplayer production environment (mixed Forge mods +
+Bukkit/Spigot plugins). Custom changes follow a single principle:
 
 > **Zero-perception, low-level optimizations only.**
-> Never change gameplay — view distance, mob caps, spawning rules, crop growth and chunk ticking all stay vanilla.
-> We only make the *same work* cheaper, or fix crashes.
+> Gameplay is unchanged: view distance, mob caps, spawning rules, crop growth and chunk ticking remain vanilla.
+> Only the resource cost of the same logic is reduced, or crashes are fixed.
 
 > [!NOTE]
-> This is a **private** downstream fork. Upstream Luminara is permanently discontinued; all optimizations and
-> crash fixes documented below are maintained here independently. See [CHANGELOG.md](CHANGELOG.md) for the full
-> version history.
+> This is a private downstream fork. Upstream Luminara is no longer updated; the optimizations and crash
+> fixes below are maintained here independently. See [CHANGELOG.md](CHANGELOG.md) for the full version history.
 
 ## Environment
 
@@ -29,8 +28,8 @@ players, mixed Forge mods + Bukkit/Spigot plugins). Every custom change follows 
 
 ## Custom Optimizations (this fork)
 
-All optimizations are gated behind config switches in `luminara.yml` and are designed to be **behaviorally
-identical to vanilla** while cheaper. Runtime status is printed with `[Luminara-*]` log tags on boot.
+Each optimization is gated behind a config switch in `luminara.yml`, and is designed to be behaviorally
+identical to vanilla at a lower resource cost. Runtime status is printed with `[Luminara-*]` log tags on boot.
 
 | Optimization | Log tag | Notes |
 |---|---|---|
@@ -45,17 +44,17 @@ identical to vanilla** while cheaper. Runtime status is printed with `[Luminara-
 
 ### NearbyPlayerIndex safety model
 
-NPI never touches the chunk packet-dispatch path. It only *accelerates queries* with three layers of safety:
+NPI does not touch the chunk packet-dispatch path; it only accelerates queries, with three layers of safety:
 
-1. **Vanilla accounting is always authoritative** — the index only side-tracks, never overrides packet sending.
+1. **Vanilla accounting is authoritative** — the index only side-tracks, and does not override packet sending.
 2. **verify double-run** (default on) — every index result is compared against vanilla; on mismatch it logs a
    `WARN` and uses the vanilla result.
-3. **144-block math guard + self-poisoning** — worst case is "no speedup", never a silent wrong answer.
+3. **144-block math guard + self-poisoning** — the worst case is "no speedup", never a silent wrong answer.
 
 ## Building
 
 > [!IMPORTANT]
-> This fork has strict build/deploy rules learned the hard way. Read them before building.
+> This fork has several mandatory build/deploy rules. Read them before building.
 
 **Build command** (JDK 21 required):
 
@@ -66,20 +65,20 @@ gradle --no-daemon collect --rerun-tasks
 
 The artifact is produced at `arclight-forge/build/libs/luminara-1.20.1-<version>.jar`.
 
-**Build iron laws:**
+**Build rules:**
 
-- ✅ Bump `version` in `build.gradle` for **every** new build.
+- ✅ Update `version` in `build.gradle` only for the final build synced to the repository; local iterative builds keep the version unchanged.
 - ❌ Do **not** run `:arclight-forge:clean` — it deletes the reobf SRG cache and corrupts the refmap.
-- ⚠️ Non-`@Mixin` helper classes must **never** live under a `mixin/...` package (causes `IllegalClassLoadError`);
+- ⚠️ Non-`@Mixin` helper classes must not live under a `mixin/...` package (causes `IllegalClassLoadError`);
   put them under `io.izzel.arclight.common.optimization.general.<feature>`.
-- ⚠️ Before writing any mixin, verify class/field/INVOKE owners with `javap` against the compiled mojmap classes —
-  do not assume symbols from newer MC versions.
+- ⚠️ Before writing any mixin, verify class/field/INVOKE owners with `javap` against the compiled mojmap classes;
+  do not reuse symbols from newer MC versions.
 
 ## Deployment
 
 1. Copy the new jar to the server root and point your start script at it.
 2. **Force re-unpack** — the outer jar is a launcher; the real classes live inside an inner `common.jar`.
-   You **must** clear both cache dirs, otherwise the old `common.jar` is reused and your fix silently won't apply:
+   Both cache dirs must be cleared, otherwise the old `common.jar` is reused and the fix does not apply:
 
    ```bash
    rm -rf .arclight/mod_file/*

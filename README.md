@@ -6,15 +6,15 @@
 （Luminara 本身是 [Arclight](https://github.com/IzzelAliz/Arclight) 的 Hybrid fork），
 目标平台 **Minecraft 1.20.1 / Forge 47.4.16**。
 
-本 fork 面向**多模组 + 多人**的重载生产环境调优（约 250 个模组，多人同时在线，Forge 模组 + Bukkit/Spigot 插件混合运行）。
-所有定制改动只遵循一条原则：
+本 fork 面向多模组、多人的重载生产环境（Forge 模组与 Bukkit/Spigot 插件混合运行）。
+定制改动遵循单一原则：
 
-> **只做零感知的底层优化。**
-> 绝不改变玩法——视距、生物量、刷怪规则、作物生长、区块刻全部保持原版。
-> 我们只让*同样的工作*变得更便宜，或者修复崩溃。
+> **仅进行零感知的底层优化。**
+> 不改变玩法：视距、生物量、刷怪规则、作物生长、区块刻均保持原版。
+> 仅降低相同逻辑的资源开销，或修复崩溃。
 
 > [!NOTE]
-> 这是一个**私有**下游 fork。上游 Luminara 已永久停更；下方记录的所有优化与崩溃修复均在此独立维护。
+> 这是一个私有下游 fork。上游 Luminara 已停止更新，以下优化与崩溃修复均在此独立维护。
 > 完整版本演进见 [CHANGELOG.md](CHANGELOG.md)。
 
 ## 环境
@@ -29,7 +29,7 @@
 
 ## 定制优化（本 fork）
 
-所有优化都由 `luminara.yml` 的配置开关控制，设计上**行为与原版完全一致**但更省资源。
+各项优化均由 `luminara.yml` 配置开关控制，设计目标为行为与原版一致、资源开销更低。
 启动时以 `[Luminara-*]` 日志标签打印运行状态。
 
 | 优化项 | 日志标签 | 说明 |
@@ -45,16 +45,16 @@
 
 ### NearbyPlayerIndex 安全模型
 
-NPI 绝不触碰区块发包路径，只**加速查询**，并有三重保险：
+NPI 不介入区块发包路径，仅加速查询，并设有三重保障：
 
-1. **原版记账永远权威**——索引只旁路加速，绝不覆盖发包逻辑。
-2. **verify 双跑**（默认开）——每次索引结果都与原版对照，不一致即打 `WARN` 并采用原版结果。
-3. **144 格数学守卫 + 异常自毒**——最坏情况只是"没加速"，绝不可能出现静默的错误答案。
+1. **原版记账为权威**——索引仅旁路加速，不覆盖发包逻辑。
+2. **verify 双跑**（默认开启）——每次索引结果与原版对照，不一致时打 `WARN` 并采用原版结果。
+3. **144 格数学守卫 + 异常自毒**——最坏情况为无加速，不会产生静默的错误结果。
 
 ## 构建
 
 > [!IMPORTANT]
-> 本 fork 有一套用血泪换来的构建/部署铁律，动手前务必阅读。
+> 本 fork 的构建与部署有若干必须遵守的约束，构建前请先阅读。
 
 **构建命令**（需 JDK 21）：
 
@@ -65,20 +65,20 @@ gradle --no-daemon collect --rerun-tasks
 
 产物位于 `arclight-forge/build/libs/luminara-1.20.1-<版号>.jar`。
 
-**构建铁律：**
+**构建约束：**
 
-- ✅ **每次**新构建都必须升 `build.gradle` 里的 `version`。
-- ❌ **不要**执行 `:arclight-forge:clean`——它会删掉 reobf SRG 缓存，导致 refmap 损坏。
-- ⚠️ 非 `@Mixin` 的辅助类**绝不能**放在 `mixin/...` 包下（会触发 `IllegalClassLoadError`），
-  应放在 `io.izzel.arclight.common.optimization.general.<功能>` 下。
-- ⚠️ 写任何 mixin 前，先用 `javap` 对照编译后的 mojmap 类核对类名/字段/INVOKE 属主——
-  不要照搬更新 MC 版本的符号。
+- ✅ 版号（`build.gradle` 的 `version`）仅在同步至仓库的终版时更新；本地迭代构建不更改版号。
+- ❌ 不要执行 `:arclight-forge:clean`——它会删除 reobf SRG 缓存，导致 refmap 损坏。
+- ⚠️ 非 `@Mixin` 的辅助类不应放在 `mixin/...` 包下（会触发 `IllegalClassLoadError`），
+  应置于 `io.izzel.arclight.common.optimization.general.<功能>` 下。
+- ⚠️ 编写 mixin 前，先用 `javap` 对照编译后的 mojmap 类核对类名、字段与 INVOKE 属主，
+  不要沿用更新 MC 版本的符号。
 
 ## 部署
 
-1. 把新 jar 复制到服务端根目录，并让启动脚本指向它。
-2. **强制重解包**——外层 jar 只是启动器，真正的类在内部 `common.jar` 里。
-   **必须**同时清空两个缓存目录，否则会复用旧的 `common.jar`，你的修复会静默不生效：
+1. 将新 jar 复制到服务端根目录，并让启动脚本指向它。
+2. **强制重解包**——外层 jar 为启动器，实际类位于内部 `common.jar`。
+   须同时清空两个缓存目录，否则将复用旧的 `common.jar`，导致修复不生效：
 
    ```bash
    rm -rf .arclight/mod_file/*
@@ -94,7 +94,7 @@ gradle --no-daemon collect --rerun-tasks
 ## 兼容性
 
 - 支持 Forge 模组与 Bukkit/Spigot 插件同时运行。
-- 可能不兼容部分优化模组；与优化类 Bukkit 插件不兼容。
+- 可能与部分优化模组不兼容；与优化类 Bukkit 插件不兼容。
 - 本服已验证可共存的优化模组：ModernFix、FerriteCore、Canary、Saturn、KryptonReforged、
   Noisium、Radium (Lithium)、Immersive Optimization、MemoryLeakFix、PacketFixer、Spark。
 
