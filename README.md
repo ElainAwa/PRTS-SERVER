@@ -1,108 +1,107 @@
 # Luminara-stable-Trials
 
-[简体中文](README_zh.md)
+[English](README_en.md)
 
-A private, production-hardened downstream fork of [Luminara](https://github.com/QianMo0721/Luminara)
-(itself an [Arclight](https://github.com/IzzelAliz/Arclight) Hybrid fork) for **Minecraft 1.20.1 / Forge 47.4.16**.
+一个私有的、面向生产环境加固的 [Luminara](https://github.com/QianMo0721/Luminara) 下游 fork
+（Luminara 本身是 [Arclight](https://github.com/IzzelAliz/Arclight) 的 Hybrid fork），
+目标平台 **Minecraft 1.20.1 / Forge 47.4.16**。
 
-This fork is tuned for a **large social-simulation server** (80+ concurrent players, 250+ mods, mixed
-Forge mods + Bukkit/Spigot plugins). Every custom change follows one rule:
+本 fork 面向**多模组 + 多人**的重载生产环境调优（约 250 个模组，多人同时在线，Forge 模组 + Bukkit/Spigot 插件混合运行）。
+所有定制改动只遵循一条原则：
 
-> **Zero-perception, low-level optimizations only.**
-> Never change gameplay — view distance, mob caps, spawning rules, crop growth and chunk ticking all stay vanilla.
-> We only make the *same work* cheaper, or fix crashes.
+> **只做零感知的底层优化。**
+> 绝不改变玩法——视距、生物量、刷怪规则、作物生长、区块刻全部保持原版。
+> 我们只让*同样的工作*变得更便宜，或者修复崩溃。
 
 > [!NOTE]
-> This is a **private** downstream fork. Upstream Luminara is permanently discontinued; all optimizations and
-> crash fixes documented below are maintained here independently. See [CHANGELOG.md](CHANGELOG.md) for the full
-> version history.
+> 这是一个**私有**下游 fork。上游 Luminara 已永久停更；下方记录的所有优化与崩溃修复均在此独立维护。
+> 完整版本演进见 [CHANGELOG.md](CHANGELOG.md)。
 
-## Environment
+## 环境
 
-| Item | Value |
+| 项目 | 值 |
 |---|---|
 | Minecraft | 1.20.1 |
-| Loader | Forge 47.4.16 |
-| Base | Arclight Hybrid (Luminara fork) |
-| JDK | 21 (build & runtime) |
-| Current version | see `version` in [`build.gradle`](build.gradle) |
+| 加载器 | Forge 47.4.16 |
+| 基座 | Arclight Hybrid（Luminara fork）|
+| JDK | 21（构建 & 运行）|
+| 当前版号 | 见 [`build.gradle`](build.gradle) 的 `version` |
 
-## Custom Optimizations (this fork)
+## 定制优化（本 fork）
 
-All optimizations are gated behind config switches in `luminara.yml` and are designed to be **behaviorally
-identical to vanilla** while cheaper. Runtime status is printed with `[Luminara-*]` log tags on boot.
+所有优化都由 `luminara.yml` 的配置开关控制，设计上**行为与原版完全一致**但更省资源。
+启动时以 `[Luminara-*]` 日志标签打印运行状态。
 
-| Optimization | Log tag | Notes |
+| 优化项 | 日志标签 | 说明 |
 |---|---|---|
-| **routeB spatial entity tracking** | `[Luminara-EntityTrack]` | Spatialized `AreaMap` tracker (HariPlayer-derived) |
-| **ticketpropagator** | `[Luminara-TP]` | Paper-style delayed 8-way ticket distance propagation |
-| **ServerCore (12 items)** | — | Assorted server-tick micro-optimizations |
-| **move-zero-velocity** | — | Skip redundant `move()` for zero-velocity entities |
-| **async-logging** | — | log4j2 AsyncAppender wrapping the root logger |
-| **NearbyPlayerIndex (NPI)** | `[Luminara-NPI]` | Spatial index accelerating `getNearestPlayer` / `hasNearbyAlivePlayer` (default `enabled=false`) |
-| **Native chunk tuning** | — | chunk-load-rate-limit, parallel world init + async data load, async world saving |
-| **Crash fixes (always on)** | `[Luminara-ChampionsFix]` | ChampionsConfig lazy bake; RevelationFix `inWhitelist` null guard |
+| **routeB 空间化实体追踪** | `[Luminara-EntityTrack]` | 空间化 `AreaMap` 追踪器（源自 HariPlayer）|
+| **ticketpropagator** | `[Luminara-TP]` | Paper 式延迟 8 向区块 ticket 距离传播 |
+| **ServerCore（12 项）** | — | 服务器 tick 的一组微优化 |
+| **move-zero-velocity** | — | 零速度实体跳过冗余 `move()` |
+| **async-logging** | — | log4j2 AsyncAppender 包裹根日志 |
+| **NearbyPlayerIndex (NPI)** | `[Luminara-NPI]` | 空间索引加速最近玩家查找 `getNearestPlayer` / `hasNearbyAlivePlayer`（默认 `enabled=false`）|
+| **核心原生调优** | — | chunk-load-rate-limit、并行世界初始化 + 异步数据加载、异步世界保存 |
+| **崩溃修复（始终开启）** | `[Luminara-ChampionsFix]` | ChampionsConfig 惰性 bake；RevelationFix `inWhitelist` null 守卫 |
 
-### NearbyPlayerIndex safety model
+### NearbyPlayerIndex 安全模型
 
-NPI never touches the chunk packet-dispatch path. It only *accelerates queries* with three layers of safety:
+NPI 绝不触碰区块发包路径，只**加速查询**，并有三重保险：
 
-1. **Vanilla accounting is always authoritative** — the index only side-tracks, never overrides packet sending.
-2. **verify double-run** (default on) — every index result is compared against vanilla; on mismatch it logs a
-   `WARN` and uses the vanilla result.
-3. **144-block math guard + self-poisoning** — worst case is "no speedup", never a silent wrong answer.
+1. **原版记账永远权威**——索引只旁路加速，绝不覆盖发包逻辑。
+2. **verify 双跑**（默认开）——每次索引结果都与原版对照，不一致即打 `WARN` 并采用原版结果。
+3. **144 格数学守卫 + 异常自毒**——最坏情况只是"没加速"，绝不可能出现静默的错误答案。
 
-## Building
+## 构建
 
 > [!IMPORTANT]
-> This fork has strict build/deploy rules learned the hard way. Read them before building.
+> 本 fork 有一套用血泪换来的构建/部署铁律，动手前务必阅读。
 
-**Build command** (JDK 21 required):
+**构建命令**（需 JDK 21）：
 
 ```bash
-# Use a clean environment + the pinned Gradle 8.14.5 + isolated temp dirs.
+# 使用干净环境 + 锁定的 Gradle 8.14.5 + 隔离的临时目录
 gradle --no-daemon collect --rerun-tasks
 ```
 
-The artifact is produced at `arclight-forge/build/libs/luminara-1.20.1-<version>.jar`.
+产物位于 `arclight-forge/build/libs/luminara-1.20.1-<版号>.jar`。
 
-**Build iron laws:**
+**构建铁律：**
 
-- ✅ Bump `version` in `build.gradle` for **every** new build.
-- ❌ Do **not** run `:arclight-forge:clean` — it deletes the reobf SRG cache and corrupts the refmap.
-- ⚠️ Non-`@Mixin` helper classes must **never** live under a `mixin/...` package (causes `IllegalClassLoadError`);
-  put them under `io.izzel.arclight.common.optimization.general.<feature>`.
-- ⚠️ Before writing any mixin, verify class/field/INVOKE owners with `javap` against the compiled mojmap classes —
-  do not assume symbols from newer MC versions.
+- ✅ **每次**新构建都必须升 `build.gradle` 里的 `version`。
+- ❌ **不要**执行 `:arclight-forge:clean`——它会删掉 reobf SRG 缓存，导致 refmap 损坏。
+- ⚠️ 非 `@Mixin` 的辅助类**绝不能**放在 `mixin/...` 包下（会触发 `IllegalClassLoadError`），
+  应放在 `io.izzel.arclight.common.optimization.general.<功能>` 下。
+- ⚠️ 写任何 mixin 前，先用 `javap` 对照编译后的 mojmap 类核对类名/字段/INVOKE 属主——
+  不要照搬更新 MC 版本的符号。
 
-## Deployment
+## 部署
 
-1. Copy the new jar to the server root and point your start script at it.
-2. **Force re-unpack** — the outer jar is a launcher; the real classes live inside an inner `common.jar`.
-   You **must** clear both cache dirs, otherwise the old `common.jar` is reused and your fix silently won't apply:
+1. 把新 jar 复制到服务端根目录，并让启动脚本指向它。
+2. **强制重解包**——外层 jar 只是启动器，真正的类在内部 `common.jar` 里。
+   **必须**同时清空两个缓存目录，否则会复用旧的 `common.jar`，你的修复会静默不生效：
 
    ```bash
    rm -rf .arclight/mod_file/*
    rm -rf .arclight/class_cache/*
    ```
 
-3. Start the server:
+3. 启动服务器：
 
    ```bash
-   java -jar luminara-1.20.1-<version>.jar nogui
+   java -jar luminara-1.20.1-<版号>.jar nogui
    ```
 
-## Compatibility
+## 兼容性
 
-- Runs Forge mods and Bukkit/Spigot plugins simultaneously.
-- May be incompatible with some optimization mods; incompatible with optimization Bukkit plugins.
-- Known-good optimization mods on this server: ModernFix, FerriteCore, Canary, Saturn, KryptonReforged,
-  Noisium, Radium (Lithium), Immersive Optimization, MemoryLeakFix, PacketFixer, Spark.
+- 支持 Forge 模组与 Bukkit/Spigot 插件同时运行。
+- 可能不兼容部分优化模组；与优化类 Bukkit 插件不兼容。
+- 本服已验证可共存的优化模组：ModernFix、FerriteCore、Canary、Saturn、KryptonReforged、
+  Noisium、Radium (Lithium)、Immersive Optimization、MemoryLeakFix、PacketFixer、Spark。
 
-## Credits & License
+## 致谢与协议
 
-- Built on [Arclight](https://github.com/IzzelAliz/Arclight) by IzzelAliz.
-- Forked from [Luminara](https://github.com/QianMo0721/Luminara) by QianMo0721.
-- Custom optimizations and crash fixes in this fork are maintained by [ElainAwa](https://github.com/ElainAwa).
+- 基于 IzzelAliz 的 [Arclight](https://github.com/IzzelAliz/Arclight) 构建。
+- Fork 自 QianMo0721 的 [Luminara](https://github.com/QianMo0721/Luminara)。
+- 本 fork 的定制优化与崩溃修复由 [ElainAwa](https://github.com/ElainAwa) 维护。
 
-Licensed under [GPL v3](LICENSE), same as upstream.
+基于 [GPL v3](LICENSE) 开源，与上游一致。
