@@ -1,0 +1,8 @@
+Manifest-Version: 1.0
+Main-Class: io.izzel.arclight.server.Launcher
+Implementation-Title: Arclight
+Implementation-Version: arclight-1.21.1-1.0.2-SNAPSHOT-d520f1b
+Implementation-Vendor: Arclight Team
+Implementation-Timestamp: 2026-07-24 17:33:57
+Automatic-Module-Name: arclight.boot
+
