@@ -202,7 +202,10 @@ public class NearbyEntityTracking {
 
             boolean isPlayerPositionUpdated = ((ServerPlayerEntityExtension) entry.getKey()).vmpTracking$isPositionUpdated();
             boolean isTeleport = ((ServerPlayerEntityExtension) entry.getKey()).vmpTracking$isTeleport();
-            ((ServerPlayerEntityExtension) entry.getKey()).vmpTracking$updatePosition();
+            // 注意：此处【不再】调 vmpTracking$updatePosition()——玩家 prev 坐标的更新已移至 ServerPlayer.tick() 末尾
+            // (ServerPlayer_TrackingMixin)。目的：保证同一 tick 内 routeB tick 与 ChunkMap.move 读到一致的 isTeleport()，
+            // 否则若 move 在 routeB tick 之后调用、prev 已被本 tick 的 updatePosition 刷新，move 会误判"非瞬移"而被空掉，
+            // 导致 routeB 接管瞬移大跳变、客户端卡死（旧 tp bug 复现）。
 
             final ReferenceLinkedOpenHashSet<ChunkMap.TrackedEntity> trackers = entry.getValue();
 

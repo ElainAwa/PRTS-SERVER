@@ -6,6 +6,9 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.Vec3;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
  * [Luminara 本服维护者移植 2026-07-21]
@@ -60,5 +63,16 @@ public abstract class ServerPlayer_TrackingMixin implements ServerPlayerEntityEx
         final int dx = Math.abs(curX - prevX);
         final int dz = Math.abs(curZ - prevZ);
         return Math.max(dx, dz) > luminara$teleportChunks;
+    }
+
+    /**
+     * 在玩家每 tick 逻辑末尾刷新 prev 坐标快照。
+     * 关键：原先这个快照在 NearbyEntityTracking.tick() 内刷新，但 routeB 接管 ChunkMap.move() 后，
+     * 若 move() 在 routeB tick() 之后调用，prev 已被刷新会导致 move 误判"非瞬移"而被空掉 → 瞬移卡死复现。
+     * 把刷新挪到玩家 tick 末尾，保证同 tick 内 routeB tick 与 ChunkMap.move 读到一致的 isTeleport()。
+     */
+    @Inject(method = "tick()V", at = @At("RETURN"))
+    private void luminara$updateTrackPos(CallbackInfo ci) {
+        this.vmpTracking$updatePosition();
     }
 }

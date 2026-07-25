@@ -1,11 +1,13 @@
 package io.izzel.arclight.common.mixin.optimization.general.entitytracking;
 
 import io.izzel.arclight.common.optimization.general.entitytracking.NearbyEntityTracking;
+import io.izzel.arclight.common.optimization.general.entitytracking.ServerPlayerEntityExtension;
 import io.izzel.arclight.i18n.ArclightConfig;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.objects.ObjectCollection;
 import it.unimi.dsi.fastutil.objects.ObjectLists;
 import net.minecraft.server.level.ChunkMap;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
@@ -67,6 +69,9 @@ public class ChunkMap_TrackingMixin {
     private static boolean luminara$routeBFailed = false;
     @Unique
     private static int luminara$tickCount = 0;
+    // 一次性日志：确认 move() 的实体遍历被 routeB 接管（seenBy 唯一管理者）
+    @Unique
+    private static boolean luminara$moveRedirLogged = false;
     // 看门狗阈值从 luminara.yml 的 optimization.route-b 读取（watchdog-hard-ms / watchdog-soft-ms），
     // 运行时由 config 提供，确保启动后读到的就是 yml 值。
     @Unique
@@ -93,6 +98,37 @@ public class ChunkMap_TrackingMixin {
     private ObjectCollection<ChunkMap.TrackedEntity> luminara$skipVanillaEntityBroadcast(Int2ObjectMap<ChunkMap.TrackedEntity> instance) {
         if (!luminara$experimentalOn() || luminara$routeBFailed || this.nearbyEntityTracking.isEmpty()) {
             return instance.values();
+        }
+        @SuppressWarnings("unchecked")
+        ObjectCollection<ChunkMap.TrackedEntity> empty =
+            (ObjectCollection<ChunkMap.TrackedEntity>) (Object) ObjectLists.EMPTY_LIST;
+        return empty;
+    }
+
+    /**
+     * 重定向 move(ServerPlayer)V 里的实体遍历循环（entityMap.values()）。
+     * 这是 routeB 成为 seenBy 唯一管理者的关键补全：原版 tick()V 的实体循环已被上方 @Redirect 空掉，
+     * 但原版 move(ServerPlayer) 每 tick 仍遍历所有实体、用【欧氏距离】对边界实体做 addPairing/removePairing，
+     * 与 routeB tick() 的【方格/Chebyshev】判定几何不一致 → 视距边界环带实体被两边争抢 seenBy
+     * → 客户端反复收到出生包/移除包 → 物品随机消失又出现（群友反馈的"连锁挖矿随机爆东西"）。
+     *
+     * 本 @Redirect 在正常移动时把 move 的实体遍历空掉，让 routeB tick() 唯一维护 seenBy（判定统一，无振荡）；
+     * 瞬移/大跳变（isTeleport）时放行原版 move（routeB tick() 也同步让位），沿用 teleport 安全路径。
+     * 门控与原版 tick 一致：开关关闭/已失败/AreaMap 未维护时返回真实集合（原版照常）。
+     */
+    @Redirect(method = "move(Lnet/minecraft/server/level/ServerPlayer;)V",
+        at = @At(value = "INVOKE", target = "Lit/unimi/dsi/fastutil/ints/Int2ObjectMap;values()Lit/unimi/dsi/fastutil/objects/ObjectCollection;"))
+    private ObjectCollection<ChunkMap.TrackedEntity> luminara$skipVanillaMoveBroadcast(Int2ObjectMap<ChunkMap.TrackedEntity> instance, ServerPlayer player) {
+        if (!luminara$experimentalOn() || luminara$routeBFailed || this.nearbyEntityTracking.isEmpty()) {
+            return instance.values();
+        }
+        // 瞬移/大跳变：放行原版 move（routeB tick() 让位），避免一次性对几百实体 add/remove 顺序错乱
+        if (((ServerPlayerEntityExtension) player).vmpTracking$isTeleport()) {
+            return instance.values();
+        }
+        if (!luminara$moveRedirLogged) {
+            luminara$moveRedirLogged = true;
+            LOGGER.info("[Luminara-EntityTrack] move() entity loop intercepted -> routeB is now sole owner of seenBy (no double-maintenance oscillation)");
         }
         @SuppressWarnings("unchecked")
         ObjectCollection<ChunkMap.TrackedEntity> empty =
