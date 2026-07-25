@@ -48,6 +48,8 @@
     "entitytracking.ServerEntity_TrackingMixin",
     "ticketpropagator.MixinDistanceManagerTicketPropagator",
     "move_zero_velocity.MixinEntity",
-    "async_logging.MixinMinecraftServer"
+    "async_logging.MixinMinecraftServer",
+    "MinecraftServerMixin_MemoryCleanup",
+    "network.ServerConnectionListenerMixin_NetworkOpt"
   ]
 }
