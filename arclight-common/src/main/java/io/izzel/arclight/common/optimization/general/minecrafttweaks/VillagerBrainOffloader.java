@@ -1,0 +1,91 @@
+package io.izzel.arclight.common.optimization.general.minecrafttweaks;
+
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.entity.npc.Villager;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.BedBlock;
+import net.minecraft.world.level.block.FenceBlock;
+import net.minecraft.world.level.block.FenceGateBlock;
+import net.minecraft.world.level.block.WallBlock;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.chunk.ChunkAccess;
+
+/**
+ * 村民脑切（源自 Mohist 1.20.1 com.mohistmc.optimizations.OptVillager，去 Mohist 化移植）。
+ * <p>
+ * 仅对"卡住、无法寻路离开当前位置"的村民跳过 brain tick（这些村民困在 1x1 空间内，
+ * 每 tick 重算路径无意义）；可自由移动的村民仍正常跑 AI。铁农场村民踩在床方块上视为可移动，
+ * 保证铁农场正常触发（与原 Mohist 行为一致）。
+ * <p>
+ * 调用方在开关关闭时应回退原版（每 tick 调用 brain.tick）。
+ */
+public final class VillagerBrainOffloader {
+
+    public static VillagerBrainOffloader getInstance() {
+        return new VillagerBrainOffloader();
+    }
+
+    private boolean isLobotomized = false;
+    private int notLobotomizedCount = 0;
+
+    public boolean isLobotomized(Villager villager) {
+        return !this.checkLobotomize(villager) || villager.tickCount % 20 == 0;
+    }
+
+    private boolean checkLobotomize(Villager villager) {
+        // 若连续 3+ 次检查都"未卡住"，则降低检查频率（每 600 tick 一次），减少开销
+        if (villager.tickCount % (this.notLobotomizedCount > 3 ? 600 : 300) == 0) {
+            this.isLobotomized = villager.isPassenger() || !this.canTravel(BlockPos.containing(villager.getX(), villager.getY() + 0.0625D, villager.getZ()), villager);
+            if (this.isLobotomized) {
+                this.notLobotomizedCount = 0;
+            } else {
+                this.notLobotomizedCount++;
+            }
+        }
+        return this.isLobotomized;
+    }
+
+    private boolean canTravel(BlockPos center, Villager villager) {
+        ChunkAccess chunk = getChunkNow(villager.level(), center);
+        if (chunk == null) {
+            return false;
+        }
+        BlockPos.MutableBlockPos mutable = center.mutable();
+        boolean canJump = !this.hasCollisionAt(chunk, mutable.move(Direction.UP, 2));
+        for (Direction direction : Direction.Plane.HORIZONTAL) {
+            if (this.canTravelTo(mutable.setWithOffset(center, direction), canJump, villager)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean canTravelTo(BlockPos.MutableBlockPos mutable, boolean canJump, Villager villager) {
+        ChunkAccess chunk = getChunkNow(villager.level(), mutable);
+        if (chunk == null) {
+            return false;
+        }
+        BlockState state = chunk.getBlockState(mutable);
+        Block bottom = state.getBlock();
+        if (bottom instanceof BedBlock) {
+            // 床方块视为可移动，保证铁农场正常
+            return true;
+        }
+        if (this.hasCollisionAt(chunk, mutable.move(Direction.UP))) {
+            // 头顶有碰撞则无法进入该格
+            return false;
+        }
+        boolean isTallBlock = bottom instanceof FenceBlock || bottom instanceof FenceGateBlock || bottom instanceof WallBlock;
+        return !state.blocksMotion() || (canJump && !isTallBlock && !this.hasCollisionAt(chunk, mutable.move(Direction.UP)));
+    }
+
+    private boolean hasCollisionAt(ChunkAccess chunk, BlockPos pos) {
+        return chunk.getBlockState(pos).blocksMotion();
+    }
+
+    private static ChunkAccess getChunkNow(Level level, BlockPos pos) {
+        return level.getChunkSource().getChunkNow(pos.getX() >> 4, pos.getZ() >> 4);
+    }
+}

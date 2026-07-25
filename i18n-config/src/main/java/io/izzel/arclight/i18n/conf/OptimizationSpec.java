@@ -1,5 +1,6 @@
 package io.izzel.arclight.i18n.conf;
 
+import io.izzel.arclight.i18n.conf.MinecraftOptimizationSpec;
 import ninja.leaping.configurate.objectmapping.Setting;
 import ninja.leaping.configurate.objectmapping.serialize.ConfigSerializable;
 
@@ -66,6 +67,10 @@ public class OptimizationSpec {
     // 空间最近玩家索引（NearbyPlayerIndex：AreaMap 桶索引加速 checkDespawn/刷怪笼全玩家扫描）独立开关
     @Setting("nearby-player-index")
     private NearbyPlayerIndexSpec nearbyPlayerIndex;
+
+    // 源自 Mohist 1.20.1 的下游移植（去 Mohist 化：村民脑切 / 出生点区块 / 两条 NPE 守卫）独立开关
+    @Setting("minecraft-optimizations")
+    private MinecraftOptimizationSpec minecraftOptimizations;
 
     public boolean isCachePluginClass() {
         return cachePluginClass;
@@ -145,6 +150,10 @@ public class OptimizationSpec {
 
     public NearbyPlayerIndexSpec getNearbyPlayerIndex() {
         return nearbyPlayerIndex != null ? nearbyPlayerIndex : new NearbyPlayerIndexSpec();
+    }
+
+    public MinecraftOptimizationSpec getMinecraftOptimizations() {
+        return minecraftOptimizations != null ? minecraftOptimizations : new MinecraftOptimizationSpec();
     }
 
     // nearby-player-index 实际生效 = 总开关 && 子开关（默认关闭，观察期后手动开启）

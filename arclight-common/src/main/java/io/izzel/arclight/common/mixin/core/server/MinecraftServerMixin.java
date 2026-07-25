@@ -497,6 +497,10 @@ public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<T
 
         this.executeModerately();
 
+        if (io.izzel.arclight.common.optimization.general.minecrafttweaks.MinecraftTweaks.disableSpawnChunksEnabled()) {
+            serverchunkprovider.removeRegionTicket(TicketType.START, new ChunkPos(blockpos), spawnRadius, Unit.INSTANCE);
+        }
+
         for (ServerLevel serverWorld : this.levels.values()) {
             if (((WorldBridge) serverWorld).bridge$getWorld().getKeepSpawnInMemory()) {
                 ForcedChunksSavedData forcedchunkssavedata = serverWorld.getDataStorage().get(ForcedChunksSavedData::load, "chunks");
@@ -583,6 +587,10 @@ public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<T
         }
 
         this.executeModerately();
+
+        if (io.izzel.arclight.common.optimization.general.minecrafttweaks.MinecraftTweaks.disableSpawnChunksEnabled()) {
+            serverchunkprovider.removeRegionTicket(TicketType.START, new ChunkPos(blockpos), 11, Unit.INSTANCE);
+        }
 
         ForcedChunksSavedData forcedchunkssavedata = serverWorld.getDataStorage().get(ForcedChunksSavedData::load, "chunks");
         if (forcedchunkssavedata != null) {

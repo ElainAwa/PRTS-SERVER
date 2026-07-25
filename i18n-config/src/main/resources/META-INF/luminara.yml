@@ -36,6 +36,16 @@ optimization:
     enabled: false
     # 双跑校验：索引查询同时跑原版对照，不一致告警并采用原版结果（观察期建议 true，稳定后可关以省开销）
     verify: true
+  # ===== 源自 Mohist 1.20.1 的下游移植（去 Mohist 化；各自独立开关，重启生效） =====
+  minecraft-optimizations:
+    # 村民脑切：卡住（无法寻路）的村民跳过 brain tick，零感知；铁农场床方块放行。关闭则回退原版每 tick 脑更新
+    villager-brain-offload: true
+    # 出生点区块不常驻：启动加载完出生区域后移除 START ticket，出生点等同普通区块按需加载。关闭则保留原版出生点常驻
+    disable-spawn-chunks: true
+    # 刷怪笼 nextSpawnData 空守卫：getSpawner 返回前若 nextSpawnData 为 null 补默认 SpawnData，防 NPE 崩。安全修复，常开
+    spawner-null-guard: true
+    # HolderSet.contains 空守卫：入参 Holder 为 null 时返回 false 而非 NPE。安全修复，常开
+    holderset-null-guard: true
   cache-plugin-class: true
   goal-selector-update-interval: 3
   use-activation-and-tracking-range: true

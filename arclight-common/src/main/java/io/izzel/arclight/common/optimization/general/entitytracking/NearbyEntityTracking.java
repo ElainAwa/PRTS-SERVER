@@ -254,9 +254,11 @@ public class NearbyEntityTracking {
                     if (trackerTickList.add(entityTracker)) {
                         tryTickTracker(entityTracker);
                     }
-                    if (isPlayerPositionUpdated || ((EntityTrackerExtension) entityTracker).isPositionUpdated()) {
-                        tryUpdateTracker(entityTracker, entry.getKey());
-                    }
+                    // 【修复 rs 吞物品 bug】新增实体进入视野必须无条件 broadcast 出生包(updatePlayer)，
+                    // 不能套用"移动才发"门控：静止物品落在静止玩家附近时双方都不移动→永不发出生包→
+                    // 物品进追踪集但客户端看不到(被吞)，直到玩家移动/连锁挖掘触发位置更新才一次性爆出。
+                    // VMP 原版对新增实体即无条件 updatePlayer；本处还原该语义。
+                    tryUpdateTracker(entityTracker, entry.getKey());
                 }
             }
         }

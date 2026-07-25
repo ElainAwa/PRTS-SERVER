@@ -56,6 +56,10 @@
     "servercore.biome_lookups.NaturalSpawnerMixin",
     "servercore.pathfinder.PathFinderMixin",
     "move_zero_velocity.MixinEntity",
-    "async_logging.MixinMinecraftServer"
+    "async_logging.MixinMinecraftServer",
+    "minecrafttweaks.MixinVillager_BrainOffload",
+    "minecrafttweaks.MixinSpawnerBlockEntity_NullGuard",
+    "minecrafttweaks.MixinBaseSpawner_Accessor",
+    "minecrafttweaks.MixinHolderSet_NullGuard"
   ]
 }
