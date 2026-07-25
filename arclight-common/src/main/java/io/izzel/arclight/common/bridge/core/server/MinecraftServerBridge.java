@@ -24,6 +24,8 @@ public interface MinecraftServerBridge {
 
     boolean bridge$hasStopped();
 
+    double[] arclight$getRecentTps();
+
     Commands bridge$getVanillaCommands();
 
     void arclight$onServerLoad(ServerLevel level);

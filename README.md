@@ -37,11 +37,11 @@
 | **ServerCore（12 项）** | — | 服务器 tick 的一组微优化 |
 | **move-zero-velocity** | — | 零速度实体跳过冗余 `move()` |
 | **async-logging** | `[Luminara-AsyncLog]` | log4j2 AsyncAppender 包裹根日志 |
-| **核心原生调优** | — | chunk-load-rate-limit、并行世界初始化 + 异步数据加载、异步世界保存 |
+| **核心原生调优** | — | chunk-load-rate-limit、��行世界初始化 + 异步数据加载、异步世界保存 |
+| **NearbyPlayerIndex (NPI)** | `[Luminara-NPI]` | 空间化最近玩家索引（源自 HariPlayer/routeB），供优化逻辑查询附近玩家 |
+| **动力铁轨优化** | `[Luminara-PoweredRails]` | 限定传播深度的铁轨供电路径搜索（`PoweredRailsOptimized`）；开关 `optimize-powered-rails`，默认开启 |
+| **sync_loads（ServerCore 子集）** | — | `clip` 光线追踪不强制同步加载未加载区块（`ServerLevelMixin`）|
 | **崩溃修复（构建期，始终开启）** | — | 修复 boot jar 打包旧 Guava 21.0 遮蔽平台 Guava 32.1.2，导致依赖新版 Guava 的模组 `NoSuchMethodError` 崩溃 |
-
-> [!NOTE]
-> `NearbyPlayerIndex (NPI)` 尚未移植到 1.21.1 分支；如需要可参照 1.20.1 分支实现。
 
 ## 构建
 

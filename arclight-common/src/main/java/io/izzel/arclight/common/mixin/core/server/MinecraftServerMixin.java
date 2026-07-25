@@ -5,6 +5,7 @@ import io.izzel.arclight.api.ArclightVersion;
 import io.izzel.arclight.common.bridge.bukkit.CraftServerBridge;
 import io.izzel.arclight.common.bridge.core.command.CommandSourceBridge;
 import io.izzel.arclight.common.bridge.core.server.MinecraftServerBridge;
+import io.izzel.arclight.common.compat.luminara.LuminaraFeatures;
 import io.izzel.arclight.common.bridge.core.world.level.WorldBridge;
 import io.izzel.arclight.common.mod.ArclightConstants;
 import io.izzel.arclight.common.mod.mixins.annotation.TransformAccess;
@@ -151,6 +152,11 @@ public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<T
         return this.hasStopped();
     }
 
+    @Override
+    public double[] arclight$getRecentTps() {
+        return recentTps;
+    }
+
     @Inject(method = "<init>", at = @At("RETURN"))
     public void arclight$loadOptions(Thread p_236723_, LevelStorageSource.LevelStorageAccess p_236724_, PackRepository p_236725_, WorldStem worldStem, Proxy p_236727_, DataFixer p_236728_, Services p_236729_, ChunkProgressListenerFactory p_236730_, CallbackInfo ci) {
         String[] arguments = ManagementFactory.getRuntimeMXBean().getInputArguments().toArray(new String[0]);
@@ -187,6 +193,7 @@ public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<T
         }
         DecorationOps.blackhole().invoke(tickSection, tickCount);
         currentTick = (int) (System.currentTimeMillis() / 50);
+        LuminaraFeatures.tick();
         DecorationOps.callsite().invoke(instance);
     }
 
@@ -214,6 +221,7 @@ public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<T
                 return;
             }
             hasStopped = true;
+            LuminaraFeatures.stop();
         }
     }
 
@@ -248,6 +256,7 @@ public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<T
         this.server.enablePlugins(PluginLoadOrder.POSTWORLD);
         this.bridge$forge$lockRegistries();
         this.server.getPluginManager().callEvent(new ServerLoadEvent(ServerLoadEvent.LoadType.STARTUP));
+        LuminaraFeatures.start();
     }
 
     private void executeModerately() {

@@ -15,6 +15,27 @@ public class OptimizationSpec {
     @Setting("use-activation-and-tracking-range")
     private boolean useActivationAndTrackingRange;
 
+    @Setting("nearby-player-index-enabled")
+    private boolean nearbyPlayerIndexEnabled = false;
+
+    @Setting("nearby-player-index-verify")
+    private boolean nearbyPlayerIndexVerify = true;
+
+    @Setting("optimize-powered-rails")
+    private boolean optimizePoweredRails = true;
+
+    public boolean isOptimizePoweredRails() {
+        return optimizePoweredRails;
+    }
+
+    public boolean isNearbyPlayerIndexEnabled() {
+        return nearbyPlayerIndexEnabled;
+    }
+
+    public boolean isNearbyPlayerIndexVerify() {
+        return nearbyPlayerIndexVerify;
+    }
+
     public boolean useActivationAndTrackingRange() {
         return useActivationAndTrackingRange;
     }

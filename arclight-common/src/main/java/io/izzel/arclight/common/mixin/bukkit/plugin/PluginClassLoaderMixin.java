@@ -5,6 +5,7 @@ import com.google.common.collect.Iterators;
 import com.google.common.io.ByteStreams;
 import io.izzel.arclight.common.bridge.bukkit.JavaPluginLoaderBridge;
 import io.izzel.arclight.common.bridge.bukkit.PluginClassLoaderBridge;
+import io.izzel.arclight.common.compat.pluginfix.PluginFixManager;
 import io.izzel.arclight.common.mod.mixins.annotation.CreateConstructor;
 import io.izzel.arclight.common.mod.mixins.annotation.ShadowConstructor;
 import io.izzel.arclight.common.mod.util.remapper.ArclightRemapConfig;
@@ -280,6 +281,7 @@ public abstract class PluginClassLoaderMixin extends URLClassLoader implements R
                             byte[] classBytes = ByteStreams.toByteArray(is);
                             classBytes = ArclightRemapper.SWITCH_TABLE_FIXER.apply(classBytes);
                             classBytes = Bukkit.getUnsafe().processClass(description, path, classBytes);
+                            classBytes = PluginFixManager.injectPluginFix(description.getName(), name, classBytes);
                             return classBytes;
                         }
                     };
