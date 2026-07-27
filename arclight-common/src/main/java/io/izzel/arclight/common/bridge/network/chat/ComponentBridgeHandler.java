@@ -18,7 +18,7 @@ import java.util.stream.Stream;
 
 public class ComponentBridgeHandler {
 
-    private static final Logger LOGGER = LogManager.getLogger("Luminara");
+    private static final Logger LOGGER = LogManager.getLogger("PRTS");
     private static final Logger ARCLIGHT_LOGGER = ArclightI18nLogger.getLogger("ComponentBridge");
     private static final ConcurrentMap<Class<?>, Method> METHOD_CACHE = new ConcurrentHashMap<>();
     private static volatile boolean initialized = false;

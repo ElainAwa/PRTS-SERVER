@@ -102,7 +102,7 @@ public abstract class CraftServerMixin implements CraftServerBridge {
 
     @Inject(method = "<init>", at = @At("RETURN"))
     public void arclight$setBrand(DedicatedServer console, PlayerList playerList, CallbackInfo ci) {
-        this.serverName = "Luminara";
+        this.serverName = "PRTS";
     }
 
     /**
@@ -111,7 +111,7 @@ public abstract class CraftServerMixin implements CraftServerBridge {
      */
     @Overwrite(remap = false)
     public String getName() {
-        return "Luminara";
+        return "PRTS";
     }
 
     public String getMinecraftVersion() {

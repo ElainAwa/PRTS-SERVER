@@ -36,7 +36,7 @@ import java.util.Set;
 @Mixin(DistanceManager.class)
 public abstract class MixinDistanceManagerTicketPropagator {
 
-    private static final Logger LOGGER = LogManager.getLogger("Luminara-TP");
+    private static final Logger LOGGER = LogManager.getLogger("PRTS-TP");
 
     @Shadow
     protected abstract ChunkHolder getChunk(long p_140817_);
@@ -84,7 +84,7 @@ public abstract class MixinDistanceManagerTicketPropagator {
                     this.ticketLevelUpdates.putAndMoveToLast(coordinate, convertBetweenTicketLevels(newLevel));
                 }
         );
-        LOGGER.info("[Luminara-TP] ticketpropagator mixin active");
+        LOGGER.info("[PRTS-TP] ticketpropagator mixin active");
     }
 
     // Replace the vanilla immediate propagation (ticketTracker.update) inside the ticket bookkeeping methods.

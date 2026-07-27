@@ -20,10 +20,10 @@ import org.jetbrains.annotations.Nullable;
 import java.io.OutputStream;
 import java.io.PrintStream;
 
-@Mod("luminara")
+@Mod("prts")
 public class ArclightMod {
 
-    public static final Logger LOGGER = ArclightI18nLogger.getLogger("Luminara");
+    public static final Logger LOGGER = ArclightI18nLogger.getLogger("PRTS");
 
     public ArclightMod(FMLJavaModLoadingContext context) {
         LOGGER.info("mod-load");

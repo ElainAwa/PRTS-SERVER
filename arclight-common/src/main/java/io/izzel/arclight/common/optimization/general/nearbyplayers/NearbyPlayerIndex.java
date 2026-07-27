@@ -37,7 +37,7 @@ import java.util.Set;
  */
 public final class NearbyPlayerIndex {
 
-    public static final Logger LOGGER = LogManager.getLogger("Luminara-NPI");
+    public static final Logger LOGGER = LogManager.getLogger("PRTS-NPI");
 
     /** 桶半径（chunk）。桶外玩家与查询点水平距离 ≥ (R+1)*16-15 = 161 格。 */
     public static final int BUCKET_RADIUS_CHUNKS = 10;
@@ -57,7 +57,7 @@ public final class NearbyPlayerIndex {
         this.lastChunk.defaultReturnValue(Long.MIN_VALUE);
     }
 
-    // ============ 配置（懒加载缓存；luminara.yml 运行期不热更） ============
+    // ============ 配置（懒加载缓存；prts.yml 运行期不热更） ============
 
     private static final class Cfg {
         static final boolean ENABLED;
@@ -170,7 +170,7 @@ public final class NearbyPlayerIndex {
     private void poison(Throwable t) {
         if (!this.poisoned) {
             this.poisoned = true;
-            LOGGER.error("[Luminara-NPI] index poisoned, permanently falling back to vanilla for this session", t);
+            LOGGER.error("[PRTS-NPI] index poisoned, permanently falling back to vanilla for this session", t);
         }
     }
 
@@ -272,7 +272,7 @@ public final class NearbyPlayerIndex {
         long now = System.currentTimeMillis();
         if (now - this.lastMismatchWarn > 10_000L) {
             this.lastMismatchWarn = now;
-            LOGGER.warn("[Luminara-NPI] verify mismatch #{} in {}: index={}, vanilla={} (using vanilla result)",
+            LOGGER.warn("[PRTS-NPI] verify mismatch #{} in {}: index={}, vanilla={} (using vanilla result)",
                     this.mismatchCount, what, fast, vanilla);
         }
     }

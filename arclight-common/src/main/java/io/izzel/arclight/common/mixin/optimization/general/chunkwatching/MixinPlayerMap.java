@@ -32,7 +32,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(PlayerMap.class)
 public abstract class MixinPlayerMap implements IChunkWatchingManager {
 
-    private static final Logger LOGGER = LogManager.getLogger("Luminara-CW");
+    private static final Logger LOGGER = LogManager.getLogger("PRTS-CW");
     private static boolean logged = false;
     private int watchDistance = 5;
 
@@ -40,7 +40,7 @@ public abstract class MixinPlayerMap implements IChunkWatchingManager {
     private void onConstruct(CallbackInfo ci) {
         if (!logged) {
             logged = true;
-            LOGGER.info("[Luminara-CW] chunkwatching mixin active (spatial index disabled — using vanilla getPlayers)");
+            LOGGER.info("[PRTS-CW] chunkwatching mixin active (spatial index disabled — using vanilla getPlayers)");
         }
     }
 

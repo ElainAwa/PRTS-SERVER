@@ -1,8 +1,8 @@
-# Luminara-stable-Trials
+# PRTS-stable-Trials
 
 [简体中文](README.md)
 
-A private, production-hardened downstream fork of [Luminara](https://github.com/QianMo0721/Luminara)
+A private, production-hardened downstream fork of [PRTS](https://github.com/QianMo0721/PRTS)
 (itself an [Arclight](https://github.com/IzzelAliz/Arclight) Hybrid fork) for **Minecraft 1.20.1 / Forge 47.4.16**.
 
 This fork targets a heavily-modded, multiplayer production environment (mixed Forge mods +
@@ -13,7 +13,7 @@ Bukkit/Spigot plugins). Custom changes follow a single principle:
 > Only the resource cost of the same logic is reduced, or crashes are fixed.
 
 > [!NOTE]
-> This is a private downstream fork. Upstream Luminara is no longer updated; the optimizations and crash
+> This is a private downstream fork. Upstream PRTS is no longer updated; the optimizations and crash
 > fixes below are maintained here independently. See [CHANGELOG.md](CHANGELOG.md) for the full version history.
 
 ## Environment
@@ -22,25 +22,25 @@ Bukkit/Spigot plugins). Custom changes follow a single principle:
 |---|---|
 | Minecraft | 1.20.1 |
 | Loader | Forge 47.4.16 |
-| Base | Arclight Hybrid (Luminara fork) |
+| Base | Arclight Hybrid (PRTS fork) |
 | JDK | 21 (build & runtime) |
 | Current version | see `version` in [`build.gradle`](build.gradle) |
 
 ## Custom Optimizations (this fork)
 
 Each optimization is gated behind a config switch in `luminara.yml`, and is designed to be behaviorally
-identical to vanilla at a lower resource cost. Runtime status is printed with `[Luminara-*]` log tags on boot.
+identical to vanilla at a lower resource cost. Runtime status is printed with `[PRTS-*]` log tags on boot.
 
 | Optimization | Log tag | Notes |
 |---|---|---|
-| **routeB spatial entity tracking** | `[Luminara-EntityTrack]` | Spatialized `AreaMap` tracker (HariPlayer-derived) |
-| **ticketpropagator** | `[Luminara-TP]` | Paper-style delayed 8-way ticket distance propagation |
+| **routeB spatial entity tracking** | `[PRTS-EntityTrack]` | Spatialized `AreaMap` tracker (HariPlayer-derived) |
+| **ticketpropagator** | `[PRTS-TP]` | Paper-style delayed 8-way ticket distance propagation |
 | **ServerCore (12 items)** | — | Assorted server-tick micro-optimizations |
 | **move-zero-velocity** | — | Skip redundant `move()` for zero-velocity entities |
 | **async-logging** | — | log4j2 AsyncAppender wrapping the root logger |
-| **NearbyPlayerIndex (NPI)** | `[Luminara-NPI]` | Spatial index accelerating `getNearestPlayer` / `hasNearbyAlivePlayer` (default `enabled=false`) |
+| **NearbyPlayerIndex (NPI)** | `[PRTS-NPI]` | Spatial index accelerating `getNearestPlayer` / `hasNearbyAlivePlayer` (default `enabled=false`) |
 | **Native chunk tuning** | — | chunk-load-rate-limit, parallel world init + async data load, async world saving |
-| **Crash fixes (always on)** | `[Luminara-ChampionsFix]` | ChampionsConfig lazy bake; RevelationFix `inWhitelist` null guard |
+| **Crash fixes (always on)** | `[PRTS-ChampionsFix]` | ChampionsConfig lazy bake; RevelationFix `inWhitelist` null guard |
 
 ### NearbyPlayerIndex safety model
 
@@ -101,7 +101,7 @@ The artifact is produced at `arclight-forge/build/libs/luminara-1.20.1-<version>
 ## Credits & License
 
 - Built on [Arclight](https://github.com/IzzelAliz/Arclight) by IzzelAliz.
-- Forked from [Luminara](https://github.com/QianMo0721/Luminara) by QianMo0721.
+- Forked from [PRTS](https://github.com/QianMo0721/PRTS) by QianMo0721.
 - Custom optimizations and crash fixes in this fork are maintained by [ElainAwa](https://github.com/ElainAwa).
 
 Licensed under [GPL v3](LICENSE), same as upstream.

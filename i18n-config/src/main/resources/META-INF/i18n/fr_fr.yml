@@ -1,22 +1,24 @@
 logo:
   - ""
   - ""
-  - "    §1    __                    _                       "
-  - "    §9   / /   __  ______ ___  (_)___  ____ __________ _"
-  - "    §3  / /   / / / / __ `__ \\/ / __ \\/ __ `/ ___/ __ `/"
-  - "    §6 / /___/ /_/ / / / / / / / / / / /_/ / /  / /_/ / "
-  - "    §e/_____/\\__,_/_/ /_/ /_/_/_/ /_/\\__,_/_/   \\__,_/  "
+  - '    §f      ____     ____     ______   _____'
+  - '    §f     / __ \   / __ \   /_  __/  / ___/'
+  - '    §f    / /_/ /  / /_/ /    / /     \__ \'
+  - '    §f   / ____/  / _, _/    / /     ___/ /'
+  - '    §f  /_/      /_/ |_|    /_/     /____/'
   - ""
-  - "    §eLuminara·流明纳拉 Serveur Par§b QianMo0721"
-  - "    §aVersion {} / {}"
-  - "    §aDate du Build {}"
+  - "    §b§lP§7rimitive §b§lR§7hodesisland §b§lT§7erminal §b§lS§7ervice"
+  - ""
+  - "    §bPRTS Serveur §dPar ElysiaQAQ"
+  - "    §aVersion §e{} / {}"
+  - "    §aDate du Build §b{}"
   - ""
 
 release-name:
   Horn: "角 (Corne)"
   GreatHorn: "大角 (Grande Corne)"
   Executions: "折威 (Exécutions)"
-  Trials: "顿顽 1.20.1 (Épreuves)"
+  Trials: "顿顽 (Épreuves)"
 
 i18n:
   using-language: "Utilisation des paramètres de langue {0} et des paramètres de langue de secours {1}"
@@ -24,10 +26,10 @@ i18n:
 loading-mapping: "Chargement des mappings ..."
 
 mixin-load:
-  core: "Luminara core mixin ajouté."
-  optimization: "Luminara optimization mixin ajouté."
+  core: "PRTS core mixin ajouté."
+  optimization: "PRTS optimization mixin ajouté."
 
-mod-load: "Luminara Mod chargé."
+mod-load: "PRTS Mod chargé."
 
 patcher:
   loading: "Chargement des patchs de plugins ..."
@@ -60,9 +62,9 @@ symlink-file-exist: "Le fichier existe déjà lors de la création du lien symbo
 
 # Server lifecycle messages (合并所有server相关配置)
 server:
-  starting: "Démarrage du serveur Luminara..."
-  stopping: "Arrêt du serveur Luminara..."
-  stopped: "Le serveur Luminara s'est arrêté"
+  starting: "Démarrage du serveur PRTS..."
+  stopping: "Arrêt du serveur PRTS..."
+  stopped: "Le serveur PRTS s'est arrêté"
   crash-report-saved: "Rapport de crash sauvegardé dans : {}"
   crash-report-failed: "Échec de la sauvegarde du rapport de crash sur le disque"
   unexpected-exception: "Exception inattendue rencontrée"
@@ -94,7 +96,7 @@ optimization:
     cleanup-complete: "Nettoyage de la mémoire terminé, {} MB libérés"
     high-usage: "Utilisation mémoire élevée : {}%"
     gc-triggered: "Collecte des déchets déclenchée"
-    cache-cleanup-completed: "Nettoyage du cache Luminara terminé"
+    cache-cleanup-completed: "Nettoyage du cache PRTS terminé"
     cache-cleanup-error: "Erreur lors du nettoyage du cache"
     cache-cleanup-failed: "Échec du nettoyage du cache"
   manager:

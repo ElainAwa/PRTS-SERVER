@@ -17,7 +17,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.UUID;
 
-// Adventure integration for Luminara
+// Adventure integration for PRTS
 public final class PaperAdventure {
 
     private static final GsonComponentSerializer GSON_SERIALIZER = GsonComponentSerializer.gson();

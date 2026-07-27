@@ -14,7 +14,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
- * [Luminara 本服维护者 2026-07-23]
+ * [PRTS 本服维护者 2026-07-23]
  * 修复 RevelationFix（revelationfix@4.0，内嵌于 GoetyRevelation-2.3.1.jar 的 jarjar 嵌套）
  * 在本服 / Arclight 混合服务端下造成的【inWhitelist NPE 崩溃】（即"崩溃 A"）。
  *
@@ -38,7 +38,7 @@ public class CommonConfigWhitelistMixin {
     @Shadow
     private static Set<Item> whitelistItems;
 
-    private static final Logger LOGGER = LogManager.getLogger("Luminara-RevelationFix-CFG");
+    private static final Logger LOGGER = LogManager.getLogger("PRTS-RevelationFix-CFG");
     private static boolean luminara$entitiesWarned = false;
     private static boolean luminara$itemsWarned = false;
 
@@ -52,7 +52,7 @@ public class CommonConfigWhitelistMixin {
         if (whitelistEntities == null) {
             if (!luminara$entitiesWarned) {
                 luminara$entitiesWarned = true;
-                LOGGER.warn("[Luminara-RevelationFix] CommonConfig.whitelistEntities 未初始化(null)，inWhitelist 已安全返回 false 以避免 NPE 崩服");
+                LOGGER.warn("[PRTS-RevelationFix] CommonConfig.whitelistEntities 未初始化(null)，inWhitelist 已安全返回 false 以避免 NPE 崩服");
             }
             cir.setReturnValue(false);
             cir.cancel();
@@ -69,7 +69,7 @@ public class CommonConfigWhitelistMixin {
         if (whitelistItems == null) {
             if (!luminara$itemsWarned) {
                 luminara$itemsWarned = true;
-                LOGGER.warn("[Luminara-RevelationFix] CommonConfig.whitelistItems 未初始化(null)，inWhitelist 已安全返回 false 以避免 NPE 崩服");
+                LOGGER.warn("[PRTS-RevelationFix] CommonConfig.whitelistItems 未初始化(null)，inWhitelist 已安全返回 false 以避免 NPE 崩服");
             }
             cir.setReturnValue(false);
             cir.cancel();

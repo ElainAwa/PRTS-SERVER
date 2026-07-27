@@ -10,7 +10,7 @@ import org.spongepowered.asm.mixin.Shadow;
 import java.util.List;
 
 /**
- * [Luminara 本服维护者移植 2026-07-21]
+ * [PRTS 本服维护者移植 2026-07-21]
  * 原 VMP com.ishland.vmp.mixins.playerwatching.optimize_nearby_entity_tracking_lookups.MixinEntityTrackerEntry
  * 的 mojmap 移植，挂在 ServerEntity 上，实现 EntityTrackerEntryExtension。
  *

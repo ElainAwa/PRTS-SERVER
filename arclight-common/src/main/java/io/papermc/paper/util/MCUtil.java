@@ -12,7 +12,7 @@ public class MCUtil {
 
     private static final java.lang.ref.Cleaner cleaner = java.lang.ref.Cleaner.create();
 
-    // 还原自 Luminara/Arclight 原版 MCUtil（阶段2 误覆盖为 HariPlayer 精简版时丢失）。
+    // 还原自 PRTS/Arclight 原版 MCUtil（阶段2 误覆盖为 HariPlayer 精简版时丢失）。
     // 供 com.destroystokyo.paper.util.pooled.PooledObjects 注册资源清理回调。
     // 注意：Cleaner.Cleanable 并非 Runnable，需包装为 Runnable 返回以匹配调用方签名。
     public static <T> Runnable registerCleaner(Object holder, T resource, Consumer<T> releaser) {

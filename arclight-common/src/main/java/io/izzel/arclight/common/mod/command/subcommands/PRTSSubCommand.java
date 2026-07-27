@@ -4,9 +4,9 @@ import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import net.minecraft.commands.CommandSourceStack;
 
 /**
- * Luminara subcommand interface
+ * PRTS subcommand interface
  */
-public interface LuminaraSubCommand {
+public interface PRTSSubCommand {
 
     String getName();
 

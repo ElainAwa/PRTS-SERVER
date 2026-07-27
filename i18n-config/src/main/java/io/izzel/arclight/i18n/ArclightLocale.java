@@ -76,10 +76,10 @@ public record ArclightLocale(String current, String fallback, ConfigurationNode 
     private static Map.Entry<String, String> getLocale() {
         Logger logger = LogManager.getLogger("ArclightLocale-Debug");
         try {
-            Path path = Paths.get("luminara.yml");
+            Path path = Paths.get("prts.yml");
             logger.debug("Looking for config file at: {}", path.toAbsolutePath());
             if (!Files.exists(path)) {
-                logger.debug("Config file luminara.yml not found, using system locale");
+                logger.debug("Config file prts.yml not found, using system locale");
                 throw new Exception();
             } else {
                 logger.debug("Config file found, reading locale settings");

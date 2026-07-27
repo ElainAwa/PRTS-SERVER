@@ -83,7 +83,7 @@ public abstract class ChunkGeneratorMixin implements ChunkGeneratorBridge {
 
         } catch (Exception e) {
             // Graceful fallback: log error and continue without event
-            org.slf4j.LoggerFactory.getLogger("Luminara").debug("Error in structure spawn event handling: {}", e.getMessage());
+            org.slf4j.LoggerFactory.getLogger("PRTS").debug("Error in structure spawn event handling: {}", e.getMessage());
         }
     }
 

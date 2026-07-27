@@ -37,7 +37,7 @@ public class ArclightConfig {
     }
 
     private static void load() throws Exception {
-        Path path = Paths.get("luminara.yml");
+        Path path = Paths.get("prts.yml");
         boolean fileExisted = Files.exists(path);
 
         if (!fileExisted) {
@@ -51,7 +51,7 @@ public class ArclightConfig {
 
     private static ArclightConfig createInitialConfig(Path path) throws Exception {
         String currentLocale = ArclightLocale.getInstance().current();
-        try (InputStream is = ArclightConfig.class.getResourceAsStream("/META-INF/luminara.yml")) {
+        try (InputStream is = ArclightConfig.class.getResourceAsStream("/META-INF/prts.yml")) {
             String content = new String(is.readAllBytes(), StandardCharsets.UTF_8);
             String processed = I18nCommentInjector.injectComments(content, currentLocale);
             Files.write(path, processed.getBytes(StandardCharsets.UTF_8));

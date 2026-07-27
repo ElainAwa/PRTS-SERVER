@@ -1,22 +1,24 @@
 logo:
   - ""
   - ""
-  - "    §1    __                    _                       "
-  - "    §9   / /   __  ______ ___  (_)___  ____ __________ _"
-  - "    §3  / /   / / / / __ `__ \\/ / __ \\/ __ `/ ___/ __ `/"
-  - "    §6 / /___/ /_/ / / / / / / / / / / /_/ / /  / /_/ / "
-  - "    §e/_____/\\__,_/_/ /_/ /_/_/_/ /_/\\__,_/_/   \\__,_/  "
+  - '    §f      ____     ____     ______   _____'
+  - '    §f     / __ \   / __ \   /_  __/  / ___/'
+  - '    §f    / /_/ /  / /_/ /    / /     \__ \'
+  - '    §f   / ____/  / _, _/    / /     ___/ /'
+  - '    §f  /_/      /_/ |_|    /_/     /____/'
   - ""
-  - "    §eLuminara·流明纳拉 Сервер От§b QianMo0721"
-  - "    §aВерсия {} / {}"
-  - "    §aДата сборки {}"
+  - "    §b§lP§7rimitive §b§lR§7hodesisland §b§lT§7erminal §b§lS§7ervice"
+  - ""
+  - "    §bPRTS Сервер §dОт ElysiaQAQ"
+  - "    §aВерсия §e{} / {}"
+  - "    §aДата сборки §b{}"
   - ""
 
 release-name:
   Horn: "角 (Рог)"
   GreatHorn: "大角 (Большой Рог)"
   Executions: "折威 (Казни)"
-  Trials: "顿顽 1.20.1 (Испытания)"
+  Trials: "顿顽 (Испытания)"
 
 java:
   deprecated:
@@ -30,10 +32,10 @@ i18n:
 loading-mapping: "Загрузка разметки ..."
 
 mixin-load:
-  core: "Основной миксин Luminara добавлен."
-  optimization: "Оптимизирующий миксин Luminara добавлен."
+  core: "Основной миксин PRTS добавлен."
+  optimization: "Оптимизирующий миксин PRTS добавлен."
 
-mod-load: "Luminara Mod загружен."
+mod-load: "PRTS Mod загружен."
 
 patcher:
   loading: "Загрузка патчей для плагинов ..."
@@ -66,9 +68,9 @@ symlink-file-exist: "Файл уже существует при создани�
 
 # Server lifecycle messages (合并所有server相关配置)
 server:
-  starting: "Запуск сервера Luminara..."
-  stopping: "Остановка сервера Luminara..."
-  stopped: "Сервер Luminara остановлен"
+  starting: "Запуск сервера PRTS..."
+  stopping: "Остановка сервера PRTS..."
+  stopped: "Сервер PRTS остановлен"
   crash-report-saved: "Отчет о сбое сохранен в: {}"
   crash-report-failed: "Не удалось сохранить отчет о сбое на диск"
   unexpected-exception: "Обнаружено неожиданное исключение"
@@ -100,7 +102,7 @@ optimization:
     cleanup-complete: "Очистка памяти завершена, освобождено {} МБ"
     high-usage: "Высокое использование памяти: {}%"
     gc-triggered: "Запущена сборка мусора"
-    cache-cleanup-completed: "Очистка кэша Luminara завершена"
+    cache-cleanup-completed: "Очистка кэша PRTS завершена"
     cache-cleanup-error: "Ошибка при очистке кэша"
     cache-cleanup-failed: "Очистка кэша не удалась"
   manager:

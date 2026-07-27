@@ -11,7 +11,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import java.lang.reflect.Method;
 
 /**
- * 修复 Champions 模组在 Arclight/Luminara 混合核心下 {@code ChampionsConfig} 的静态配置字段
+ * 修复 Champions 模组在 Arclight/PRTS 混合核心下 {@code ChampionsConfig} 的静态配置字段
  * (entitiesList / entitiesPermission / dimensionList / dimensionPermission / bossBarBlackList 等)
  * 未被 Forge 配置事件灌入、保持 null，导致生物生成时
  * ChampionHelper.isValidEntity 调用 entitiesList.contains(...) 抛出 NPE 把服务端搞挂的问题。
@@ -31,7 +31,7 @@ import java.lang.reflect.Method;
 @Mixin(targets = "top.theillusivec4.champions.common.util.ChampionHelper", remap = false)
 public class ChampionHelperConfigInitMixin {
 
-    private static final Logger LOGGER = LogManager.getLogger("Luminara-ChampionsFix");
+    private static final Logger LOGGER = LogManager.getLogger("PRTS-ChampionsFix");
     private static volatile boolean luminara$done = false;
 
     private static void luminara$ensureConfigLoaded() {
@@ -48,9 +48,9 @@ public class ChampionHelperConfigInitMixin {
                 invokeIfPresent(cfg, "bakeCommon");
                 // bake() 灌 growth/affix/rank/stage 等其余配置
                 invokeIfPresent(cfg, "bake");
-                LOGGER.info("[Luminara-ChampionsFix] ChampionsConfig 惰性初始化完成（bake）");
+                LOGGER.info("[PRTS-ChampionsFix] ChampionsConfig 惰性初始化完成（bake）");
             } catch (Throwable t) {
-                LOGGER.warn("[Luminara-ChampionsFix] 惰性初始化 ChampionsConfig 失败: {}", t.getMessage());
+                LOGGER.warn("[PRTS-ChampionsFix] 惰性初始化 ChampionsConfig 失败: {}", t.getMessage());
             }
             luminara$done = true;
         }

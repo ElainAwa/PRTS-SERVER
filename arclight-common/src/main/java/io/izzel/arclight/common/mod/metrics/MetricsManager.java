@@ -93,7 +93,7 @@ public class MetricsManager {
             URLConnection connection = url.openConnection();
             connection.setConnectTimeout(5000);
             connection.setReadTimeout(5000);
-            connection.setRequestProperty("User-Agent", "Luminara-Metrics/1.0");
+            connection.setRequestProperty("User-Agent", "PRTS-Metrics/1.0");
 
             try (BufferedReader reader = new BufferedReader(
                     new InputStreamReader(connection.getInputStream(), StandardCharsets.UTF_8))) {

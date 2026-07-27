@@ -12,7 +12,7 @@ import java.util.function.Predicate;
 
 public class ShouldApplyProcessor {
 
-    private static final Logger LOGGER = LogManager.getLogger("Luminara");
+    private static final Logger LOGGER = LogManager.getLogger("PRTS");
     private static final String SERVERCORE_PREFIX = "io/izzel/arclight/common/mixin/optimization/general/servercore/";
     private static final List<Predicate<ClassNode>> PREDICATES = List.of(
             LoadIfModProcessor::shouldApply,

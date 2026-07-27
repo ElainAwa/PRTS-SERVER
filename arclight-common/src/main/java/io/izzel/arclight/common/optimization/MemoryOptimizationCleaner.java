@@ -17,7 +17,7 @@ import java.util.Collection;
  */
 public class MemoryOptimizationCleaner {
 
-    private static final Logger LOGGER = LogManager.getLogger("Luminara-MemoryCleanup");
+    private static final Logger LOGGER = LogManager.getLogger("PRTS-MemoryCleanup");
     private static long lastRunMs = 0;
     private static boolean started = false;
 

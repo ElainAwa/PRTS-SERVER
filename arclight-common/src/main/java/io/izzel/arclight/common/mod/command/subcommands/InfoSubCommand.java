@@ -10,7 +10,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 
 // Server information subcommand
-public class InfoSubCommand implements LuminaraSubCommand {
+public class InfoSubCommand implements PRTSSubCommand {
 
     @Override
     public String getName() {
@@ -19,7 +19,7 @@ public class InfoSubCommand implements LuminaraSubCommand {
 
     @Override
     public String getDescription() {
-        return "Show Luminara and server information";
+        return "Show PRTS and server information";
     }
 
     @Override
@@ -39,7 +39,7 @@ public class InfoSubCommand implements LuminaraSubCommand {
         CommandSender sender = ((CommandSourceBridge) source).bridge$getBukkitSender();
 
         try {
-            sender.sendMessage("§6=== Luminara Information ===");
+            sender.sendMessage("§6=== PRTS Information ===");
             sender.sendMessage("§eServer Version: §f" + Bukkit.getVersion());
             sender.sendMessage("§eBukkit Version: §f" + Bukkit.getBukkitVersion());
             sender.sendMessage("§eOnline Players: §f" + Bukkit.getOnlinePlayers().size() + "/" + Bukkit.getMaxPlayers());

@@ -30,7 +30,7 @@ public abstract class MixinChunkMap_NearbyIndex implements NearbyPlayerIndexHold
     private void luminara$npiInit(CallbackInfo ci) {
         if (!luminara$npiLogged) {
             luminara$npiLogged = true;
-            NearbyPlayerIndex.LOGGER.info("[Luminara-NPI] nearby-player-index mixin active (enabled={}, verify={})",
+            NearbyPlayerIndex.LOGGER.info("[PRTS-NPI] nearby-player-index mixin active (enabled={}, verify={})",
                     NearbyPlayerIndex.enabled(), NearbyPlayerIndex.verifyMode());
         }
     }

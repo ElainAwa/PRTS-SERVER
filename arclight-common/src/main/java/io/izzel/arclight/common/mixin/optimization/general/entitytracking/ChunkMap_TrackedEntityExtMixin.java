@@ -21,7 +21,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import java.util.Set;
 
 /**
- * [Luminara 本服维护者移植 2026-07-21]
+ * [PRTS 本服维护者移植 2026-07-21]
  * 原 VMP com.ishland.vmp.mixins.playerwatching.optimize_nearby_entity_tracking_lookups.MixinThreadedAnvilChunkStorageEntityTracker
  * 的 mojmap 移植，挂在 ChunkMap.TrackedEntity 上，实现 EntityTrackerExtension。
  *

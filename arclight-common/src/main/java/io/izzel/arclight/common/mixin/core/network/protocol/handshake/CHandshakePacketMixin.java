@@ -47,7 +47,7 @@ public class CHandshakePacketMixin {
             packetBuffer.readerIndex(readerIndex);
             return packetBuffer.readUtf(Short.MAX_VALUE);
         } catch (Exception e) {
-            System.err.println("[Luminara] Error reading hostname from handshake packet: " + e.getMessage());
+            System.err.println("[PRTS] Error reading hostname from handshake packet: " + e.getMessage());
             return "";
         }
     }
@@ -78,13 +78,13 @@ public class CHandshakePacketMixin {
                             }
                         }
                     } catch (Exception e) {
-                        System.err.println("[Luminara] Error parsing BungeeCord profile data: " + e.getMessage());
+                        System.err.println("[PRTS] Error parsing BungeeCord profile data: " + e.getMessage());
                     }
                 }
             }
             return fmlVersion;
         } catch (Exception e) {
-            System.err.println("[Luminara] Error processing FML version: " + e.getMessage());
+            System.err.println("[PRTS] Error processing FML version: " + e.getMessage());
             return NetworkConstants.NETVERSION;
         }
     }

@@ -10,7 +10,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
- * [Luminara 本服维护者 2026-07-21]
+ * [PRTS 本服维护者 2026-07-21]
  *
  * 修复 RevelationFix（revelationfix@4.0，内嵌于 GoetyRevelation-2.3.1.jar，作为子 mod 加载）
  * 在服务端造成的【事件回环递归崩溃】——也就是本服最初的"第一个 bug"。
@@ -21,7 +21,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  *     -> 该事件的同步 handler（死亡表演 / Apollyon / Goety 相关）又回调
  *        EntityActuallyHurt.actuallyHurt(3arg)
  *   形成 actuallyHurt -> actuallyHurt0 -> post 事件 -> handler -> actuallyHurt 的【同步事件回环】。
- *   在 Luminara/Arclight 混合服务端下，该回环无限递归直至 java.lang.StackOverflowError：
+ *   在 PRTS/Arclight 混合服务端下，该回环无限递归直至 java.lang.StackOverflowError：
  *   日志里单次栈溢出就有几百帧 actuallyHurt，2659 次栈溢出 × 每栈几百帧 ≈ 33 万行，撑爆 474MB 日志，
  *   主线程卡死触发 ServerHangWatchdog 结束进程。
  *
@@ -44,7 +44,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public class EntityActuallyHurtPrintStackMixin {
 
     private static final ThreadLocal<Boolean> luminara$inActuallyHurt = ThreadLocal.withInitial(() -> Boolean.FALSE);
-    private static final Logger LOGGER = LogManager.getLogger("Luminara-RevelationFix");
+    private static final Logger LOGGER = LogManager.getLogger("PRTS-RevelationFix");
     private static final long WARN_INTERVAL_MS = 10_000L;
     private static long luminara$lastWarn = 0L;
     private static int luminara$suppressed = 0;
@@ -62,7 +62,7 @@ public class EntityActuallyHurtPrintStackMixin {
             final long now = System.currentTimeMillis();
             if (now - luminara$lastWarn >= WARN_INTERVAL_MS) {
                 luminara$lastWarn = now;
-                LOGGER.warn("[Luminara-RevelationFix] blocked recursive actuallyHurt event-loop call (guard active); {} earlier calls suppressed", luminara$suppressed);
+                LOGGER.warn("[PRTS-RevelationFix] blocked recursive actuallyHurt event-loop call (guard active); {} earlier calls suppressed", luminara$suppressed);
                 luminara$suppressed = 0;
             } else {
                 luminara$suppressed++;

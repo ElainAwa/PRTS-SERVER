@@ -33,7 +33,7 @@ public class Main_Forge {
             method.invoke(null, (Object) target);
         } catch (Exception e) {
             e.printStackTrace();
-            System.err.println("Fail to launch Luminara.");
+            System.err.println("Fail to launch PRTS.");
             System.exit(-1);
         }
     }
@@ -43,9 +43,9 @@ public class Main_Forge {
         try (JarFile baseArchive = new JarFile(new File(location.toURI()))) {
             var mf = baseArchive.getManifest();
             if (mf == null || mf.getMainAttributes().isEmpty()) {
-                System.err.println("Failed to verify completeness for Luminara installer.");
+                System.err.println("Failed to verify completeness for PRTS installer.");
                 System.err.println("The manifest data is corrupted, is the jar file modified?");
-                System.err.println("Cannot proceed, Luminara will exit");
+                System.err.println("Cannot proceed, PRTS will exit");
                 throw new IOException("The installer jar file is corrupted");
             }
         }

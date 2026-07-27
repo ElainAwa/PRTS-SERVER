@@ -29,7 +29,7 @@ import java.util.Map;
  * happen on a background thread instead of the server main thread. Pure
  * zero-perception optimization (only affects log write latency/ordering).
  *
- * The upstream Config.USE_ASYNC_LOGGING flag is replaced by Luminara's
+ * The upstream Config.USE_ASYNC_LOGGING flag is replaced by PRTS's
  * "async-logging" sub-switch, checked here so boot() is safe to call from any
  * startup hook.
  */
@@ -85,12 +85,12 @@ public class AsyncAppenderBootstrap {
                     }
                 }
 
-                LOGGER.info("[Luminara-AsyncLog] Successfully started async appender with {}", original.keySet());
+                LOGGER.info("[PRTS-AsyncLog] Successfully started async appender with {}", original.keySet());
             } else {
-                LOGGER.error("[Luminara-AsyncLog] Unsupported logger settings for async appender");
+                LOGGER.error("[PRTS-AsyncLog] Unsupported logger settings for async appender");
             }
         } catch (Throwable t) {
-            LOGGER.error("[Luminara-AsyncLog] Error occurred while booting async appender", t);
+            LOGGER.error("[PRTS-AsyncLog] Error occurred while booting async appender", t);
         }
     }
 

@@ -63,7 +63,7 @@ public class Launcher {
             if (input != null && input.trim().toLowerCase().startsWith("y")) {
                 try (BufferedWriter writer = new BufferedWriter(new FileWriter(eulaFile))) {
                     writer.write("# By changing the setting below to TRUE you are indicating your agreement to our EULA (https://account.mojang.com/documents/minecraft_eula).\n");
-                    writer.write("# Generated via Luminara server\n");
+                    writer.write("# Generated via PRTS server\n");
                     writer.write("eula=true\n");
                 }
                 System.out.println("EULA has been " + (isUpdating ? "updated" : "accepted") + " and saved.");

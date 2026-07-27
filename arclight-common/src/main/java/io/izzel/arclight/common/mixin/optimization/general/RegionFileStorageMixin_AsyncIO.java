@@ -45,7 +45,7 @@ public abstract class RegionFileStorageMixin_AsyncIO {
             POOL = new ThreadPoolExecutor(n, n, 60L, TimeUnit.SECONDS,
                     new LinkedBlockingQueue<>(),
                     r -> {
-                        Thread t = new Thread(r, "Luminara-ChunkIO");
+                        Thread t = new Thread(r, "PRTS-ChunkIO");
                         t.setDaemon(true);
                         return t;
                     });

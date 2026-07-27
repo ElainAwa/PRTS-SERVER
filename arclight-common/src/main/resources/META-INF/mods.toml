@@ -3,11 +3,11 @@ loaderVersion = "[44,]"
 license = "GNU GENERAL PUBLIC LICENSE Version 3"
 
 [[mods]]
-modId = "luminara"
+modId = "prts"
 version = "${version}"
-displayName = "Luminara Mod"
+displayName = "PRTS Mod"
 credits = "lona,夜幕"
 authors = "IzzelAliz"
 description = '''
-    Luminara bukkit layer for MinecraftForge
+    PRTS bukkit layer for MinecraftForge
     '''

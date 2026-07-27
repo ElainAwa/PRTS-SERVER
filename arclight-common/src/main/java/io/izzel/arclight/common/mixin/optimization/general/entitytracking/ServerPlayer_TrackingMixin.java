@@ -11,7 +11,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
- * [Luminara 本服维护者移植 2026-07-21]
+ * [PRTS 本服维护者移植 2026-07-21]
  * 原 VMP com.ishland.vmp.mixins.playerwatching.optimize_nearby_entity_tracking_lookups.MixinServerPlayerEntity
  * 的 mojmap 移植，挂在 ServerPlayer 上，实现 ServerPlayerEntityExtension。
  * 记录玩家上一 tick 的坐标，供 NearbyEntityTracking 判断是否移动、需要刷新视野桶。

@@ -15,7 +15,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class NotificationManager {
-    private static final Logger LOGGER = LogManager.getLogger("Luminara-Notification");
+    private static final Logger LOGGER = LogManager.getLogger("PRTS-Notification");
     private static final Pattern COLOR_PATTERN = Pattern.compile("&([0-9a-fk-or])");
     private static final ScheduledExecutorService SCHEDULER = Executors.newScheduledThreadPool(2);
 

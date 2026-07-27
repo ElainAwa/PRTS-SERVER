@@ -2,7 +2,7 @@ plugins {
     id 'java'
 }
 
-archivesBaseName = 'luminara-forge-installer'
+archivesBaseName = 'PRTS-forge-installer'
 java.toolchain.languageVersion = JavaLanguageVersion.of(17)
 
 repositories {

@@ -26,7 +26,7 @@ final class LoggingConfigurator {
             String configFile = useSimpleFormat ? "arclight-log4j2.xml" : "arclight-log4j2-detailed.xml";
             reconfigureLogging(configFile);
 
-            System.out.println("[Luminara] Applied logging configuration: " +
+            System.out.println("[PRTS] Applied logging configuration: " +
                     (useSimpleFormat ? "Simple format" : "Detailed format"));
 
         } catch (Exception e) {

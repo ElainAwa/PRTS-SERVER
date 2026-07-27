@@ -21,7 +21,7 @@ import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
- * [Luminara 本服维护者移植 2026-07-21]
+ * [PRTS 本服维护者移植 2026-07-21]
  * 路线B 核心 mixin：HariPlayer 招牌的空间化实体追踪（AreaMap 方案，移植自 VMP 同名算法）的 mojmap 移植。
  *
  * ⚠️ 关键修正（2026-07-21 实测定位）：
@@ -54,7 +54,7 @@ public class ChunkMap_TrackingMixin {
     // @formatter:on
 
     @Unique
-    private static final Logger LOGGER = LogManager.getLogger("Luminara-EntityTrack");
+    private static final Logger LOGGER = LogManager.getLogger("PRTS-EntityTrack");
 
     // 仅首次成功 tick 时打印一次启用通告（INFO），避免每次重启重复刷屏。
     @Unique
@@ -72,7 +72,7 @@ public class ChunkMap_TrackingMixin {
     // 一次性日志：确认 move() 的实体遍历被 routeB 接管（seenBy 唯一管理者）
     @Unique
     private static boolean luminara$moveRedirLogged = false;
-    // 看门狗阈值从 luminara.yml 的 optimization.route-b 读取（watchdog-hard-ms / watchdog-soft-ms），
+    // 看门狗阈值从 prts.yml 的 optimization.route-b 读取（watchdog-hard-ms / watchdog-soft-ms），
     // 运行时由 config 提供，确保启动后读到的就是 yml 值。
     @Unique
     private static long luminara$watchdogHardMs() {
@@ -128,7 +128,7 @@ public class ChunkMap_TrackingMixin {
         }
         if (!luminara$moveRedirLogged) {
             luminara$moveRedirLogged = true;
-            LOGGER.info("[Luminara-EntityTrack] move() entity loop intercepted -> routeB is now sole owner of seenBy (no double-maintenance oscillation)");
+            LOGGER.info("[PRTS-EntityTrack] move() entity loop intercepted -> routeB is now sole owner of seenBy (no double-maintenance oscillation)");
         }
         @SuppressWarnings("unchecked")
         ObjectCollection<ChunkMap.TrackedEntity> empty =
@@ -146,11 +146,11 @@ public class ChunkMap_TrackingMixin {
             luminara$diagLogged = true;
             try {
                 var opt = ArclightConfig.spec().getOptimization();
-                LOGGER.info("[Luminara-EntityTrack] DIAG gate={} routeBFailed={} nearbyEmpty={} expOn={} routeB.isEnabled={} isRouteBEnabled={}",
+                LOGGER.info("[PRTS-EntityTrack] DIAG gate={} routeBFailed={} nearbyEmpty={} expOn={} routeB.isEnabled={} isRouteBEnabled={}",
                     luminara$experimentalOn(), luminara$routeBFailed, this.nearbyEntityTracking.isEmpty(),
                     opt.isExperimentalOptimizationsEnabled(), opt.getRouteB().isEnabled(), opt.isRouteBEnabled());
             } catch (Throwable t) {
-                LOGGER.info("[Luminara-EntityTrack] DIAG error reading config: " + t);
+                LOGGER.info("[PRTS-EntityTrack] DIAG error reading config: " + t);
             }
         }
         if (!luminara$experimentalOn() || luminara$routeBFailed) {
@@ -166,25 +166,25 @@ public class ChunkMap_TrackingMixin {
             final long elapsedMs = (System.nanoTime() - start) / 1_000_000L;
             if (elapsedMs > luminara$watchdogHardMs()) {
                 luminara$routeBFailed = true;
-                LOGGER.error("[Luminara-EntityTrack] tick took {}ms (> {}ms) -> disabling this session, falling back to vanilla. detail: {}",
+                LOGGER.error("[PRTS-EntityTrack] tick took {}ms (> {}ms) -> disabling this session, falling back to vanilla. detail: {}",
                         elapsedMs, luminara$watchdogHardMs(), this.nearbyEntityTracking.debugInfo());
-                LOGGER.error("[Luminara-EntityTrack] tick stall stacktrace", new RuntimeException("[Luminara-EntityTrack] tick stall"));
+                LOGGER.error("[PRTS-EntityTrack] tick stall stacktrace", new RuntimeException("[PRTS-EntityTrack] tick stall"));
                 return;
             }
             if (!luminara$announced) {
                 luminara$announced = true;
-                LOGGER.info("[Luminara-EntityTrack] enabled (spatial entity tracking, HariPlayer AreaMap port). {}", this.nearbyEntityTracking.debugInfo());
+                LOGGER.info("[PRTS-EntityTrack] enabled (spatial entity tracking, HariPlayer AreaMap port). {}", this.nearbyEntityTracking.debugInfo());
             }
             if ((luminara$tickCount++ % 200) == 0) {
                 // 周期性心跳降到 DEBUG，避免生产日志刷屏；需诊断时开 debug 级别即可看到。
-                LOGGER.debug("[Luminara-EntityTrack] active: {} lastTick={}ms", this.nearbyEntityTracking.debugInfo(), elapsedMs);
+                LOGGER.debug("[PRTS-EntityTrack] active: {} lastTick={}ms", this.nearbyEntityTracking.debugInfo(), elapsedMs);
                 this.nearbyEntityTracking.resetChurn();
             } else if (elapsedMs > luminara$watchdogSoftMs()) {
-                LOGGER.warn("[Luminara-EntityTrack] slow tick: {}ms | {}", elapsedMs, this.nearbyEntityTracking.debugInfo());
+                LOGGER.warn("[PRTS-EntityTrack] slow tick: {}ms | {}", elapsedMs, this.nearbyEntityTracking.debugInfo());
             }
         } catch (Throwable t) {
             luminara$routeBFailed = true;
-            LOGGER.error("[Luminara-EntityTrack] tick failed, this session falls back to vanilla entity tracking. detail: " + this.nearbyEntityTracking.debugInfo(), t);
+            LOGGER.error("[PRTS-EntityTrack] tick failed, this session falls back to vanilla entity tracking. detail: " + this.nearbyEntityTracking.debugInfo(), t);
         }
     }
 
@@ -204,9 +204,9 @@ public class ChunkMap_TrackingMixin {
         // addEntity 钩子在 tick 看门狗保护范围之外，单独看门狗：spread 爆炸会冻结主线程导致客户端超时
         if (elapsedMs > luminara$watchdogHardMs()) {
             luminara$routeBFailed = true;
-            LOGGER.error("[Luminara-EntityTrack] addEntity took {}ms for {} -> disabling this session, falling back to vanilla. detail: {}",
+            LOGGER.error("[PRTS-EntityTrack] addEntity took {}ms for {} -> disabling this session, falling back to vanilla. detail: {}",
                     elapsedMs, entity, this.nearbyEntityTracking.debugInfo());
-            LOGGER.error("[Luminara-EntityTrack] addEntity stall stacktrace", new RuntimeException("[Luminara-EntityTrack] addEntity stall"));
+            LOGGER.error("[PRTS-EntityTrack] addEntity stall stacktrace", new RuntimeException("[PRTS-EntityTrack] addEntity stall"));
         }
     }
 

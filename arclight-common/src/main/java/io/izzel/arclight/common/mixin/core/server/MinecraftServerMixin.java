@@ -399,7 +399,7 @@ public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<T
             arclight$saveAllWorldsAsync(true, true, true); // suppressLog = true to avoid duplicate message
         }
 
-        // Luminara - Cleanup world creation optimizer resources
+        // PRTS - Cleanup world creation optimizer resources
         WorldCreationOptimizer.shutdown();
     }
 
@@ -724,7 +724,7 @@ public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<T
     @DontObfuscate
     @Overwrite
     public String getServerModName() {
-        return BrandingControl.getServerBranding() + " luminara/" + ArclightVersion.current().getReleaseName();
+        return BrandingControl.getServerBranding() + " prts/" + ArclightVersion.current().getReleaseName();
     }
 
     @Override

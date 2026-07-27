@@ -12,7 +12,7 @@ import net.minecraft.network.chat.Component;
 import org.bukkit.command.CommandSender;
 
 // Adventure message format testing
-public class AdventureTestSubCommand implements LuminaraSubCommand {
+public class AdventureTestSubCommand implements PRTSSubCommand {
 
     @Override
     public String getName() {

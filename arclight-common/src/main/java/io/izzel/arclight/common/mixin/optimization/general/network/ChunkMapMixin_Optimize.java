@@ -25,7 +25,7 @@ import java.util.ArrayList;
 import java.util.Objects;
 import java.util.Set;
 
-// [Luminara 本服维护者改动 2026-07-21]
+// [PRTS 本服维护者改动 2026-07-21]
 // 门控历史：原版 {C2ME, NOISIUM} ABSENT → 路线A临时移除 NOISIUM 恢复脏玩家优化 →
 // 现因路线B（VMP AreaMap 空间化实体追踪）要 @Overwrite/重占 ChunkMap.tick() 同一方法，
 // 两者互斥，故恢复 NOISIUM 门控让本份 optimizedTick 在 Noisium 在场时让位给路线B。

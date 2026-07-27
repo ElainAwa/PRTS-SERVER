@@ -22,7 +22,7 @@ public class WorldCreationOptimizer {
                 worldCreationExecutor = Executors.newFixedThreadPool(
                         config.getMaxConcurrentWorldLoads(),
                         r -> {
-                            Thread t = new Thread(r, "Luminara-Paper-WorldCreation");
+                            Thread t = new Thread(r, "PRTS-Paper-WorldCreation");
                             t.setDaemon(true);
                             return t;
                         }

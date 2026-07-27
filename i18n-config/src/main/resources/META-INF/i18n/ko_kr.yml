@@ -171,15 +171,17 @@ loading-mapping: 맵핑 로드 중...
 logo:
   - ''
   - ''
-  - '    §1    __                    _                       '
-  - '    §9   / /   __  ______ ___  (_)___  ____ __________ _'
-  - '    §3  / /   / / / / __ `__ \/ / __ \/ __ `/ ___/ __ `/'
-  - '    §6 / /___/ /_/ / / / / / / / / / / /_/ / /  / /_/ / '
-  - '    §e/_____/\__,_/_/ /_/ /_/_/_/ /_/\__,_/_/   \__,_/  '
+  - '    §f      ____     ____     ______   _____'
+  - '    §f     / __ \   / __ \   /_  __/  / ___/'
+  - '    §f    / /_/ /  / /_/ /    / /     \__ \'
+  - '    §f   / ____/  / _, _/    / /     ___/ /'
+  - '    §f  /_/      /_/ |_|    /_/     /____/'
   - ''
-  - '    §eLuminara·流明纳拉 서버 제작자§b QianMo0721'
-  - '    §a버전: {} / {}'
-  - '    §a빌드 날짜: {}'
+  - '    §b§lP§7rimitive §b§lR§7hodesisland §b§lT§7erminal §b§lS§7ervice'
+  - ''
+  - '    §bPRTS 서버 §d제작자 ElysiaQAQ'
+  - '    §a버전 §e{} / {}'
+  - '    §a빌드 날짜 §b{}'
   - ''
 loot:
   container:
@@ -187,10 +189,10 @@ loot:
 material:
   bad-data-class: '{}에 대한 잘못된 재료 데이터 클래스 {}'
 mixin-load:
-  core: Luminara core mixin 적용됨
-  optimization: Luminara 최적화 mixin 적용됨
+  core: PRTS core mixin 적용됨
+  optimization: PRTS 최적화 mixin 적용됨
 mod: { }
-mod-load: Luminara 모드 로드됨
+mod-load: PRTS 모드 로드됨
 network:
   custom-payload:
     dispatch-failed: 커스텀 페이로드를 디스패치할 수 없습니다
@@ -232,7 +234,7 @@ optimization:
   manager:
     shutdown-error: 최적화 시스템 종료 중 오류 발생
   memory:
-    cache-cleanup-completed: Luminara 캐시 정리 완료
+    cache-cleanup-completed: PRTS 캐시 정리 완료
     cache-cleanup-error: 캐시 정리 중 오류 발생
     cache-cleanup-failed: 캐시 정리 실패
     cleanup-complete: 메모리 정리 완료, {} MB 해제됨
@@ -292,7 +294,7 @@ release-name:
   Executions: 折威 (절위)
   GreatHorn: 大角 (대각)
   Horn: 角 (각)
-  Trials: 顿顽 1.20.1 (돈완)
+  Trials: 顿顽 (돈완)
 server:
   async-world-save:
     starting: 비동기 월드 저장 시작...
@@ -303,10 +305,10 @@ server:
   crash-report-saved: '크래시 리포트 저장됨: {}'
   overload-warning: 서버가 따라잡을 수 없습니다! 서버가 과부하 상태인가요? {} 밀리초 또는 {} 틱 지연
   preparing-start-region: 차원 {}에 대한 시작 지역 준비 중
-  starting: Luminara 서버 시작 중...
+  starting: PRTS 서버 시작 중...
   stop-exception: 서버 중지 중 예외 발생
-  stopped: Luminara 서버가 종료되었습니다
-  stopping: Luminara 서버 종료 중...
+  stopped: PRTS 서버가 종료되었습니다
+  stopping: PRTS 서버 종료 중...
   threads:
     force-exit: '{} 스레드가 올바르게 종료되지 않아 강제 종료합니다'
   unexpected-exception: 예상치 못한 예외가 발생했습니다

@@ -39,10 +39,10 @@ public class ServerConnectionListenerMixin_NetworkOpt {
         Object grp = instance.get();
         ThreadFactoryBuilder tfb = new ThreadFactoryBuilder().setDaemon(true);
         if (grp instanceof EpollEventLoopGroup) {
-            return new EpollEventLoopGroup(threads, tfb.setNameFormat("Luminara Epoll IO #%d").build());
+            return new EpollEventLoopGroup(threads, tfb.setNameFormat("PRTS Epoll IO #%d").build());
         }
         if (grp instanceof NioEventLoopGroup) {
-            return new NioEventLoopGroup(threads, tfb.setNameFormat("Luminara Netty IO #%d").build());
+            return new NioEventLoopGroup(threads, tfb.setNameFormat("PRTS Netty IO #%d").build());
         }
         return grp;
     }

@@ -8,7 +8,7 @@
   servers-unavailable: 无法验证用户名，因为服务器不可用
   verification-failed-allow: 用户名验证失败，但仍允许进入！
 bootstrap:
-  error: Luminara 引导程序错误
+  error: PRTS 引导程序错误
 chat:
   empty-message: '{} 试图发送空消息'
   message-too-long: '{} 试图发送过长的消息: {} 个字符'
@@ -242,15 +242,17 @@ loading-mapping: 正在加载混淆数据 ...
 logo:
   - ''
   - ''
-  - '    §1    __                    _                       '
-  - '    §9   / /   __  ______ ___  (_)___  ____ __________ _'
-  - '    §3  / /   / / / / __ `__ \/ / __ \/ __ `/ ___/ __ `/'
-  - '    §6 / /___/ /_/ / / / / / / / / / / /_/ / /  / /_/ / '
-  - '    §e/_____/\__,_/_/ /_/ /_/_/_/ /_/\__,_/_/   \__,_/  '
+  - '    §f      ____     ____     ______   _____'
+  - '    §f     / __ \   / __ \   /_  __/  / ___/'
+  - '    §f    / /_/ /  / /_/ /    / /     \__ \'
+  - '    §f   / ____/  / _, _/    / /     ___/ /'
+  - '    §f  /_/      /_/ |_|    /_/     /____/'
   - ''
-  - '    §eLuminara·流明纳拉 服务端 By§b QianMo0721'
-  - '    §a运行版本 {} / {}'
-  - '    §a构建日期 {}'
+  - '    §b§lP§7rimitive §b§lR§7hodesisland §b§lT§7erminal §b§lS§7ervice'
+  - ''
+  - '    §bPRTS 服务端 §dBy ElysiaQAQ'
+  - '    §a运行版本 §e{} / {}'
+  - '    §a构建日期 §b{}'
   - ''
 loot:
   container:
@@ -260,7 +262,7 @@ material:
 mixin-load:
   core: 核心 Mixin 配置已加载
   optimization: 优化 Mixin 配置已加载
-mod-load: Luminara Mod 已加载
+mod-load: PRTS Mod 已加载
 network:
   custom-payload:
     dispatch-failed: 无法分发自定义载荷
@@ -299,7 +301,7 @@ optimization:
   manager:
     shutdown-error: 优化系统关闭时发生错误
   memory:
-    cache-cleanup-completed: Luminara 缓存清理完成
+    cache-cleanup-completed: PRTS 缓存清理完成
     cache-cleanup-error: 缓存清理时发生错误
     cache-cleanup-failed: 缓存清理失败
     cleanup-complete: 内存清理完成，释放了 {} MB
@@ -348,7 +350,7 @@ registry:
   entity-type: 注册了 {} 个新的生物类型
   environment: 注册了 {} 个新的世界类型
   error: '处理 Forge 注册时出错 '
-  forge-event: Luminara 事件系统已注册
+  forge-event: PRTS 事件系统已注册
   material: 注册了 {} 个材料，其中 {} 个方块 {} 个物品
   meta-type:
     error: '{} 提供的 itemMetaType {} 无效: {}'
@@ -359,7 +361,7 @@ release-name:
   Executions: 折威
   GreatHorn: 大角
   Horn: 角
-  Trials: 顿顽 1.20.1
+  Trials: 顿顽
 server:
   async-world-save:
     starting: 开始异步世界保存...
@@ -370,17 +372,17 @@ server:
   crash-report-saved: '崩溃报告已保存到: {}'
   overload-warning: 服务器无法跟上！服务器过载了吗？落后了 {} 毫秒或 {} 个tick
   preparing-start-region: 为维度 {} 准备起始区域
-  starting: 正在启动 Luminara...
+  starting: 正在启动 PRTS...
   stop-exception: 关闭服务器时发生异常
-  stopped: Luminara 服务器已关闭
-  stopping: 正在关闭 Luminara...
+  stopped: PRTS 服务器已关闭
+  stopping: 正在关闭 PRTS...
   threads:
     force-exit: '{} 个线程未正确关闭，强制退出'
   unexpected-exception: 遇到意外异常
   world-save:
     all-successful: 所有世界保存成功
     failed: 保存世界 {} 失败
-server-initialization-completed: Luminara 服务器初始化完成
+server-initialization-completed: PRTS 服务器初始化完成
 symlink-file-exist: 创建符号链接 {} 时文件已存在
 velocity:
   address:

@@ -259,24 +259,26 @@ loading-mapping: Loading mappings ...
 logo:
   - ''
   - ''
-  - '    §1    __                    _                       '
-  - '    §9   / /   __  ______ ___  (_)___  ____ __________ _'
-  - '    §3  / /   / / / / __ `__ \/ / __ \/ __ `/ ___/ __ `/'
-  - '    §6 / /___/ /_/ / / / / / / / / / / /_/ / /  / /_/ / '
-  - '    §e/_____/\__,_/_/ /_/ /_/_/_/ /_/\__,_/_/   \__,_/  '
+  - '    §f      ____     ____     ______   _____'
+  - '    §f     / __ \   / __ \   /_  __/  / ___/'
+  - '    §f    / /_/ /  / /_/ /    / /     \__ \'
+  - '    §f   / ____/  / _, _/    / /     ___/ /'
+  - '    §f  /_/      /_/ |_|    /_/     /____/'
   - ''
-  - '    §eLuminara Server-Software By§b QianMo0721'
-  - '    §aVersion {} / {}'
-  - '    §aBuild Time: {}'
+  - '    §b§lP§7rimitive §b§lR§7hodesisland §b§lT§7erminal §b§lS§7ervice'
+  - ''
+  - '    §bPRTS Server §dBy ElysiaQAQ'
+  - '    §aVersion §e{} / {}'
+  - '    §aBuild Date §b{}'
   - ''
 loot:
   container:
     overfill-attempt: Tried to over-fill a container
 mixin-load:
-  core: Luminara core mixin added.
-  optimization: Luminara optimization mixin added.
+  core: PRTS core mixin added.
+  optimization: PRTS optimization mixin added.
 mod: { }
-mod-load: Luminara Mod loaded.
+mod-load: PRTS Mod loaded.
 network:
   custom-payload:
     dispatch-failed: Couldn't dispatch custom payload
@@ -312,7 +314,7 @@ optimization:
   manager:
     shutdown-error: Error during optimization system shutdown
   memory:
-    cache-cleanup-completed: Luminara cache cleanup completed
+    cache-cleanup-completed: PRTS cache cleanup completed
     cache-cleanup-error: Error during cache cleanup
     cache-cleanup-failed: Cache cleanup failed
     cleanup-complete: Memory cleanup completed, freed {} MB
@@ -361,7 +363,7 @@ registry:
   entity-type: Registered {} new entity types
   environment: Registered {} new dimensions
   error: 'Error occured registering Forge '
-  forge-event: Luminara events registered.
+  forge-event: PRTS events registered.
   material: Registered {} new materials with {} blocks and {} items
   meta-type:
     error: '{} provided itemMetaType {} is invalid: {}'
@@ -372,7 +374,7 @@ release-name:
   Executions: 折威 (Executions)
   GreatHorn: 大角 (Great Horn)
   Horn: 角 (Horn)
-  Trials: 顿顽 1.20.1 (Trials)
+  Trials: 顿顽 (Trials)
 server:
   async-world-save:
     starting: Starting async world save...
@@ -382,10 +384,10 @@ server:
   crash-report-saved: 'Crash report saved to: {}'
   overload-warning: Can't keep up! Is the server overloaded? Running {} milliseconds or {} ticks behind
   preparing-start-region: Preparing start region for dimension {}
-  starting: Starting Luminara server...
+  starting: Starting PRTS server...
   stop-exception: Exception stopping the server
-  stopped: Luminara server has stopped
-  stopping: Stopping Luminara server...
+  stopped: PRTS server has stopped
+  stopping: Stopping PRTS server...
   threads:
     force-exit: '{} threads not shutting down correctly, force exiting'
   unexpected-exception: Encountered unexpected exception

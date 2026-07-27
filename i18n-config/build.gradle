@@ -2,7 +2,7 @@ plugins {
     id 'java'
 }
 
-archivesBaseName = 'luminara-i18n-config'
+archivesBaseName = 'PRTS-i18n-config'
 java.toolchain.languageVersion = JavaLanguageVersion.of(17)
 
 repositories {

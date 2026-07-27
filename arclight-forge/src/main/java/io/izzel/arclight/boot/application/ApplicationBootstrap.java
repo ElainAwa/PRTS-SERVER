@@ -31,7 +31,7 @@ public class ApplicationBootstrap extends AbstractBootstrap implements Consumer<
             }
             Unsafe.ensureClassInitialized(EnumHelper.class);
         } catch (Throwable t) {
-            System.err.println("Your Java is not compatible with Luminara.");
+            System.err.println("Your Java is not compatible with PRTS.");
             t.printStackTrace();
             return;
         }
@@ -47,7 +47,7 @@ public class ApplicationBootstrap extends AbstractBootstrap implements Consumer<
                     .findFirst().orElseThrow().get().accept(args);
         } catch (Exception e) {
             e.printStackTrace();
-            System.err.println("Fail to launch Luminara.");
+            System.err.println("Fail to launch PRTS.");
         }
     }
 }

@@ -334,7 +334,7 @@ public abstract class ServerLoginNetHandlerMixin {
      */
     private void luminara$continueLogin() {
         // Execute the login process in a separate thread, similar to Mohist's approach
-        Thread thread = new Thread("Luminara Velocity Login") {
+        Thread thread = new Thread("PRTS Velocity Login") {
             @Override
             public void run() {
                 try {
