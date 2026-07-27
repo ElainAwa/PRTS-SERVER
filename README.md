@@ -3,7 +3,8 @@
 [English](README_en.md)
 
 一个私有的、面向生产环境加固的 [PRTS](https://github.com/QianMo0721/PRTS) 下游 fork
-（PRTS 本身是 [Arclight](https://github.com/IzzelAliz/Arclight) 的 Hybrid fork），
+（PRTS 本身是 [Luminara](https://github.com/QianMo0721/Luminara) 的 fork，
+而 Luminara 是 [Arclight](https://github.com/IzzelAliz/Arclight) 的 Hybrid fork），
 目标平台 **Minecraft 1.20.1 / Forge 47.4.16**。
 
 本 fork 面向多模组、多人的重载生产环境（Forge 模组与 Bukkit/Spigot 插件混合运行）。
@@ -23,13 +24,13 @@
 |---|---|
 | Minecraft | 1.20.1 |
 | 加载器 | Forge 47.4.16 |
-| 基座 | Arclight Hybrid（PRTS fork）|
+| 基座 | Luminara（Arclight Hybrid fork）|
 | JDK | 21（构建 & 运行）|
 | 当前版号 | 见 [`build.gradle`](build.gradle) 的 `version` |
 
 ## 定制优化（本 fork）
 
-各项优化均由 `luminara.yml` 配置开关控制，设计目标为行为与原版一致、资源开销更低。
+各项优化均由 `prts.yml` 配置开关控制，设计目标为行为与原版一致、资源开销更低。
 启动时以 `[PRTS-*]` 日志标签打印运行状态。
 
 | 优化项 | 日志标签 | 说明 |
@@ -63,7 +64,7 @@ NPI 不介入区块发包路径，仅加速查询，并设有三重保障：
 gradle --no-daemon collect --rerun-tasks
 ```
 
-产物位于 `arclight-forge/build/libs/luminara-1.20.1-<版号>.jar`。
+产物位于 `arclight-forge/build/libs/PRTS-1.20.1-<版号>.jar`。
 
 **构建约束：**
 
@@ -88,7 +89,7 @@ gradle --no-daemon collect --rerun-tasks
 3. 启动服务器：
 
    ```bash
-   java -jar luminara-1.20.1-<版号>.jar nogui
+   java -jar PRTS-1.20.1-<版号>.jar nogui
    ```
 
 ## 兼容性
@@ -101,7 +102,7 @@ gradle --no-daemon collect --rerun-tasks
 ## 致谢与协议
 
 - 基于 IzzelAliz 的 [Arclight](https://github.com/IzzelAliz/Arclight) 构建。
-- Fork 自 QianMo0721 的 [PRTS](https://github.com/QianMo0721/PRTS)。
-- 本 fork 的定制优化与崩溃修复由 [ElainAwa](https://github.com/ElainAwa) 维护。
+- Fork 自 QianMo0721 的 [Luminara](https://github.com/QianMo0721/Luminara)（Arclight Hybrid fork）。
+- 再 fork 为 PRTS（本仓库），定制优化与崩溃修复由 [ElainAwa](https://github.com/ElainAwa) 维护。
 
 基于 [GPL v3](LICENSE) 开源，与上游一致。

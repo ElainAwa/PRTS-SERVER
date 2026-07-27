@@ -3,7 +3,9 @@
 [简体中文](README.md)
 
 A private, production-hardened downstream fork of [PRTS](https://github.com/QianMo0721/PRTS)
-(itself an [Arclight](https://github.com/IzzelAliz/Arclight) Hybrid fork) for **Minecraft 1.20.1 / Forge 47.4.16**.
+(itself a fork of [Luminara](https://github.com/QianMo0721/Luminara),
+which is an [Arclight](https://github.com/IzzelAliz/Arclight) Hybrid fork)
+for **Minecraft 1.20.1 / Forge 47.4.16**.
 
 This fork targets a heavily-modded, multiplayer production environment (mixed Forge mods +
 Bukkit/Spigot plugins). Custom changes follow a single principle:
@@ -22,13 +24,13 @@ Bukkit/Spigot plugins). Custom changes follow a single principle:
 |---|---|
 | Minecraft | 1.20.1 |
 | Loader | Forge 47.4.16 |
-| Base | Arclight Hybrid (PRTS fork) |
+| Base | Luminara (Arclight Hybrid fork) |
 | JDK | 21 (build & runtime) |
 | Current version | see `version` in [`build.gradle`](build.gradle) |
 
 ## Custom Optimizations (this fork)
 
-Each optimization is gated behind a config switch in `luminara.yml`, and is designed to be behaviorally
+Each optimization is gated behind a config switch in `prts.yml`, and is designed to be behaviorally
 identical to vanilla at a lower resource cost. Runtime status is printed with `[PRTS-*]` log tags on boot.
 
 | Optimization | Log tag | Notes |
@@ -63,7 +65,7 @@ NPI does not touch the chunk packet-dispatch path; it only accelerates queries, 
 gradle --no-daemon collect --rerun-tasks
 ```
 
-The artifact is produced at `arclight-forge/build/libs/luminara-1.20.1-<version>.jar`.
+The artifact is produced at `arclight-forge/build/libs/PRTS-1.20.1-<version>.jar`.
 
 **Build rules:**
 
@@ -88,7 +90,7 @@ The artifact is produced at `arclight-forge/build/libs/luminara-1.20.1-<version>
 3. Start the server:
 
    ```bash
-   java -jar luminara-1.20.1-<version>.jar nogui
+   java -jar PRTS-1.20.1-<version>.jar nogui
    ```
 
 ## Compatibility
@@ -101,7 +103,7 @@ The artifact is produced at `arclight-forge/build/libs/luminara-1.20.1-<version>
 ## Credits & License
 
 - Built on [Arclight](https://github.com/IzzelAliz/Arclight) by IzzelAliz.
-- Forked from [PRTS](https://github.com/QianMo0721/PRTS) by QianMo0721.
-- Custom optimizations and crash fixes in this fork are maintained by [ElainAwa](https://github.com/ElainAwa).
+- Forked from [Luminara](https://github.com/QianMo0721/Luminara) by QianMo0721 (Arclight Hybrid fork).
+- Re-forked as PRTS (this repository); custom optimizations and crash fixes maintained by [ElainAwa](https://github.com/ElainAwa).
 
 Licensed under [GPL v3](LICENSE), same as upstream.
