@@ -1,13 +1,11 @@
 package io.izzel.arclight.common.mixin.optimization.general.entitytracking;
 
 import io.izzel.arclight.common.optimization.general.entitytracking.NearbyEntityTracking;
-import io.izzel.arclight.common.optimization.general.entitytracking.ServerPlayerEntityExtension;
 import io.izzel.arclight.i18n.ArclightConfig;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.objects.ObjectCollection;
 import it.unimi.dsi.fastutil.objects.ObjectLists;
 import net.minecraft.server.level.ChunkMap;
-import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
@@ -41,6 +39,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  *   这样 Forge 的区块逻辑完全不被触碰，只替换了实体广播机制，tp 后区块照常加载。
  *
  * 门控：optimization.experimental-optimizations-enabled。关闭时本 mixin 完全惰性，行为等同 100% 原版。
+ * ⚠️ Krypton 冲突（2026-07-27）：Krypton 模组 @Overwrite 了 ChunkMap.move，故本 mixin 不再注入 move，
+ *    仅优化 tick()（AreaMap 替代实体广播全扫描）；move 的实体遍历交由 Krypton/原版，几何一致不振荡。
  * 三重兜底（任何一条触发都回退原版实体循环，绝不虚空/冻结）：
  *   1) 开关关闭或本会话已标记失败 → 原版运行；
  *   2) areaMap 未维护（isEmpty，如运行时切开关、或 addEntity 钩子未命中）→ 原版运行；
@@ -69,9 +69,6 @@ public class ChunkMap_TrackingMixin {
     private static boolean luminara$routeBFailed = false;
     @Unique
     private static int luminara$tickCount = 0;
-    // 一次性日志：确认 move() 的实体遍历被 routeB 接管（seenBy 唯一管理者）
-    @Unique
-    private static boolean luminara$moveRedirLogged = false;
     // 看门狗阈值从 prts.yml 的 optimization.route-b 读取（watchdog-hard-ms / watchdog-soft-ms），
     // 运行时由 config 提供，确保启动后读到的就是 yml 值。
     @Unique
@@ -106,35 +103,13 @@ public class ChunkMap_TrackingMixin {
     }
 
     /**
-     * 重定向 move(ServerPlayer)V 里的实体遍历循环（entityMap.values()）。
-     * 这是 routeB 成为 seenBy 唯一管理者的关键补全：原版 tick()V 的实体循环已被上方 @Redirect 空掉，
-     * 但原版 move(ServerPlayer) 每 tick 仍遍历所有实体、用【欧氏距离】对边界实体做 addPairing/removePairing，
-     * 与 routeB tick() 的【方格/Chebyshev】判定几何不一致 → 视距边界环带实体被两边争抢 seenBy
-     * → 客户端反复收到出生包/移除包 → 物品随机消失又出现（群友反馈的"连锁挖矿随机爆东西"）。
-     *
-     * 本 @Redirect 在正常移动时把 move 的实体遍历空掉，让 routeB tick() 唯一维护 seenBy（判定统一，无振荡）；
-     * 瞬移/大跳变（isTeleport）时放行原版 move（routeB tick() 也同步让位），沿用 teleport 安全路径。
-     * 门控与原版 tick 一致：开关关闭/已失败/AreaMap 未维护时返回真实集合（原版照常）。
+     * [PRTS 维护注记 2026-07-27] 原在此处的 move(ServerPlayer)V @Redirect（空掉实体遍历、让 routeB 独占 seenBy）
+     * 已移除：Krypton 模组 (me.steinborn.krypton) 用 @Overwrite 重写了 ChunkMap.move，导致本 mixin 的 @Redirect
+     * 注入失败、整个 ChunkMap_TrackingMixin 应用失败（routeB 完全失效 + 启动 WARN）。
+     * 移除后 move 由 Krypton/原版接管（欧氏距离维护 seenBy + Krypton flush consolidation 网络优化）；
+     * routeB 仅在 tick() 层做 AreaMap 优化。两者几何一致（routeB 经 updatePlayer 的欧氏判定，move 也欧氏），
+     * 不会振荡，物品不丢。
      */
-    @Redirect(method = "move(Lnet/minecraft/server/level/ServerPlayer;)V",
-        at = @At(value = "INVOKE", target = "Lit/unimi/dsi/fastutil/ints/Int2ObjectMap;values()Lit/unimi/dsi/fastutil/objects/ObjectCollection;"))
-    private ObjectCollection<ChunkMap.TrackedEntity> luminara$skipVanillaMoveBroadcast(Int2ObjectMap<ChunkMap.TrackedEntity> instance, ServerPlayer player) {
-        if (!luminara$experimentalOn() || luminara$routeBFailed || this.nearbyEntityTracking.isEmpty()) {
-            return instance.values();
-        }
-        // 瞬移/大跳变：放行原版 move（routeB tick() 让位），避免一次性对几百实体 add/remove 顺序错乱
-        if (((ServerPlayerEntityExtension) player).vmpTracking$isTeleport()) {
-            return instance.values();
-        }
-        if (!luminara$moveRedirLogged) {
-            luminara$moveRedirLogged = true;
-            LOGGER.info("[PRTS-EntityTrack] move() entity loop intercepted -> routeB is now sole owner of seenBy (no double-maintenance oscillation)");
-        }
-        @SuppressWarnings("unchecked")
-        ObjectCollection<ChunkMap.TrackedEntity> empty =
-            (ObjectCollection<ChunkMap.TrackedEntity>) (Object) ObjectLists.EMPTY_LIST;
-        return empty;
-    }
 
     /**
      * tick()V 末尾：在 Forge 的 updateChunkTracking 循环（区块刷新）已运行之后，执行 AreaMap 优化实体广播，

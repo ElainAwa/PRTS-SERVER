@@ -1,6 +1,7 @@
 package io.izzel.arclight.common.mod.server.event;
 
 import io.izzel.arclight.common.mod.ArclightMod;
+import io.izzel.arclight.common.mod.command.PRTSCommand;
 import net.minecraftforge.common.MinecraftForge;
 
 public abstract class ArclightEventDispatcherRegistry {
@@ -13,6 +14,9 @@ public abstract class ArclightEventDispatcherRegistry {
         MinecraftForge.EVENT_BUS.register(new EntityTeleportEventDispatcher());
         MinecraftForge.EVENT_BUS.register(new ItemEntityEventDispatcher());
         MinecraftForge.EVENT_BUS.register(new WorldEventDispatcher());
+        // Register the /prts command dispatcher (static @SubscribeEvent onRegisterCommands).
+        // Without this the command was never added to the dispatcher -> "Unknown command".
+        MinecraftForge.EVENT_BUS.register(PRTSCommand.class);
         ArclightMod.LOGGER.info("registry.forge-event");
     }
 

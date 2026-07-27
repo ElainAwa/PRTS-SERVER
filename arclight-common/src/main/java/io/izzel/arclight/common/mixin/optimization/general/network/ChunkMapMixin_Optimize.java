@@ -5,8 +5,6 @@ import io.izzel.arclight.common.bridge.core.world.server.ChunkMap_TrackedEntityB
 import io.izzel.arclight.common.mod.compat.ModIds;
 import io.izzel.arclight.common.mod.mixins.annotation.LoadIfMod;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
-import it.unimi.dsi.fastutil.objects.ObjectArraySet;
-import it.unimi.dsi.fastutil.objects.ObjectCollection;
 import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet;
 import net.minecraft.core.SectionPos;
 import net.minecraft.server.level.ChunkMap;
@@ -39,12 +37,6 @@ public class ChunkMapMixin_Optimize {
     @Shadow @Final public Int2ObjectMap<ChunkMap.TrackedEntity> entityMap;
     @Shadow @Final public ServerLevel level;
     // @formatter:on
-
-    @Redirect(method = "move", at = @At(value = "INVOKE", remap = false, target = "Lit/unimi/dsi/fastutil/ints/Int2ObjectMap;values()Lit/unimi/dsi/fastutil/objects/ObjectCollection;"))
-    private ObjectCollection<ChunkMap.TrackedEntity> arclight$markDirty(Int2ObjectMap<ChunkMap.TrackedEntity> instance, ServerPlayer player) {
-        ((ServerPlayerEntityBridge) player).bridge$setTrackerDirty(true);
-        return new ObjectArraySet<>();
-    }
 
     @Inject(method = "tick()V", cancellable = true, at = @At("HEAD"))
     private void arclight$optimizedTick(CallbackInfo ci) {
