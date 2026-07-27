@@ -1,7 +1,7 @@
-# Luminara-stable-Trials
+# PRTS-stable-Trials
 
-一个私有的、面向生产环境加固的 [Luminara](https://github.com/QianMo0721/Luminara) 下游 fork
-（Luminara 本身是 [Arclight](https://github.com/IzzelAliz/Arclight) 的 Hybrid fork），
+一个私有的、面向生产环境加固的 [PRTS](https://github.com/QianMo0721/PRTS) 下游 fork
+（PRTS 本身是 [Arclight](https://github.com/IzzelAliz/Arclight) 的 Hybrid fork），
 目标平台 **Minecraft 1.21.1 / NeoForge**。
 
 本 fork 面向多模组、多人的重载生产环境（NeoForge 模组与 Bukkit/Spigot 插件混合运行）。
@@ -12,7 +12,7 @@
 > 仅降低相同逻辑的资源开销，或修复崩溃。
 
 > [!NOTE]
-> 这是一个私有下游 fork。上游 Luminara 已停止更新，以下优化与崩溃修复均在此独立维护。
+> 这是一个私有下游 fork。上游 PRTS 已停止更新，以下优化与崩溃修复均在此独立维护。
 > 与 1.20.1 版本（同仓库 `master` / `develop` 分支）通过分支区分，本分支为 `1.21.1`。
 
 ## 环境
@@ -21,25 +21,25 @@
 |---|---|
 | Minecraft | 1.21.1 |
 | 加载器 | NeoForge 21.1.x |
-| 基座 | Arclight Hybrid（Luminara fork，NeoForge 分支）|
+| 基座 | Arclight Hybrid（PRTS fork，NeoForge 分支）|
 | JDK | 21（构建 & 运行）|
 | 当前版号 | 见 [`build.gradle`](build.gradle) 的 `version` |
 
 ## 定制优化（本 fork）
 
-各项优化均由 `luminara.yml` 配置开关控制，设计目标为行为与原版一致、资源开销更低。
-启动时以 `[Luminara-*]` 日志标签打印运行状态。
+各项优化均由 `prts.yml` 配置开关控制，设计目标为行为与原版一致、资源开销更低。
+启动时以 `[PRTS-*]` 日志标签打印运行状态。
 
 | 优化项 | 日志标签 | 说明 |
 |---|---|---|
-| **routeB 空间化实体追踪** | `[Luminara-EntityTrack]` | 空间化 `AreaMap` 追踪器（源自 HariPlayer）|
-| **ticketpropagator** | `[Luminara-TP]` | Paper 式延迟 8 向区块 ticket 距离传播 |
+| **routeB 空间化实体追踪** | `[PRTS-EntityTrack]` | 空间化 `AreaMap` 追踪器（源自 HariPlayer）|
+| **ticketpropagator** | `[PRTS-TP]` | Paper 式延迟 8 向区块 ticket 距离传播 |
 | **ServerCore（12 项）** | — | 服务器 tick 的一组微优化 |
 | **move-zero-velocity** | — | 零速度实体跳过冗余 `move()` |
-| **async-logging** | `[Luminara-AsyncLog]` | log4j2 AsyncAppender 包裹根日志 |
+| **async-logging** | `[PRTS-AsyncLog]` | log4j2 AsyncAppender 包裹根日志 |
 | **核心原生调优** | — | chunk-load-rate-limit、��行世界初始化 + 异步数据加载、异步世界保存 |
-| **NearbyPlayerIndex (NPI)** | `[Luminara-NPI]` | 空间化最近玩家索引（源自 HariPlayer/routeB），供优化逻辑查询附近玩家 |
-| **动力铁轨优化** | `[Luminara-PoweredRails]` | 限定传播深度的铁轨供电路径搜索（`PoweredRailsOptimized`）；开关 `optimize-powered-rails`，默认开启 |
+| **NearbyPlayerIndex (NPI)** | `[PRTS-NPI]` | 空间化最近玩家索引（源自 HariPlayer/routeB），供优化逻辑查询附近玩家 |
+| **动力铁轨优化** | `[PRTS-PoweredRails]` | 限定传播深度的铁轨供电路径搜索（`PoweredRailsOptimized`）；开关 `optimize-powered-rails`，默认开启 |
 | **sync_loads（ServerCore 子集）** | — | `clip` 光线追踪不强制同步加载未加载区块（`ServerLevelMixin`）|
 | **崩溃修复（构建期，始终开启）** | — | 修复 boot jar 打包旧 Guava 21.0 遮蔽平台 Guava 32.1.2，导致依赖新版 Guava 的模组 `NoSuchMethodError` 崩溃 |
 
@@ -54,7 +54,7 @@
 gradle --no-daemon collect
 ```
 
-产物位于 `build/libs/luminara-neoforge-1.21.1-<版号>.jar`。
+产物位于 `build/libs/prts-neoforge-1.21.1-<版号>.jar`。
 
 **构建约束：**
 
@@ -67,7 +67,7 @@ gradle --no-daemon collect
 
 ## 部署
 
-1. 将新 jar 复制到服务端根目录，并让启动脚本指向它（推荐用 `.run.bat` 的 `java -jar luminara-neoforge-1.21.1-<版号>.jar -nogui` 启动）。
+1. 将新 jar 复制到服务端根目录，并让启动脚本指向它（推荐用 `.run.bat` 的 `java -jar prts-neoforge-1.21.1-<版号>.jar -nogui` 启动）。
 2. **强制重解包**——外层 jar 为启动器，实际类位于内部 `common.jar`。
    须同时清空两个缓存目录，否则将复用旧的 `common.jar`，导致修复不生效：
 
@@ -79,7 +79,7 @@ gradle --no-daemon collect
 3. 启动服务器：
 
    ```bash
-   java -jar luminara-neoforge-1.21.1-<版号>.jar nogui
+   java -jar prts-neoforge-1.21.1-<版号>.jar nogui
    ```
 
 > [!NOTE]
@@ -94,7 +94,7 @@ gradle --no-daemon collect
 ## 致谢与协议
 
 - 基于 IzzelAliz 的 [Arclight](https://github.com/IzzelAliz/Arclight) 构建。
-- Fork 自 QianMo0721 的 [Luminara](https://github.com/QianMo0721/Luminara)。
+- Fork 自 QianMo0721 的 [PRTS](https://github.com/QianMo0721/PRTS)。
 - 本 fork 的定制优化与崩溃修复由 [ElainAwa](https://github.com/ElainAwa) 维护。
 
 基于 [GPL v3](LICENSE) 开源，与上游一致。

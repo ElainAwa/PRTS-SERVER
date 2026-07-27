@@ -157,7 +157,7 @@ public class SpigotBuilder implements Runnable {
                 throw new GradleException("Failed to build spigot jar.");
             }
         } else {
-            System.out.println("[Luminara-Spigot] prebuilt bundler found at " + spigot
+            System.out.println("[PRTS-Spigot] prebuilt bundler found at " + spigot
                     + " -> SKIP BuildTools (jgit deadlock workaround)");
             if (Files.exists(outputJar)) {
                 Files.delete(outputJar);

@@ -19,36 +19,36 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(ChunkMap.class)
 public abstract class MixinChunkMap_NearbyIndex implements NearbyPlayerIndexHolder {
 
-    @Unique private final NearbyPlayerIndex luminara$npi = new NearbyPlayerIndex();
-    @Unique private static boolean luminara$npiLogged = false;
+    @Unique private final NearbyPlayerIndex prts$npi = new NearbyPlayerIndex();
+    @Unique private static boolean prts$npiLogged = false;
 
     @Override
-    public NearbyPlayerIndex luminara$getNearbyPlayerIndex() {
-        return this.luminara$npi;
+    public NearbyPlayerIndex prts$getNearbyPlayerIndex() {
+        return this.prts$npi;
     }
 
     @Inject(method = "<init>", at = @At("RETURN"))
-    private void luminara$npiInit(CallbackInfo ci) {
-        if (!luminara$npiLogged) {
-            luminara$npiLogged = true;
-            NearbyPlayerIndex.LOGGER.info("[Luminara-NPI] nearby-player-index mixin active (enabled={}, verify={})",
+    private void prts$npiInit(CallbackInfo ci) {
+        if (!prts$npiLogged) {
+            prts$npiLogged = true;
+            NearbyPlayerIndex.LOGGER.info("[PRTS-NPI] nearby-player-index mixin active (enabled={}, verify={})",
                     NearbyPlayerIndex.enabled(), NearbyPlayerIndex.verifyMode());
         }
     }
 
     @Inject(method = "updatePlayerStatus", at = @At("TAIL"))
-    private void luminara$npiUpdateStatus(ServerPlayer player, boolean track, CallbackInfo ci) {
+    private void prts$npiUpdateStatus(ServerPlayer player, boolean track, CallbackInfo ci) {
         if (!NearbyPlayerIndex.enabled()) return;
         if (track) {
-            this.luminara$npi.addPlayer(player);
+            this.prts$npi.addPlayer(player);
         } else {
-            this.luminara$npi.removePlayer(player);
+            this.prts$npi.removePlayer(player);
         }
     }
 
     @Inject(method = "move", at = @At("TAIL"))
-    private void luminara$npiMove(ServerPlayer player, CallbackInfo ci) {
+    private void prts$npiMove(ServerPlayer player, CallbackInfo ci) {
         if (!NearbyPlayerIndex.enabled()) return;
-        this.luminara$npi.movePlayer(player);
+        this.prts$npi.movePlayer(player);
     }
 }

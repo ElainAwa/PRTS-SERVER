@@ -17,7 +17,7 @@ import java.util.Set;
 
 public class AreaMap<T> {
 
-    private static final boolean DEBUG = Boolean.getBoolean("luminara.debugAreaMap");
+    private static final boolean DEBUG = Boolean.getBoolean("prts.debugAreaMap");
 
     private static final Object[] EMPTY = new Object[0];
     private static final RawObjectLinkedOpenIdentityHashSet<?> EMPTY_SET = new RawObjectLinkedOpenIdentityHashSet<>();

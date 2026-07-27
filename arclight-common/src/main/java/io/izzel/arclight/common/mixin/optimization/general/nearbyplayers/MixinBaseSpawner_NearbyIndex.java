@@ -26,7 +26,7 @@ public abstract class MixinBaseSpawner_NearbyIndex {
         ),
         require = 1
     )
-    private boolean luminara$npiHasNearbyAlivePlayer(Level level, double x, double y, double z, double range) {
+    private boolean prts$npiHasNearbyAlivePlayer(Level level, double x, double y, double z, double range) {
         if (!NearbyPlayerIndex.enabled()) {
             return level.hasNearbyAlivePlayer(x, y, z, range);
         }

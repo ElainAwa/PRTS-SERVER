@@ -1,4 +1,4 @@
-package io.izzel.arclight.common.compat.luminara.feature;
+package io.izzel.arclight.common.compat.prts.feature;
 
 import java.io.FileWriter;
 import java.io.IOException;
@@ -20,11 +20,11 @@ import org.bukkit.command.CommandSender;
 /**
  * 线程 CPU 耗时剖析（移植自 Youer YouerThreadCost，已去 Youer 化）。
  * 去依赖：移除 gson（改手写 JSON 序列化）、移除 lombok（改 public 字段）、移除 Youer 日志/i18n（改 log4j + 硬编码文案）。
- * 由 /luminarafeatures threadcost 命令触发，输出 JSON 到 thread-dumps/。
+ * 由 /prtsfeatures threadcost 命令触发，输出 JSON 到 thread-dumps/。
  */
-public class LuminaraThreadCost {
+public class PRTSThreadCost {
 
-    private static final Logger LOGGER = LogManager.getLogger("Luminara-ThreadCost");
+    private static final Logger LOGGER = LogManager.getLogger("PRTS-ThreadCost");
     private static final ThreadMXBean threadMXBean = ManagementFactory.getThreadMXBean();
 
     static {
@@ -85,11 +85,11 @@ public class LuminaraThreadCost {
             try (FileWriter writer = new FileWriter(filePath.toFile())) {
                 writer.write(report.toJson());
             }
-            sender.sendMessage("§a[Luminara] 线程 CPU 剖析已导出: " + filePath.toAbsolutePath());
+            sender.sendMessage("§a[PRTS] 线程 CPU 剖析已导出: " + filePath.toAbsolutePath());
         } catch (IOException e) {
-            sender.sendMessage("§c[Luminara] 线程剖析导出失败: " + e.getMessage());
+            sender.sendMessage("§c[PRTS] 线程剖析导出失败: " + e.getMessage());
         } catch (Exception e) {
-            LOGGER.error("[Luminara-ThreadCost] dump error", e);
+            LOGGER.error("[PRTS-ThreadCost] dump error", e);
         }
     }
 

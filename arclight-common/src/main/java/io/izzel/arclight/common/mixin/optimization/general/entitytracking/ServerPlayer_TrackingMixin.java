@@ -8,7 +8,7 @@ import net.minecraft.world.phys.Vec3;
 import org.spongepowered.asm.mixin.Mixin;
 
 /**
- * [Luminara 本服维护者移植 2026-07-21]
+ * [PRTS 本服维护者移植 2026-07-21]
  * 原 VMP com.ishland.vmp.mixins.playerwatching.optimize_nearby_entity_tracking_lookups.MixinServerPlayerEntity
  * 的 mojmap 移植，挂在 ServerPlayer 上，实现 ServerPlayerEntityExtension。
  * 记录玩家上一 tick 的坐标，供 NearbyEntityTracking 判断是否移动、需要刷新视野桶。
@@ -45,7 +45,7 @@ public abstract class ServerPlayer_TrackingMixin implements ServerPlayerEntityEx
 
     // 瞬移判定阈值（单位：chunk）。玩家每 tick 正常移动/飞行远小于此值；
     // 只有 /tp、waystones、tpmaster、传送门等真实大跳变才会超过。设小一点宁可多跳过也绝不漏判真实 tp。
-    private static final int luminara$teleportChunks = 2;
+    private static final int prts$teleportChunks = 2;
 
     @Override
     public boolean vmpTracking$isTeleport() {
@@ -59,6 +59,6 @@ public abstract class ServerPlayer_TrackingMixin implements ServerPlayerEntityEx
         final int prevZ = SectionPos.blockToSectionCoord((int) this.vmpTracking$prevZ);
         final int dx = Math.abs(curX - prevX);
         final int dz = Math.abs(curZ - prevZ);
-        return Math.max(dx, dz) > luminara$teleportChunks;
+        return Math.max(dx, dz) > prts$teleportChunks;
     }
 }

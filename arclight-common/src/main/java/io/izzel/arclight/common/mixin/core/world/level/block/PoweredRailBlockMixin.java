@@ -23,20 +23,20 @@ public abstract class PoweredRailBlockMixin implements PoweredRailBlockBridge {
 
     @Shadow protected abstract boolean findPoweredRailSignal(Level level, BlockPos pos, BlockState state, boolean travelDirection, int depth);
 
-    private static final Logger LUMINARA$RAIL_LOGGER = LogManager.getLogger("Luminara-PoweredRails");
-    private static volatile boolean luminara$activeLogged = false;
+    private static final Logger PRTS$RAIL_LOGGER = LogManager.getLogger("PRTS-PoweredRails");
+    private static volatile boolean prts$activeLogged = false;
 
     @Override
-    public boolean luminara$findPoweredRailSignal(Level level, BlockPos pos, BlockState state, boolean travelDirection, int depth) {
+    public boolean prts$findPoweredRailSignal(Level level, BlockPos pos, BlockState state, boolean travelDirection, int depth) {
         return this.findPoweredRailSignal(level, pos, state, travelDirection, depth);
     }
 
     @Inject(method = "updateState", at = @At("HEAD"), cancellable = true)
-    private void luminara$optimizedPoweredRail(BlockState state, Level level, BlockPos pos, Block block, CallbackInfo ci) {
+    private void prts$optimizedPoweredRail(BlockState state, Level level, BlockPos pos, Block block, CallbackInfo ci) {
         boolean enabled = ArclightConfig.spec().getOptimization().isOptimizePoweredRails();
-        if (!luminara$activeLogged) {
-            luminara$activeLogged = true;
-            LUMINARA$RAIL_LOGGER.info("[Luminara-PoweredRails] powered-rail optimization mixin active (enabled={})", enabled);
+        if (!prts$activeLogged) {
+            prts$activeLogged = true;
+            PRTS$RAIL_LOGGER.info("[PRTS-PoweredRails] powered-rail optimization mixin active (enabled={})", enabled);
         }
         if (enabled) {
             PoweredRailsOptimized.customUpdateState((PoweredRailBlock) (Object) this, state, level, pos);

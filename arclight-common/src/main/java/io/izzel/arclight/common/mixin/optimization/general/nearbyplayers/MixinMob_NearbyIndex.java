@@ -27,7 +27,7 @@ public abstract class MixinMob_NearbyIndex {
         ),
         require = 1
     )
-    private Player luminara$npiNearestPlayer(Level level, Entity entity, double maxDist) {
+    private Player prts$npiNearestPlayer(Level level, Entity entity, double maxDist) {
         if (!NearbyPlayerIndex.enabled()) {
             return level.getNearestPlayer(entity, maxDist);
         }

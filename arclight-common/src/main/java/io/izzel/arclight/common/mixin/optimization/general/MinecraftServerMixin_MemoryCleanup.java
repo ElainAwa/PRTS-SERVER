@@ -18,7 +18,7 @@ import java.util.function.BooleanSupplier;
 public class MinecraftServerMixin_MemoryCleanup {
 
     @Inject(method = "tickServer", at = @At("HEAD"))
-    private void luminara$tickMemoryCleanup(BooleanSupplier hasTimeLeft, CallbackInfo ci) {
+    private void prts$tickMemoryCleanup(BooleanSupplier hasTimeLeft, CallbackInfo ci) {
         MemoryOptimizationCleaner.tick();
     }
 }

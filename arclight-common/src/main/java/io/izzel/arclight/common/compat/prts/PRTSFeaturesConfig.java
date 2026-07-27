@@ -1,4 +1,4 @@
-package io.izzel.arclight.common.compat.luminara;
+package io.izzel.arclight.common.compat.prts;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -6,11 +6,11 @@ import java.util.List;
 import org.bukkit.configuration.file.YamlConfiguration;
 
 /**
- * Luminara 轻量防卡功能的配置。
- * 默认全部关闭（遵循「零感知底层优化、不改玩法」原则），仅在 luminara-features.yml 显式开启后生效。
+ * PRTS 轻量防卡功能的配置。
+ * 默认全部关闭（遵循「零感知底层优化、不改玩法」原则），仅在 prts-features.yml 显式开启后生效。
  * 去 Youer 化：替代 YouerConfig，不依赖 Youer 任何类。
  */
-public class LuminaraFeaturesConfig {
+public class PRTSFeaturesConfig {
 
     public static YamlConfiguration config;
 
@@ -32,7 +32,7 @@ public class LuminaraFeaturesConfig {
     public static long watchdogWarnCooldownMs;
 
     public static void init() {
-        File file = new File("luminara-features.yml");
+        File file = new File("prts-features.yml");
         config = YamlConfiguration.loadConfiguration(file);
         clearItemEnabled = config.getBoolean("entity-clear.item.enabled", false);
         clearItemInterval = config.getLong("entity-clear.item.interval-seconds", 300);

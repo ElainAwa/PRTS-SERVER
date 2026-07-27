@@ -20,14 +20,14 @@ import static org.objectweb.asm.Opcodes.ARETURN;
 /**
  * Runtime ASM shim for Bukkit/Spigot plugins that assume a Paper server.
  * Ported from Youer (com.mohistmc.youer.bukkit.pluginfix.PluginFixManager),
- * de-Youer-ified: no Youer/YouerConfig dependency, MODID = "luminara".
+ * de-Youer-ified: no Youer/YouerConfig dependency, MODID = "prts".
  *
  * <p>Hooked from PluginClassLoaderMixin.findClass right after Bukkit.getUnsafe().processClass,
  * exactly where Youer injects it in its own PluginClassLoader.</p>
  */
 public class PluginFixManager {
 
-    private static final String MODID = "luminara";
+    private static final String MODID = "prts";
 
     public static byte[] injectPluginFix(String plugin, String className, byte[] clazz) {
         if (plugin.equals("WorldEdit")) {
@@ -91,7 +91,7 @@ public class PluginFixManager {
         };
 
         if (patcher != null) {
-            System.out.println("[Luminara-PluginFix] patched " + className);
+            System.out.println("[PRTS-PluginFix] patched " + className);
             return patch(clazz, patcher);
         }
         return clazz;

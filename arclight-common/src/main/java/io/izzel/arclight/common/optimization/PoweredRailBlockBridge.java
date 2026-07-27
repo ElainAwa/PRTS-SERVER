@@ -16,5 +16,5 @@ import net.minecraft.world.level.block.state.BlockState;
  */
 public interface PoweredRailBlockBridge {
 
-    boolean luminara$findPoweredRailSignal(Level level, BlockPos pos, BlockState state, boolean travelDirection, int depth);
+    boolean prts$findPoweredRailSignal(Level level, BlockPos pos, BlockState state, boolean travelDirection, int depth);
 }

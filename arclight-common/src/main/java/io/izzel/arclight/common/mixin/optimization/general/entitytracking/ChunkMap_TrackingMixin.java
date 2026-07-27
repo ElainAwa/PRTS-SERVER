@@ -18,7 +18,7 @@ import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
- * [Luminara 本服维护者移植 2026-07-21]
+ * [PRTS 本服维护者移植 2026-07-21]
  * 路线B 核心 mixin：HariPlayer 招牌的空间化实体追踪（AreaMap 方案，移植自 VMP 同名算法）的 mojmap 移植。
  *
  * ⚠️ 关键修正（2026-07-21 实测定位）：
@@ -51,35 +51,35 @@ public class ChunkMap_TrackingMixin {
     // @formatter:on
 
     @Unique
-    private static final Logger LOGGER = LogManager.getLogger("Luminara-EntityTrack");
+    private static final Logger LOGGER = LogManager.getLogger("PRTS-EntityTrack");
 
     // 仅首次成功 tick 时打印一次启用通告（INFO），避免每次重启重复刷屏。
     @Unique
-    private static boolean luminara$announced = false;
+    private static boolean prts$announced = false;
     @Unique
-    private static boolean luminara$diagLogged = false;
+    private static boolean prts$diagLogged = false;
 
     @Unique
     private final NearbyEntityTracking nearbyEntityTracking = new NearbyEntityTracking();
 
     @Unique
-    private static boolean luminara$routeBFailed = false;
+    private static boolean prts$routeBFailed = false;
     @Unique
-    private static int luminara$tickCount = 0;
+    private static int prts$tickCount = 0;
     // 看门狗阈值：沿用 1.20.1 RouteBSpec 默认值（hard=500ms / soft=100ms），可用系统属性覆盖。
     // 运行时由系统属性提供，确保启动后读到的就是设定值。
     @Unique
-    private static long luminara$watchdogHardMs() {
-        return Long.getLong("luminara.routeb.watchdog-hard-ms", 500L);
+    private static long prts$watchdogHardMs() {
+        return Long.getLong("prts.routeb.watchdog-hard-ms", 500L);
     }
     @Unique
-    private static long luminara$watchdogSoftMs() {
-        return Long.getLong("luminara.routeb.watchdog-soft-ms", 100L);
+    private static long prts$watchdogSoftMs() {
+        return Long.getLong("prts.routeb.watchdog-soft-ms", 100L);
     }
 
-    private static boolean luminara$experimentalOn() {
-        // 默认启用；可通过 -Dluminara.routeb.disabled=true 关闭，回退 100% 原版实体追踪。
-        return !Boolean.getBoolean("luminara.routeb.disabled");
+    private static boolean prts$experimentalOn() {
+        // 默认启用；可通过 -Dprts.routeb.disabled=true 关闭，回退 100% 原版实体追踪。
+        return !Boolean.getBoolean("prts.routeb.disabled");
     }
 
     /**
@@ -90,8 +90,8 @@ public class ChunkMap_TrackingMixin {
      */
     @Redirect(method = "tick()V",
         at = @At(value = "INVOKE", target = "Lit/unimi/dsi/fastutil/ints/Int2ObjectMap;values()Lit/unimi/dsi/fastutil/objects/ObjectCollection;"))
-    private ObjectCollection<ChunkMap.TrackedEntity> luminara$skipVanillaEntityBroadcast(Int2ObjectMap<ChunkMap.TrackedEntity> instance) {
-        if (!luminara$experimentalOn() || luminara$routeBFailed || this.nearbyEntityTracking.isEmpty()) {
+    private ObjectCollection<ChunkMap.TrackedEntity> prts$skipVanillaEntityBroadcast(Int2ObjectMap<ChunkMap.TrackedEntity> instance) {
+        if (!prts$experimentalOn() || prts$routeBFailed || this.nearbyEntityTracking.isEmpty()) {
             return instance.values();
         }
         @SuppressWarnings("unchecked")
@@ -105,13 +105,13 @@ public class ChunkMap_TrackingMixin {
      * 替代上方被 @Redirect 空掉的实体循环。看门狗保护：异常或超时就本会话回退原版。
      */
     @Inject(method = "tick()V", at = @At("RETURN"))
-    private void luminara$tickEntityTracking(CallbackInfo ci) {
-        if (!luminara$diagLogged) {
-            luminara$diagLogged = true;
-            LOGGER.info("[Luminara-EntityTrack] DIAG gate={} routeBFailed={} nearbyEmpty={}",
-                luminara$experimentalOn(), luminara$routeBFailed, this.nearbyEntityTracking.isEmpty());
+    private void prts$tickEntityTracking(CallbackInfo ci) {
+        if (!prts$diagLogged) {
+            prts$diagLogged = true;
+            LOGGER.info("[PRTS-EntityTrack] DIAG gate={} routeBFailed={} nearbyEmpty={}",
+                prts$experimentalOn(), prts$routeBFailed, this.nearbyEntityTracking.isEmpty());
         }
-        if (!luminara$experimentalOn() || luminara$routeBFailed) {
+        if (!prts$experimentalOn() || prts$routeBFailed) {
             return; // 原版实体循环照常运行（上方 redirect 未拦截）
         }
         // areaMap 未维护（如运行时切开关、或 addEntity 钩子未命中）→ 回退原版，避免虚空
@@ -122,27 +122,27 @@ public class ChunkMap_TrackingMixin {
         try {
             this.nearbyEntityTracking.tick();
             final long elapsedMs = (System.nanoTime() - start) / 1_000_000L;
-            if (elapsedMs > luminara$watchdogHardMs()) {
-                luminara$routeBFailed = true;
-                LOGGER.error("[Luminara-EntityTrack] tick took {}ms (> {}ms) -> disabling this session, falling back to vanilla. detail: {}",
-                        elapsedMs, luminara$watchdogHardMs(), this.nearbyEntityTracking.debugInfo());
-                LOGGER.error("[Luminara-EntityTrack] tick stall stacktrace", new RuntimeException("[Luminara-EntityTrack] tick stall"));
+            if (elapsedMs > prts$watchdogHardMs()) {
+                prts$routeBFailed = true;
+                LOGGER.error("[PRTS-EntityTrack] tick took {}ms (> {}ms) -> disabling this session, falling back to vanilla. detail: {}",
+                        elapsedMs, prts$watchdogHardMs(), this.nearbyEntityTracking.debugInfo());
+                LOGGER.error("[PRTS-EntityTrack] tick stall stacktrace", new RuntimeException("[PRTS-EntityTrack] tick stall"));
                 return;
             }
-            if (!luminara$announced) {
-                luminara$announced = true;
-                LOGGER.info("[Luminara-EntityTrack] enabled (spatial entity tracking, HariPlayer AreaMap port). {}", this.nearbyEntityTracking.debugInfo());
+            if (!prts$announced) {
+                prts$announced = true;
+                LOGGER.info("[PRTS-EntityTrack] enabled (spatial entity tracking, HariPlayer AreaMap port). {}", this.nearbyEntityTracking.debugInfo());
             }
-            if ((luminara$tickCount++ % 200) == 0) {
+            if ((prts$tickCount++ % 200) == 0) {
                 // 周期性心跳降到 DEBUG，避免生产日志刷屏；需诊断时开 debug 级别即可看到。
-                LOGGER.debug("[Luminara-EntityTrack] active: {} lastTick={}ms", this.nearbyEntityTracking.debugInfo(), elapsedMs);
+                LOGGER.debug("[PRTS-EntityTrack] active: {} lastTick={}ms", this.nearbyEntityTracking.debugInfo(), elapsedMs);
                 this.nearbyEntityTracking.resetChurn();
-            } else if (elapsedMs > luminara$watchdogSoftMs()) {
-                LOGGER.warn("[Luminara-EntityTrack] slow tick: {}ms | {}", elapsedMs, this.nearbyEntityTracking.debugInfo());
+            } else if (elapsedMs > prts$watchdogSoftMs()) {
+                LOGGER.warn("[PRTS-EntityTrack] slow tick: {}ms | {}", elapsedMs, this.nearbyEntityTracking.debugInfo());
             }
         } catch (Throwable t) {
-            luminara$routeBFailed = true;
-            LOGGER.error("[Luminara-EntityTrack] tick failed, this session falls back to vanilla entity tracking. detail: " + this.nearbyEntityTracking.debugInfo(), t);
+            prts$routeBFailed = true;
+            LOGGER.error("[PRTS-EntityTrack] tick failed, this session falls back to vanilla entity tracking. detail: " + this.nearbyEntityTracking.debugInfo(), t);
         }
     }
 
@@ -151,8 +151,8 @@ public class ChunkMap_TrackingMixin {
      * 原版 updatePlayers 初始广播仍照常执行（不屏蔽），实体立即可见；AreaMap 负责后续每 tick 的优化广播。
      */
     @Inject(method = "addEntity", at = @At("RETURN"))
-    private void luminara$onAddEntity(Entity entity, CallbackInfo ci) {
-        if (!luminara$experimentalOn() || luminara$routeBFailed) return;
+    private void prts$onAddEntity(Entity entity, CallbackInfo ci) {
+        if (!prts$experimentalOn() || prts$routeBFailed) return;
         final long start = System.nanoTime();
         ChunkMap.TrackedEntity trackedEntity = this.entityMap.get(entity.getId());
         if (trackedEntity != null) {
@@ -160,11 +160,11 @@ public class ChunkMap_TrackingMixin {
         }
         final long elapsedMs = (System.nanoTime() - start) / 1_000_000L;
         // addEntity 钩子在 tick 看门狗保护范围之外，单独看门狗：spread 爆炸会冻结主线程导致客户端超时
-        if (elapsedMs > luminara$watchdogHardMs()) {
-            luminara$routeBFailed = true;
-            LOGGER.error("[Luminara-EntityTrack] addEntity took {}ms for {} -> disabling this session, falling back to vanilla. detail: {}",
+        if (elapsedMs > prts$watchdogHardMs()) {
+            prts$routeBFailed = true;
+            LOGGER.error("[PRTS-EntityTrack] addEntity took {}ms for {} -> disabling this session, falling back to vanilla. detail: {}",
                     elapsedMs, entity, this.nearbyEntityTracking.debugInfo());
-            LOGGER.error("[Luminara-EntityTrack] addEntity stall stacktrace", new RuntimeException("[Luminara-EntityTrack] addEntity stall"));
+            LOGGER.error("[PRTS-EntityTrack] addEntity stall stacktrace", new RuntimeException("[PRTS-EntityTrack] addEntity stall"));
         }
     }
 
@@ -173,8 +173,8 @@ public class ChunkMap_TrackingMixin {
      * 原版 removeEntity 仍会调用 broadcastRemoved 通知客户端，实体正常消失。
      */
     @Inject(method = "removeEntity", at = @At("HEAD"))
-    private void luminara$onRemoveEntity(Entity entity, CallbackInfo ci) {
-        if (!luminara$experimentalOn() || luminara$routeBFailed) return;
+    private void prts$onRemoveEntity(Entity entity, CallbackInfo ci) {
+        if (!prts$experimentalOn() || prts$routeBFailed) return;
         ChunkMap.TrackedEntity trackedEntity = this.entityMap.get(entity.getId());
         if (trackedEntity != null) {
             this.nearbyEntityTracking.removeEntityTracker(trackedEntity);

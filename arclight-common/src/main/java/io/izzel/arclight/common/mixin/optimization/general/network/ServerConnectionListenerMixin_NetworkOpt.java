@@ -25,7 +25,7 @@ public class ServerConnectionListenerMixin_NetworkOpt {
 
     @Redirect(method = "startTcpServerListener",
             at = @At(value = "INVOKE", target = "Ljava/util/function/Supplier;get()Ljava/lang/Object;"))
-    private Object luminara$sizeNettyEventLoop(Supplier<?> instance) {
+    private Object prts$sizeNettyEventLoop(Supplier<?> instance) {
         var opt = ArclightConfig.spec().getOptimization();
         if (!opt.isNetworkOptimizationEnabled()) {
             return instance.get();
@@ -36,10 +36,10 @@ public class ServerConnectionListenerMixin_NetworkOpt {
         }
         Object grp = instance.get();
         if (grp instanceof EpollEventLoopGroup) {
-            return new EpollEventLoopGroup(threads, daemonFactory("Luminara Epoll IO"));
+            return new EpollEventLoopGroup(threads, daemonFactory("PRTS Epoll IO"));
         }
         if (grp instanceof NioEventLoopGroup) {
-            return new NioEventLoopGroup(threads, daemonFactory("Luminara Netty IO"));
+            return new NioEventLoopGroup(threads, daemonFactory("PRTS Netty IO"));
         }
         return grp;
     }

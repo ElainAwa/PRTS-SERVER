@@ -16,7 +16,7 @@ import java.util.Comparator;
 import java.util.Set;
 
 /**
- * [Luminara 本服维护者移植 2026-07-21]
+ * [PRTS 本服维护者移植 2026-07-21]
  * 原 VMP (com.ishland.vmp.common.maps.AreaMap) 的空间分桶索引移植。
  * 用 chunk 坐标为 key，把对象（实体追踪器）按视野范围散布到附近 chunk 桶里，
  * 查询附近实体时只需遍历视野范围内的桶，而非全量扫描。

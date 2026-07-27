@@ -19,7 +19,7 @@ import org.apache.logging.log4j.Logger;
 import java.util.Set;
 
 /**
- * 空间最近玩家索引（NearbyPlayerIndex）— 1.21.1 移植版（自 1.20.1 Luminara，target 描述符逐一 javap 核验一致）。
+ * 空间最近玩家索引（NearbyPlayerIndex）— 1.21.1 移植版（自 1.20.1 PRTS，target 描述符逐一 javap 核验一致）。
  * <p>
  * 目的：加速 EntityGetter#getNearestPlayer / #hasNearbyAlivePlayer 的全玩家线性扫描
  * （Mob.checkDespawn 每生物每 tick 无界调用一次 → 数千生物 × 大量玩家 = 每 tick 数十万次距离计算）。
@@ -37,7 +37,7 @@ import java.util.Set;
  */
 public final class NearbyPlayerIndex {
 
-    public static final Logger LOGGER = LogManager.getLogger("Luminara-NPI");
+    public static final Logger LOGGER = LogManager.getLogger("PRTS-NPI");
 
     /** 桶半径（chunk）。桶外玩家与查询点水平距离 ≥ (R+1)*16-15 = 161 格。 */
     public static final int BUCKET_RADIUS_CHUNKS = 10;
@@ -90,7 +90,7 @@ public final class NearbyPlayerIndex {
         if (level instanceof ServerLevel serverLevel) {
             ChunkMap chunkMap = serverLevel.getChunkSource().chunkMap;
             if ((Object) chunkMap instanceof NearbyPlayerIndexHolder holder) {
-                return holder.luminara$getNearbyPlayerIndex();
+                return holder.prts$getNearbyPlayerIndex();
             }
         }
         return null;
@@ -170,7 +170,7 @@ public final class NearbyPlayerIndex {
     private void poison(Throwable t) {
         if (!this.poisoned) {
             this.poisoned = true;
-            LOGGER.error("[Luminara-NPI] index poisoned, permanently falling back to vanilla for this session", t);
+            LOGGER.error("[PRTS-NPI] index poisoned, permanently falling back to vanilla for this session", t);
         }
     }
 
@@ -272,7 +272,7 @@ public final class NearbyPlayerIndex {
         long now = System.currentTimeMillis();
         if (now - this.lastMismatchWarn > 10_000L) {
             this.lastMismatchWarn = now;
-            LOGGER.warn("[Luminara-NPI] verify mismatch #{} in {}: index={}, vanilla={} (using vanilla result)",
+            LOGGER.warn("[PRTS-NPI] verify mismatch #{} in {}: index={}, vanilla={} (using vanilla result)",
                     this.mismatchCount, what, fast, vanilla);
         }
     }

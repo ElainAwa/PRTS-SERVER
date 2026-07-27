@@ -26,7 +26,7 @@ import java.util.Map;
  * zero-perception optimization (only affects log write latency/ordering).
  *
  * The upstream Config.USE_ASYNC_LOGGING flag is replaced by a system property:
- * `-Dluminara.asynclogging.disabled=true` disables it (default = enabled), since
+ * `-Dprts.asynclogging.disabled=true` disables it (default = enabled), since
  * the 1.20.1 ArclightConfig optimization sub-tree does not exist in this NeoForge
  * 1.21.1 build. The decision lives inside boot() so the startup hook is always safe.
  */
@@ -39,7 +39,7 @@ public class AsyncAppenderBootstrap {
     });
 
     public static void boot() {
-        if (Boolean.getBoolean("luminara.asynclogging.disabled")) {
+        if (Boolean.getBoolean("prts.asynclogging.disabled")) {
             return;
         }
         try {
@@ -82,12 +82,12 @@ public class AsyncAppenderBootstrap {
                     }
                 }
 
-                LOGGER.info("[Luminara-AsyncLog] Successfully started async appender with {}", original.keySet());
+                LOGGER.info("[PRTS-AsyncLog] Successfully started async appender with {}", original.keySet());
             } else {
-                LOGGER.error("[Luminara-AsyncLog] Unsupported logger settings for async appender");
+                LOGGER.error("[PRTS-AsyncLog] Unsupported logger settings for async appender");
             }
         } catch (Throwable t) {
-            LOGGER.error("[Luminara-AsyncLog] Error occurred while booting async appender", t);
+            LOGGER.error("[PRTS-AsyncLog] Error occurred while booting async appender", t);
         }
     }
 

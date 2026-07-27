@@ -5,7 +5,7 @@ import io.izzel.arclight.api.ArclightVersion;
 import io.izzel.arclight.common.bridge.bukkit.CraftServerBridge;
 import io.izzel.arclight.common.bridge.core.command.CommandSourceBridge;
 import io.izzel.arclight.common.bridge.core.server.MinecraftServerBridge;
-import io.izzel.arclight.common.compat.luminara.LuminaraFeatures;
+import io.izzel.arclight.common.compat.prts.PRTSFeatures;
 import io.izzel.arclight.common.bridge.core.world.level.WorldBridge;
 import io.izzel.arclight.common.mod.ArclightConstants;
 import io.izzel.arclight.common.mod.mixins.annotation.TransformAccess;
@@ -193,7 +193,7 @@ public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<T
         }
         DecorationOps.blackhole().invoke(tickSection, tickCount);
         currentTick = (int) (System.currentTimeMillis() / 50);
-        LuminaraFeatures.tick();
+        PRTSFeatures.tick();
         DecorationOps.callsite().invoke(instance);
     }
 
@@ -221,7 +221,7 @@ public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<T
                 return;
             }
             hasStopped = true;
-            LuminaraFeatures.stop();
+            PRTSFeatures.stop();
         }
     }
 
@@ -256,7 +256,7 @@ public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<T
         this.server.enablePlugins(PluginLoadOrder.POSTWORLD);
         this.bridge$forge$lockRegistries();
         this.server.getPluginManager().callEvent(new ServerLoadEvent(ServerLoadEvent.LoadType.STARTUP));
-        LuminaraFeatures.start();
+        PRTSFeatures.start();
     }
 
     private void executeModerately() {
@@ -482,7 +482,7 @@ public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<T
 
     @Inject(method = "getServerModName", remap = false, cancellable = true, at = @At("RETURN"))
     private void arclight$brand(CallbackInfoReturnable<String> cir) {
-        cir.setReturnValue(cir.getReturnValue() + " luminara");
+        cir.setReturnValue(cir.getReturnValue() + " prts");
     }
 
     private boolean arclight$skipWatchdogSetTime = false;

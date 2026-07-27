@@ -23,7 +23,7 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * [Luminara 本服维护者移植 2026-07-21]
+ * [PRTS 本服维护者移植 2026-07-21]
  * 原 VMP com.ishland.vmp.common.playerwatching.NearbyEntityTracking 的 mojmap 移植。
  * 空间化实体追踪引擎：用 AreaMap 把实体按 chunk 坐标分桶，
  * tick 时只遍历视野范围内的桶，替代原版 O(实体×玩家) 全扫描。

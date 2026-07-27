@@ -6,5 +6,5 @@ package io.izzel.arclight.common.optimization.general.nearbyplayers;
  */
 public interface NearbyPlayerIndexHolder {
 
-    NearbyPlayerIndex luminara$getNearbyPlayerIndex();
+    NearbyPlayerIndex prts$getNearbyPlayerIndex();
 }

@@ -18,7 +18,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public class MixinMinecraftServer {
 
     @Inject(method = "<init>", at = @At("RETURN"))
-    private void luminara$initAsyncLogging(CallbackInfo ci) {
+    private void prts$initAsyncLogging(CallbackInfo ci) {
         AsyncAppenderBootstrap.boot();
     }
 }

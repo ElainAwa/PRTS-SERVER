@@ -27,7 +27,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  *
  * Gated behind the "move-zero-velocity" sub-switch. The 1.20.1 ArclightConfig
  * optimization sub-tree does not exist in this NeoForge 1.21.1 build, so we use a
- * system property: `-Dluminara.movezerovelocity.disabled=true` disables it
+ * system property: `-Dprts.movezerovelocity.disabled=true` disables it
  * (default = enabled). @Mixin(Entity.class) cannot be package-prefix gated, hence
  * the runtime check inside the inject.
  */
@@ -38,29 +38,29 @@ public class MixinEntity {
     private AABB bb;
 
     @Unique
-    private boolean luminara$boundingBoxChanged = false;
+    private boolean prts$boundingBoxChanged = false;
 
     @Unique
-    private static boolean luminara$isEnabled() {
-        return !Boolean.getBoolean("luminara.movezerovelocity.disabled");
+    private static boolean prts$isEnabled() {
+        return !Boolean.getBoolean("prts.movezerovelocity.disabled");
     }
 
     @Inject(method = "move", at = @At("HEAD"), cancellable = true)
-    private void luminara$onMove(MoverType movementType, Vec3 movement, CallbackInfo ci) {
-        if (!luminara$isEnabled()) {
+    private void prts$onMove(MoverType movementType, Vec3 movement, CallbackInfo ci) {
+        if (!prts$isEnabled()) {
             return;
         }
-        if (!luminara$boundingBoxChanged && movement.equals(Vec3.ZERO)) {
+        if (!prts$boundingBoxChanged && movement.equals(Vec3.ZERO)) {
             ci.cancel();
         }
         // 无论是否取消，本次 move 后重置标记：使包围盒变化后的"下一帧 move"只处理一次即恢复跳过
-        luminara$boundingBoxChanged = false;
+        prts$boundingBoxChanged = false;
     }
 
     @Inject(method = "setBoundingBox", at = @At("HEAD"))
-    private void luminara$onBoundingBoxChanged(AABB boundingBox, CallbackInfo ci) {
+    private void prts$onBoundingBoxChanged(AABB boundingBox, CallbackInfo ci) {
         if (!this.bb.equals(boundingBox)) {
-            luminara$boundingBoxChanged = true;
+            prts$boundingBoxChanged = true;
         }
     }
 }

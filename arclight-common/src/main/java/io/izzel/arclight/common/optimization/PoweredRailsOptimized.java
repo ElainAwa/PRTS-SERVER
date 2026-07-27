@@ -11,7 +11,7 @@ import net.minecraft.world.level.block.state.properties.RailShape;
 
 /**
  * 动力铁轨更新优化（移植自 Fluorite / moe.kotori.fluorite.optimize.PoweredRailsOptimized；
- * 1.20.1 Luminara 已在生产运行，本文件为 1.21.1 移植版）。
+ * 1.20.1 PRTS 已在生产运行，本文件为 1.21.1 移植版）。
  *
  * 原版 PoweredRailBlock.updateState 在每次红石/邻居变化时会对整条铁轨线路做开销较大的
  * 递归输电检测与邻居通知。这里用一个 HashMap 记忆已检查过的方块、限制输电传播距离
@@ -30,7 +30,7 @@ public class PoweredRailsOptimized {
     public static int RAIL_POWER_LIMIT = 8;
 
     private static boolean findPoweredRailSignal(PoweredRailBlock self, Level level, BlockPos pos, BlockState state, boolean travelDirection, int depth) {
-        return ((PoweredRailBlockBridge) self).luminara$findPoweredRailSignal(level, pos, state, travelDirection, depth);
+        return ((PoweredRailBlockBridge) self).prts$findPoweredRailSignal(level, pos, state, travelDirection, depth);
     }
 
     public static void giveShapeUpdate(Level level, BlockState state, BlockPos pos, BlockPos fromPos, Direction direction) {

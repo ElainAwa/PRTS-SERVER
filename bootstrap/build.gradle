@@ -152,11 +152,11 @@ jar {
 }
 
 tasks.register('forgeJar', Jar) {
-    archiveBaseName.set "luminara-forge-${libs.versions.minecraft.get()}"
+    archiveBaseName.set "PRTS-forge-${libs.versions.minecraft.get()}"
     manifest.attributes 'Main-Class': 'io.izzel.arclight.server.Launcher'
-    manifest.attributes 'Implementation-Title': 'Luminara'
-    manifest.attributes 'Implementation-Version': "luminara-${libs.versions.minecraft.get()}-${project.version}-$gitHash"
-    manifest.attributes 'Implementation-Vendor': 'Luminara Team'
+    manifest.attributes 'Implementation-Title': 'PRTS'
+    manifest.attributes 'Implementation-Version': "PRTS-${libs.versions.minecraft.get()}-${project.version}-$gitHash"
+    manifest.attributes 'Implementation-Vendor': 'PRTS Team'
     manifest.attributes 'Implementation-Timestamp': new Date().format("yyyy-MM-dd HH:mm:ss")
     manifest.attributes 'Automatic-Module-Name': 'luminara.boot'
     from(configurations.embed.collect { it.isDirectory() ? it : zipTree(it) }) {
@@ -185,11 +185,11 @@ tasks.register('forgeJar', Jar) {
 }
 
 tasks.register('neoforgeJar', Jar) {
-    archiveBaseName.set "luminara-neoforge-${libs.versions.minecraft.get()}"
+    archiveBaseName.set "PRTS-neoforge-${libs.versions.minecraft.get()}"
     manifest.attributes 'Main-Class': 'io.izzel.arclight.server.Launcher'
-    manifest.attributes 'Implementation-Title': 'Luminara'
-    manifest.attributes 'Implementation-Version': "luminara-${libs.versions.minecraft.get()}-${project.version}-$gitHash"
-    manifest.attributes 'Implementation-Vendor': 'Luminara Team'
+    manifest.attributes 'Implementation-Title': 'PRTS'
+    manifest.attributes 'Implementation-Version': "PRTS-${libs.versions.minecraft.get()}-${project.version}-$gitHash"
+    manifest.attributes 'Implementation-Vendor': 'PRTS Team'
     manifest.attributes 'Implementation-Timestamp': new Date().format("yyyy-MM-dd HH:mm:ss")
     manifest.attributes 'Automatic-Module-Name': 'luminara.boot'
     from(configurations.embed.collect { it.isDirectory() ? it : zipTree(it) }) {
@@ -218,11 +218,11 @@ tasks.register('neoforgeJar', Jar) {
 }
 
 tasks.register('fabricJar', Jar) {
-    archiveBaseName.set "luminara-fabric-${libs.versions.minecraft.get()}"
+    archiveBaseName.set "PRTS-fabric-${libs.versions.minecraft.get()}"
     manifest.attributes 'Main-Class': 'io.izzel.arclight.server.Launcher'
-    manifest.attributes 'Implementation-Title': 'Luminara'
-    manifest.attributes 'Implementation-Version': "luminara-${libs.versions.minecraft.get()}-${project.version}-$gitHash"
-    manifest.attributes 'Implementation-Vendor': 'Luminara Team'
+    manifest.attributes 'Implementation-Title': 'PRTS'
+    manifest.attributes 'Implementation-Version': "PRTS-${libs.versions.minecraft.get()}-${project.version}-$gitHash"
+    manifest.attributes 'Implementation-Vendor': 'PRTS Team'
     manifest.attributes 'Implementation-Timestamp': new Date().format("yyyy-MM-dd HH:mm:ss")
     manifest.attributes 'Automatic-Module-Name': 'luminara.boot'
     from(configurations.embedFabric.collect { it.isDirectory() ? it : zipTree(it) })
