@@ -15,6 +15,7 @@ public class Launcher {
     private static final int MAX_JAVA_VERSION = 22;
 
     public static void main(String[] args) throws Throwable {
+        ClientModGuard.run(args);
         int javaVersion = (int) Float.parseFloat(System.getProperty("java.class.version"));
         if (javaVersion < MIN_CLASS_VERSION) {
             System.err.println("Arclight requires Java " + MIN_JAVA_VERSION);
@@ -36,7 +37,13 @@ public class Launcher {
 
             String target = properties.getProperty("launch.mainClass");
             MethodHandle main = MethodHandles.lookup().findStatic(Class.forName(target), "main", MethodType.methodType(void.class, String[].class));
-            main.invoke((Object) args);
+            try {
+                main.invoke((Object) args);
+            } catch (Throwable t) {
+                // v10 运行时自愈：缺失客户端类导致崩溃时，隔离 offending mod 并自动重启
+                ClientModGuard.handleCrash(t, args);
+                throw t; // 非客户端类崩溃：按原样抛出，正常退出（不自动重启）
+            }
         }
     }
 }
