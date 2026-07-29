@@ -139,7 +139,6 @@ public class PlayerDataStorageMixin implements PlayerDataStorageBridge {
         });
     }
 
-
     public Optional<CompoundTag> load(String name, String uuid) {
         // CraftBukkit end
         Optional<CompoundTag> optional = this.load(name, uuid, ".dat"); // CraftBukkit

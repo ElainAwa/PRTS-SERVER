@@ -46,7 +46,6 @@ public abstract class ChunkAccessMixin implements BlockGetter, BiomeManager.Nois
     @Shadow @Final protected ChunkPos chunkPos;
     // @formatter:on
 
-
     private static final CraftPersistentDataTypeRegistry DATA_TYPE_REGISTRY = new CraftPersistentDataTypeRegistry();
     public DirtyCraftPersistentDataContainer persistentDataContainer = new DirtyCraftPersistentDataContainer(DATA_TYPE_REGISTRY);
     public Registry<Biome> biomeRegistry;

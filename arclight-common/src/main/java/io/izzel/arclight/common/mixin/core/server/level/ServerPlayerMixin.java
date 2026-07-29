@@ -342,7 +342,6 @@ public abstract class ServerPlayerMixin extends PlayerMixin implements ServerPla
         boolean spectator = this.isSpectator();
         boolean keepInventory = this.level().getGameRules().getBoolean(GameRules.RULE_KEEPINVENTORY) || spectator;
         // FIXME: InitAuther97: copying an Inventory is so expensive and our only way to optimize it is to copy it selectively...
-        // InitAuther97: Maybe implement a quick copy? No need for respect as we need its exact state.
         if (!keepInventory) {
             Inventory copyInv = new Inventory((ServerPlayer) (Object) this);
             copyInv.replaceWith(this.getInventory());

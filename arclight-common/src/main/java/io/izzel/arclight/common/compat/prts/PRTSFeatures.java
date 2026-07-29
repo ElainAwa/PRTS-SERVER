@@ -11,12 +11,7 @@ import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.craftbukkit.v.CraftServer;
 
-/**
- * PRTS 轻量防卡功能的统一启动/停止聚合。
- * 由 MinecraftServerMixin.arclight$enablePlugins（POSTWORLD 插件启用点）调用 start()，
- * 由 arclight$setStopped（stopServer）调用 stop()，由 arclight$updateTickParam（每 tick）调用 tick()。
- * 去 Youer 化：替代 YouerPlugin 的 feature 启动逻辑，不依赖 Youer 任何类。
- */
+/** PRTS 轻量防卡功能的统一启动/停止聚合。 */
 public class PRTSFeatures {
 
     private static final Logger LOGGER = LogManager.getLogger("PRTS-Features");

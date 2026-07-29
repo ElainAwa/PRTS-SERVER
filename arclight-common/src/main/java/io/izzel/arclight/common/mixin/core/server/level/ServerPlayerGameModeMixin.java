@@ -78,11 +78,7 @@ public abstract class ServerPlayerGameModeMixin implements ServerPlayerGameModeB
         }
     }
 
-    /*
-     * This series of events are controlled by respective mod loaders.
-     * It is thus implemented differently when the original event gets cancelled.
-     * See PSI for firing when it's cancelled.
-     */
+    /* This series of events are controlled by respective mod loaders. */
     @Decorate(method = "handleBlockBreakAction", at = @At(value = "INVOKE", ordinal = 0, target = "Lnet/minecraft/server/network/ServerGamePacketListenerImpl;send(Lnet/minecraft/network/protocol/Packet;)V"),
         slice = @Slice(from = @At(value = "INVOKE", target = "Lnet/minecraft/server/level/ServerLevel;mayInteract(Lnet/minecraft/world/entity/player/Player;Lnet/minecraft/core/BlockPos;)Z")))
     private void arclight$mayNotInteractEvent(ServerGamePacketListenerImpl instance, Packet<?> packet, BlockPos blockPos, ServerboundPlayerActionPacket.Action action, Direction direction) throws Throwable {
@@ -170,7 +166,6 @@ public abstract class ServerPlayerGameModeMixin implements ServerPlayerGameModeB
     @Inject(method = {"tick", "destroyAndAck"}, at = @At(value = "INVOKE", target = "Lnet/minecraft/server/level/ServerPlayerGameMode;destroyBlock(Lnet/minecraft/core/BlockPos;)Z"))
     public void arclight$clearCaptures(CallbackInfo ci) {
         // clear the event stack in case that interrupted events are left here unhandled
-        // it should be a new event capture session each time destroyBlock is called from these two contexts
         ArclightCaptures.clearBlockBreakEventContexts();
     }
 

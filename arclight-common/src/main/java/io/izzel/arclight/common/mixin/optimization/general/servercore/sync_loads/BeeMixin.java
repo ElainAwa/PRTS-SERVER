@@ -14,10 +14,6 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 // Ported from Wesley1808/ServerCore (Mojmap / 1.21.1).
-// The original used mixin-extras @ModifyExpressionValue on isTooFarAway(hivePos); mixin-extras
-// is not on the arclight-common compile classpath, so this is rewritten as an equivalent
-// HEAD injection: treat the hive as invalid (do not validate / load its chunk) when the
-// hive chunk is not loaded.
 @Mixin(Bee.class)
 public abstract class BeeMixin extends Animal {
     @Shadow
@@ -29,7 +25,6 @@ public abstract class BeeMixin extends Animal {
     }
 
     // Entity.level is a private field in 1.21.1 Mojmap and cannot be @Shadow'd from a
-    // subclass target. Use the public accessor level() inherited via Animal instead.
     @Inject(method = "isHiveValid", at = @At("HEAD"), cancellable = true)
     private void servercore$onlyValidateIfLoaded(CallbackInfoReturnable<Boolean> cir) {
         if (!ChunkManager.hasChunk(this.level(), this.hivePos)) {

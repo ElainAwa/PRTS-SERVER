@@ -50,7 +50,6 @@ public abstract class LivingEntityMixin_Vanilla extends EntityMixin_Vanilla impl
     }
 
     // Special handle; assuming shield cut out at most BLOCKING damage from original and g means the damage that will be used to calculate exact blocking.
-    // Merged Bukkit & Modded calculation result with the above assumption. Be careful.
     /*
     @Decorate(method = "hurt", inject = true, at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/LivingEntity;isDamageSourceBlocked(Lnet/minecraft/world/damagesource/DamageSource;)Z"))
     private void arclight$vanilla$preApplyShield(DamageSource source, float original, @Local(allocate = "arclightDamageContainer") ArclightDamageContainer container) throws Throwable {

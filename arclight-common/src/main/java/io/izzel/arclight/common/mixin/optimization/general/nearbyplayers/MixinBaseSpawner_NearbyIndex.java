@@ -7,14 +7,7 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
 
-/**
- * NearbyPlayerIndex 查询侧 #2：接管 BaseSpawner.isNearPlayer 中的 hasNearbyAlivePlayer。
- * 1.21.1 字节码确认（javap BaseSpawner.class）：INVOKE 属主为 Level（invokevirtual
- * Level.hasNearbyAlivePlayer:(DDDD)Z），isNearPlayer(Level,BlockPos)Z 签名与 1.20.1 一致。
- * 刷怪笼默认 requiredPlayerRange=16 ≤ 守卫 144，桶即全集 ⇒ 确定性答案；
- * range 越界或索引不可用 → 原样调用 vanilla。
- * 注：1.21.1 core 的 BaseSpawnerMixin 仅 @Inject setEntityId，无撞车。
- */
+/** NearbyPlayerIndex 查询侧 #2：接管 BaseSpawner.isNearPlayer 中的 hasNearbyAlivePlayer。 */
 @Mixin(BaseSpawner.class)
 public abstract class MixinBaseSpawner_NearbyIndex {
 

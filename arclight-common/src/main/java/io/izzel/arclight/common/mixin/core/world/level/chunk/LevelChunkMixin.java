@@ -122,11 +122,7 @@ public abstract class LevelChunkMixin extends ChunkAccessMixin implements LevelC
     public void loadCallback() {
         org.bukkit.Server server = Bukkit.getServer();
         if (server != null) {
-            /*
-             * If it's a new world, the first few chunks are generated inside
-             * the World constructor. We can't reliably alter that, so we have
-             * no way of creating a CraftWorld/CraftServer at that point.
-             */
+            /* If it's a new world, the first few chunks are generated inside */
 
             var bukkitChunk = new CraftChunk((LevelChunk) (Object) this);
             server.getPluginManager().callEvent(new ChunkLoadEvent(bukkitChunk, this.needsDecoration));

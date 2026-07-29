@@ -9,12 +9,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-/**
- * 主线程卡顿看门狗（移植自 Youer WatchMohist，已去 Youer 化）。
- * 机制：每 tick 由 PRTSFeatures.tick() 调用 update() 标记主线程存活；
- * 独立 daemon 线程每 500ms 检查，若主线程超过 threshold-ms 未推进（卡顿/假死）则告警并 dump 主线程栈。
- * 依赖：仅 PRTS config + log4j + Bukkit TPS，无 Youer 任何类。
- */
+/** 主线程卡顿看门狗（移植自 Youer WatchMohist，已去 Youer 化）。 */
 public class WatchMohist {
 
     private static final Logger LOGGER = LogManager.getLogger("PRTS-Watchdog");

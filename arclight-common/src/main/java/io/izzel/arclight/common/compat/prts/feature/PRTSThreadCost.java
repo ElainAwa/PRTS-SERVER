@@ -17,11 +17,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.bukkit.command.CommandSender;
 
-/**
- * 线程 CPU 耗时剖析（移植自 Youer YouerThreadCost，已去 Youer 化）。
- * 去依赖：移除 gson（改手写 JSON 序列化）、移除 lombok（改 public 字段）、移除 Youer 日志/i18n（改 log4j + 硬编码文案）。
- * 由 /prtsfeatures threadcost 命令触发，输出 JSON 到 thread-dumps/。
- */
+/** 线程 CPU 耗时剖析（移植自 Youer YouerThreadCost，已去 Youer 化）。 */
 public class PRTSThreadCost {
 
     private static final Logger LOGGER = LogManager.getLogger("PRTS-ThreadCost");

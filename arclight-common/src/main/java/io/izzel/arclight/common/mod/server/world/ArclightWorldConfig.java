@@ -5,11 +5,7 @@ import org.spigotmc.SpigotWorldConfig;
 
 public class ArclightWorldConfig {
 
-    /**
-     * Use as a marker world name. We don't want to put trash output in terminal
-     * only for reading a default world config.
-     * @see io.izzel.arclight.common.mixin.bukkit.SpigotWorldConfigMixin#arclight$skipLog(String)
-     */
+    /** Use as a marker world name. We don't want to put trash output in terminal */
     @SuppressWarnings({"StringOperationCanBeSimplified", "JavadocReference"})
     public static final String DEFAULT_MARKER = new String("default");
 

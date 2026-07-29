@@ -7,13 +7,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-/**
- * Startup hook for the async-logging optimization.
- * Calls AsyncAppenderBootstrap.boot() once during MinecraftServer construction,
- * after Forge has set up the root logger. The actual enable/disable decision
- * lives inside boot() (gated by the "async-logging" sub-switch), so this mixin
- * is always safe to apply.
- */
+/** Startup hook for the async-logging optimization. */
 @Mixin(MinecraftServer.class)
 public class MixinMinecraftServer {
 

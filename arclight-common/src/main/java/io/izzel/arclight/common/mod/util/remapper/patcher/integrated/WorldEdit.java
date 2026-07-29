@@ -40,7 +40,6 @@ public class WorldEdit {
     }
 
     // Correctly handle reflection name picking
-    // Their naming mapping for NMS is somehow behind the version
     public static void handleStaticRefraction(ClassNode node, PluginPatcher.ClassRepo repo) {
         var remapper = ArclightRemapper.getMojMapper();
 

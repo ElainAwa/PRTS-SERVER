@@ -7,18 +7,8 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.Vec3;
 import org.spongepowered.asm.mixin.Mixin;
 
-/**
- * [PRTS 本服维护者移植 2026-07-21]
- * 原 VMP com.ishland.vmp.mixins.playerwatching.optimize_nearby_entity_tracking_lookups.MixinServerPlayerEntity
- * 的 mojmap 移植，挂在 ServerPlayer 上，实现 ServerPlayerEntityExtension。
- * 记录玩家上一 tick 的坐标，供 NearbyEntityTracking 判断是否移动、需要刷新视野桶。
- *
- * 注意：这里【不要】用 @Shadow 读坐标。本服在子类(ServerPlayer)上 @Shadow 继承自 Entity 的
- * getX()/position() 会因 reobf refmap 无法定位运行时名而失败
- * （"@Shadow method m_20185_/m_20182_ was not located"）。
- * 改用普通虚调用 ((Entity)(Object)this).position() —— 由 reobf 重映射，运行时直接命中，
- * 与 ChunkMap_TrackedEntityExtMixin 里 this.entity.position() 的方式一致。
- */
+/** VMP mojmap 移植：记录玩家上一 tick 坐标供 NearbyEntityTracking 判移动/瞬移。禁 @Shadow（reobf refmap 失败），改用虚调用。 */
+
 @Mixin(ServerPlayer.class)
 public abstract class ServerPlayer_TrackingMixin implements ServerPlayerEntityExtension {
 
@@ -43,8 +33,7 @@ public abstract class ServerPlayer_TrackingMixin implements ServerPlayerEntityEx
         this.vmpTracking$prevZ = pos.z;
     }
 
-    // 瞬移判定阈值（单位：chunk）。玩家每 tick 正常移动/飞行远小于此值；
-    // 只有 /tp、waystones、tpmaster、传送门等真实大跳变才会超过。设小一点宁可多跳过也绝不漏判真实 tp。
+    // 瞬移判定阈值（chunk）：正常移动远小于此值，仅 /tp/传送门等大跳变超过。
     private static final int prts$teleportChunks = 2;
 
     @Override

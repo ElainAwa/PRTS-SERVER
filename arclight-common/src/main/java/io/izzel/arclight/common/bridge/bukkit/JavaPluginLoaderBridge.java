@@ -1,6 +1,5 @@
 package io.izzel.arclight.common.bridge.bukkit;
 
-
 import org.bukkit.Server;
 import org.bukkit.plugin.PluginDescriptionFile;
 

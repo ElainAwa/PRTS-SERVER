@@ -167,7 +167,6 @@ public class ArclightRedirectAdapter implements PluginTransformer {
     @Override
     public void handleClass(ClassNode node, ClassLoaderRemapper remapper, ArclightRemapConfig config) {
         // Don't transform for remap=false
-        // We don't have arc
         if (config.remap()) {
             redirect(node, remapper);
         }

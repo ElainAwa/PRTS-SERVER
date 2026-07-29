@@ -20,7 +20,6 @@ import org.spongepowered.asm.mixin.Mixin;
 import java.util.function.Supplier;
 
 // Ported from Wesley1808/ServerCore (via PRTS 1.20.1); Level ctor signature verified
-// identical on 1.21.1 via javap.
 @Mixin(ServerLevel.class)
 public abstract class ServerLevelMixin extends Level {
     private ServerLevelMixin(WritableLevelData writableLevelData, ResourceKey<Level> resourceKey, RegistryAccess registryAccess, Holder<DimensionType> holder, Supplier<ProfilerFiller> supplier, boolean bl, boolean bl2, long l, int i) {

@@ -57,10 +57,6 @@ public class StructureStartMixin implements StructureStartBridge {
             BlockPos blockpos1 = new BlockPos(blockpos.getX(), boundingbox.minY(), blockpos.getZ());
 
             //for (StructurePiece structurepiece : list) {
-            //    if (structurepiece.getBoundingBox().intersects(p_226855_)) {
-            //        structurepiece.postProcess(p_226851_, p_226852_, p_226853_, p_226854_, p_226855_, p_226856_, blockpos1);
-            //    }
-            //}
 
             List<StructurePiece> pieces = list.stream().filter(piece -> piece.getBoundingBox().intersects(p_226855_)).toList();
             if (!pieces.isEmpty()) {

@@ -18,23 +18,7 @@ import org.apache.logging.log4j.Logger;
 
 import java.util.Set;
 
-/**
- * 空间最近玩家索引（NearbyPlayerIndex）— 1.21.1 移植版（自 1.20.1 PRTS，target 描述符逐一 javap 核验一致）。
- * <p>
- * 目的：加速 EntityGetter#getNearestPlayer / #hasNearbyAlivePlayer 的全玩家线性扫描
- * （Mob.checkDespawn 每生物每 tick 无界调用一次 → 数千生物 × 大量玩家 = 每 tick 数十万次距离计算）。
- * <p>
- * 设计原则（吸取 chunkwatching 教训）：
- * <ul>
- *   <li>vanilla 记账永远是权威 —— 索引只做旁路加速，不改任何发包/加载路径；</li>
- *   <li>数学可证零感知：桶半径 {@link #BUCKET_RADIUS_CHUNKS}=10 chunk，桶外玩家水平距离必 ≥ 161 格；
- *       只有当桶内最优解 ≤ {@link #GUARD_DIST}=144 格时才采纳（144 &lt; 161 ⇒ 必为全局最优），
- *       否则 fallback 原版全扫，绝不猜测；</li>
- *   <li>verify 双跑：观察期每次查询与原版对照，不一致 → WARN + 采用原版结果；</li>
- *   <li>异常自毒（poison）：任何一次异常 → 本会话永久回退原版，最坏情况 = 没加速；</li>
- *   <li>线程守卫：仅在维护线程（服务器主线程）上响应查询，其他线程一律原版。</li>
- * </ul>
- */
+/** 空间最近玩家索引（NearbyPlayerIndex）— 1.21.1 移植版（自 1.20.1 PRTS，target 描述符逐一 javap 核验一致）。 */
 public final class NearbyPlayerIndex {
 
     public static final Logger LOGGER = LogManager.getLogger("PRTS-NPI");
@@ -210,11 +194,7 @@ public final class NearbyPlayerIndex {
         return fast;
     }
 
-    /**
-     * 替代 Level.hasNearbyAlivePlayer(x,y,z,range)（vanilla 语义：NO_SPECTATORS 且
-     * LIVING_ENTITY_STILL_ALIVE，distSqr &lt; range²）。range ∈ [0, 守卫] 时桶即全集，
-     * 命中与未命中均为确定性答案；range 越界 → fallback 原版。
-     */
+    /** 替代 Level.hasNearbyAlivePlayer(x,y,z,range)（vanilla 语义：NO_SPECTATORS 且 */
     public boolean hasNearbyAlivePlayer(Level level, double x, double y, double z, double range) {
         if (!queryUsable() || range < 0.0D || range > GUARD_DIST) {
             return level.hasNearbyAlivePlayer(x, y, z, range);

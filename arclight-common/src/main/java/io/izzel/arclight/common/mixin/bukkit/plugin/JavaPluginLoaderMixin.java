@@ -153,7 +153,6 @@ public abstract class JavaPluginLoaderMixin implements JavaPluginLoaderBridge {
             final EventHandler eh = method.getAnnotation(EventHandler.class);
             if (eh == null) continue;
             // Do not register bridge or synthetic methods to avoid event duplication
-            // Fixes SPIGOT-893
             if (method.isBridge() || method.isSynthetic()) {
                 continue;
             }
@@ -269,7 +268,6 @@ public abstract class JavaPluginLoaderMixin implements JavaPluginLoaderBridge {
         mv.visitLabel(label3);
         mv.visitFrame(Opcodes.F_SAME, 0, null, 0, null);
         //   ((TYPE) listener).<method>(event);
-        //   TYPE.<method>(event);
         int invokeCode;
         if (Modifier.isStatic(method.getModifiers())) {
             invokeCode = Opcodes.INVOKESTATIC;

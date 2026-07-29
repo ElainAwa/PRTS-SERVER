@@ -174,13 +174,11 @@ public abstract class PluginClassLoaderMixin extends URLClassLoader implements R
                     return c;
                 } catch (ClassNotFoundException e) {
                     // ClassNotFoundException thrown if class not found
-                    // from the non-null parent class loader
                 }
             }
 
             if (c == null) {
                 // If still not found, then invoke findClass in order
-                // to find the class.
                 try {
                     c = findClass(name);
                     if (resolve) resolveClass(c);

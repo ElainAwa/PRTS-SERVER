@@ -17,14 +17,7 @@ import org.objectweb.asm.tree.VarInsnNode;
 
 import static org.objectweb.asm.Opcodes.ARETURN;
 
-/**
- * Runtime ASM shim for Bukkit/Spigot plugins that assume a Paper server.
- * Ported from Youer (com.mohistmc.youer.bukkit.pluginfix.PluginFixManager),
- * de-Youer-ified: no Youer/YouerConfig dependency, MODID = "prts".
- *
- * <p>Hooked from PluginClassLoaderMixin.findClass right after Bukkit.getUnsafe().processClass,
- * exactly where Youer injects it in its own PluginClassLoader.</p>
- */
+/** Runtime ASM shim for Bukkit/Spigot plugins that assume a Paper server. */
 public class PluginFixManager {
 
     private static final String MODID = "prts";
@@ -226,7 +219,6 @@ public class PluginFixManager {
         }
         return new String(c);
     }
-
 
     private static void helloWorld(ClassNode node, String a, String b) {
         node.methods.forEach(method -> {

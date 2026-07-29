@@ -12,12 +12,7 @@ public class ArclightCommon {
 
         boolean isModLoaded(String modid);
 
-        /**
-         * This is here because Fabric and NeoForge use different version of Guava.
-         * The signature for this method changed between these versions, leading
-         * to NoSuchMethodError. It is recommended to check this method and remove
-         * it if necessary when upgrading.
-         */
+        /** This is here because Fabric and NeoForge use different version of Guava. */
         <T> Set<T> guavaReachableNodes(Graph<T> graph, T node);
     }
 

@@ -13,7 +13,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 // Main PRTS command system (loader-agnostic; each loader hooks its own
-// command registration event and calls register(dispatcher))
 public class PRTSCommand {
 
     private static final List<PRTSSubCommand> subCommands = new ArrayList<>();

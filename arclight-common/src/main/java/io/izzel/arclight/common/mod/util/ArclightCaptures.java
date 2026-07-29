@@ -49,19 +49,12 @@ public class ArclightCaptures {
         return lastEntityChangeBlockResult = b;
     }
 
-    /**
-     * Indicates that next BlockBreakEvent is fired directly by ServerPlayerGameMode#destroyBlock
-     * and need to be captured as primary event.
-     *
-     * @see net.minecraft.server.level.ServerPlayerGameMode#destroyBlock(BlockPos)
-     */
+    /** Indicates that next BlockBreakEvent is fired directly by ServerPlayerGameMode#destroyBlock */
     public static boolean isPrimaryEvent = false;
     public static Stack<BlockBreakEventContext> blockBreakEventStack = new Stack<>();
 
     public static void captureNextBlockBreakEventAsPrimaryEvent() {
         // fix #674, some mod will implement their own "destroyBlock(...)"
-        // and its context cannot be tracked by Arclight directly.
-        // This is used to tell whether the event is fired by vanilla destroyBlock.
         isPrimaryEvent = true;
     }
 
@@ -92,7 +85,6 @@ public class ArclightCaptures {
             BlockBreakEventContext eventContext = blockBreakEventStack.pop();
 
             // deal with unhandled secondary events
-            // should never happen, but just in case
             ArrayList<BlockBreakEventContext> unhandledEvents = new ArrayList<>();
             while (!blockBreakEventStack.empty() && !eventContext.isPrimary()) {
                 unhandledEvents.add(eventContext);
@@ -404,12 +396,7 @@ public class ArclightCaptures {
 
     private static List<ItemEntity> extraDrops;
 
-    /**
-     * 1. Used by armor stands to capture their contents. <br/>
-     * 2. Used by foxes to capture their drops. <br/>
-     * 3. SENTINEL
-     * @see io.izzel.arclight.common.mod.server.event.EntityEventHandler#monitorLivingDrops(LivingEntity, DamageSource, List, boolean)
-     */
+    /** 1. Used by armor stands to capture their contents. <br/> */
     public static void captureExtraDrops(List<ItemEntity> capturedDrops) {
         extraDrops = capturedDrops;
     }

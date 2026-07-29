@@ -214,7 +214,6 @@ public class DelegateWorldInfo extends PrimaryLevelData {
         return serverLevelData.getSpawnPos();
     }
 
-
     public static DelegateWorldInfo wrap(ServerLevelData data) {
         return new DelegateWorldInfo(worldSettings(data), generatorSettings(data), specialWorldProperty(data), lifecycle(data), data);
     }

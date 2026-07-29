@@ -14,12 +14,7 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
-/**
- * 实验性网络优化（默认关闭）：
- * 将 Netty 服务端事件循环线程数从 Netty 默认的 2*CPU 调整为配置值，
- * 降低高在线时网络线程成为瓶颈的概率。
- * 由 optimization.network-optimization-enabled + network-optimization-netty-threads>0 门控。
- */
+/** 实验性网络优化（默认关闭）： */
 @Mixin(ServerConnectionListener.class)
 public class ServerConnectionListenerMixin_NetworkOpt {
 

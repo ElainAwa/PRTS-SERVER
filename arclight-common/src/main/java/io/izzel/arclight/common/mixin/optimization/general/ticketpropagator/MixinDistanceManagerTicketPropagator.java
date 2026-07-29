@@ -18,21 +18,7 @@ import org.apache.logging.log4j.Logger;
 
 import java.util.Set;
 
-/**
- * Ports HariPlayer (VMP fork) ticketpropagator to Forge 1.20.1 (Mojang mappings).
- *
- * Vanilla flow replaced:
- *  - DistanceManager.addTicket/removeTicket/purgeStaleTickets/removeTicketsOnClosing call
- *    ticketTracker.update(pos, level, force) -> we instead feed the propagator as a source.
- *  - DistanceManager.runAllUpdates() calls ticketTracker.runDistanceUpdates(MAX) -> we instead
- *    propagateUpdates() on the Paper propagator and apply each queued level via updateChunkScheduling,
- *    mirroring the vanilla ChunkTicketTracker.setLevel callback (which also adds the holder to
- *    chunksToUpdateFutures so chunk generation futures advance).
- *
- * Level conversion: ticket levels are "lower = more loaded", the Paper propagator is "higher = more
- * coverage". convertBetweenTicketLevels(level) = ChunkLevel.MAX_LEVEL - level + 1 is an involution, and
- * with MAX_LEVEL = 45 on this build it maps [0,45] -> [46,1], all within the propagator's valid (0,63].
- */
+/** Ports HariPlayer (VMP fork) ticketpropagator to Forge 1.20.1 (Mojang mappings). */
 @Mixin(DistanceManager.class)
 public abstract class MixinDistanceManagerTicketPropagator {
 
@@ -88,18 +74,6 @@ public abstract class MixinDistanceManagerTicketPropagator {
     }
 
     // Replace the vanilla immediate propagation (ticketTracker.update) inside the ticket bookkeeping methods.
-    // Only these four methods touch ticketTracker.update, so restricting 'method' keeps player/spawn/ticking
-    // propagators untouched.
-    //
-    // IMPORTANT (Forge 1.20.1): the field `ticketTracker` is typed `DistanceManager$ChunkTicketTracker`, so the
-    // INVOKE bytecode owner is `DistanceManager$ChunkTicketTracker`, NOT `ChunkTracker` (update is inherited from
-    // the superclass). The official-name target `ChunkTracker.update` therefore never matches -> use owner
-    // `DistanceManager$ChunkTicketTracker`. remap=true (default) lets the annotation processor map the inherited
-    // `update` to its SRG name m_140715_ at runtime, matching the actual INVOKE exactly.
-    //
-    // NOTE (NeoForge 1.21.1): the same structure holds. javap confirms exactly four `ticketTracker.update(JIZ)V`
-    // call sites, one each in addTicket(long,Ticket)/removeTicket(long,Ticket)/purgeStaleTickets/removeTicketsOnClosing,
-    // and runAllUpdates(ChunkMap) still invokes ChunkTicketTracker.runDistanceUpdates(I)I. require=4/expect=4 still matches.
     @Redirect(method = {
             "addTicket(JLnet/minecraft/server/level/Ticket;)V",
             "removeTicket(JLnet/minecraft/server/level/Ticket;)V",
@@ -111,7 +85,6 @@ public abstract class MixinDistanceManagerTicketPropagator {
     }
 
     // Replace the per-tick propagation. The return value semantics mirror vanilla runDistanceUpdates:
-    // Integer.MAX_VALUE means "no changes" (so runAllUpdates computes flag = false), anything else -> flag = true.
     @Redirect(method = "runAllUpdates", at = @At(value = "INVOKE", target = "Lnet/minecraft/server/level/DistanceManager$ChunkTicketTracker;runDistanceUpdates(I)I"))
     private int redirectRunDistanceUpdates(DistanceManager.ChunkTicketTracker instance, int p_140878_) {
         boolean hasUpdates = this.ticketLevelPropagator.propagateUpdates();

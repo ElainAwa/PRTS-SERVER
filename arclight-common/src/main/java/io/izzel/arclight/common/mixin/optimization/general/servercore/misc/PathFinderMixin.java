@@ -26,8 +26,6 @@ import java.util.stream.Collector;
 import java.util.stream.Stream;
 
 // Ported from Wesley1808/ServerCore (Mojmap / 1.21.1).
-// NOTE: @ModifyVariable index values are version-sensitive; the build (mixin APT) validates
-// them against the local-variable table of PathFinder.findPath at compile time.
 @Mixin(PathFinder.class)
 public class PathFinderMixin {
     @Shadow

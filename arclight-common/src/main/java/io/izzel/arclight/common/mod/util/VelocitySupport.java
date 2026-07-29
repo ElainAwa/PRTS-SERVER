@@ -20,8 +20,6 @@ import java.security.NoSuchAlgorithmException;
 import java.util.UUID;
 
 // Codes from paper, GPLv3/MIT
-// https://github.com/PaperMC/Paper/blob/master/patches/server/0832-Add-Velocity-IP-Forwarding-Support.patch
-// Changes are made to use Arclight configuration system
 public class VelocitySupport {
 
     public static boolean isEnabled() {

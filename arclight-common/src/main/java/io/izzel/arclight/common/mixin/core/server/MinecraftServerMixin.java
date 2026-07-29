@@ -302,8 +302,6 @@ public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<T
             Bukkit.getPluginManager().callEvent(new WorldInitEvent(level.bridge$getWorld()));
 
             // Arclight: move world border listener initialization to world registration
-            // Arclight: ArclightBorderChangeListener is singleton so won't be added more than once
-            // Arclight: since it seems that we can't apply multiple Decorators to a target on Forge...
             level.getWorldBorder().addListener(ArclightBorderChangeListener.typed());
         }
         return DecorationOps.callsite().invoke(instance, k, v);
@@ -328,7 +326,6 @@ public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<T
 
         while (serverchunkprovider.getTickingGenerated() < j) {
             // CraftBukkit start
-            // this.nextTickTimeNanos = SystemUtils.getNanos() + MinecraftServer.PREPARE_LEVELS_DEFAULT_DELAY_NANOS;
             this.executeModerately();
         }
 
@@ -372,12 +369,6 @@ public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<T
         playerList.addWorldborderListener(serverWorld);
 
         // Call WorldInitEvent for Bukkit created world
-        // Before any chunk is loaded/generated.
-        // This makes delayed configurate possible.
-        // Calling multiple times is OK since Spigot also do so.
-        // See [PlotSquared] BukkitSetupUtils#setupWorld(PlotAreaBuilder).
-        // See CraftServer.
-        // CraftBukkit - SPIGOT-5569: Call WorldInitEvent before any chunks are generated
         this.server.getPluginManager().callEvent(new WorldInitEvent(serverWorld.bridge$getWorld()));
 
         if (!worldInfo.isInitialized()) {
@@ -418,7 +409,6 @@ public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<T
 
         while (serverchunkprovider.getTickingGenerated() < j) {
             // CraftBukkit start
-            // this.nextTickTimeNanos = SystemUtils.getNanos() + MinecraftServer.PREPARE_LEVELS_DEFAULT_DELAY_NANOS;
             this.executeModerately();
         }
 

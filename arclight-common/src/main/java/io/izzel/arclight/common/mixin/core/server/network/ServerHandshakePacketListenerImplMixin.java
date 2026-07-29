@@ -37,7 +37,6 @@ public abstract class ServerHandshakePacketListenerImplMixin {
     // @formatter:on
 
     // Don't inject at head to ensure executed after Forge check
-    // See the corresponding mixin on Forge side
     @Inject(method = "handleIntention", at = @At(value = "INVOKE", target = "Lnet/minecraft/network/protocol/handshake/ClientIntentionPacket;intention()Lnet/minecraft/network/protocol/handshake/ClientIntent;"))
     private void arclight$setHostName(ClientIntentionPacket packet, CallbackInfo ci) {
         // TODO

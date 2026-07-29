@@ -17,32 +17,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-/**
- * [PRTS 本服维护者移植 2026-07-21]
- * 路线B 核心 mixin：HariPlayer 招牌的空间化实体追踪（AreaMap 方案，移植自 VMP 同名算法）的 mojmap 移植。
- *
- * ⚠️ 关键修正（2026-07-21 实测定位）：
- *   Forge 的无参 tick()V 做两件事：
- *     ① 为每个玩家调 updateChunkTracking(player)（Forge 私有包裹法，不在官方映射里），
- *        把玩家新位置的区块标记到其连接 chunkSender 的待发队列（区块包由 PlayerChunkSender 异步发出）
- *        —— 这是 tp 后区块能否加载的唯一驱动；
- *     ② 遍历 entityMap 做实体广播循环（updatePlayers + sendChanges）。
- *   旧版 routeB 直接取消整个 tick()V、只重做 ② 的 AreaMap 版，于是【①被丢掉】→ tp 大跳变时
- *   玩家区块永不进 chunkSender → 客户端虚空 → keepalive 超时。走路正常是因为 move() 的增量
- *   updateChunkTracking 盖住了。
- *
- *   本版改为【绝不取消 tick()V】：
- *     - 用 @Redirect 把 tick()V 里的实体广播循环（entityMap.values() 遍历）替换为空集合，
- *       原版 updateChunkTracking 循环（①）原样运行 → 区块刷新链路 100% 不动；
- *     - 用 @Inject(RETURN) 在 tick()V 末尾跑 AreaMap 的优化实体广播（替代被空掉的 ②）。
- *   这样 Forge 的区块逻辑完全不被触碰，只替换了实体广播机制，tp 后区块照常加载。
- *
- * 门控：optimization.experimental-optimizations-enabled。关闭时本 mixin 完全惰性，行为等同 100% 原版。
- * 三重兜底（任何一条触发都回退原版实体循环，绝不虚空/冻结）：
- *   1) 开关关闭或本会话已标记失败 → 原版运行；
- *   2) areaMap 未维护（isEmpty，如运行时切开关、或 addEntity 钩子未命中）→ 原版运行；
- *   3) nearbyEntityTracking.tick() 抛异常 → 置失败标记，本会话后续全部回退原版。
- */
+/** 路线B 核心 mixin：HariPlayer 招牌的空间化实体追踪（AreaMap 方案，移植自 VMP 同名算法）的 mojmap 移植。 */
 @Mixin(ChunkMap.class)
 public class ChunkMap_TrackingMixin {
 
@@ -67,7 +42,6 @@ public class ChunkMap_TrackingMixin {
     @Unique
     private static int prts$tickCount = 0;
     // 看门狗阈值：沿用 1.20.1 RouteBSpec 默认值（hard=500ms / soft=100ms），可用系统属性覆盖。
-    // 运行时由系统属性提供，确保启动后读到的就是设定值。
     @Unique
     private static long prts$watchdogHardMs() {
         return Long.getLong("prts.routeb.watchdog-hard-ms", 500L);
@@ -82,12 +56,7 @@ public class ChunkMap_TrackingMixin {
         return !Boolean.getBoolean("prts.routeb.disabled");
     }
 
-    /**
-     * 重定向 tick()V 里的实体广播循环（entityMap.values() 遍历）。
-     * routeB 激活时返回空集合 → 原版实体广播（updatePlayers/sendChanges）被跳过，由下方 AreaMap 接管；
-     * 同时 tick()V 顶部的 updateChunkTracking 循环完全不受影响 → 区块刷新照常。
-     * routeB 未激活 / 已失败 / AreaMap 未维护时返回真实集合 → 原版实体广播照常运行。
-     */
+    /** 重定向 tick()V 里的实体广播循环（entityMap.values() 遍历）。 */
     @Redirect(method = "tick()V",
         at = @At(value = "INVOKE", target = "Lit/unimi/dsi/fastutil/ints/Int2ObjectMap;values()Lit/unimi/dsi/fastutil/objects/ObjectCollection;"))
     private ObjectCollection<ChunkMap.TrackedEntity> prts$skipVanillaEntityBroadcast(Int2ObjectMap<ChunkMap.TrackedEntity> instance) {

@@ -92,7 +92,6 @@ public abstract class DamageSourceMixin implements DamageSourceBridge {
 
     public DamageSource customEntityDamager(Entity entity) {
         // This method is not intended for change the causing entity if is already set
-        // also is only necessary if the entity passed is not the direct entity or different from the current causingEntity
         if (this.customEntityDamager != null || this.directEntity == entity || this.causingEntity == entity) {
             return (DamageSource) (Object) this;
         }
@@ -122,7 +121,6 @@ public abstract class DamageSourceMixin implements DamageSourceBridge {
 
     public DamageSource customCausingEntityDamager(Entity entity) {
         // This method is not intended for change the causing entity if is already set
-        // also is only necessary if the entity passed is not the direct entity or different from the current causingEntity
         if (this.customCausingEntityDamager != null || this.directEntity == entity || this.causingEntity == entity) {
             return (DamageSource) (Object) this;
         }

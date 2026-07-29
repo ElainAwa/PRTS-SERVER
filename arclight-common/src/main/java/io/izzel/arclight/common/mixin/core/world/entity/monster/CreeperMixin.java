@@ -72,8 +72,6 @@ public abstract class CreeperMixin extends PathfinderMobMixin implements Creeper
      * @reason
      */
     //Support Sophisticated Backpacks injecting into explode()
-    //@Overwrite
-    //public void explodeCreeper()
 
     @Decorate(method = "explodeCreeper", at = @At(value = "FIELD", opcode = Opcodes.PUTFIELD, target = "Lnet/minecraft/world/entity/monster/Creeper;dead:Z"))
     private void arclight$delaySetDead(Creeper instance, boolean value, @Local(ordinal = -1) float f) throws Throwable {

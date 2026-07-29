@@ -47,7 +47,6 @@ public class EntityEventHandler {
             final PlayerDeathEvent event;
             try (final var container = new EntityDropContainer()) {
                 // Arclight: Spigot drops obtained from getCapturedDrops()
-                // Already respect vanilla behaviours by using entity capture
                 List<org.bukkit.inventory.ItemStack> loot = container.initDecorate(drops);
                 event = ArclightEventFactory.callPlayerDeathEvent(player, source, loot, expReward, dmsgOrig, original == null);
                 if (event.getKeepInventory()) {
@@ -56,13 +55,11 @@ public class EntityEventHandler {
                 container.convert(loot, drops, bridge::arclight$spawnAtLocationNoAdd);
             }
             // beforeDeath == null : true if we used to keepInventory
-            // original == null : true if now we don't keepInventory
             if (beforeDeath != null) {
                 if (original == null) {
                     ArclightServer.LOGGER.debug("Overriding keepInventory from false to true. Preserve modified inventory before death.");
                 } else {
                     // Don't clear it. Preserve original content.
-                    // player.getInventory().clearContent();
                     player.getInventory().replaceWith(original);
                 }
             } else if (!event.getKeepInventory()) {

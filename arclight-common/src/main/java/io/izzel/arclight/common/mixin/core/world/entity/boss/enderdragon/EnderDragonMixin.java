@@ -144,7 +144,6 @@ public abstract class EnderDragonMixin extends MobMixin {
     }
 
     // TODO FIXME: exp patch for end dragon
-    // TODO: InitAuther97, 25.12.07: Do you mean these below?
     @Override
     public int getExpReward(Entity entity) {
         // CraftBukkit - Moved from #tickDeath method

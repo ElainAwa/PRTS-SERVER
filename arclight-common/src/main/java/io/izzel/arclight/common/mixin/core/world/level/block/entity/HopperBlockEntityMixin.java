@@ -65,8 +65,6 @@ public abstract class HopperBlockEntityMixin extends BaseContainerBlockEntityMix
     }
 
     // Somehow this works for Forge again.
-    // Removing requires = 0
-    // For Forge&NeoForge, see also VanillaInventoryCodeHooksMixin and respective HopperBlockEntityMixin
     @Decorate(method = "ejectItems", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/block/entity/HopperBlockEntity;addItem(Lnet/minecraft/world/Container;Lnet/minecraft/world/Container;Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/core/Direction;)Lnet/minecraft/world/item/ItemStack;"))
     private static ItemStack arclight$moveItem(Container source, Container destination, ItemStack stack, Direction direction) throws Throwable {
         var entity = (HopperBlockEntity) ArclightCaptures.getTickingBlockEntity();
@@ -87,7 +85,6 @@ public abstract class HopperBlockEntityMixin extends BaseContainerBlockEntityMix
             if (event.isCancelled()) {
                 entity.setCooldown(((WorldBridge) entity.getLevel()).bridge$spigotConfig().hopperTransfer); // Delay hopper checks
                 // Arclight: we can return stack directly so we use vanilla revert logic and eventually return false if none is transferred
-                // Arclight: but CraftBukkit makes it delayed directly, don't know why, so have to catch the index to revert change?
                 return stack;
             }
             stack = CraftItemStack.asNMSCopy(event.getItem());
@@ -116,7 +113,6 @@ public abstract class HopperBlockEntityMixin extends BaseContainerBlockEntityMix
                 // inv.setItem(index, origin);
                 entity.setCooldown(((WorldBridge) entity.getLevel()).bridge$spigotConfig().hopperTransfer); // Delay hopper checks
                 // Arclight: we can return stack directly so we use vanilla revert logic and eventually return false if none is transferred
-                // Arclight: but CraftBukkit makes it delayed directly, don't know why, so have to catch the index to revert change?
                 return stack;
             }
             stack = CraftItemStack.asNMSCopy(event.getItem());

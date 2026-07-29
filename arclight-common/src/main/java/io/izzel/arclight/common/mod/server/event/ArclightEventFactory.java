@@ -105,7 +105,6 @@ public abstract class ArclightEventFactory {
 
     public static boolean onBlockBreak(ServerPlayerGameMode controller, ServerLevel level, ServerPlayer player, BlockPos pos, BlockState state, boolean isSwordNoBreak) {
         // Tell client the block is gone immediately then process events
-        // Don't tell the client if it's a creative sword break because it's not broken!
         if (level.getBlockEntity(pos) == null && !isSwordNoBreak) {
             var packet = new ClientboundBlockUpdatePacket(pos, Blocks.AIR.defaultBlockState());
             player.connection.send(packet);

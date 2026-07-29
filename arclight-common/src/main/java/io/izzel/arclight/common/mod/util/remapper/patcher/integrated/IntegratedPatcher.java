@@ -19,7 +19,6 @@ public class IntegratedPatcher implements PluginPatcher {
 
     static {
         // Handle WorldEdit reflective using NMS
-        // Their naming mapping is behind the version, syncing manually
         SPECIFIC.put("com/sk89q/worldedit/bukkit/adapter/impl/v1_21/StaticRefraction", WorldEdit::handleStaticRefraction);
         SPECIFIC.put("com/sk89q/worldedit/bukkit/adapter/impl/v1_21/PaperweightAdapter", WorldEdit::handleBukkitAdapter);
     }

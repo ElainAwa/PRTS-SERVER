@@ -151,7 +151,6 @@ public abstract class ServerLevelMixin extends LevelMixin implements ServerLevel
         var craftBridge = (CraftServerBridge)(Object) ((MinecraftServerBridge) server).bridge$getServer();
         assert craftBridge != null; // Already checked in bridge
         // We have no way but store it somewhere and use a default value
-        // in order to avoid having to pass them as arguments.
         craftBridge.bridge$offerEnvironmentCache(worldInfo.getLevelName(), env);
         craftBridge.bridge$offerGeneratorCache(worldInfo.getLevelName(), gen);
         craftBridge.bridge$offerBiomeProviderCache(worldInfo.getLevelName(), biomeProvider);
@@ -159,10 +158,6 @@ public abstract class ServerLevelMixin extends LevelMixin implements ServerLevel
     }
 
     // Support custom chunk generator; in consistency with CraftBukkit
-    // The real part is inside ServerChunkCache, when initializing ChunkMap (in ctor).
-    // A generator state is created, which is later used for chunk generation.
-    // Previously we didn't modify it before ChunkMap is created,
-    // which in turn cause custom world generation from Bukkit failing to work.
     @Decorate(method = "<init>", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/dimension/LevelStem;generator()Lnet/minecraft/world/level/chunk/ChunkGenerator;"))
     private ChunkGenerator arclight$initChunkGenerator(LevelStem instance, @Local(ordinal = -1) MinecraftServer server, @Local(ordinal = -1) ServerLevelData worldInfo) throws Throwable {
         // Pulling up world info init since level info is used when selecting ChunkGenerator.
@@ -190,7 +185,6 @@ public abstract class ServerLevelMixin extends LevelMixin implements ServerLevel
                     this.environment = World.Environment.THE_END;
                 } else {
                     // Don't use CUSTOM; it's not even supported in Multiverse
-                    // this.environment = World.Environment.CUSTOM;
                     this.environment = World.Environment.NORMAL;
                 }
             }
@@ -202,7 +196,6 @@ public abstract class ServerLevelMixin extends LevelMixin implements ServerLevel
         ChunkGenerator raw = (ChunkGenerator) DecorationOps.callsite().invoke(instance);
         if (arclight$isActual()) {
             // Data needed by getWorld() are all initialized for possible creating CraftWorld.
-            // CraftBukkit start: select custom chunk generator
             if (biomeProvider != null) {
                 BiomeSource biomeSource = new CustomWorldChunkManager(getWorld(), biomeProvider, getServer().registryAccess().registryOrThrow(Registries.BIOME));
                 if (raw instanceof NoiseBasedChunkGenerator noise) {

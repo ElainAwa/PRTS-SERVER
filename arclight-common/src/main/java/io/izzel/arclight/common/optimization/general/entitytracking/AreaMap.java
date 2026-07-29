@@ -15,13 +15,7 @@ import net.minecraft.world.level.ChunkPos;
 import java.util.Comparator;
 import java.util.Set;
 
-/**
- * [PRTS 本服维护者移植 2026-07-21]
- * 原 VMP (com.ishland.vmp.common.maps.AreaMap) 的空间分桶索引移植。
- * 用 chunk 坐标为 key，把对象（实体追踪器）按视野范围散布到附近 chunk 桶里，
- * 查询附近实体时只需遍历视野范围内的桶，而非全量扫描。
- * 原版依赖 io.papermc.paper.util.MCUtil 的 getCoordinateKey，mojmap 下用 ChunkPos.asLong 等价替代。
- */
+/** 原 VMP (com.ishland.vmp.common.maps.AreaMap) 的空间分桶索引移植。 */
 public class AreaMap<T> {
 
     private static final boolean DEBUG = Boolean.getBoolean("vmp.debugAreaMap");

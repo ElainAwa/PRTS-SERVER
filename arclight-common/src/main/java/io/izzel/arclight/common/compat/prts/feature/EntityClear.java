@@ -15,13 +15,7 @@ import org.bukkit.entity.Entity;
 import org.bukkit.entity.Item;
 import org.bukkit.entity.Monster;
 
-/**
- * 定时清理世界中的掉落物 / 无名怪物，缓解实体爆量导致的卡顿。
- * 移植自 Youer feature.EntityClear，已去 Youer 化：
- *   - YouerConfig.* 配置 → PRTSFeaturesConfig（prts-features.yml，默认全关）
- *   - 服务器停止判断 → MinecraftServerBridge.hasStopped()
- * 默认不开启，不改变玩法；仅当用户在配置中显式启用后才生效。
- */
+/** 定时清理世界中的掉落物 / 无名怪物，缓解实体爆量导致的卡顿。 */
 public class EntityClear {
 
     public static final ScheduledExecutorService ENTITYCLEAR_ITEM = new ScheduledThreadPoolExecutor(1, new NamedThreadFactory("EntityClear-Item"));

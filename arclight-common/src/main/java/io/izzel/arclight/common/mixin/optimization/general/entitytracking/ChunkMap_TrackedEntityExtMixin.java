@@ -20,25 +20,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.util.Set;
 
-/**
- * [PRTS 本服维护者移植 2026-07-21]
- * 原 VMP com.ishland.vmp.mixins.playerwatching.optimize_nearby_entity_tracking_lookups.MixinThreadedAnvilChunkStorageEntityTracker
- * 的 mojmap 移植，挂在 ChunkMap.TrackedEntity 上，实现 EntityTrackerExtension。
- *
- * 关键 mojmap 映射（相对 VMP Yarn）：
- *   listeners(Set<EntityTrackingListener>) → seenBy(Set<ServerPlayerConnection>)
- *   entry(EntityTrackerEntry)               → serverEntity(ServerEntity)
- *   updateTrackedStatus(ServerPlayer)     → updatePlayer(ServerPlayer)  [beforeStartTracking 注入点]
- *   updateTrackedStatus(List)             → updatePlayers(List)        [在 ChunkMap_TrackingMixin 里 redirect]
- *   stopTracking()                        → broadcastRemoved()         [在 ChunkMap_TrackingMixin 里 redirect]
- *   entity.getPos()                       → entity.position()
- *   entity.getPassengerList()             → entity.getPassengers()
- *   entity.velocityModified               → entity.velocityChanged
- *   ChunkPos.toLong / ChunkSectionPos.getSectionCoord → ChunkPos.asLong / SectionPos.blockToSectionCoord
- *
- * VMP 用 IEntityTrackerEntry accessor 取 lastPassengers，本份改为在 ServerEntity_TrackingMixin 里
- * 通过 EntityTrackerEntryExtension.vmp$updatePassengers() 直接作业，省掉一个 accessor。
- */
+/** 原 VMP com.ishland.vmp.mixins.playerwatching.optimize_nearby_entity_tracking_lookups.MixinThreadedAnvilChunkStorageEnt... */
 @Mixin(ChunkMap.TrackedEntity.class)
 public abstract class ChunkMap_TrackedEntityExtMixin implements EntityTrackerExtension {
 
@@ -103,9 +85,6 @@ public abstract class ChunkMap_TrackedEntityExtMixin implements EntityTrackerExt
             this.serverEntity.sendChanges();
         } else {
             // 暂无玩家追踪：同步一次乘客列表 + （若是玩家自身）补发实体数据
-            // 注：原 VMP 在玩家自身分支额外判断 entity.velocityChanged 后给它自己发速度包；
-            // mojmap 下该字段名不确定且此分支极罕见（玩家不在任何人视野时），
-            // 玩家自身速度本就由客户端权威运算，故省略自同步速度包，仅保留乘客/数据同步。
             ((EntityTrackerEntryExtension) this.serverEntity).vmp$updatePassengers();
             if (this.entity instanceof ServerPlayer) {
                 ((EntityTrackerEntryExtension) this.serverEntity).vmp$syncEntityData();

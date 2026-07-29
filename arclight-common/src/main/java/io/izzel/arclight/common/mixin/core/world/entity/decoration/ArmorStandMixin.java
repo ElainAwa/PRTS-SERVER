@@ -97,7 +97,6 @@ public abstract class ArmorStandMixin extends LivingEntityMixin {
         return true;
     }
 
-
     @Inject(method = "swapItem", cancellable = true, at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/player/Player;hasInfiniteMaterials()Z"))
     public void arclight$manipulateEvent(net.minecraft.world.entity.player.Player playerEntity, net.minecraft.world.entity.EquipmentSlot slotType, ItemStack itemStack, InteractionHand hand, CallbackInfoReturnable<Boolean> cir) {
         ItemStack itemStack1 = this.getItemBySlot(slotType);

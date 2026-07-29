@@ -56,11 +56,6 @@ public abstract class AbstractFurnaceBlockEntityMixin extends BaseContainerBlock
     private int maxStack = MAX_STACK;
 
     // Static decorator used to be allowed to inline into non-static context,
-    // but the result will be incorrect.
-    // This will cause the injected method to become invalid.
-    // See PSI
-    // @Decorate(method = "burn", at = @At(value = "INVOKE", ordinal = 1, target = "Lnet/minecraft/core/NonNullList;get(I)Ljava/lang/Object;"))
-    // private static <E> E arclight$furnaceSmelt(NonNullList<E> instance, int i, @Local(ordinal = 0) AbstractFurnaceBlockEntity blockEntity, @Local(ordinal = -1) ItemStack itemStack2, @Local(ordinal = -2) ItemStack itemStack1) throws Throwable
 
     @Decorate(method = "serverTick", at = @At(value = "INVOKE", ordinal = 0, target = "Lnet/minecraft/world/level/block/entity/AbstractFurnaceBlockEntity;isLit()Z"),
         slice = @Slice(from = @At(value = "FIELD", target = "Lnet/minecraft/world/level/block/entity/AbstractFurnaceBlockEntity;litDuration:I")))

@@ -18,18 +18,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Ported from HariPlayer (VMP fork) async_logging.
- *
- * Wraps the root logger's appenders in log4j2 AsyncAppenders so that log writes
- * happen on a background thread instead of the server main thread. Pure
- * zero-perception optimization (only affects log write latency/ordering).
- *
- * The upstream Config.USE_ASYNC_LOGGING flag is replaced by a system property:
- * `-Dprts.asynclogging.disabled=true` disables it (default = enabled), since
- * the 1.20.1 ArclightConfig optimization sub-tree does not exist in this NeoForge
- * 1.21.1 build. The decision lives inside boot() so the startup hook is always safe.
- */
+/** Ported from HariPlayer (VMP fork) async_logging. */
 public class AsyncAppenderBootstrap {
 
     private static final Logger LOGGER = LogManager.getLogger();

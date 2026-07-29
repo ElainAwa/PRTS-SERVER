@@ -10,12 +10,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-/**
- * NearbyPlayerIndex 维护侧：TAIL 旁路同步（vanilla 记账先完成、且是唯一权威）。
- * updatePlayerStatus(player, true/false) 是玩家进出维度的完整且唯一入口；
- * move(player) 是移动入口（索引内部只在跨区块时更新，零开销早退）。
- * 1.21.1 签名核验：updatePlayerStatus(ServerPlayer,boolean)V / move(ServerPlayer)V 与 1.20.1 一致。
- */
+/** NearbyPlayerIndex 维护侧：TAIL 旁路同步（vanilla 记账先完成、且是唯一权威）。 */
 @Mixin(ChunkMap.class)
 public abstract class MixinChunkMap_NearbyIndex implements NearbyPlayerIndexHolder {
 

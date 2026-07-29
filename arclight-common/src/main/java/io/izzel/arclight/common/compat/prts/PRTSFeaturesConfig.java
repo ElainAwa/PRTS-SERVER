@@ -5,11 +5,7 @@ import java.util.ArrayList;
 import java.util.List;
 import org.bukkit.configuration.file.YamlConfiguration;
 
-/**
- * PRTS 轻量防卡功能的配置。
- * 默认全部关闭（遵循「零感知底层优化、不改玩法」原则），仅在 prts-features.yml 显式开启后生效。
- * 去 Youer 化：替代 YouerConfig，不依赖 Youer 任何类。
- */
+/** PRTS 轻量防卡功能的配置。 */
 public class PRTSFeaturesConfig {
 
     public static YamlConfiguration config;

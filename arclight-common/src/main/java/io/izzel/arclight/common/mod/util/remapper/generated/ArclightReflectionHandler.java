@@ -651,7 +651,6 @@ public class ArclightReflectionHandler extends ClassLoader {
         }
         if (rcl != null) {
             // Don't transform for remap=false.
-            // We don't have ReflectionHandler in their ClassLoader.
             var repo = new ClassRepoWrapper(GlobalClassRepo.INSTANCE, rcl.getRemapConfig());
             return rcl.getRemapper().remapClassFile(bytes, repo, true);
         } else {

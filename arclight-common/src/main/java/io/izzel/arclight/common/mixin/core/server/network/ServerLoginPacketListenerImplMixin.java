@@ -310,20 +310,7 @@ public abstract class ServerLoginPacketListenerImplMixin implements ServerLoginP
         }
     }
 
-    /*
-     * Forgified Fabric API (FFAPI) will actively record every custom query and awaits all responses
-     * before we enter the configuration stage. Due to their powerful control on queries we must allow
-     * them to at least have a glance on what they receive.
-     * FFAPI selected its injection point at the HEAD of this method. Thus, we selected INVOKE disconnect
-     * to ensure a defined injection order.
-     * Due to lack of support on custom queries in Forge/NF, FFAPI aggressively deserialize all CustomQA
-     * payload into its own kind; it is thus needed to take special care when processing the payload.
-     * Fallback implementation will log a loud warning and try to serialize the custom payload to recreate
-     * original answer data. This does not work for FFAPI since their payload is a buffer wrapper and has
-     * consumed the buffer by the end of their handler.
-     * See Forge/NF CustomQA deserialization & ArclightCustomQueryAnswerPayload.
-     * See FFAPI compat impl for customQAData & onCustomQA.
-     */
+    /* Forgified Fabric API (FFAPI) will actively record every custom query and awaits all responses */
     @Inject(method = "handleCustomQueryPacket", cancellable = true, at = @At(value = "INVOKE", target = "Lnet/minecraft/server/network/ServerLoginPacketListenerImpl;disconnect(Lnet/minecraft/network/chat/Component;)V"))
     private void arclight$modernForwardReply(ServerboundCustomQueryAnswerPacket packet, CallbackInfo ci) {
         if (VelocitySupport.isEnabled() && packet.transactionId() == this.bridge$getVelocityLoginId()) {

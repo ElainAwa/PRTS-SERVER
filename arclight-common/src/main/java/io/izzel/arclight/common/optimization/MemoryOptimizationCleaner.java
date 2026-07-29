@@ -10,16 +10,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Collection;
 
-/**
- * 实验性内存缓存清理（默认关闭）。
- * 仅在主线程 tick 中调用，反射清理用户配置的安全缓存目标。
- * 任何单个目标失败都不会影响其它目标或服务端运行。
- *
- * 配置项（prts.conf / optimization 段）：
- *   memory-cache-cleanup-enabled = false
- *   memory-cache-cleanup-interval = 300      // 秒
- *   memory-cache-cleanup-targets = []        // 形如 "com.foo.Bar" 或 "com.foo.Bar#field"
- */
+/** 实验性内存缓存清理（默认关闭）。 */
 public class MemoryOptimizationCleaner {
 
     private static final Logger LOGGER = LogManager.getLogger("PRTS-MemoryCleanup");

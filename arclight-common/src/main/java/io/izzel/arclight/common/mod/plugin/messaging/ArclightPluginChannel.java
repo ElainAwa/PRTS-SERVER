@@ -82,7 +82,6 @@ public class ArclightPluginChannel<T extends PluginChannelHandler> {
     @SuppressWarnings({"unchecked", "rawtypes"})
     public <B extends FriendlyByteBuf> StreamCodec<B, ArclightRawPayload> getCast() {
         // This is very OK for our implementation
-        // ByteBuf is always an input argument
         return (StreamCodec) streamCodec;
     }
 

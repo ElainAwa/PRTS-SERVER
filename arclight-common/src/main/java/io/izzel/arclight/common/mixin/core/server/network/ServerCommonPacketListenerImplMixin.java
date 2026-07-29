@@ -206,8 +206,6 @@ public abstract class ServerCommonPacketListenerImplMixin implements ServerCommo
     }
 
     // Plugin channel impl moved to PSI
-    // @Inject(method = "handleCustomPayload", at = @At("HEAD"))
-    // private void arclight$customPayload(ServerboundCustomPayloadPacket packet, CallbackInfo ci)
 
     @Override
     public boolean isTransferred() {

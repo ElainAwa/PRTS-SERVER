@@ -9,13 +9,7 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
 
-/**
- * NearbyPlayerIndex 查询侧 #1：接管 Mob.checkDespawn 中的无界 getNearestPlayer。
- * 1.21.1 字节码确认（javap Mob.class）：INVOKE 属主为 Level（invokevirtual
- * Level.getNearestPlayer:(Lnet/minecraft/world/entity/Entity;D)LPlayer;），与 1.20.1 一致。
- * 与 core MobMixin 的 @Inject(checkDespawn, at=INVOKE discard()) 目标不同，可共存。
- * 索引不可用/桶未命中/超守卫 → 原样调用 vanilla，行为零变更。
- */
+/** NearbyPlayerIndex 查询侧 #1：接管 Mob.checkDespawn 中的无界 getNearestPlayer。 */
 @Mixin(Mob.class)
 public abstract class MixinMob_NearbyIndex {
 

@@ -43,7 +43,6 @@ public abstract class BucketItemMixin implements BucketItemBridge {
     // @formatter:on
 
     // Using @Local doesn't work for Forge since they don't have MixinExtras :(
-    // Use Decorate to capture
     @Decorate(method = "use", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/block/BucketPickup;pickupBlock(Lnet/minecraft/world/entity/player/Player;Lnet/minecraft/world/level/LevelAccessor;Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/state/BlockState;)Lnet/minecraft/world/item/ItemStack;"))
     private ItemStack arclight$bucketFill(BucketPickup pickup, Player playerIn, LevelAccessor worldIn, BlockPos pos, BlockState state,
                                           @Local(ordinal = 0) InteractionHand handIn, @Local(ordinal = 0) ItemStack stack, @Local(ordinal = 0) BlockHitResult result) throws Throwable {

@@ -91,11 +91,6 @@ public abstract class ExplosionMixin implements ExplosionBridge {
     @Decorate(method = "explode", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/Entity;hurt(Lnet/minecraft/world/damagesource/DamageSource;F)Z"))
     private boolean arclight$handleMultiPart(Entity entity, DamageSource damageSource, float f, @Local(ordinal = -1) List<Entity> list) throws Throwable {
         // Special case ender dragon only give knockback if no damage is cancelled
-        // Thinks to note:
-        // - Setting a velocity to a ComplexEntityPart is ignored (and therefore not needed)
-        // - Damaging ComplexEntityPart while forward the damage to EntityEnderDragon
-        // - Damaging EntityEnderDragon does nothing
-        // - EntityEnderDragon hitbock always covers the other parts and is therefore always present
         if (((EntityBridge) entity).bridge$forge$isPartEntity()) {
             throw DecorationOps.jumpToLoopStart();
         }

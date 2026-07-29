@@ -17,14 +17,7 @@ import net.minecraft.world.phys.AABB;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-/**
- * Utility methods for getting chunks (ServerCore port, Mojmap / NeoForge 1.21.1).
- *
- * <p>Adapted from Wesley1808/ServerCore. The Moonrise-specific branch (Environment.MOD_MOONRISE)
- * is dropped: on this platform we always use the vanilla "get visible chunk if loaded, do not load"
- * path via {@link ServerChunkCache#getChunk(int, int, ChunkStatus, boolean)}, which avoids any
- * reference to the (private) {@code ChunkHolder.UNLOADED_LEVEL_CHUNK_FUTURE} field.</p>
- */
+/** Utility methods for getting chunks (ServerCore port, Mojmap / NeoForge 1.21.1). */
 public class ChunkManager {
 
     @NotNull

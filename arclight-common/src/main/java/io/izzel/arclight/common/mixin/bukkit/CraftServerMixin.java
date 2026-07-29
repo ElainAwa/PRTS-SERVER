@@ -247,8 +247,6 @@ public abstract class CraftServerMixin implements CraftServerBridge {
         var cache = generatorCache.remove(name);
         if (cache == null) {
             // If not provided (which means it's not newly created),
-            // load from bukkit.yml configuration.
-            // See CraftServer
             cache = getGenerator(name);
         }
         return cache;
@@ -259,8 +257,6 @@ public abstract class CraftServerMixin implements CraftServerBridge {
         var cache = biomeProviderCache.remove(name);
         if (cache == null) {
             // If not provided (which means it's not newly created),
-            // load from bukkit.yml configuration.
-            // See CraftServer
             cache = getBiomeProvider(name);
         }
         return cache;

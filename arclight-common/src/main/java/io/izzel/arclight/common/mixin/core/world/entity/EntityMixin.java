@@ -631,7 +631,6 @@ public abstract class EntityMixin implements InternalEntityBridge, EntityBridge,
             cir.setReturnValue(false);
     }
 
-
     @Inject(method = "saveWithoutId", at = @At(value = "INVOKE_ASSIGN", ordinal = 1, target = "Lnet/minecraft/nbt/CompoundTag;put(Ljava/lang/String;Lnet/minecraft/nbt/Tag;)Lnet/minecraft/nbt/Tag;"))
     public void arclight$writeWithoutTypeId$InfiniteValueCheck(CompoundTag compound, CallbackInfoReturnable<CompoundTag> cir) {
         if (Float.isNaN(this.getYRot())) {

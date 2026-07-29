@@ -75,7 +75,6 @@ public class SpongeBlockMixin {
                         }
 
                         // CraftBukkit start
-                        // TileEntity tileentity = iblockdata.hasBlockEntity() ? world.getBlockEntity(blockposition1) : null;
 
                         // dropResources(iblockdata, world, blockposition1, tileentity);
                         blockList.setBlock(blockposition1, Blocks.AIR.defaultBlockState(), 3);

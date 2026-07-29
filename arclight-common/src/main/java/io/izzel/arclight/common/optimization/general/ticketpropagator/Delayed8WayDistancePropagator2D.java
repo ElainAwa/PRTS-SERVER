@@ -1,10 +1,4 @@
-/*
- * Ported from HariPlayer (VMP fork) -> Paper's Delayed8WayDistancePropagator2D.
- * License: MIT (https://github.com/PaperMC/Paper/blob/master/licenses/MIT.md)
- *
- * Adapted for Minecraft Forge 1.20.1: replaced io.papermc.paper.util.MCUtil.getCoordinateKey
- * with net.minecraft.world.level.ChunkPos.asLong (identical encoding: x in low 32 bits, z in high 32 bits).
- */
+/* Ported from HariPlayer (VMP fork) -> Paper's Delayed8WayDistancePropagator2D. */
 
 package io.izzel.arclight.common.optimization.general.ticketpropagator;
 
@@ -25,7 +19,6 @@ public final class Delayed8WayDistancePropagator2D {
     protected final Long2ByteOpenHashMap sources = new Long2ByteOpenHashMap(4096, 0.6f);
 
     // Generally updates to positions are made close to other updates, so we link to decrease cache misses when
-    // propagating updates
     protected final LongLinkedOpenHashSet updatedSources = new LongLinkedOpenHashSet();
 
     @FunctionalInterface
@@ -152,14 +145,12 @@ public final class Delayed8WayDistancePropagator2D {
                 // level decrease
                 this.addToRemoveWorkQueue(coordinate, currentLevel);
                 // if the current coordinate is a source, then the decrease propagation will detect that and queue
-                // the source propagation
             }
         }
 
         this.updatedSources.clear();
 
         // propagate source level increases first for performance reasons (in crowded areas hopefully the additions
-        // make the removes remove less)
         this.propagateIncreases();
 
         // now we propagate the decreases (which will then re-propagate clobbered sources)
@@ -190,12 +181,9 @@ public final class Delayed8WayDistancePropagator2D {
 
                 if (neighbourCheck) {
                     // used when propagating from decrease to indicate that this level needs to check its neighbours
-                    // this means the level at coordinate could be equal, but would still need neighbours checked
 
                     if (currentLevel != level) {
                         // something caused the level to change, which means something propagated to it (which means
-                        // us propagating here is redundant), or something removed the level (which means we
-                        // cannot propagate further)
                         continue;
                     }
                 } else if (currentLevel >= level) {
@@ -224,8 +212,6 @@ public final class Delayed8WayDistancePropagator2D {
                         }
 
                         // sure we can check the neighbour level in the map right now and avoid a propagation,
-                        // but then we would still have to recheck it when popping the value off of the queue!
-                        // so just avoid the double lookup
                         final long neighbourCoordinate = ChunkPos.asLong(x + dx, z + dz);
                         this.addToIncreaseWorkQueue(neighbourCoordinate, neighbourLevel);
                     }
@@ -252,8 +238,6 @@ public final class Delayed8WayDistancePropagator2D {
 
                 if (currentLevel > level) {
                     // something higher propagated here or we hit the propagation of another source
-                    // in the second case we need to re-propagate because we could have just clobbered another source's
-                    // propagation
                     this.addToIncreaseWorkQueue(coordinate, currentLevel, (byte) -currentLevel); // indicate to the increase code that the level's neighbours need checking
                     continue;
                 }
@@ -270,7 +254,6 @@ public final class Delayed8WayDistancePropagator2D {
 
                 if (level == 0) {
                     // can't propagate -1 to neighbours
-                    // we have to check neighbours for removing 1 just in case the neighbour is 2
                     continue;
                 }
 
@@ -287,8 +270,6 @@ public final class Delayed8WayDistancePropagator2D {
                         }
 
                         // sure we can check the neighbour level in the map right now and avoid a propagation,
-                        // but then we would still have to recheck it when popping the value off of the queue!
-                        // so just avoid the double lookup
                         final long neighbourCoordinate = ChunkPos.asLong(x + dx, z + dz);
                         this.addToRemoveWorkQueue(neighbourCoordinate, neighbourLevel);
                     }

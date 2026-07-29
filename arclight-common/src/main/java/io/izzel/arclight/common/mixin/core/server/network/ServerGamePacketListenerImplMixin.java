@@ -297,11 +297,6 @@ public abstract class ServerGamePacketListenerImplMixin extends ServerCommonPack
                 double d10 = entity.getDeltaMovement().lengthSqr();
 
                 // Down shift to support ServerCore injecting into lengthSqr.
-                // They are capturing the above 11 fp numbers (d0-d9, f, f2).
-                // mixin can't distinguish between ours and original ones.
-                // Perhaps due to we have 2 floats that's similar to above.
-                // Mixin plz, allow overlapping possible captures!
-                // CraftBukkit - store current player position
                 double prevX = player.getX();
                 double prevY = player.getY();
                 double prevZ = player.getZ();
@@ -521,8 +516,6 @@ public abstract class ServerGamePacketListenerImplMixin extends ServerCommonPack
                         double d4 = this.player.getY();
                         double d5 = this.player.getZ();
                         // This is not in ServerGamePacketListenerImpl.
-                        // It is unused, then why it's here?
-                        // double d6 = this.player.getY();
                         double d7 = d0 - this.firstGoodX;
                         double d8 = d1 - this.firstGoodY;
                         double d9 = d2 - this.firstGoodZ;
@@ -530,17 +523,12 @@ public abstract class ServerGamePacketListenerImplMixin extends ServerCommonPack
                         double d11 = d7 * d7 + d8 * d8 + d9 * d9;
 
                         // Down shift to support ServerCore injecting into lengthSqr.
-                        // They are capturing the above 8 fp numbers (d0-d5, f, f1).
-                        // mixin can't distinguish between ours and original ones.
-                        // CraftBukkit - Make sure the move is valid but then reset it for plugins to modify
                         double prevX = player.getX();
                         double prevY = player.getY();
                         double prevZ = player.getZ();
                         float prevYaw = player.getYRot();
                         float prevPitch = player.getXRot();
                         // CraftBukkit end
-                        // Below is isSleeping() which can be another injection point.
-                        // Mixin plz, allow overlapping possible captures!
 
                         if (this.player.isSleeping()) {
                             if (d11 > 1.0D) {
@@ -730,7 +718,6 @@ public abstract class ServerGamePacketListenerImplMixin extends ServerCommonPack
             case SWAP_ITEM_WITH_OFFHAND: {
                 if (!this.player.isSpectator()) {
                     // BetterCombat mixin compatibility
-                    // https://github.com/ZsoltMolnarrr/BetterCombat/blob/9090f08faf4a3e51256c8a7a13af94a80b6128c0/common/src/main/java/net/bettercombat/mixin/ServerPlayNetworkHandlerMixin.java
                     ItemStack offhandStack = this.player.getItemInHand(InteractionHand.OFF_HAND);
                     var result = bridge$platform$canSwapHandItems(this.player);
                     if (result._1) {
@@ -810,10 +797,6 @@ public abstract class ServerGamePacketListenerImplMixin extends ServerCommonPack
     }
 
     // So, what is SPIGOT-4706 exactly?
-    // @Inject(method = "handleUseItemOn", at = @At(value = "INVOKE", target = "Lnet/minecraft/server/level/ServerPlayerGameMode;useItemOn(Lnet/minecraft/server/level/ServerPlayer;Lnet/minecraft/world/level/Level;Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/InteractionHand;Lnet/minecraft/world/phys/BlockHitResult;)Lnet/minecraft/world/InteractionResult;"))
-    // private void arclight$checkDistance(ServerboundUseItemOnPacket packetIn, CallbackInfo ci) {
-    //     this.player.stopUsingItem();
-    // }
 
     private int limitedPackets;
     private long lastLimitedPacket = -1;
@@ -1524,7 +1507,6 @@ public abstract class ServerGamePacketListenerImplMixin extends ServerCommonPack
 
                     if (event instanceof CraftItemEvent || event instanceof SmithItemEvent) {
                         // Need to update the inventory on crafting to
-                        // correctly support custom recipes
                         player.containerMenu.sendAllDataToRemote();
                     }
                 }
