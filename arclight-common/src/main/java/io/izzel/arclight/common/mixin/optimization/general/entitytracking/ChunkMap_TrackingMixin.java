@@ -18,34 +18,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-/**
- * [PRTS 本服维护者移植 2026-07-21]
- * 路线B 核心 mixin：HariPlayer 招牌的空间化实体追踪（AreaMap 方案，移植自 VMP 同名算法）的 mojmap 移植。
- *
- * ⚠️ 关键修正（2026-07-21 实测定位）：
- *   Forge 的无参 tick()V 做两件事：
- *     ① 为每个玩家调 updateChunkTracking(player)（Forge 私有包裹法，不在官方映射里），
- *        把玩家新位置的区块标记到其连接 chunkSender 的待发队列（区块包由 PlayerChunkSender 异步发出）
- *        —— 这是 tp 后区块能否加载的唯一驱动；
- *     ② 遍历 entityMap 做实体广播循环（updatePlayers + sendChanges）。
- *   旧版 routeB 直接取消整个 tick()V、只重做 ② 的 AreaMap 版，于是【①被丢掉】→ tp 大跳变时
- *   玩家区块永不进 chunkSender → 客户端虚空 → keepalive 超时。走路正常是因为 move() 的增量
- *   updateChunkTracking 盖住了。
- *
- *   本版改为【绝不取消 tick()V】：
- *     - 用 @Redirect 把 tick()V 里的实体广播循环（entityMap.values() 遍历）替换为空集合，
- *       原版 updateChunkTracking 循环（①）原样运行 → 区块刷新链路 100% 不动；
- *     - 用 @Inject(RETURN) 在 tick()V 末尾跑 AreaMap 的优化实体广播（替代被空掉的 ②）。
- *   这样 Forge 的区块逻辑完全不被触碰，只替换了实体广播机制，tp 后区块照常加载。
- *
- * 门控：optimization.experimental-optimizations-enabled。关闭时本 mixin 完全惰性，行为等同 100% 原版。
- * ⚠️ Krypton 冲突（2026-07-27）：Krypton 模组 @Overwrite 了 ChunkMap.move，故本 mixin 不再注入 move，
- *    仅优化 tick()（AreaMap 替代实体广播全扫描）；move 的实体遍历交由 Krypton/原版，几何一致不振荡。
- * 三重兜底（任何一条触发都回退原版实体循环，绝不虚空/冻结）：
- *   1) 开关关闭或本会话已标记失败 → 原版运行；
- *   2) areaMap 未维护（isEmpty，如运行时切开关、或 addEntity 钩子未命中）→ 原版运行；
- *   3) nearbyEntityTracking.tick() 抛异常 → 置失败标记，本会话后续全部回退原版。
- */
+/** 路线B 核心 mixin：HariPlayer 招牌的空间化实体追踪（AreaMap 方案，移植自 VMP 同名算法）的 mojmap 移植。 */
 @Mixin(ChunkMap.class)
 public class ChunkMap_TrackingMixin {
 
@@ -70,7 +43,6 @@ public class ChunkMap_TrackingMixin {
     @Unique
     private static int luminara$tickCount = 0;
     // 看门狗阈值从 prts.yml 的 optimization.route-b 读取（watchdog-hard-ms / watchdog-soft-ms），
-    // 运行时由 config 提供，确保启动后读到的就是 yml 值。
     @Unique
     private static long luminara$watchdogHardMs() {
         return ArclightConfig.spec().getOptimization().getRouteB().getWatchdogHardMs();
@@ -84,12 +56,7 @@ public class ChunkMap_TrackingMixin {
         return ArclightConfig.spec().getOptimization().isRouteBEnabled();
     }
 
-    /**
-     * 重定向 tick()V 里的实体广播循环（entityMap.values() 遍历）。
-     * routeB 激活时返回空集合 → 原版实体广播（updatePlayers/sendChanges）被跳过，由下方 AreaMap 接管；
-     * 同时 tick()V 顶部的 updateChunkTracking 循环完全不受影响 → 区块刷新照常。
-     * routeB 未激活 / 已失败 / AreaMap 未维护时返回真实集合 → 原版实体广播照常运行。
-     */
+    /** 重定向 tick()V 里的实体广播循环（entityMap.values() 遍历）。 */
     @Redirect(method = "tick()V",
         at = @At(value = "INVOKE", target = "Lit/unimi/dsi/fastutil/ints/Int2ObjectMap;values()Lit/unimi/dsi/fastutil/objects/ObjectCollection;"))
     private ObjectCollection<ChunkMap.TrackedEntity> luminara$skipVanillaEntityBroadcast(Int2ObjectMap<ChunkMap.TrackedEntity> instance) {
@@ -102,14 +69,7 @@ public class ChunkMap_TrackingMixin {
         return empty;
     }
 
-    /**
-     * [PRTS 维护注记 2026-07-27] 原在此处的 move(ServerPlayer)V @Redirect（空掉实体遍历、让 routeB 独占 seenBy）
-     * 已移除：Krypton 模组 (me.steinborn.krypton) 用 @Overwrite 重写了 ChunkMap.move，导致本 mixin 的 @Redirect
-     * 注入失败、整个 ChunkMap_TrackingMixin 应用失败（routeB 完全失效 + 启动 WARN）。
-     * 移除后 move 由 Krypton/原版接管（欧氏距离维护 seenBy + Krypton flush consolidation 网络优化）；
-     * routeB 仅在 tick() 层做 AreaMap 优化。两者几何一致（routeB 经 updatePlayer 的欧氏判定，move 也欧氏），
-     * 不会振荡，物品不丢。
-     */
+    /** 此处原 move(ServerPlayer)V @Redirect 已移除：routeB 独占 seenBy。 */
 
     /**
      * tick()V 末尾：在 Forge 的 updateChunkTracking 循环（区块刷新）已运行之后，执行 AreaMap 优化实体广播，

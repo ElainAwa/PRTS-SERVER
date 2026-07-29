@@ -20,7 +20,6 @@ public class LootDataManagerMixin implements LootDataManagerBridge {
 
     public Map<?, ResourceLocation> lootTableToKey = ImmutableMap.of();
     // @formatter:on
-    // @formatter:off
     @Shadow private Map<LootDataId<?>, ?> elements;
 
     @Inject(method = "apply", at = @At("RETURN"))

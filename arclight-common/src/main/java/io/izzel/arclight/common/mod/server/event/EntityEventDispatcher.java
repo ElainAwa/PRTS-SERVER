@@ -24,8 +24,6 @@ public class EntityEventDispatcher {
     public void onLivingDeath(LivingDropsEvent event) {
         if (event.getEntity() instanceof ServerPlayer) {
             // handled at ServerPlayerEntityMixin#onDeath
-            // Cancelled at io.izzel.arclight.common.mixin.core.world.entity.LivingEntityMixin#arclight$cancelEvent
-            // event.setCanceled(true);
             return;
         }
         LivingEntity livingEntity = event.getEntity();

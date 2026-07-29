@@ -10,7 +10,6 @@ import org.spongepowered.asm.mixin.Mixin;
 @Mixin(targets = "net/minecraft/commands/CommandSource$1")
 public class CommandSource1Mixin implements ICommandSourceBridge {
 
-
     public CommandSender getBukkitSender(CommandSourceStack wrapper) {
         return new ServerCommandSender() {
             private final boolean isOp = wrapper.hasPermission(wrapper.getServer().getOperatorUserPermissionLevel());

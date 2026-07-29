@@ -15,7 +15,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Stream;
 
-
 public class ComponentBridgeHandler {
 
     private static final Logger LOGGER = LogManager.getLogger("PRTS");
@@ -189,6 +188,5 @@ public class ComponentBridgeHandler {
             return createIterator(component);
         }
     }
-
 
 }

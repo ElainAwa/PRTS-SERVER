@@ -14,7 +14,6 @@ public abstract class NamespacedKeyAdventureMixin implements net.kyori.adventure
     @Shadow
     public abstract @NotNull String getKey();
 
-
     @Override
     public @NotNull String namespace() {
         return getNamespace();

@@ -90,14 +90,7 @@ public class ClassLoaderAdapter implements PluginTransformer {
         {
             final var config = Type.getInternalName(ArclightRemapConfig.class);
 
-            /*
-             * public ArclightRemapConfig getConfig() {
-             *     if (arclight$remapConfig != null) {
-             *         return arclight$remapConfig;
-             *     }
-             *     return arclight$remapConfig = new ArclightRemapConfig(RemappingClassLoader.needRemap(this));
-             * }
-             */
+            /* public ArclightRemapConfig getConfig() { */
             InsnList list = new InsnList();
             LabelNode getfield = new LabelNode();
             LabelNode putfield = new LabelNode();

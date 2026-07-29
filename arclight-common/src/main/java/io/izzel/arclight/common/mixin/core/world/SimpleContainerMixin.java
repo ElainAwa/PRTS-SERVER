@@ -22,7 +22,6 @@ public abstract class SimpleContainerMixin implements Container, IInventoryBridg
 
     private static final int MAX_STACK = 64;
     // @formatter:on
-    // @formatter:off
     @Shadow @Final public NonNullList<ItemStack> items;
     public List<HumanEntity> transaction = new ArrayList<>();
     protected InventoryHolder bukkitOwner;

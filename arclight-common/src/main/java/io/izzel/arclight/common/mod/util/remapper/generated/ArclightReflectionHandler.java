@@ -305,7 +305,6 @@ public class ArclightReflectionHandler extends ClassLoader {
                 }
             }
             // For non-NMS/Bukkit plugin classes, '$' can be used incorrectly as a package separator.
-            // Try dotted fallback first and skip nested-class probing for these names.
             if (normalizedName.indexOf('$') >= 0 && !shouldMapTypeName(normalizedName)) {
                 try {
                     return tryLoadClass(normalizedName.replace('$', '.'), initialize, classLoader);
@@ -317,7 +316,6 @@ public class ArclightReflectionHandler extends ClassLoader {
             if (i > 0) {
                 String simpleName = normalizedName.substring(i + 1);
                 // Keep plugin package-style version classes as dotted names:
-                // e.g. com.Zrips.CMI.NBT.v1_20_R1
                 if (simpleName.matches("v\\d+_\\d+_R\\d+")) {
                     throw e;
                 }
@@ -760,7 +758,6 @@ public class ArclightReflectionHandler extends ClassLoader {
         }
         if (rcl != null) {
             // Don't transform for remap=false.
-            // We don't have ReflectionHandler in their ClassLoader.
             var repo = new ClassRepoWrapper(GlobalClassRepo.INSTANCE, rcl.getRemapConfig());
             return rcl.getRemapper().remapClassFile(bytes, repo, true);
         } else {

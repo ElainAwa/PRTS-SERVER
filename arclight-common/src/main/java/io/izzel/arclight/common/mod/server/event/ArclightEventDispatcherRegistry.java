@@ -15,7 +15,6 @@ public abstract class ArclightEventDispatcherRegistry {
         MinecraftForge.EVENT_BUS.register(new ItemEntityEventDispatcher());
         MinecraftForge.EVENT_BUS.register(new WorldEventDispatcher());
         // Register the /prts command dispatcher (static @SubscribeEvent onRegisterCommands).
-        // Without this the command was never added to the dispatcher -> "Unknown command".
         MinecraftForge.EVENT_BUS.register(PRTSCommand.class);
         ArclightMod.LOGGER.info("registry.forge-event");
     }

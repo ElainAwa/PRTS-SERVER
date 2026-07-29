@@ -22,17 +22,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Ported from HariPlayer (VMP fork) async_logging.
- *
- * Wraps the root logger's appenders in log4j2 AsyncAppenders so that log writes
- * happen on a background thread instead of the server main thread. Pure
- * zero-perception optimization (only affects log write latency/ordering).
- *
- * The upstream Config.USE_ASYNC_LOGGING flag is replaced by PRTS's
- * "async-logging" sub-switch, checked here so boot() is safe to call from any
- * startup hook.
- */
+/** Ported from HariPlayer (VMP fork) async_logging. */
 public class AsyncAppenderBootstrap {
 
     private static final Logger LOGGER = LogManager.getLogger();

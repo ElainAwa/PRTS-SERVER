@@ -10,11 +10,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Collection;
 
-/**
- * 实验性内存缓存清理（默认关闭，由总开关罩住）。
- * 仅在主线程 tick 中调用，反射清理用户配置的安全缓存目标。
- * 任何单个目标失败都不会影响其它目标或服务端运行。
- */
+/** 实验性内存缓存清理（默认关闭，由总开关罩住）。 */
 public class MemoryOptimizationCleaner {
 
     private static final Logger LOGGER = LogManager.getLogger("PRTS-MemoryCleanup");

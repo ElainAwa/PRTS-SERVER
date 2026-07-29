@@ -42,7 +42,6 @@ public class PluginEventHandler implements IEventListener {
     private java.lang.reflect.Type filter = null;
     private String readable;
 
-
     public PluginEventHandler(Plugin plugin, Object target, Method method, boolean isGeneric) throws NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException {
         if (Modifier.isStatic(method.getModifiers())) {
             handler = (IEventListener) createWrapper(method).getDeclaredConstructor().newInstance();

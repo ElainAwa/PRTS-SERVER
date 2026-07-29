@@ -10,18 +10,8 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-/**
- * [PRTS 本服维护者移植 2026-07-21]
- * 原 VMP com.ishland.vmp.mixins.playerwatching.optimize_nearby_entity_tracking_lookups.MixinServerPlayerEntity
- * 的 mojmap 移植，挂在 ServerPlayer 上，实现 ServerPlayerEntityExtension。
- * 记录玩家上一 tick 的坐标，供 NearbyEntityTracking 判断是否移动、需要刷新视野桶。
- *
- * 注意：这里【不要】用 @Shadow 读坐标。本服在子类(ServerPlayer)上 @Shadow 继承自 Entity 的
- * getX()/position() 会因 reobf refmap 无法定位运行时名而失败
- * （"@Shadow method m_20185_/m_20182_ was not located"）。
- * 改用普通虚调用 ((Entity)(Object)this).position() —— 由 reobf 重映射，运行时直接命中，
- * 与 ChunkMap_TrackedEntityExtMixin 里 this.entity.position() 的方式一致。
- */
+/** VMP mojmap 移植：记录玩家上一 tick 坐标供 NearbyEntityTracking 判移动/瞬移。禁 @Shadow（reobf refmap 失败），改用虚调用。 */
+
 @Mixin(ServerPlayer.class)
 public abstract class ServerPlayer_TrackingMixin implements ServerPlayerEntityExtension {
 
@@ -46,8 +36,7 @@ public abstract class ServerPlayer_TrackingMixin implements ServerPlayerEntityEx
         this.vmpTracking$prevZ = pos.z;
     }
 
-    // 瞬移判定阈值（单位：chunk）。玩家每 tick 正常移动/飞行远小于此值；
-    // 只有 /tp、waystones、tpmaster、传送门等真实大跳变才会超过。设小一点宁可多跳过也绝不漏判真实 tp。
+    // 瞬移判定阈值（chunk）：正常移动远小于此值，仅 /tp/传送门等大跳变超过。
     private static final int luminara$teleportChunks = 2;
 
     @Override
@@ -65,12 +54,8 @@ public abstract class ServerPlayer_TrackingMixin implements ServerPlayerEntityEx
         return Math.max(dx, dz) > luminara$teleportChunks;
     }
 
-    /**
-     * 在玩家每 tick 逻辑末尾刷新 prev 坐标快照。
-     * 关键：原先这个快照在 NearbyEntityTracking.tick() 内刷新，但 routeB 接管 ChunkMap.move() 后，
-     * 若 move() 在 routeB tick() 之后调用，prev 已被刷新会导致 move 误判"非瞬移"而被空掉 → 瞬移卡死复现。
-     * 把刷新挪到玩家 tick 末尾，保证同 tick 内 routeB tick 与 ChunkMap.move 读到一致的 isTeleport()。
-     */
+    /** 玩家 tick 末尾刷新坐标快照，保证 routeB tick 与 ChunkMap.move 读到一致的 isTeleport()。 */
+
     @Inject(method = "tick()V", at = @At("RETURN"))
     private void luminara$updateTrackPos(CallbackInfo ci) {
         this.vmpTracking$updatePosition();

@@ -1,6 +1,5 @@
 package io.izzel.arclight.common.adventure;
 
-
 import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.chat.SignedMessage;
 import net.kyori.adventure.text.Component;
@@ -84,7 +83,6 @@ public final class PaperAdventure {
     public static @NotNull MiniMessage miniMessage() {
         return MINI_MESSAGE;
     }
-
 
     // Enhanced message parsing that supports multiple formats
     public static @NotNull Component parseMessage(@NotNull String message) {

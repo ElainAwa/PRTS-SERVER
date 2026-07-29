@@ -12,7 +12,6 @@ public interface KeyedAdventureMixin extends net.kyori.adventure.key.Keyed {
     @Shadow
     @NotNull NamespacedKey getKey();
 
-
     @Override
     default net.kyori.adventure.key.@NotNull Key key() {
         NamespacedKey namespacedKey = getKey();

@@ -38,7 +38,6 @@ public abstract class BrewingStandBlockEntityMixin extends LockableBlockEntityMi
 
     public List<HumanEntity> transaction = new ArrayList<>();
     // @formatter:on
-    // @formatter:off
     @Shadow private NonNullList<ItemStack> items;
     private int maxStack = MAX_STACK;
 

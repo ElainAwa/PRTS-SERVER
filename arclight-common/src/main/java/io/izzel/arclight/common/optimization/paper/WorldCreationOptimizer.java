@@ -31,14 +31,12 @@ public class WorldCreationOptimizer {
         }
     }
 
-
     public static void optimizeWorldInit(ServerLevel world, ServerLevelData worldData) {
         var config = ArclightConfig.spec().getOptimization().getWorldCreation();
 
         if (!config.isFastWorldCreation()) {
             return;
         }
-
 
         if (config.isAsyncWorldDataLoading()) {
             loadWorldDataAsync(world, worldData);
@@ -51,7 +49,6 @@ public class WorldCreationOptimizer {
 
     private static void preventWorldCreationDuringTick() {
     }
-
 
     private static void loadWorldDataAsync(ServerLevel world, ServerLevelData worldData) {
         if (worldCreationExecutor == null) {
@@ -96,7 +93,6 @@ public class WorldCreationOptimizer {
         }
     }
 
-
     public static boolean shouldSkipWorldCreation(String worldName) {
         var config = ArclightConfig.spec().getOptimization().getWorldCreation();
 
@@ -106,16 +102,13 @@ public class WorldCreationOptimizer {
         return false;
     }
 
-
     public static void optimizeWorldBorder(ServerLevel world) {
         var config = ArclightConfig.spec().getOptimization().getWorldCreation();
 
         if (!config.isOptimizeWorldBorderSetup()) {
         }
 
-
     }
-
 
     public static void shutdown() {
         if (worldCreationExecutor != null) {
@@ -131,10 +124,8 @@ public class WorldCreationOptimizer {
         }
     }
 
-
     public static boolean isFastWorldCreationEnabled() {
         return ArclightConfig.spec().getOptimization().getWorldCreation().isFastWorldCreation();
     }
-
 
 }

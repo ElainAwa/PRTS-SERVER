@@ -128,7 +128,6 @@ public abstract class EnchantmentContainerMixin extends AbstractContainerMenuMix
                         }
                     }
 
-
                     CraftItemStack item = CraftItemStack.asCraftMirror(itemstack);
                     org.bukkit.enchantments.EnchantmentOffer[] offers = new EnchantmentOffer[3];
                     for (int j = 0; j < 3; ++j) {

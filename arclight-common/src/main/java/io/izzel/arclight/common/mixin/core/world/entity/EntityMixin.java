@@ -805,7 +805,6 @@ public abstract class EntityMixin implements InternalEntityBridge, EntityBridge,
                 }
             }
             // CraftBukkit end
-            // Spigot start
             org.spigotmc.event.entity.EntityMountEvent event = new org.spigotmc.event.entity.EntityMountEvent(((EntityBridge) entity).bridge$getBukkitEntity(), this.getBukkitEntity());
             // Suppress during worldgen
             if (this.valid) {
@@ -862,7 +861,6 @@ public abstract class EntityMixin implements InternalEntityBridge, EntityBridge,
                 }
             }
             // CraftBukkit end
-            // Spigot start
             org.spigotmc.event.entity.EntityDismountEvent event = new org.spigotmc.event.entity.EntityDismountEvent(((EntityBridge) entity).bridge$getBukkitEntity(), this.getBukkitEntity());
             // Suppress during worldgen
             if (this.valid) {

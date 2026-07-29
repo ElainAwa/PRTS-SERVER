@@ -81,7 +81,6 @@ public class ArclightRemapper {
                 null, null, false
         );
         // TODO workaround for https://github.com/md-5/SpecialSource/pull/81
-        //  remove on update
         var content = new String(ArclightRemapper.class.getResourceAsStream("/bukkit_srg.srg").readAllBytes(), StandardCharsets.UTF_8);
         var i = content.indexOf("net/minecraft/server/level/ChunkMap net/minecraft/server/level/ChunkTracker");
         var nextSection = content.substring(i).lines().skip(1).dropWhile(it -> it.startsWith("\t")).findFirst().orElseThrow();

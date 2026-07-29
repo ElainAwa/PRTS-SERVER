@@ -10,23 +10,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import java.lang.reflect.Method;
 
-/**
- * 修复 Champions 模组在 Arclight/PRTS 混合核心下 {@code ChampionsConfig} 的静态配置字段
- * (entitiesList / entitiesPermission / dimensionList / dimensionPermission / bossBarBlackList 等)
- * 未被 Forge 配置事件灌入、保持 null，导致生物生成时
- * ChampionHelper.isValidEntity 调用 entitiesList.contains(...) 抛出 NPE 把服务端搞挂的问题。
- *
- * 旧方案用反射直接读/写 ChampionsConfig 的 private static final 字段，被 Forge 模组层
- * ("class ...ChampionHelper (in module champions) cannot access a member of class ChampionsConfig
- * with modifiers private static final") 拒绝，惰性初始化静默失败、防护失效。
- *
- * 本方案完全避免私有字段反射：Champions 自己的配置加载逻辑就是把 TOML 值灌进这些 public static
- * 字段的公开方法 bakeCommon()/bake()。在 ChampionHelper 所在的（champions 模块）上下文里重新调一次
- * 这两个公开方法即可——它们只读 public 的 ForgeConfigSpec holder 并写 public static 字段，
- * 不涉及任何私有成员访问，故不受模组层包访问限制。
- *
- * 用 @Pseudo：Champions 模组不存在时静默跳过，零影响。
- */
+/** Champions 配置惰性初始化：避免 Forge 模组层 private static final 反射被拒导致 NPE。改调公开 bakeCommon()/bake()。 */
+
 @Pseudo
 @Mixin(targets = "top.theillusivec4.champions.common.util.ChampionHelper", remap = false)
 public class ChampionHelperConfigInitMixin {

@@ -18,7 +18,6 @@ public abstract class ChestBlockEntityMixin extends LockableBlockEntityMixin {
 
     public List<HumanEntity> transaction = new ArrayList<>();
     // @formatter:on
-    // @formatter:off
     @Shadow private NonNullList<ItemStack> items;
     private int maxStack = IInventoryBridge.MAX_STACK;
 

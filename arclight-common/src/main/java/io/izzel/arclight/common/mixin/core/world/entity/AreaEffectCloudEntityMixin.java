@@ -216,7 +216,6 @@ public abstract class AreaEffectCloudEntityMixin extends EntityMixin implements 
 
     }
 
-
     public void refreshEffects() {
         if (!this.fixedColor) {
             this.getEntityData().set(DATA_COLOR, PotionUtils.getColor(PotionUtils.getAllEffects(this.potion, this.effects)));

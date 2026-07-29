@@ -12,15 +12,7 @@ import net.minecraft.world.level.block.WallBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.ChunkAccess;
 
-/**
- * 村民脑切（源自 Mohist 1.20.1 com.mohistmc.optimizations.OptVillager，去 Mohist 化移植）。
- * <p>
- * 仅对"卡住、无法寻路离开当前位置"的村民跳过 brain tick（这些村民困在 1x1 空间内，
- * 每 tick 重算路径无意义）；可自由移动的村民仍正常跑 AI。铁农场村民踩在床方块上视为可移动，
- * 保证铁农场正常触发（与原 Mohist 行为一致）。
- * <p>
- * 调用方在开关关闭时应回退原版（每 tick 调用 brain.tick）。
- */
+/** 村民脑切（源自 Mohist 1.20.1 com.mohistmc.optimizations.OptVillager，去 Mohist 化移植）。 */
 public final class VillagerBrainOffloader {
 
     public static VillagerBrainOffloader getInstance() {

@@ -187,7 +187,6 @@ public abstract class AbstractMinecartMixin extends EntityMixin implements IForg
      * See #1677 and Spelunkery AbstractMinecartMixin#rattleMinecart
      */
     //@Overwrite
-    //public void tick()
 
     /**
      * @author IzzelAliz

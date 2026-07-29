@@ -13,12 +13,7 @@ import io.netty.channel.EventLoopGroup;
 import io.netty.channel.epoll.EpollEventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 
-/**
- * 实验性网络优化（默认关闭）：
- * 将 Netty 服务端事件循环线程数从 Netty 默认的 2*CPU 调整为配置值，
- * 降低高在线时网络线程成为瓶颈的概率。
- * 由 optimization.experimental-optimizations-enabled + network-optimization.enabled + netty-threads>0 三重门控。
- */
+/** 实验性网络优化（默认关闭）： */
 @Mixin(ServerConnectionListener.class)
 public class ServerConnectionListenerMixin_NetworkOpt {
 

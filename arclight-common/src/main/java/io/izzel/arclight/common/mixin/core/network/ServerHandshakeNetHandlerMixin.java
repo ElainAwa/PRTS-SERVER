@@ -78,7 +78,6 @@ public class ServerHandshakeNetHandlerMixin {
                     LogManager.getLogger().debug("Failed to check connection throttle", t);
                 }
 
-
                 if (packetIn.getProtocolVersion() > SharedConstants.getCurrentVersion().getProtocolVersion()) {
                     var component = Component.translatable(MessageFormat.format(SpigotConfig.outdatedServerMessage.replaceAll("'", "''"), SharedConstants.getCurrentVersion().getName()));
                     this.connection.send(new ClientboundLoginDisconnectPacket(component));
@@ -92,7 +91,6 @@ public class ServerHandshakeNetHandlerMixin {
                     break;
                 }
                 this.connection.setListener(new ServerLoginPacketListenerImpl(this.server, this.connection));
-
 
                 if (SpigotConfig.bungee) {
                     String[] split = packetIn.hostName.split("\00");

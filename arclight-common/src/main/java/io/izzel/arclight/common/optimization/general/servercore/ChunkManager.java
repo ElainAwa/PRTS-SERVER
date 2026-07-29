@@ -18,16 +18,7 @@ import net.minecraft.world.level.chunk.ChunkStatus;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.phys.AABB;
 
-
-/**
- * Utility methods for getting chunks without triggering synchronous chunk loads.
- * Ported from ServerCore (me.wesley1808.servercore) — zero-perception optimization.
- *
- * Adapted for Mojmap/Forge 1.20.1: the original used Fabric-only public accessors
- * (ChunkHolder.UNLOADED_LEVEL_CHUNK_FUTURE, ServerChunkCache.getVisibleChunkIfPresent),
- * which are private under Mojmap. We instead use the non-loading getChunk(x, z, FULL, false)
- * which returns the currently-visible chunk or null without triggering a load.
- */
+/** Utility methods for getting chunks without triggering synchronous chunk loads. */
 public class ChunkManager {
 
     public static Holder<Biome> getRoughBiome(Level level, BlockPos pos) {

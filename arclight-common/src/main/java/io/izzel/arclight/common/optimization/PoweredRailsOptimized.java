@@ -10,16 +10,7 @@ import net.minecraft.world.level.block.PoweredRailBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.RailShape;
 
-/**
- * 动力铁轨更新优化（移植自 Fluorite / moe.kotori.fluorite.optimize.PoweredRailsOptimized）。
- *
- * 原版 PoweredRailBlock.updateState 在每次红石/邻居变化时会对整条铁轨线路做开销较大的
- * 递归输电检测与邻居通知。这里用一个 HashMap 记忆已检查过的方块、限制输电传播距离
- * （RAIL_POWER_LIMIT），并只在线路两端做形状/邻居更新，大幅削减大规模动力铁轨网络的更新开销。
- *
- * 注意：本类用官方映射（mojmap）编写，且通过 accesstransformer.cfg 将
- * PoweredRailBlock.findPoweredRailSignal 与 Block.updateOrDestroy 设为 public 以便跨包调用。
- */
+/** 动力铁轨更新优化（移植自 Fluorite / moe.kotori.fluorite.optimize.PoweredRailsOptimized）。 */
 public class PoweredRailsOptimized {
 
     private static final Direction[] EAST_WEST_DIR = new Direction[]{Direction.WEST, Direction.EAST};

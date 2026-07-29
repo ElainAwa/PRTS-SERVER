@@ -37,7 +37,6 @@ public class StructureCheckMixin {
     )
     private void servercore$skipInvalidBiomes(ChunkPos chunkPos, Structure structure, boolean skipKnownStructures, CallbackInfoReturnable<StructureCheckResult> cir) {
         // Quick checks to validate the biome for certain structures without performing expensive noise calculations.
-        // This is mainly done to significantly speed up locating buried treasures.
         BlockPos pos = this.servercore$getRoughStructurePosition(structure, chunkPos);
         if (pos != null && !this.servercore$isBiomeValid(structure, pos)) {
             cir.setReturnValue(StructureCheckResult.START_NOT_PRESENT);
@@ -52,7 +51,6 @@ public class StructureCheckMixin {
     @Unique
     private BlockPos servercore$getRoughStructurePosition(Structure structure, ChunkPos chunkPos) {
         // The height isn't always guaranteed to be correct, but it's only used for biome checks.
-        // There might be an extremely small chance that it will return the wrong biome, but it's arguably better than watchdog crashing the server.
         if (structure instanceof BuriedTreasureStructure) {
             return chunkPos.getMiddleBlockPosition(this.chunkGenerator.getSeaLevel());
         }

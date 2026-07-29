@@ -621,11 +621,9 @@ public abstract class LivingEntityMixin extends EntityMixin implements LivingEnt
         }
     }
 
-
     protected double applyKnockbackResistance(double originalStrength, DamageSource source, LivingEntity target, Entity entity) {
         return originalStrength;
     }
-
 
     @Redirect(
             method = "hurt(Lnet/minecraft/world/damagesource/DamageSource;F)Z",

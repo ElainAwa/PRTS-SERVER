@@ -12,7 +12,6 @@ import org.spongepowered.asm.mixin.Mixin;
 @Mixin(value = CraftPlayer.class, remap = false)
 public abstract class CraftPlayerAdventureMixin implements Audience {
 
-
     @Override
     public void sendMessage(@NotNull Component message) {
         CraftPlayer player = (CraftPlayer) (Object) this;
@@ -42,11 +41,9 @@ public abstract class CraftPlayerAdventureMixin implements Audience {
         sendMessage(message);
     }
 
-
     public @NotNull Identity identity() {
         return Identity.identity(((CraftPlayer) (Object) this).getUniqueId());
     }
-
 
     public @NotNull Component displayName() {
         CraftPlayer player = (CraftPlayer) (Object) this;

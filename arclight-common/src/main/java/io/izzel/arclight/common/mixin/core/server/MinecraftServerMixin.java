@@ -775,6 +775,5 @@ public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<T
         return false;
     }
 
-
 }
 

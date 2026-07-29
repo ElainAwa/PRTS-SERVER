@@ -13,7 +13,6 @@ import org.spongepowered.asm.mixin.injection.Redirect;
 public class DynamicGameEventListenerMixin {
 
     // Don't load chunks for dynamic game events.
-    // Doing so can cause the server to freeze indefinitely.
     @Redirect(
             method = "ifChunkExists",
             at = @At(

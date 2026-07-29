@@ -498,10 +498,6 @@ public abstract class ServerPlayNetHandlerMixin implements ServerPlayNetHandlerB
     }
 
     // So, what is SPIGOT-4706 exactly?
-    // @Inject(method = "handleUseItemOn", at = @At(value = "INVOKE", target = "Lnet/minecraft/server/level/ServerPlayerGameMode;useItemOn(Lnet/minecraft/server/level/ServerPlayer;Lnet/minecraft/world/level/Level;Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/InteractionHand;Lnet/minecraft/world/phys/BlockHitResult;)Lnet/minecraft/world/InteractionResult;"))
-    // private void arclight$checkDistance(ServerboundUseItemOnPacket packetIn, CallbackInfo ci) {
-    //     this.player.stopUsingItem();
-    // }
 
     /**
      * @author IzzelAliz
@@ -571,7 +567,6 @@ public abstract class ServerPlayNetHandlerMixin implements ServerPlayNetHandlerB
             case SWAP_ITEM_WITH_OFFHAND: {
                 if (!this.player.isSpectator()) {
                     // BetterCombat mixin compatibility
-                    // https://github.com/ZsoltMolnarrr/BetterCombat/blob/9090f08faf4a3e51256c8a7a13af94a80b6128c0/common/src/main/java/net/bettercombat/mixin/ServerPlayNetworkHandlerMixin.java
                     ItemStack offhandStack = this.player.getItemInHand(InteractionHand.OFF_HAND);
                     var event = net.minecraftforge.common.ForgeHooks.onLivingSwapHandItems(this.player);
                     if (event.isCanceled()) return;
@@ -585,7 +580,6 @@ public abstract class ServerPlayNetHandlerMixin implements ServerPlayNetHandlerB
                         return;
                     }
                     // Avoid CraftLegacy initialization via CraftItemStack#isSimilar triggered by Bukkit ItemStack#equals
-                    // Always apply the (possibly modified) event items directly
                     this.player.setItemInHand(InteractionHand.OFF_HAND, CraftItemStack.asNMSCopy(swapItemsEvent.getOffHandItem()));
                     this.player.setItemInHand(InteractionHand.MAIN_HAND, CraftItemStack.asNMSCopy(swapItemsEvent.getMainHandItem()));
                     this.player.stopUsingItem();
@@ -1547,7 +1541,6 @@ public abstract class ServerPlayNetHandlerMixin implements ServerPlayNetHandlerB
 
                     if (event instanceof CraftItemEvent || event instanceof SmithItemEvent) {
                         // Need to update the inventory on crafting to
-                        // correctly support custom recipes
                         player.containerMenu.sendAllDataToRemote();
                     }
                 }

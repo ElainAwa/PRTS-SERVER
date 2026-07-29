@@ -23,7 +23,6 @@ import java.io.FileInputStream;
 public class PlayerDataMixin implements PlayerDataBridge {
     private static final org.apache.logging.log4j.Logger ARCLIGHT_LOGGER = io.izzel.arclight.common.mod.util.log.ArclightI18nLogger.getLogger("PlayerData");
 
-
     @Shadow
     @Final
     private static Logger LOGGER;

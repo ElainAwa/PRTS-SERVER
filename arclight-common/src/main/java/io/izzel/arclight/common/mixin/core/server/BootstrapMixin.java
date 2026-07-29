@@ -18,7 +18,6 @@ public class BootstrapMixin {
     @Inject(method = "bootStrap", at = @At("HEAD"))
     private static void arclight$replaceWhitelist(CallbackInfo ci) {
         // 噢，天哪，看着肮脏的 hack，我i了
-        // 我简直是 fucking genius
         if (new LinkageError().getStackTrace()[2].toString().contains("util.CraftLegacy")) {
             try {
                 Field field = CraftLegacy.class.getDeclaredField("whitelistedStates");

@@ -13,7 +13,6 @@ import java.util.*;
 import static io.izzel.arclight.common.mod.util.remapper.ArclightRedirectAdapter.loadInt;
 
 // 你好
-// 不要抄（笑）
 @SuppressWarnings("unused")
 public class ArclightEnumExtender {
 

@@ -1,17 +1,4 @@
-/*
- * This Metrics class was auto-generated and can be copied into your project if you are
- * not using a build tool like Gradle or Maven for dependency management.
- *
- * IMPORTANT: You are not allowed to modify this class, except changing the package.
- *
- * Disallowed modifications include but are not limited to:
- *  - Remove the option for users to opt-out
- *  - Change the frequency for data submission
- *  - Obfuscate the code (every obfuscator should allow you to make an exception for specific files)
- *  - Reformat the code (if you use a linter, add an exception)
- *
- * Violations will result in a ban of your plugin and account from bStats.
- */
+/* This Metrics class was auto-generated and can be copied into your project if you are */
 package io.izzel.arclight.common.mod.metrics;
 
 import org.bukkit.Bukkit;
@@ -41,14 +28,7 @@ public class Metrics {
     private static final Logger logger = Logger.getLogger("Metrics");
     private final MetricsBase metricsBase;
 
-    /**
-     * Creates a new Metrics instance for server implementation.
-     *
-     * @param serverVersion The version of the server.
-     * @param serviceId     The id of the service. It can be found at <a
-     *                      href="https://bstats.org/what-is-my-plugin-id">What is my plugin id?</a>
-     * @param dataFolder    The data folder for bStats configuration.
-     */
+    /** Creates a new Metrics instance for server implementation. */
     public Metrics(String serverVersion, int serviceId, File dataFolder) {
         // Get the config file
         File bStatsFolder = new File(dataFolder, "bStats");
@@ -139,8 +119,6 @@ public class Metrics {
     private int getPlayerAmount() {
         try {
             // Around MC 1.8 the return type was changed from an array to a collection,
-            // This fixes java.lang.NoSuchMethodError:
-            // org.bukkit.Bukkit.getOnlinePlayers()Ljava/util/Collection;
             Method onlinePlayersMethod = Class.forName("org.bukkit.Server").getMethod("getOnlinePlayers");
             return onlinePlayersMethod.getReturnType().equals(Collection.class)
                     ? ((Collection<?>) onlinePlayersMethod.invoke(Bukkit.getServer())).size()
@@ -190,28 +168,7 @@ public class Metrics {
 
         private final boolean enabled;
 
-        /**
-         * Creates a new MetricsBase class instance.
-         *
-         * @param platform                    The platform of the service.
-         * @param serviceId                   The id of the service.
-         * @param serverUuid                  The server uuid.
-         * @param enabled                     Whether or not data sending is enabled.
-         * @param appendPlatformDataConsumer  A consumer that receives a {@code JsonObjectBuilder} and
-         *                                    appends all platform-specific data.
-         * @param appendServiceDataConsumer   A consumer that receives a {@code JsonObjectBuilder} and
-         *                                    appends all service-specific data.
-         * @param submitTaskConsumer          A consumer that takes a runnable with the submit task. This can be
-         *                                    used to delegate the data collection to a another thread to prevent errors caused by
-         *                                    concurrency. Can be {@code null}.
-         * @param checkServiceEnabledSupplier A supplier to check if the service is still enabled.
-         * @param errorLogger                 A consumer that accepts log message and an error.
-         * @param infoLogger                  A consumer that accepts info log messages.
-         * @param logErrors                   Whether or not errors should be logged.
-         * @param logSentData                 Whether or not the sent data should be logged.
-         * @param logResponseStatusText       Whether or not the response status text should be logged.
-         * @param skipRelocateCheck           Whether or not the relocate check should be skipped.
-         */
+        /** Creates a new MetricsBase class instance. */
         public MetricsBase(
                 String platform,
                 String serverUuid,
@@ -236,9 +193,6 @@ public class Metrics {
                                 return thread;
                             });
             // We want delayed tasks (non-periodic) that will execute in the future to be
-            // cancelled when the scheduler is shutdown.
-            // Otherwise, we risk preventing the server from shutting down even when
-            // MetricsBase#shutdown() is called
             scheduler.setExecuteExistingDelayedTasksAfterShutdownPolicy(false);
             this.scheduler = scheduler;
             this.platform = platform;
@@ -259,17 +213,11 @@ public class Metrics {
             }
             if (enabled) {
                 // WARNING: Removing the option to opt-out will get your plugin banned from
-                // bStats
                 startSubmitting();
             }
         }
 
-        /**
-         * Gzips the given string.
-         *
-         * @param str The string to gzip.
-         * @return The gzipped string.
-         */
+        /** Gzips the given string. */
         private static byte[] compress(final String str) throws IOException {
             if (str == null) {
                 return null;
@@ -304,13 +252,6 @@ public class Metrics {
                         }
                     };
             // Many servers tend to restart at a fixed time at xx:00 which causes an uneven
-            // distribution of requests on the
-            // bStats backend. To circumvent this problem, we introduce some randomness into
-            // the initial and second delay.
-            // WARNING: You must not modify and part of this Metrics class, including the
-            // submit delay or frequency!
-            // WARNING: Modifying this code will get your plugin banned on bStats. Just
-            // don't do it!
             long initialDelay = (long) (1000 * 60 * (3 + Math.random() * 3));
             long secondDelay = (long) (1000 * 60 * (Math.random() * 30));
             scheduler.schedule(submitTask, initialDelay, TimeUnit.MILLISECONDS);
@@ -388,13 +329,11 @@ public class Metrics {
             if (System.getProperty("bstats.relocatecheck") == null
                     || !System.getProperty("bstats.relocatecheck").equals("false")) {
                 // Maven's Relocate is clever and changes strings, too. So we have to use this
-                // little "trick" ... :D
                 final String defaultPackage =
                         new String(new byte[]{'o', 'r', 'g', '.', 'b', 's', 't', 'a', 't', 's'});
                 final String examplePackage =
                         new String(new byte[]{'y', 'o', 'u', 'r', '.', 'p', 'a', 'c', 'k', 'a', 'g', 'e'});
                 // We want to make sure no one just copy & pastes the example and uses the wrong
-                // package names
                 if (MetricsBase.class.getPackage().getName().startsWith(defaultPackage)
                         || MetricsBase.class.getPackage().getName().startsWith(examplePackage)) {
                     throw new IllegalStateException("bStats Metrics class has not been relocated correctly!");
@@ -407,12 +346,7 @@ public class Metrics {
 
         private final Callable<Map<String, int[]>> callable;
 
-        /**
-         * Class constructor.
-         *
-         * @param chartId  The id of the chart.
-         * @param callable The callable which is used to request the chart data.
-         */
+        /** Class constructor. */
         public AdvancedBarChart(String chartId, Callable<Map<String, int[]>> callable) {
             super(chartId);
             this.callable = callable;
@@ -447,12 +381,7 @@ public class Metrics {
 
         private final Callable<String> callable;
 
-        /**
-         * Class constructor.
-         *
-         * @param chartId  The id of the chart.
-         * @param callable The callable which is used to request the chart data.
-         */
+        /** Class constructor. */
         public SimplePie(String chartId, Callable<String> callable) {
             super(chartId);
             this.callable = callable;
@@ -473,12 +402,7 @@ public class Metrics {
 
         private final Callable<Map<String, Map<String, Integer>>> callable;
 
-        /**
-         * Class constructor.
-         *
-         * @param chartId  The id of the chart.
-         * @param callable The callable which is used to request the chart data.
-         */
+        /** Class constructor. */
         public DrilldownPie(String chartId, Callable<Map<String, Map<String, Integer>>> callable) {
             super(chartId);
             this.callable = callable;
@@ -517,12 +441,7 @@ public class Metrics {
 
         private final Callable<Integer> callable;
 
-        /**
-         * Class constructor.
-         *
-         * @param chartId  The id of the chart.
-         * @param callable The callable which is used to request the chart data.
-         */
+        /** Class constructor. */
         public SingleLineChart(String chartId, Callable<Integer> callable) {
             super(chartId);
             this.callable = callable;
@@ -543,12 +462,7 @@ public class Metrics {
 
         private final Callable<Map<String, Integer>> callable;
 
-        /**
-         * Class constructor.
-         *
-         * @param chartId  The id of the chart.
-         * @param callable The callable which is used to request the chart data.
-         */
+        /** Class constructor. */
         public MultiLineChart(String chartId, Callable<Map<String, Integer>> callable) {
             super(chartId);
             this.callable = callable;
@@ -583,12 +497,7 @@ public class Metrics {
 
         private final Callable<Map<String, Integer>> callable;
 
-        /**
-         * Class constructor.
-         *
-         * @param chartId  The id of the chart.
-         * @param callable The callable which is used to request the chart data.
-         */
+        /** Class constructor. */
         public AdvancedPie(String chartId, Callable<Map<String, Integer>> callable) {
             super(chartId);
             this.callable = callable;
@@ -657,12 +566,7 @@ public class Metrics {
 
         private final Callable<Map<String, Integer>> callable;
 
-        /**
-         * Class constructor.
-         *
-         * @param chartId  The id of the chart.
-         * @param callable The callable which is used to request the chart data.
-         */
+        /** Class constructor. */
         public SimpleBarChart(String chartId, Callable<Map<String, Integer>> callable) {
             super(chartId);
             this.callable = callable;
@@ -683,12 +587,7 @@ public class Metrics {
         }
     }
 
-    /**
-     * An extremely simple JSON builder.
-     *
-     * <p>While this class is neither feature-rich nor the most performant one, it's sufficient enough
-     * for its use-case.
-     */
+    /** An extremely simple JSON builder. */
     public static class JsonObjectBuilder {
 
         private StringBuilder builder = new StringBuilder();
@@ -699,15 +598,7 @@ public class Metrics {
             builder.append("{");
         }
 
-        /**
-         * Escapes the given string like stated in https://www.ietf.org/rfc/rfc4627.txt.
-         *
-         * <p>This method escapes only the necessary characters '"', '\'. and '\u0000' - '\u001F'.
-         * Compact escapes are not used (e.g., '\n' is escaped as "\u000a" and not as "\n").
-         *
-         * @param value The value to escape.
-         * @return The escaped value.
-         */
+        /** Escapes the given string like stated in https://www.ietf.org/rfc/rfc4627.txt. */
         private static String escape(String value) {
             final StringBuilder builder = new StringBuilder();
             for (int i = 0; i < value.length(); i++) {
@@ -727,24 +618,13 @@ public class Metrics {
             return builder.toString();
         }
 
-        /**
-         * Appends a null field to the JSON.
-         *
-         * @param key The key of the field.
-         * @return A reference to this object.
-         */
+        /** Appends a null field to the JSON. */
         public JsonObjectBuilder appendNull(String key) {
             appendFieldUnescaped(key, "null");
             return this;
         }
 
-        /**
-         * Appends a string field to the JSON.
-         *
-         * @param key   The key of the field.
-         * @param value The value of the field.
-         * @return A reference to this object.
-         */
+        /** Appends a string field to the JSON. */
         public JsonObjectBuilder appendField(String key, String value) {
             if (value == null) {
                 throw new IllegalArgumentException("JSON value must not be null");
@@ -753,25 +633,13 @@ public class Metrics {
             return this;
         }
 
-        /**
-         * Appends an integer field to the JSON.
-         *
-         * @param key   The key of the field.
-         * @param value The value of the field.
-         * @return A reference to this object.
-         */
+        /** Appends an integer field to the JSON. */
         public JsonObjectBuilder appendField(String key, int value) {
             appendFieldUnescaped(key, String.valueOf(value));
             return this;
         }
 
-        /**
-         * Appends an object to the JSON.
-         *
-         * @param key    The key of the field.
-         * @param object The object.
-         * @return A reference to this object.
-         */
+        /** Appends an object to the JSON. */
         public JsonObjectBuilder appendField(String key, JsonObject object) {
             if (object == null) {
                 throw new IllegalArgumentException("JSON object must not be null");
@@ -780,13 +648,7 @@ public class Metrics {
             return this;
         }
 
-        /**
-         * Appends a string array to the JSON.
-         *
-         * @param key    The key of the field.
-         * @param values The string array.
-         * @return A reference to this object.
-         */
+        /** Appends a string array to the JSON. */
         public JsonObjectBuilder appendField(String key, String[] values) {
             if (values == null) {
                 throw new IllegalArgumentException("JSON values must not be null");
@@ -799,13 +661,7 @@ public class Metrics {
             return this;
         }
 
-        /**
-         * Appends an integer array to the JSON.
-         *
-         * @param key    The key of the field.
-         * @param values The integer array.
-         * @return A reference to this object.
-         */
+        /** Appends an integer array to the JSON. */
         public JsonObjectBuilder appendField(String key, int[] values) {
             if (values == null) {
                 throw new IllegalArgumentException("JSON values must not be null");
@@ -816,13 +672,7 @@ public class Metrics {
             return this;
         }
 
-        /**
-         * Appends an object array to the JSON.
-         *
-         * @param key    The key of the field.
-         * @param values The integer array.
-         * @return A reference to this object.
-         */
+        /** Appends an object array to the JSON. */
         public JsonObjectBuilder appendField(String key, JsonObject[] values) {
             if (values == null) {
                 throw new IllegalArgumentException("JSON values must not be null");
@@ -833,12 +683,7 @@ public class Metrics {
             return this;
         }
 
-        /**
-         * Appends a field to the object.
-         *
-         * @param key          The key of the field.
-         * @param escapedValue The escaped value of the field.
-         */
+        /** Appends a field to the object. */
         private void appendFieldUnescaped(String key, String escapedValue) {
             if (builder == null) {
                 throw new IllegalStateException("JSON has already been built");
@@ -867,13 +712,7 @@ public class Metrics {
             return object;
         }
 
-        /**
-         * A super simple representation of a JSON object.
-         *
-         * <p>This class only exists to make methods of the {@link JsonObjectBuilder} type-safe and not
-         * allow a raw string inputs for methods like {@link JsonObjectBuilder#appendField(String,
-         * JsonObject)}.
-         */
+        /** A super simple representation of a JSON object. */
         public static class JsonObject {
 
             private final String value;

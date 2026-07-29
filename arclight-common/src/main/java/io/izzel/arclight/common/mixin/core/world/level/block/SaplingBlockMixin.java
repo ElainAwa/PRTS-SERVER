@@ -8,8 +8,6 @@ import org.spongepowered.asm.mixin.Mixin;
 public abstract class SaplingBlockMixin {
 
     // @formatter:off
-    //@Shadow public abstract void grow(IWorld worldIn, BlockPos pos, BlockState state, Random rand);
-    // @formatter:on
 
     // @SuppressWarnings("unchecked")
     /*

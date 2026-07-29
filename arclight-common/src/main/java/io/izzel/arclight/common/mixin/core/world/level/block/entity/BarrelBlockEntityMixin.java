@@ -19,7 +19,6 @@ public abstract class BarrelBlockEntityMixin extends LockableBlockEntityMixin im
 
     public List<HumanEntity> transaction = new ArrayList<>();
     // @formatter:on
-    // @formatter:off
     @Shadow private NonNullList<ItemStack> items;
     private int maxStack = MAX_STACK;
 

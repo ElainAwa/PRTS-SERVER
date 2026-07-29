@@ -37,13 +37,11 @@ public abstract class RepairContainerMixin extends ItemCombinerMixin {
     }
 
     // Below overwrite is removed to support injecting into createResult()
-    // See #1636
     /*
      * @author IzzelAliz
      * @reason
      */
     //@Overwrite
-    //public void createResult()
 
     @Redirect(method = "createResult", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/inventory/ResultContainer;setItem(ILnet/minecraft/world/item/ItemStack;)V"))
     private void arclight$callInventoryEvent(ResultContainer instance, int slot, ItemStack itemStack) {

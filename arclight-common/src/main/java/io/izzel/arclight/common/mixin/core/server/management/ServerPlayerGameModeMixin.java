@@ -250,7 +250,6 @@ public abstract class ServerPlayerGameModeMixin implements PlayerInteractionMana
     @Inject(method = {"tick", "destroyAndAck"}, at = @At(value = "INVOKE", target = "Lnet/minecraft/server/level/ServerPlayerGameMode;destroyBlock(Lnet/minecraft/core/BlockPos;)Z"))
     public void arclight$clearCaptures(CallbackInfo ci) {
         // clear the event stack in case that interrupted events are left here unhandled
-        // it should be a new event capture session each time destroyBlock is called from these two contexts
         ArclightCaptures.clearBlockBreakEventContexts();
     }
 

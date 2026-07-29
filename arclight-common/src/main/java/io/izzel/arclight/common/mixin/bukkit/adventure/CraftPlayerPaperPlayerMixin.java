@@ -75,7 +75,6 @@ public abstract class CraftPlayerPaperPlayerMixin {
         return player.getHandle() instanceof net.minecraftforge.common.util.FakePlayer;
     }
 
-
     // Paper's playerListName methods
     @Nullable
     public Component playerListName() {

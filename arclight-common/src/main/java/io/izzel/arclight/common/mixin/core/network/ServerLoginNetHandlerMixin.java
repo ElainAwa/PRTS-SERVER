@@ -113,7 +113,6 @@ public abstract class ServerLoginNetHandlerMixin {
 
         if (!this.server.usesAuthentication()) {
             // this.gameProfile = this.createFakeProfile(this.gameProfile); // Spigot - Moved to initUUID
-            // Spigot end
         }
 
         ServerPlayer entity = ((PlayerListBridge) this.server.getPlayerList()).bridge$canPlayerLogin(this.connection.getRemoteAddress(), this.gameProfile, (ServerLoginPacketListenerImpl) (Object) this);
@@ -328,7 +327,6 @@ public abstract class ServerLoginNetHandlerMixin {
         state = ServerLoginPacketListenerImpl.State.NEGOTIATING;
     }
 
-
     /**
      * Continue the login process after Velocity forwarding (with Mojang authentication)
      */
@@ -348,7 +346,6 @@ public abstract class ServerLoginNetHandlerMixin {
         thread.setUncaughtExceptionHandler(new DefaultUncaughtExceptionHandler(LOGGER));
         thread.start();
     }
-
 
     /**
      * Get transaction ID from custom query packet using Mohist's exact method names

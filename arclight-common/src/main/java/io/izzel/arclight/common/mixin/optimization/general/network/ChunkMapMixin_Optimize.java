@@ -23,12 +23,7 @@ import java.util.ArrayList;
 import java.util.Objects;
 import java.util.Set;
 
-// [PRTS 本服维护者改动 2026-07-21]
 // 门控历史：原版 {C2ME, NOISIUM} ABSENT → 路线A临时移除 NOISIUM 恢复脏玩家优化 →
-// 现因路线B（VMP AreaMap 空间化实体追踪）要 @Overwrite/重占 ChunkMap.tick() 同一方法，
-// 两者互斥，故恢复 NOISIUM 门控让本份 optimizedTick 在 Noisium 在场时让位给路线B。
-// 本服常驻 noisium-forge-2.3.0 且仅世界生成，不碰 tick()，故门控恢复后本份永不加载，
-// 由路线B独占 tick()。若未来要切回路线A，把 B 的实验开关关掉、并将下方 NOISIUM 移除即可。
 @LoadIfMod(modid = {ModIds.C2ME, ModIds.NOISIUM}, condition = LoadIfMod.ModCondition.ABSENT)
 @Mixin(ChunkMap.class)
 public class ChunkMapMixin_Optimize {

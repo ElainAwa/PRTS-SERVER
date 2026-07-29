@@ -20,7 +20,6 @@ import org.spongepowered.asm.mixin.Shadow;
 public class PacketThreadUtilMixin {
     private static final org.apache.logging.log4j.Logger ARCLIGHT_LOGGER = io.izzel.arclight.common.mod.util.log.ArclightI18nLogger.getLogger("PacketThreadUtil");
 
-
     @Shadow
     @Final
     private static Logger LOGGER;

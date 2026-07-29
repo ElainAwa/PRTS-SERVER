@@ -72,7 +72,6 @@ public class CraftBukkitVersionRemapper implements PluginTransformer {
         }
 
         // Some plugins pass internal-style names (with '/')
-        // into reflection APIs that expect binary names.
         binaryName = binaryName.replace('/', '.');
 
         if (!binaryName.startsWith(CRAFTBUKKIT_DOT_PREFIX)) {

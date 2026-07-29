@@ -40,7 +40,6 @@ public abstract class BeehiveBlockEntityMixin extends BlockEntityMixin {
     public BlockPos savedFlowerPos;
     public int maxBees = 3;
     // @formatter:on
-    // @formatter:off
     @Shadow @Final private List<BeehiveBlockEntity.BeeData> stored;
 
     @Shadow private static boolean releaseOccupant(Level p_155137_, BlockPos p_155138_, BlockState p_155139_, BeehiveBlockEntity.BeeData p_155140_, @org.jetbrains.annotations.Nullable List<Entity> p_155141_, BeehiveBlockEntity.BeeReleaseStatus p_155142_, @org.jetbrains.annotations.Nullable BlockPos p_155143_) { return false; }

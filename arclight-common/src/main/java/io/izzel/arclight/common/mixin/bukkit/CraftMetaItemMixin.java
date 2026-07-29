@@ -74,12 +74,9 @@ public class CraftMetaItemMixin implements ItemMetaBridge {
     private boolean arclight$forceDeserializeInternalTags(Set<String> handledTags, Object key) {
         if ((Object) this instanceof CraftMetaItem) {
             // For mod items or vanilla items that usually don't depend on nbt tags,
-            // force internal tags to be deserialized into item nbt to avoid their vanilla tags being ignored by Bukkit.
-            // e.g. apotheosis:potion_charm{"Potion": "<effect id>"} or minecraft:bread{"Potion": "<effect id>"}
             return false;
         } else {
             // For items that has corresponding ItemMeta representation in Bukkit,
-            // keep their behavior unchanged.
             return handledTags.contains((String) key);
         }
     }

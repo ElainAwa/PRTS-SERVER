@@ -16,14 +16,7 @@ public class ArclightCrashHandler {
 
     private static final Logger LOGGER = ArclightI18nLogger.getLogger("ArclightCrashHandler");
 
-    /**
-     * Handles a server crash based on configuration
-     *
-     * @param throwable       The throwable that caused the crash
-     * @param crashReport     The crash report
-     * @param serverDirectory The server directory for crash reports
-     * @return true if the server should continue running, false if it should stop
-     */
+    /** Handles a server crash based on configuration */
     public static boolean handleCrash(Throwable throwable, CrashReport crashReport, File serverDirectory) {
         ErrorHandlingSpec config = ArclightConfig.spec().getErrorHandling();
 

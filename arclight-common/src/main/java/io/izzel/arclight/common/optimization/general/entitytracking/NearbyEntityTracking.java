@@ -22,18 +22,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 
-/**
- * [PRTS 本服维护者移植 2026-07-21]
- * 原 VMP com.ishland.vmp.common.playerwatching.NearbyEntityTracking 的 mojmap 移植。
- * 空间化实体追踪引擎：用 AreaMap 把实体按 chunk 坐标分桶，
- * tick 时只遍历视野范围内的桶，替代原版 O(实体×玩家) 全扫描。
- *
- * 相对原版的裁剪：
- *  - 移除 ValkyrienSkies 飞船坐标变换兼容（本服未装该 mod）。
- *  - 复用 Arclight 已有 ChunkMap_TrackedEntityBridge（bridge$getEntity/getServerEntity/getLastSectionPos/setLastSectionPos）。
- *  - staging area（短命实体暂存区）默认关闭（USE_STAGING_AREA=false），所有实体走 AreaMap 路径，降低移植风险；
- *    如需启用，把该常量改为 true 即可（对应原版 OPTIMIZED_ENTITY_TRACKING_USE_STAGING_AREA 默认 true）。
- */
+/** 原 VMP com.ishland.vmp.common.playerwatching.NearbyEntityTracking 的 mojmap 移植。 */
 public class NearbyEntityTracking {
 
     // 默认关闭 staging area，降低风险；改为 true 即启用原版短命实体暂存优化
@@ -59,8 +48,6 @@ public class NearbyEntityTracking {
     private final Reference2LongOpenHashMap<ChunkMap.TrackedEntity> tracker2ChunkPos = new Reference2LongOpenHashMap<>();
 
     // 诊断：自上次周期日志以来 routeB 给玩家 add/remove 的实体计数（"环带振荡"指标）。
-    // 静止或正常移动时这两个数应很小（仅真实进出视野的实体）；
-    // 若仍飙到上千，说明半径仍有偏差、振荡未消除。
     private long churnAdds = 0;
     private long churnRemoves = 0;
     // 诊断：自上次周期日志以来 routeB 因"瞬移/大跳变"跳过自身 diff、改由原版 move() 接管的次数
@@ -203,25 +190,12 @@ public class NearbyEntityTracking {
             boolean isPlayerPositionUpdated = ((ServerPlayerEntityExtension) entry.getKey()).vmpTracking$isPositionUpdated();
             boolean isTeleport = ((ServerPlayerEntityExtension) entry.getKey()).vmpTracking$isTeleport();
             // 注意：此处【不再】调 vmpTracking$updatePosition()——玩家 prev 坐标的更新已移至 ServerPlayer.tick() 末尾
-            // (ServerPlayer_TrackingMixin)。目的：保证同一 tick 内 routeB tick 与 ChunkMap.move 读到一致的 isTeleport()，
-            // 否则若 move 在 routeB tick 之后调用、prev 已被本 tick 的 updatePosition 刷新，move 会误判"非瞬移"而被空掉，
-            // 导致 routeB 接管瞬移大跳变、客户端卡死（旧 tp bug 复现）。
 
             final ReferenceLinkedOpenHashSet<ChunkMap.TrackedEntity> trackers = entry.getValue();
 
             // 瞬移 / 大距离跳变（/tp、waystones、tpmaster、传送门）：本 tick 完全交给原版 ChunkMap.move() 接管
-            // 实体可见性——move() 已在新位置正确 addPairing/removePairing（顺序经原版验证不会冲垮客户端）。
-            // routeB 只静默把自身记账集合同步到新位置，绝不发任何包，避免一次性对几百实体 add/remove 发包时
-            // 顺序错乱 → 客户端 desync / 28s 冻结 / Timed out（关 routeB 后 tp 正常即证明此路径有问题）。
             if (isTeleport) {
                 // 瞬移 / 大距离跳变（/tp、waystones、tpmaster、传送门）：本 tick 完全交给原版
-                // ChunkMap.move() 接管实体可见性——原版已验证顺序安全（关 routeB 后 tp 正常即印证）。
-                // routeB 只把自身对该玩家的记账重置为空白集（释放旧集、绝不向 seenBy 发任何包），
-                // 避免旧位置实体在 routeB 侧泄漏、与新位置实体重叠导致客户端 desync / 冻结。
-                // 下一 tick routeB 会在新位置正常重建记账；原版 move 已 add 的实体在 routeB 侧为 no-op，
-                // 不会重复发包。
-                // 关键：绝对不能像旧 resyncTrackers 那样"直接 put 替换记账集"——那样旧位置实体
-                // 不会被 removePlayer，seenBy 持续泄漏，正是"第一次 tp 正常、第二次 tp 卡死"的根因。
                 final ReferenceLinkedOpenHashSet<ChunkMap.TrackedEntity> fresh =
                         (ReferenceLinkedOpenHashSet<ChunkMap.TrackedEntity>) this.pooledHashSets.alloc();
                 this.playerTrackers.put(entry.getKey(), fresh);
@@ -258,9 +232,6 @@ public class NearbyEntityTracking {
                         tryTickTracker(entityTracker);
                     }
                     // 【修复 rs 吞物品 bug】新增实体进入视野必须无条件 broadcast 出生包(updatePlayer)，
-                    // 不能套用"移动才发"门控：静止物品落在静止玩家附近时双方都不移动→永不发出生包→
-                    // 物品进追踪集但客户端看不到(被吞)，直到玩家移动/连锁挖掘触发位置更新才一次性爆出。
-                    // VMP 原版对新增实体即无条件 updatePlayer；本处还原该语义。
                     tryUpdateTracker(entityTracker, entry.getKey());
                 }
             }
@@ -320,22 +291,10 @@ public class NearbyEntityTracking {
     }
 
     // 实体追踪半径上限（单位：chunk）。实体本就超不过加载区块半径，封顶可防止个别 mod 实体
-    // 异常巨大的 clientTrackingRange 导致 AreaMap 爆炸式 spread（单次 add/update 遍历 (2*vd+1)^2 个桶）。
-    // 原 VMP 不封顶，但本服 253 个模组环境需此防御；256 格(16 chunk)已覆盖绝大多数实体的 tracking range。
     private static final int MAX_VIEW_DISTANCE = 16;
 
     private int getChunkViewDistance(ChunkMap.TrackedEntity tracker) {
         // 追踪半径（单位 chunk）必须与 Forge 原版 PlayerChunkMap.move -> EntityTracker.updatePlayer 的有效半径
-        // 【精确相等】，否则会出现"环带实体每 tick 反复 spawn/despawn"的刷包洪流，冻死客户端：
-        //   - move 的 d0 = min(getEffectiveRange(), viewDistance*16)
-        //   - getEffectiveRange = scaledRange(range)，scaledRange 默认恒等（= clientTrackingRange*16）
-        //   - 本服 view-distance=10，对绝大多数实体（clientTrackingRange<=10）d0 = clientTrackingRange*16
-        //     => 有效半径恰为 clientTrackingRange chunk（无 +1）
-        //   - 若 routeB 用 clientTrackingRange+1，则比 move 宽 1 chunk；玩家移动时（isPlayerPositionUpdated=true）
-        //     该环带实体被 routeB addPairing、又被 move removePairing，每 tick 刷出几千个实体包，
-        //     客户端处理不过来 -> 回不了 keepalive -> 服务端判 Timed out（tp/跑图必现，站立不卡）。
-        // 注意：VMP 原版在 Fabric 下用 +1 是因为 Fabric 的 vanilla updatePlayer 半径也带 +1（两边一致）；
-        // Forge 的 move 不带 +1，故移植到 Forge 必须去掉 +1 才能对齐。
         final Entity entity = ((ChunkMap_TrackedEntityBridge) tracker).bridge$getEntity();
         final int clientTrackingRange = entity.getType().clientTrackingRange();
         // = ceil(clientTrackingRange*16/16) = clientTrackingRange（与 move 的 ceil(d0/16) 对齐）

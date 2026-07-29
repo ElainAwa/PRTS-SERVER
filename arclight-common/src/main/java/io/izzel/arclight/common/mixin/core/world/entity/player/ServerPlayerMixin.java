@@ -419,8 +419,6 @@ public abstract class ServerPlayerMixin extends PlayerMixin implements ServerPla
             }
         } else {
             // Either showDeathMessages gamerule is false, or a plugin intentionally
-            // cleared the death message (empty string). Only send an empty combat
-            // packet so the client still gets the death screen but no chat message.
             this.connection.send(new ClientboundPlayerCombatKillPacket(this.getId(), CommonComponents.EMPTY));
         }
         this.removeEntitiesOnShoulder();

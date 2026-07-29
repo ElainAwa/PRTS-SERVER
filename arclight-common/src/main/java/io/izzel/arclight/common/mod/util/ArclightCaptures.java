@@ -24,12 +24,7 @@ import java.util.Stack;
 
 public class ArclightCaptures {
 
-    /**
-     * Indicates that next BlockBreakEvent is fired directly by ServerPlayerGameMode#destroyBlock
-     * and need to be captured as primary event.
-     *
-     * @see net.minecraft.server.level.ServerPlayerGameMode#destroyBlock(BlockPos)
-     */
+    /** Indicates that next BlockBreakEvent is fired directly by ServerPlayerGameMode#destroyBlock */
     public static boolean isPrimaryEvent = false;
     public static Stack<BlockBreakEventContext> blockBreakEventStack = new Stack<>();
     private static Entity entityChangeBlock;
@@ -66,8 +61,6 @@ public class ArclightCaptures {
 
     public static void captureNextBlockBreakEventAsPrimaryEvent() {
         // fix #674, some mod will implement their own "destroyBlock(...)"
-        // and its context cannot be tracked by Arclight directly.
-        // This is used to tell whether the event is fired by vanilla destroyBlock.
         isPrimaryEvent = true;
     }
 
@@ -88,7 +81,6 @@ public class ArclightCaptures {
             BlockBreakEventContext eventContext = blockBreakEventStack.pop();
 
             // deal with unhandled secondary events
-            // should never happen, but just in case
             ArrayList<BlockBreakEventContext> unhandledEvents = new ArrayList<>();
             while (!blockBreakEventStack.empty() && !eventContext.isPrimary()) {
                 unhandledEvents.add(eventContext);

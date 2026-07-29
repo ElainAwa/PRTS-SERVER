@@ -7,7 +7,6 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 
 /**
- * [PRTS 本服维护者移植 2026-07-21]
  * 原 VMP (com.ishland.vmp.common.util.SimpleObjectPool) 的纯 Java 移植。
  * 对象池：复用 ReferenceLinkedOpenHashSet，避免高频分配。
  */

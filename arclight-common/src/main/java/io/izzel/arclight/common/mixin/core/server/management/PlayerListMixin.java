@@ -316,7 +316,6 @@ public abstract class PlayerListMixin implements PlayerListBridge {
                         f2 = (float) Mth.wrapDegrees(Mth.atan2(vec3d2.z, vec3d2.x) * 57.2957763671875 - 90.0);
                     }
                     // playerIn.setLocationAndAngles(vec3d.x, vec3d.y, vec3d.z, f2, 0.0f);
-                    // playerIn.setRespawnPosition(spawnWorld.dimension(), pos, f2, flag2, false);
                     flag3 = (!flag && flag4);
                     isBedSpawn = true;
                     location = new Location(((WorldBridge) spawnWorld).bridge$getWorld(), vec3d.x, vec3d.y, vec3d.z);
@@ -434,7 +433,6 @@ public abstract class PlayerListMixin implements PlayerListBridge {
                         f2 = (float) Mth.wrapDegrees(Mth.atan2(vec3d2.z, vec3d2.x) * 57.2957763671875 - 90.0);
                     }
                     // playerIn.setLocationAndAngles(vec3d.x, vec3d.y, vec3d.z, f2, 0.0f);
-                    // playerIn.setRespawnPosition(spawnWorld.dimension(), pos, f2, flag2, false);
                     flag3 = (!flag2 && flag4);
                     isBedSpawn = true;
                     location = new Location(((WorldBridge) spawnWorld).bridge$getWorld(), vec3d.x, vec3d.y, vec3d.z);

@@ -40,7 +40,6 @@ public class LoadIfModProcessor {
         return true;
     }
 
-
     @SuppressWarnings("unchecked")
     private static LoadIfModData parse(AnnotationNode ann) {
         LoadIfMod.ModCondition condition = null;

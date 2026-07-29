@@ -26,7 +26,6 @@ public class ChunkSerializerMixin {
         instance.setLightCorrect(correct);
     }
 
-
     @Inject(method = "write", at = @At("RETURN"))
     private static void arclight$savePersistent(ServerLevel level, ChunkAccess chunkAccess, CallbackInfoReturnable<CompoundTag> cir) {
         var container = (CraftPersistentDataContainer) ((ChunkAccessBridge) chunkAccess).bridge$getPersistentDataContainer();

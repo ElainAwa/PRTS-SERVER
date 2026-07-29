@@ -37,15 +37,12 @@ public class PaperChunkOptimizer {
                 }
             }
 
-
         }
     }
-
 
     public static void markChunkAccessed(ChunkPos pos) {
         chunkAccessTimes.put(pos, System.currentTimeMillis());
     }
-
 
     public static boolean isChunkActive(ChunkPos pos) {
         // Disable chunk optimization when C2ME or Noisium is present
@@ -61,7 +58,6 @@ public class PaperChunkOptimizer {
         long threshold = config.getChunkUnloadDelay() * 1000L;
         return (System.currentTimeMillis() - lastAccess) < threshold;
     }
-
 
     public static void optimizeChunkUnloading(ServerLevel level) {
         // Disable chunk optimization when C2ME or Noisium is present
@@ -102,7 +98,6 @@ public class PaperChunkOptimizer {
     public static void clearChunkData() {
         chunkAccessTimes.clear();
     }
-
 
     public static int getTrackedChunkCount() {
         return chunkAccessTimes.size();
