@@ -12,6 +12,7 @@ public class Launcher {
     private static final String EULA_FILE = "eula.txt";
 
     public static void main(String[] args) throws Throwable {
+        ClientModGuard.run(args);
         int javaVersion = (int) Float.parseFloat(System.getProperty("java.class.version"));
         if (javaVersion < MIN_CLASS_VERSION) {
             System.err.println("Arclight requires Java " + MIN_JAVA_VERSION);
@@ -26,7 +27,13 @@ public class Launcher {
             return;
         }
 
-        Main_Forge.main(args);
+        try {
+            Main_Forge.main(args);
+        } catch (Throwable t) {
+            // v10 运行时自愈：缺失客户端类导致崩溃时，隔离 offending mod 并自动重启
+            ClientModGuard.handleCrash(t, args);
+            throw t; // 非客户端类崩溃：按原样抛出，正常退出（不自动重启）
+        }
     }
 
     private static boolean checkEula() throws IOException {
