@@ -859,8 +859,21 @@ public final class ClientModGuard {
                             }
                         }
                         if (inDeps) {
-                            String v = tomlValue(t, "mandatory");
-                            if (v != null) depMandatory = "true".equalsIgnoreCase(v);
+                            // type 字段决定依赖性质（Forge/NeoForge mods.toml 规范）：
+                            //   required     → 硬依赖（缺失则本模组无法加载，需保留被依赖方）
+                            //   optional     → 软依赖（缺失不致命，不强制保留）
+                            //   incompatible → 冲突声明，不是依赖！绝不能当硬依赖（如 sable 声明与 sodium 不兼容）
+                            //   discouraged  → 不推荐但允许，不当硬依赖
+                            // 旧逻辑只查 mandatory 字段、完全忽略 type，导致 type=incompatible/optional 被误判成必需依赖，
+                            // 进而触发依赖闭包把纯客户端模组(sodium)回补保留、服务端崩溃。
+                            String tv = tomlValue(t, "type");
+                            if (tv != null && !"required".equalsIgnoreCase(tv)) {
+                                depMandatory = false;
+                            } else {
+                                String v = tomlValue(t, "mandatory");
+                                if (v != null) depMandatory = "true".equalsIgnoreCase(v);
+                                // type=required 且 mandatory 缺失 → 保持默认 true；type 缺失且 mandatory 缺失 → 兼容旧格式默认 true
+                            }
                             String sv = tomlValue(t, "side");
                             if (sv != null) depClientSide = "CLIENT".equalsIgnoreCase(sv);
                         }
