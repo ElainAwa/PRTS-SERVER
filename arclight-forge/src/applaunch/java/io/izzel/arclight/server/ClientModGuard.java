@@ -81,9 +81,7 @@ public final class ClientModGuard {
         "net/minecraftforge/server",
         "net/neoforged/neoforge/server",
         "net/minecraftforge/event/server",
-        "net/neoforged/neoforge/event/server",
-        "com/mojang/brigadier",
-        "com.mojang.brigadier"
+        "net/neoforged/neoforge/event/server"
     };
 
     // 内容注册标记
@@ -145,7 +143,12 @@ public final class ClientModGuard {
         KNOWN_BAD_FINGERPRINTS.put("de/keksuccino/fancymenu/FancyMenu.class", "纯客户端(FancyMenu,主菜单/加载界面定制,服务端无意义且可能崩服)");
         KNOWN_BAD_FINGERPRINTS.put("de/keksuccino/konkrete/Konkrete.class", "纯客户端(Konkrete,FancyMenu 的客户端库)");
         KNOWN_BAD_FINGERPRINTS.put("io/github/satxm/mcwifipnp/MCWiFiPnP.class", "纯客户端(MCWiFiPnP,带服务端事件钩子但加载 IntegratedServer 崩服)");
-        KNOWN_BAD_FINGERPRINTS.put("org/thinkingstudio/mafglib/MaFgLib.class", "纯客户端(MaFgLib,基于 masa malilib 客户端库,构造加载 Screen 崩服)");
+        KNOWN_BAD_FINGERPRINTS.put("team/cagayakegirls/mafglib/MaFgLib.class", "纯客户端(MaFgLib,基于 masa malilib 客户端库,构造加载 Screen 崩服)");
+        KNOWN_BAD_FINGERPRINTS.put("org/thinkingstudio/mafglib/MaFgLib.class", "纯客户端(MaFgLib 旧 fork,基于 masa malilib 客户端库)");
+        KNOWN_BAD_FINGERPRINTS.put("fi/dy/masa/litematica/Litematica.class", "纯客户端(Litematica/Forgematica,基于 masa malilib 客户端库,构造加载 Screen 崩服)");
+        KNOWN_BAD_FINGERPRINTS.put("fi/dy/masa/malilib/MaLiLibConfigs.class", "纯客户端(malilib,masa 客户端配置库)");
+        KNOWN_BAD_FINGERPRINTS.put("fi/dy/masa/tweakeroo/Tweakeroo.class", "纯客户端(tweakeroo,masa 客户端模组)");
+        KNOWN_BAD_FINGERPRINTS.put("fi/dy/masa/minihud/MiniHud.class", "纯客户端(minihud,masa 客户端模组)");
         KNOWN_BAD_FINGERPRINTS.put("org/thinkingstudio/tweakerge/Tweakerge.class", "纯客户端(Tweakerge,基于 masa tweakeroo 客户端库,构造加载 Screen 崩服)");
         KNOWN_BAD_FINGERPRINTS.put("com/github/leawind/thirdperson/ThirdPerson.class", "纯客户端(Leawind第三人称,摄像机模组)");
         KNOWN_BAD_FINGERPRINTS.put("dzwdz/chat_heads/ChatHeads.class", "纯客户端(聊天头像)");
@@ -170,7 +173,7 @@ public final class ClientModGuard {
     // 已核实为双端（含服务端逻辑）的模组，引用分析无法区分，故内置保护，避免误删导致缺核心模组
     private static final Set<String> BUILTIN_SAFE = new HashSet<String>(Arrays.asList(
         "zenith", "cloth_config", "cloth-config", "resourcefulconfig", "resourceful-config",
-        "ae2ct"
+        "ae2ct", "ae2", "create"
     ));
 
     private static volatile boolean SELF_HEALED = false;
@@ -201,6 +204,27 @@ public final class ClientModGuard {
                     } catch (Throwable ignored) {}
                 }
             }, "PRTS-Guard-Healer"));
+        } catch (Throwable ignored) {}
+
+        // v10b: 任意线程感知运行时自愈——覆盖"子线程懒加载客户端类失败"盲区（主线程 try/catch 与 shutdown hook 都抓不到）。
+        // 仅当异常含客户端类缺失前缀才干预；非客户端类失败保留 JVM 默认行为（打印栈），不吞异常。
+        final Thread.UncaughtExceptionHandler prevHandler = Thread.getDefaultUncaughtExceptionHandler();
+        try {
+            Thread.setDefaultUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
+                @Override
+                public void uncaughtException(Thread t, Throwable e) {
+                    try {
+                        if (isClientClassMissing(e)) {
+                            note("UNCAUGHT_CLIENT_FAILURE thread=" + t.getName() + " " + summarize(e));
+                            onUncaughtClientFailure(e);
+                            return;
+                        }
+                    } catch (Throwable ignored) {}
+                    // 非客户端类失败：保留 JVM 默认行为，不干预（避免吞掉正常异常）
+                    if (prevHandler != null) prevHandler.uncaughtException(t, e);
+                    else e.printStackTrace();
+                }
+            });
         } catch (Throwable ignored) {}
     }
 
@@ -337,6 +361,31 @@ public final class ClientModGuard {
         SELF_HEALED = true; // 防止 shutdown hook 重复处理
         System.out.println("[PRTS] 自愈完成（隔离 " + offenders.size() + " 个模组），自动重启服务端...");
         restart(args);
+    }
+
+    /**
+     * 子线程感知运行时自愈：复用 v10 既有定位/隔离/重启机器，对任意线程的"客户端类加载失败"兜底。
+     * 盲区 3 根因：forgematica 在 Worker-Main 子线程懒加载 ClientLevel 失败，不冒泡主线程、不写 crash-report，
+     * 主线程 try/catch(handleCrash) 与 shutdown hook(shutdownHeal) 都抓不到 → 服务端静默带病跑。本方法由其未捕获异常处理器调用。
+     */
+    public static synchronized void onUncaughtClientFailure(Throwable t) {
+        if (SELF_HEALED) return; // handleCrash 已处理 / 已重启，避免重入与级联重复隔离
+        Path mod = locateOffendingMod(t);
+        if (mod == null) {
+            note("UNCAUGHT_UNLOCATED " + summarize(t));
+            System.exit(1);
+            return;
+        }
+        Map<String, Object[]> offenders = new LinkedHashMap<String, Object[]>();
+        String modId;
+        try { modId = detectModMeta(mod).modId; } catch (Throwable e) { modId = mod.getFileName().toString(); }
+        offenders.put(modId, new Object[]{mod, "runtime-uncaught: " + missingClassName(t)});
+        if (!quarantineOffenders(offenders)) { System.exit(1); return; }
+        SELF_HEALED = true; // 防止 shutdown hook 重复处理
+        System.out.println("[PRTS] 自愈（子线程捕获）完成（隔离 " + offenders.size()
+            + " 个模组），自动重启服务端...");
+        note("UNCAUGHT_SELFHEAL " + mod.getFileName() + " modId=" + modId);
+        restart(LAUNCH_ARGS);
     }
 
     /** FML/NeoForge 在模组加载失败时吞掉真实异常，仅抛通用消息。 */
@@ -877,6 +926,24 @@ public final class ClientModGuard {
                     }
                     if (curModId != null && meta.modId == null) meta.modId = curModId;
                 }
+            }
+            // A1: 通用解析 Fabric 客户端声明（fabric.mod.json 的 environment/side），零误杀。
+            JarEntry fj = jf.getJarEntry("fabric.mod.json");
+            if (fj != null) {
+                try (InputStream fis = jf.getInputStream(fj)) {
+                    String fs = new String(readAll(fis), StandardCharsets.UTF_8);
+                    String env = jsonString(fs, "environment");
+                    if (env == null) env = jsonString(fs, "side"); // 兼容旧字段
+                    if (env != null) {
+                        env = env.toUpperCase();
+                        if (meta.environment == null || "BOTH".equals(meta.environment))
+                            meta.environment = env; // CLIENT 优先覆盖
+                    }
+                    if (meta.modId == null) {
+                        String fid = jsonString(fs, "id");
+                        if (fid != null) meta.modId = fid.toLowerCase();
+                    }
+                } catch (IOException ignored) {}
             }
         } catch (IOException ignored) {}
         if (meta.modId == null) {
