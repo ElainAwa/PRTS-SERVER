@@ -91,6 +91,20 @@ public final class ClientModGuard {
         "RegistryEvent"
     };
 
+    // 双端守卫标记：模组主动检查 Dist.CLIENT / EnvType.CLIENT 后才跑客户端逻辑。
+    // 命中即说明它"自知双端"——服务端加载时跳过客户端分支、不会崩，属于安全的客户端模组
+    // (如 FTB Ultimine Indicator 用 DistExecutor.safeRunWhenOn(Dist.CLIENT) 守卫)。
+    // 这是"通式通法"关键信号：彻底避免把 Dist 守卫型客户端模组误判为 suspect。
+    private static final String[] DIST_GUARD_MARKERS = {
+        "net/minecraftforge/api/distmarker/Dist",
+        "net/minecraftforge/fml/loading/FMLEnvironment",
+        "net/minecraftforge/fml/DistExecutor",
+        "net/neoforged/neoforge/api/distmarker/Dist",
+        "net/neoforged/fml/loading/FMLEnvironment",
+        "net/fabricmc/api/EnvType",
+        "net/fabricmc/loader/api/FabricLoader"
+    };
+
     // 缺失客户端类判定用的【二进制类名】前缀（消息里是点号，常量里是斜杠都查一遍）
     private static final String[] CLIENT_CLASS_PREFIX_DOT = {
         "net.minecraft.client.",
@@ -627,7 +641,10 @@ public final class ClientModGuard {
 
             boolean envClient = "CLIENT".equalsIgnoreCase(m.environment);
             boolean envServer = "SERVER".equalsIgnoreCase(m.environment) || "BOTH".equalsIgnoreCase(m.environment);
-            boolean suspect = r.hasClient && !r.hasServer && !r.hasContent && !r.hasCommonMixin;
+            // 通式通法 v11: 即便 hasClient 但带双端信号(Dist 守卫 / KubeJS 插件 / data 内容)也不算 suspect,
+            // 因为这些信号说明模组自知双端或服务端需要其内容, 放服务端不会崩(即便崩也有运行时自愈兜底)。
+            boolean suspect = r.hasClient && !r.hasServer && !r.hasContent && !r.hasCommonMixin
+                && !r.hasDistGuard && !r.hasKjsPlugin;
 
             String fpReason = matchFingerprint(jar);
             if (fpReason != null && !inWhite) {
@@ -693,7 +710,7 @@ public final class ClientModGuard {
                     boolean strong = CORE_MODIDS.contains(m.modId) || BUILTIN_SAFE.contains(m.modId)
                         || cfg.whitelist.contains(m.modId)
                         || "SERVER".equalsIgnoreCase(m.environment) || "BOTH".equalsIgnoreCase(m.environment)
-                        || (r != null && (r.hasServer || r.hasContent));
+                        || (r != null && (r.hasServer || r.hasContent || r.hasDistGuard || r.hasKjsPlugin));
                     if (strong) {
                         d.toQuarantine.remove(depJar);
                         quarantinedIds.remove(dep);
@@ -743,7 +760,7 @@ public final class ClientModGuard {
             boolean inWhite = cfg.whitelist.contains(m.modId);
             boolean safe = BUILTIN_SAFE.contains(m.modId) || inWhite
                 || "SERVER".equalsIgnoreCase(m.environment) || "BOTH".equalsIgnoreCase(m.environment);
-            if (safe || (r != null && (r.hasServer || r.hasContent))) return true;
+            if (safe || (r != null && (r.hasServer || r.hasContent || r.hasDistGuard || r.hasKjsPlugin))) return true;
         }
         return false;
     }
@@ -791,6 +808,14 @@ public final class ClientModGuard {
                 String rawName = e.getName();
                 String name = rawName.toLowerCase();
                 if (name.endsWith(".class") && (name.contains("/fabric/") || name.contains("_fabric/"))) continue;
+                // 双端信号(按条目名判定，无需读字节)
+                if (!r.hasContent) {
+                    // data/<ns>/(recipes|loot_tables|tags|worldgen|advancements)/ -> 内容模组(双端，如 barrels_2012)
+                    if (name.matches("data/[^/]+/(recipes|loot_tables|tags|worldgen|advancements)/.+")) r.hasContent = true;
+                }
+                if (!r.hasKjsPlugin && (name.equals("kubejs.plugins.txt") || name.equals("kubejs.classfilter.txt"))) {
+                    r.hasKjsPlugin = true;
+                }
                 boolean skipClientSignal = name.endsWith(".class") && name.contains("/config/");
                 boolean scan = name.endsWith(".class") || name.endsWith(".json")
                     || name.endsWith(".mixin.json") || name.endsWith(".toml") || name.endsWith(".cfg");
@@ -862,6 +887,9 @@ public final class ClientModGuard {
         }
         if (!r.hasContent) {
             for (String m : CONTENT_MARKERS) if (contains(b, m)) { r.hasContent = true; break; }
+        }
+        if (!r.hasDistGuard) {
+            for (String m : DIST_GUARD_MARKERS) if (contains(b, m)) { r.hasDistGuard = true; break; }
         }
     }
 
@@ -985,6 +1013,8 @@ public final class ClientModGuard {
         boolean hasServer;
         boolean hasContent;
         boolean hasCommonMixin;
+        boolean hasDistGuard;   // 双端守卫(Dist/EnvType 自检)：安全的客户端模组
+        boolean hasKjsPlugin;   // KubeJS 插件(kubejs.plugins.txt)：双端 KubeJS 附属
     }
 
     private static String tomlValue(String trimmedLine, String key) {
@@ -1278,7 +1308,7 @@ public final class ClientModGuard {
                 }
                 String scBlock = block(json, "scan_cache");
                 if (scBlock != null) {
-                    Matcher m = Pattern.compile("\"((?:[^\"\\\\]|\\\\.)*)\"\\s*:\\s*\\{\\s*\"hasClient\"\\s*:\\s*(true|false),\\s*\"hasServer\"\\s*:\\s*(true|false),\\s*\"hasContent\"\\s*:\\s*(true|false),\\s*\"hasCommonMixin\"\\s*:\\s*(true|false)")
+                    Matcher m = Pattern.compile("\"((?:[^\"\\\\]|\\\\.)*)\"\\s*:\\s*\\{\\s*\"hasClient\"\\s*:\\s*(true|false),\\s*\"hasServer\"\\s*:\\s*(true|false),\\s*\"hasContent\"\\s*:\\s*(true|false),\\s*\"hasCommonMixin\"\\s*:\\s*(true|false),\\s*\"hasDistGuard\"\\s*:\\s*(true|false),\\s*\"hasKjsPlugin\"\\s*:\\s*(true|false)")
                         .matcher(scBlock);
                     while (m.find()) {
                         ScanResult sr = new ScanResult();
@@ -1286,6 +1316,8 @@ public final class ClientModGuard {
                         sr.hasServer = Boolean.parseBoolean(m.group(3));
                         sr.hasContent = Boolean.parseBoolean(m.group(4));
                         sr.hasCommonMixin = Boolean.parseBoolean(m.group(5));
+                        sr.hasDistGuard = Boolean.parseBoolean(m.group(6));
+                        sr.hasKjsPlugin = Boolean.parseBoolean(m.group(7));
                         s.scanCache.put(m.group(1), sr);
                     }
                 }
@@ -1296,7 +1328,7 @@ public final class ClientModGuard {
         void save() {
             try {
                 StringBuilder sb = new StringBuilder();
-                sb.append("{\n  \"version\": 2,\n  \"quarantined\": {\n");
+                sb.append("{\n  \"version\": 3,\n  \"quarantined\": {\n");
                 boolean first = true;
                 for (Map.Entry<String, Info> e : quarantined.entrySet()) {
                     if (!first) sb.append(",\n");
@@ -1326,7 +1358,9 @@ public final class ClientModGuard {
                         .append("{ \"hasClient\": ").append(r.hasClient)
                         .append(", \"hasServer\": ").append(r.hasServer)
                         .append(", \"hasContent\": ").append(r.hasContent)
-                        .append(", \"hasCommonMixin\": ").append(r.hasCommonMixin).append(" }");
+                        .append(", \"hasCommonMixin\": ").append(r.hasCommonMixin)
+                        .append(", \"hasDistGuard\": ").append(r.hasDistGuard)
+                        .append(", \"hasKjsPlugin\": ").append(r.hasKjsPlugin).append(" }");
                 }
                 sb.append("\n  }\n}\n");
                 Files.write(Paths.get("_guard_state.json"), sb.toString().getBytes(StandardCharsets.UTF_8),
