@@ -150,7 +150,9 @@ public final class ClientModGuard {
         KNOWN_BAD_FINGERPRINTS.put("com/github/leawind/thirdperson/ThirdPerson.class", "纯客户端(Leawind第三人称,摄像机模组)");
         KNOWN_BAD_FINGERPRINTS.put("dzwdz/chat_heads/ChatHeads.class", "纯客户端(聊天头像)");
         KNOWN_BAD_FINGERPRINTS.put("squeek/appleskin/ModConfig.class", "纯客户端(苹果皮,饥饿/食物 HUD)");
-        KNOWN_BAD_FINGERPRINTS.put("me/jellysquid/mods/sodium/client/SodiumClientMod.class", "纯客户端(Sodium系:Embeddium/Rubidium)");
+        KNOWN_BAD_FINGERPRINTS.put("me/jellysquid/mods/sodium/client/SodiumClientMod.class", "纯客户端(Sodium系旧包名:Embeddium/Rubidium<0.8)");
+        KNOWN_BAD_FINGERPRINTS.put("net/caffeinemc/mods/sodium/service/SodiumServiceModLocator.class", "纯客户端(Sodium 0.8+新包名 net.caffeinemc)");
+        KNOWN_BAD_FINGERPRINTS.put("net/caffeinemc/mods/sodium/desktop/LaunchWarn.class", "纯客户端(Sodium 0.8+桌面启动警告类)");
         KNOWN_BAD_FINGERPRINTS.put("me/srrapero720/embeddiumplus/EmbeddiumPlus.class", "纯客户端(EmbeddiumPlus)");
         KNOWN_BAD_FINGERPRINTS.put("traben/entity_model_features/EMFManager.class", "纯客户端(EntityModelFeatures)");
         KNOWN_BAD_FINGERPRINTS.put("traben/entity_sound_features/ESF.class", "纯客户端(EntitySoundFeatures)");
