@@ -313,7 +313,7 @@ public final class ClientModGuard {
      * 若异常是"缺失客户端类"导致，则定位并隔离 offending mod 并自动重启（不返回）。
      * 否则直接返回，由调用方继续向上抛（正常崩溃）。
      */
-    public static void handleCrash(Throwable t, String[] args) {
+    public static synchronized void handleCrash(Throwable t, String[] args) {
         boolean direct = isClientClassMissing(t);
         boolean modLoadFail = isModLoadingFailed(t);
         if (!direct && !modLoadFail) return; // 无关崩溃，交还调用方正常抛出
@@ -438,7 +438,7 @@ public final class ClientModGuard {
                 if (missing != null) out.add(new String[]{modId, missing});
             }
             if (!out.isEmpty()) note("CRASHREPORT " + newest.getFileName() + " clientFailures=" + out.size());
-        } catch (Throwable ignored) {}
+        } catch (Throwable e) { note("CRASHREPORT_PARSE_FAIL " + e); }
         return out;
     }
 
@@ -528,7 +528,7 @@ public final class ClientModGuard {
         for (Path p : d.toQuarantine) note("  QUARANTINE " + p.getFileName());
         for (String s : d.chained) note("  CHAINED " + s);
         for (String s : d.keptByDep) note("  KEPT_BY_DEP " + s);
-        if (moved) state.save();
+        state.save(); // v10c: 始终落盘（含 scan_cache），即便未隔离也缓存扫描结果供下次启动命中
     }
 
     /** 把上次运行时改名兜底的 .prts-quarantined 真正移入隔离区。 */
@@ -561,16 +561,33 @@ public final class ClientModGuard {
         Map<Path, ModMeta> meta = new LinkedHashMap<Path, ModMeta>();
         Map<Path, ScanResult> result = new LinkedHashMap<Path, ScanResult>();
         int done = 0;
+        int cacheHits = 0;
+        Set<String> liveKeys = new HashSet<String>();
         for (Path jar : jars) {
             String fileName = jar.getFileName().toString();
             if (!fileName.toLowerCase().endsWith(".jar")) continue;
             meta.put(jar, detectModMeta(jar));
-            result.put(jar, scanJarFull(jar));
+            // v10c: 扫描结果缓存——jar 内容(文件名:大小:修改时间)未变则复用，跳过全量字节扫描
+            String key = cacheKey(jar);
+            liveKeys.add(key);
+            ScanResult cached = state.scanCache.get(key);
+            if (cached != null) {
+                result.put(jar, cached);
+                cacheHits++;
+            } else {
+                result.put(jar, scanJarFull(jar));
+                state.scanCache.put(key, result.get(jar));
+            }
             done++;
             if (done % 50 == 0) {
                 long el = System.currentTimeMillis() - t0;
                 System.out.println("[PRTS] 客户端模组预检: 已扫描 " + done + "/" + total + "（" + (el / 1000) + "s）...");
             }
+        }
+        // 清理已不存在 jar 的失效缓存，避免 _guard_state.json 无限膨胀
+        state.scanCache.keySet().retainAll(liveKeys);
+        if (cacheHits > 0) {
+            System.out.println("[PRTS] 客户端模组预检: 命中扫描缓存 " + cacheHits + "/" + done + " 个，跳过全量扫描");
         }
         System.out.println("[PRTS] 客户端模组预检: 扫描完成 " + done + "/" + total
             + "，耗时 " + (System.currentTimeMillis() - t0) + " ms，开始判定");
@@ -786,7 +803,7 @@ public final class ClientModGuard {
                         String s = new String(b, StandardCharsets.ISO_8859_1);
                         collectCommonMixinClasses(s, commonMixinClasses);
                     }
-                } catch (IOException ignored) {}
+                } catch (IOException ex) { note("SCAN_ENTRY_FAIL " + e.getName() + " " + ex); }
                 if (r.hasClient && r.hasServer && r.hasContent) break;
             }
             boolean anyClean = false;
@@ -859,6 +876,15 @@ public final class ClientModGuard {
             if (ok) return true;
         }
         return false;
+    }
+
+    /** 扫描结果缓存键：文件名 + 文件大小 + 最后修改时间（三者唯一标识 jar 内容，任一变化即失效）。 */
+    private static String cacheKey(Path jar) {
+        try {
+            return jar.getFileName() + ":" + Files.size(jar) + ":" + Files.getLastModifiedTime(jar).toMillis();
+        } catch (IOException e) {
+            return jar.getFileName().toString(); // 取不到元信息则退化（每轮重扫）
+        }
     }
 
     private static byte[] readAll(InputStream is) throws IOException {
@@ -945,7 +971,7 @@ public final class ClientModGuard {
                     }
                 } catch (IOException ignored) {}
             }
-        } catch (IOException ignored) {}
+        } catch (IOException e) { note("DETECT_META_FAIL " + jar.getFileName() + " " + e); }
         if (meta.modId == null) {
             String fn = jar.getFileName().toString().toLowerCase();
             if (fn.endsWith(".jar")) fn = fn.substring(0, fn.length() - 4);
@@ -1093,7 +1119,9 @@ public final class ClientModGuard {
         try { return Integer.parseInt(v); } catch (NumberFormatException e) { return 0; }
     }
 
-    /** 重建启动命令：复用原 JVM 参数（含 -Xmx 等）与 jar 路径，保证重启与首次一致。 */
+    /** 重建启动命令：复用原 JVM 参数（含 -Xmx 等）与 jar 路径，保证重启与首次一致。
+     *  返回 List<String> 供 ProcessBuilder 直接使用（避免字符串拼接的引号转义/空格路径陷阱）。
+     *  兼容 JAVA_HOME 含空格（Windows 常见 C:\Program Files\Java\...）、-D 参数值含空格、自定义 ClassLoader 等边缘场景。 */
     private static List<String> buildCommand(String[] args) {
         List<String> cmd = new ArrayList<String>();
         cmd.add(javaExe());
@@ -1118,7 +1146,14 @@ public final class ClientModGuard {
     private static String javaExe() {
         String home = System.getProperty("java.home");
         String os = System.getProperty("os.name", "").toLowerCase(Locale.ROOT);
-        return home + (os.contains("win") ? "\\bin\\java.exe" : "/bin/java");
+        // File.getCanonicalPath 规范化路径（消除 ../ / ./ 及 OS 特定分隔符），
+        // 确保 ProcessBuilder 在任何 JAVA_HOME 路径（含空格、符号链接、混合分隔符）下都能正确定位 java 可执行文件。
+        try {
+            home = new File(home).getCanonicalPath();
+        } catch (IOException ignored) {}
+        return os.contains("win")
+            ? home + File.separator + "bin" + File.separator + "java.exe"
+            : home + File.separator + "bin" + File.separator + "java";
     }
 
     private static String sha1(Path p) {
@@ -1171,7 +1206,7 @@ public final class ClientModGuard {
             return set;
         }
 
-        /** 尽力从 prts.yml 解析 guard.allowlist（容忍缩进/顺序，解析失败返回空集）。 */
+        /** 尽力从 prts.yml 解析 guard.allowlist（容忍缩进/顺序/注释/多行数组，解析失败返回空集并记录）。 */
         private static Set<String> readPrtsAllowlist() {
             Set<String> set = new HashSet<String>();
             Path p = Paths.get("prts.yml");
@@ -1180,30 +1215,40 @@ public final class ClientModGuard {
                 List<String> lines = Files.readAllLines(p, StandardCharsets.UTF_8);
                 boolean inGuard = false;
                 boolean inAllow = false;
+                int allowIndent = -1; // 记录 allowlist 行缩进基准（容忍不同缩进风格）
                 for (String raw : lines) {
                     String line = raw.replace("\t", " ");
+                    // 跳过空行与纯注释行
+                    String trim = line.trim();
+                    if (trim.isEmpty() || trim.startsWith("#")) continue;
                     int indent = 0;
                     while (indent < line.length() && line.charAt(indent) == ' ') indent++;
-                    String trim = line.trim();
                     if (!inGuard) {
                         if (trim.startsWith("guard:") || trim.equals("guard:")) inGuard = true;
                         continue;
                     }
-                    if (trim.startsWith("allowlist:")) { inAllow = true; continue; }
+                    if (trim.startsWith("allowlist:") || trim.equals("allowlist:")) {
+                        inAllow = true;
+                        allowIndent = indent; // 基准缩进
+                        continue;
+                    }
                     if (inAllow) {
-                        if (indent <= 2 && !trim.startsWith("-")) { inAllow = false; continue; }
+                        // 允许同层或更深缩进的列表项；遇到同层或更浅的非列表项则退出
+                        if (!trim.startsWith("-") && indent <= allowIndent) { inAllow = false; continue; }
                         if (trim.startsWith("- ")) {
-                            String id = trim.substring(2).trim().replace("\"", "").replace("'", "");
+                            String id = trim.substring(2).split("#")[0].trim().replace("\"", "").replace("'", "");
                             if (!id.isEmpty()) set.add(id.toLowerCase());
                         } else if (trim.startsWith("-")) {
-                            String id = trim.substring(1).trim().replace("\"", "").replace("'", "");
+                            String id = trim.substring(1).split("#")[0].trim().replace("\"", "").replace("'", "");
                             if (!id.isEmpty()) set.add(id.toLowerCase());
-                        } else if (indent <= 2) {
-                            inAllow = false;
                         }
+                        // 忽略非 "-" 开头的深层嵌套（如子对象），不退出
                     }
+                    // 其他 guard 子段（如 blacklist / autoQuarantine）不处理，也不退出 guard
                 }
-            } catch (IOException ignored) {}
+            } catch (IOException e) {
+                note("CONFIG_PARSE_FAIL prts.yml: " + e);
+            }
             return set;
         }
     }
@@ -1212,6 +1257,7 @@ public final class ClientModGuard {
     public static final class GuardState {
         final Map<String, Info> quarantined = new LinkedHashMap<String, Info>();
         final Map<String, Info> insistedFailed = new LinkedHashMap<String, Info>();
+        final Map<String, ScanResult> scanCache = new LinkedHashMap<String, ScanResult>(); // v10c: 扫描结果缓存
 
         static GuardState load() {
             GuardState s = new GuardState();
@@ -1229,6 +1275,19 @@ public final class ClientModGuard {
                     Matcher m = Pattern.compile("\"([^\"]+)\"\\s*:\\s*\\{\\s*\"sha1\".*?\"fails\"\\s*:\\s*(\\d+)")
                         .matcher(iBlock);
                     while (m.find()) s.insistedFailed.put(m.group(1), new Info("", "", Long.parseLong(m.group(2))));
+                }
+                String scBlock = block(json, "scan_cache");
+                if (scBlock != null) {
+                    Matcher m = Pattern.compile("\"((?:[^\"\\\\]|\\\\.)*)\"\\s*:\\s*\\{\\s*\"hasClient\"\\s*:\\s*(true|false),\\s*\"hasServer\"\\s*:\\s*(true|false),\\s*\"hasContent\"\\s*:\\s*(true|false),\\s*\"hasCommonMixin\"\\s*:\\s*(true|false)")
+                        .matcher(scBlock);
+                    while (m.find()) {
+                        ScanResult sr = new ScanResult();
+                        sr.hasClient = Boolean.parseBoolean(m.group(2));
+                        sr.hasServer = Boolean.parseBoolean(m.group(3));
+                        sr.hasContent = Boolean.parseBoolean(m.group(4));
+                        sr.hasCommonMixin = Boolean.parseBoolean(m.group(5));
+                        s.scanCache.put(m.group(1), sr);
+                    }
                 }
             } catch (IOException ignored) {}
             return s;
@@ -1256,6 +1315,18 @@ public final class ClientModGuard {
                         .append("{ \"sha1\": ").append(quote(e.getValue().sha1))
                         .append(", \"reason\": ").append(quote(e.getValue().reason))
                         .append(", \"fails\": ").append(e.getValue().at).append(" }");
+                }
+                sb.append("\n  },\n  \"scan_cache\": {\n");
+                first = true;
+                for (Map.Entry<String, ScanResult> e : scanCache.entrySet()) {
+                    if (!first) sb.append(",\n");
+                    first = false;
+                    ScanResult r = e.getValue();
+                    sb.append("    ").append(quote(e.getKey())).append(": ")
+                        .append("{ \"hasClient\": ").append(r.hasClient)
+                        .append(", \"hasServer\": ").append(r.hasServer)
+                        .append(", \"hasContent\": ").append(r.hasContent)
+                        .append(", \"hasCommonMixin\": ").append(r.hasCommonMixin).append(" }");
                 }
                 sb.append("\n  }\n}\n");
                 Files.write(Paths.get("_guard_state.json"), sb.toString().getBytes(StandardCharsets.UTF_8),
@@ -1313,6 +1384,12 @@ public final class ClientModGuard {
                 || s.startsWith("QUARANTINE_FAIL") || s.startsWith("CRASHREPORT")) {
                 Files.write(Paths.get("_guard_heal.log"), line.getBytes(StandardCharsets.UTF_8),
                     StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                // v10b: 自愈/崩溃事件额外桥接进 logs/ 目录（管理员常规查看 logs/latest.log 时也能发现）
+                try {
+                    Files.createDirectories(Paths.get("logs"));
+                    Files.write(Paths.get("logs", "guard-heal.log"), line.getBytes(StandardCharsets.UTF_8),
+                        StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                } catch (IOException ignored2) {}
             }
         } catch (IOException ignored) {}
     }
