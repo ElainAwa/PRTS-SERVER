@@ -20,6 +20,13 @@ dependencies {
     implementation libs.mixin.tools
     annotationProcessor(libs.mixin.tools) { transitive = false }
 
+    // adventure (移植自 1.20.1 服务端自带命令的 adventure 支持)
+    implementation libs.adventure.api
+    implementation libs.adventure.serializer.gson
+    implementation libs.adventure.serializer.legacy
+    implementation libs.adventure.serializer.plain
+    implementation libs.adventure.text.minimessage
+
     // spigot
     implementation libs.spigot.api
     implementation libs.jline

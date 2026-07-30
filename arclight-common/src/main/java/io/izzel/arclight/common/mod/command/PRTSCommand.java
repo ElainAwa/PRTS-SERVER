@@ -3,6 +3,7 @@ package io.izzel.arclight.common.mod.command;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
+import io.izzel.arclight.common.mod.command.subcommands.AdventureTestSubCommand;
 import io.izzel.arclight.common.mod.command.subcommands.InfoSubCommand;
 import io.izzel.arclight.common.mod.command.subcommands.PRTSSubCommand;
 import net.minecraft.commands.CommandSourceStack;
@@ -20,6 +21,7 @@ public class PRTSCommand {
     static {
         // Register default subcommands
         registerSubCommand(new InfoSubCommand());
+        registerSubCommand(new AdventureTestSubCommand());
     }
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
