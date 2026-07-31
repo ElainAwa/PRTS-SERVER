@@ -42,6 +42,16 @@ import java.util.regex.*;
  *  e) 隔离动作原子化（实测发现 3 个 jar 同时存在于 mods/ 与隔离区，隔离形同虚设）。
  *  f) _guard_precheck.log 输出每模组 SIG 明细行，任何一次判定都可审计。
  *
+ * v16 两项增强（源于 "The Casket of Reveries" 整合包实测暴露的两个盲区）：
+ *  a) 静态：客户端目标 mixin（detectClientTargetMixin）。@Mixin 目标本身在 net/minecraft/client/** 下时，
+ *     专用服上该类被 RuntimeDistCleaner 拦截 → InvalidMixinException 必崩（betterlockon 即属此类）。
+ *     v15 的 detectPoisonMixin 只抓「注入服务端类却调用客户端类」，恰好与之互补，故新增对称检测。
+ *     误判防护：配置声明 environment=CLIENT / IMixinConfigPlugin / required=false，或 mixin 类带 CLIENT
+ *     dist 注解 / @Pseudo 的，一律跳过（运行期可能被过滤，静态无法断定 → 零误删优先）。
+ *  b) 运行期：自愈隔离「真凶」而非「守护者」（resolveRealCulprit）。有些双端模组会主动检测别的模组缺
+ *     客户端类并抛错（如 tcrcore 点名 aaa_particles），栈帧定位到的是报错者而非肇事者。现在先判定被定位
+ *     模组自身是否为纯客户端模组，若不是则从异常消息里反查被点名且确为纯客户端模组的 jar，隔离它、保留守护者。
+ *
  * 历史判定策略（保留）：
  *  v7 依赖一致性闭包 + common mixin 精确化；v8 anyPoison 毒 mixin 否决；v9 GeneralFeedback/ServerCore 指纹；
  *  v9b MineMenu/FancyMenu/Konkrete 指纹 + _guard_precheck.log 落盘；v9c ae2ct 白名单 + mcwifipnp 指纹；
@@ -320,6 +330,25 @@ public final class ClientModGuard {
             if (!offenders.isEmpty()) note("SHUTDOWN_HEAL detected modLoadFailures=" + offenders.size());
         }
 
+        // 路径 C（v16b）：崩溃特征只在日志里（Forge 内部吞掉异常并 System.exit，无 crash-report）。
+        // 实测场景：betterlockon 的 LocalPlayerPatchMixin 在专用服 APPLY 阶段 CHECKCAST net/minecraft/client/player/LocalPlayer
+        //   失败 → InvalidMixinException → FATAL，但既不到 handleCrash 也不生成 crash-report。
+        //   此处扫 logs/latest.log 尾部，命中「*.mixins.json 在专用服注入失败」即归属其属主模组并隔离。
+        //   与 handleCrash 的 path 0.5 共用判据：仅真崩（日志确实含 FAILED during APPLY）时触发，正常运行模组零误伤。
+        if (offenders.isEmpty()) {
+            for (String cfg : parseMixinConfigNamesFromLog()) {
+                Path jar = findJarContainingEntry(jars, cfg);
+                if (jar == null) jar = findJarByModIdOrName(jars, cfg.replaceFirst("\\.mixins?\\.json$", ""));
+                if (jar == null) continue;
+                String mid;
+                try { mid = detectModMeta(jar).modId; } catch (Throwable e) { mid = jar.getFileName().toString(); }
+                offenders.put(mid, new Object[]{jar, "runtime: Mixin 配置 " + cfg
+                    + " 在专用服注入失败（客户端类缺失，已自动隔离）"});
+                note("MIXIN_CFG_SELFHEAL " + cfg + " -> " + jar.getFileName());
+                break;
+            }
+        }
+
         if (offenders.isEmpty()) {
             if (!failures.isEmpty()) note("SHUTDOWN_HEAL cannot locate jars for failures");
             return;
@@ -397,13 +426,42 @@ public final class ClientModGuard {
         // offenders: modId -> {jar, reason}
         Map<String, Object[]> offenders = new LinkedHashMap<String, Object[]>();
 
+        // 路径0.5（v16，最高优先级）: Mixin APPLY 崩溃消息里直接带「配置名」（如
+        //   betterlockon.mixins.json:LocalPlayerPatchMixin ... FAILED during APPLY
+        //   ... CHECKCAST net/minecraft/client/player/LocalPlayer）
+        // 配置名即属主模组，无需依赖 crash-report 落盘，精度最高。仅在真崩（消息确实含 mixin 配置名）时触发，
+        // 正常运行的模组（如同样大量指向 EpicFight 客户端类的 CombatEvolution/tcrcore 等）从不触发此路径，零误伤。
+        if (offenders.isEmpty()) {
+            for (String cfg : parseMixinConfigNames(t)) {
+                Path jar = findJarContainingEntry(jars, cfg);
+                if (jar == null) jar = findJarByModIdOrName(jars, cfg.replaceFirst("\\.mixins?\\.json$", ""));
+                if (jar == null) continue;
+                String mid;
+                try { mid = detectModMeta(jar).modId; } catch (Throwable e) { mid = jar.getFileName().toString(); }
+                offenders.put(mid, new Object[]{jar, "runtime: Mixin 配置 " + cfg
+                    + " 在专用服注入失败（客户端类缺失，已自动隔离）"});
+                note("MIXIN_CFG_SELFHEAL " + cfg + " -> " + jar.getFileName());
+                break;
+            }
+        }
+
         // 路径1: 异常链本身含客户端类名（NoClassDefFoundError 直达 main）
         if (direct) {
             Path mod = locateOffendingMod(t);
             if (mod != null) {
                 String modId;
                 try { modId = detectModMeta(mod).modId; } catch (Throwable e) { modId = mod.getFileName().toString(); }
-                offenders.put(modId, new Object[]{mod, "runtime: " + missingClassName(t)});
+                // v16：定位到的模组可能只是「守护者」（自身双端安全，只是检测到别的模组缺客户端类而报错，
+                // 如 tcrcore 点名 aaa_particles）。此时应隔离异常消息里点名的真凶，保留守护者。
+                Path real = resolveRealCulprit(t, mod, jars);
+                if (real != null && !real.equals(mod)) {
+                    String realId;
+                    try { realId = detectModMeta(real).modId; } catch (Throwable e) { realId = real.getFileName().toString(); }
+                    offenders.put(realId, new Object[]{real, "runtime: v16 隔离真凶 " + real.getFileName()
+                        + "（守护者 " + mod.getFileName() + " 保留）"});
+                } else {
+                    offenders.put(modId, new Object[]{mod, "runtime: " + missingClassName(t)});
+                }
             }
         }
         // 路径1.5（v14）: Forge 的 LoadingFailedException 会在消息里【直接点名】失败模组，例如
@@ -766,12 +824,14 @@ public final class ClientModGuard {
             + " 个 / 保留 " + d.keepCount + " 个，继续启动服务端...");
         note("DONE quarantined=" + d.toQuarantine.size() + " kept=" + d.keepCount
             + " fingerprint=" + d.byFingerprint.size() + " poisonMixin=" + d.byPoisonMixin.size()
+            + " clientTargetMixin=" + d.byClientTargetMixin.size()
             + " chained=" + d.chained.size()
             + " reported=" + d.reported.size() + " amber=" + d.amber.size()
             + " trustedConflict=" + d.trustedConflict.size()
             + (moved ? " (moved)" : (d.toQuarantine.isEmpty() && d.reported.isEmpty() ? " (none)" : " (report-only)")));
         for (String s : d.byFingerprint) note("  FINGERPRINT " + s);
         for (String s : d.byPoisonMixin) note("  POISON_MIXIN " + s);
+        for (String s : d.byClientTargetMixin) note("  CLIENT_TARGET_MIXIN(观察,不隔离) " + s);
         for (Path p : d.toQuarantine) note("  QUARANTINE " + p.getFileName());
         for (String s : d.chained) note("  CHAINED " + s);
         for (String s : d.keptByDep) note("  KEPT_BY_DEP " + s);
@@ -910,6 +970,17 @@ public final class ClientModGuard {
                 if (trusted) d.trustedConflict.add(fn + " [中毒 mixin: " + r.poisonMixin + "]");
                 sig(fn, id, m, r, trusted, "QUARANTINE", "L1/poison-mixin");
                 continue;
+            }
+
+            // v16：客户端目标 mixin —— 【只观察不隔离】。
+            // 原设想「@Mixin 目标是 net/minecraft/client/** → 专用服必 InvalidMixinException 崩」已被实测证伪：
+            // 177 模组整合包里 ItemBorders / fdlib / visual_keybinder 三个模组都把注入原版客户端类的 mixin
+            // 放在公共 mixins 列表且 required=true，服务端照样 Done 启动。原因是 Mixin 只在目标类【真正被加载】
+            // 时才应用，而专用服永远不会加载 net/minecraft/client/** ——mixin 静静躺着，不会崩。
+            // 该信号命中 3 个全是误判、0 个真凶，故降级为 AMBER 观察项，仅进报告供人工排查（延续 v12 原则：
+            // 「客户端性 ≠ 危害性」，证据不足一律保留）。
+            if (r != null && r.clientTargetMixin != null) {
+                d.byClientTargetMixin.add(fn + " [" + r.clientTargetMixin + "]");
             }
 
             Verdict v;
@@ -1069,8 +1140,10 @@ public final class ClientModGuard {
         final List<String> keptByDep = new ArrayList<String>();
         final List<String> reported = new ArrayList<String>();
         final List<String> byFingerprint = new ArrayList<String>();
-        // v15: 中毒 mixin 隔离集（会让专用服直接崩且自愈抓不到的客户端注入）
+        // v16: 客户端目标 mixin 观察集（只上报不隔离，实测非崩溃预测信号，详见 decide() 内注释）
         final List<String> byPoisonMixin = new ArrayList<String>();
+        // v16: 客户端目标 mixin 隔离集（@Mixin 目标本身是客户端类的模组，专用服必 InvalidMixinException 崩）
+        final List<String> byClientTargetMixin = new ArrayList<String>();
         final List<String> chained = new ArrayList<String>();
         final List<String> restored = new ArrayList<String>(); // v10: 用户加回、本次跳过预隔离的模组
         // v12: AMBER = 含客户端代码但无确证危害证据，默认保留 + 列入观察名单
@@ -1097,6 +1170,7 @@ public final class ClientModGuard {
             + " broad=" + bit(r != null && r.hasBroadGuard)
             + " kjs=" + bit(r != null && r.hasKjsPlugin)
             + " poison=" + bit(r != null && r.poisonMixin != null)
+            + " clientTarget=" + bit(r != null && r.clientTargetMixin != null)
             + " trusted=" + bit(trusted)
             + " -> " + verdict + " [" + src + "]");
     }
@@ -1368,6 +1442,60 @@ public final class ClientModGuard {
                     continue;
                 }
                 return desc;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * v16：客户端目标 mixin 静态检测（L1 硬证据，启动前）。与 detectPoisonMixin 对称：
+     * detectPoisonMixin 抓「注入原版服务端类却调用客户端类」，本方法抓「@Mixin 目标本身是 net/minecraft/client/** 下的客户端类」——
+     * 这类模组在专用服上必然 InvalidMixinException 崩服（betterlockon 即属此类），须提前隔离。
+     * 判据：mixin 配置未声明 environment=CLIENT，且其 @Mixin 目标里存在 net/minecraft/client/** 类。
+     */
+    private static String detectClientTargetMixin(JarFile jf, Path jar) {
+        List<String> cfgs = new ArrayList<String>();
+        Enumeration<JarEntry> en = jf.entries();
+        while (en.hasMoreElements()) {
+            JarEntry e = en.nextElement();
+            if (e.isDirectory()) continue;
+            String n = e.getName();
+            if (n.indexOf('/') >= 0) continue;
+            String ln = n.toLowerCase(Locale.ROOT);
+            if (ln.endsWith(".json") && ln.contains("mixin")) cfgs.add(n);
+        }
+        int budget = 800; // 保险丝：超大配置不拖慢启动
+        for (String cfgName : cfgs) {
+            JarEntry ce = jf.getJarEntry(cfgName);
+            if (ce == null || ce.getSize() > 1024L * 1024L) continue;
+            String json;
+            try (InputStream is = jf.getInputStream(ce)) { json = new String(readAll(is), StandardCharsets.UTF_8); }
+            catch (IOException ex) { continue; }
+            String env = jsonString(json, "environment");
+            if (env != null && env.equalsIgnoreCase("CLIENT")) continue;
+            // 声明了 IMixinConfigPlugin：插件可在运行期按 dist 过滤 shouldApplyMixin，
+            // 静态无法断定会崩，放弃该配置以免误伤双端模组（零误删优先）。
+            if (jsonString(json, "plugin") != null) continue;
+            // required=false：Mixin 应用失败仅告警不致命，不作为隔离依据。
+            if (json.replaceAll("\\s", "").contains("\"required\":false")) continue;
+            String pkg = jsonString(json, "package");
+            String prefix = pkg == null ? "" : pkg.replace('.', '/') + "/";
+            List<String> classes = new ArrayList<String>();
+            collectJsonStringArray(json, "mixins", classes);
+            collectJsonStringArray(json, "server", classes);
+            for (String cls : classes) {
+                if (--budget < 0) return null;
+                JarEntry me = jf.getJarEntry(prefix + cls.replace('.', '/') + ".class");
+                if (me == null || me.getSize() > 512L * 1024L) continue;
+                byte[] b;
+                try (InputStream is = jf.getInputStream(me)) { b = readAll(is); }
+                catch (IOException ex) { continue; }
+                MixinClassInfo ci = readMixinClass(b);
+                // 类自身带 CLIENT dist 注解或 @Pseudo：运行期行为不确定，保守跳过（零误删优先）。
+                if (ci == null || ci.targets.isEmpty() || ci.classEnvClient || ci.pseudo) continue;
+                for (String t : ci.targets) {
+                    if (t.startsWith("net/minecraft/client/")) return cfgName + ":" + cls + " -> " + t;
+                }
             }
         }
         return null;
@@ -1709,8 +1837,10 @@ public final class ClientModGuard {
         boolean hasBroadGuard;  // 宽泛守卫(@OnlyIn/EnvType/Environment 常量)：至少有过 dist 意识
         boolean hasKjsPlugin;   // KubeJS 插件(kubejs.plugins.txt)：双端 KubeJS 附属
         // v15: 中毒 mixin —— 非空表示「注入服务端必加载的原版类 + 体内调用客户端类」，专用服上必崩。
-        // 值形如 "lightspeed.mixins.json:resources.VanillaPackResourcesMixin -> net/minecraft/server/packs/VanillaPackResources"
+        // v16: 客户端目标 mixin —— @Mixin 目标本身是 net/minecraft/client/** 下的客户端类，专用服上必 InvalidMixinException 崩。
         String poisonMixin;
+        // 非空表示该类模组必崩（betterlockon 等 @Mixin 目标在 net/minecraft/client/** 下）。
+        String clientTargetMixin;
     }
 
     private static String tomlValue(String trimmedLine, String key) {
@@ -1734,6 +1864,51 @@ public final class ClientModGuard {
     private enum Verdict { KEEP, QUARANTINE, REPORT }
 
     // ===================== 运行时自愈 =====================
+
+    /**
+     * v16：运行时自愈隔离「真凶」而非「守护者」。
+     * 当定位到的模组本身不是客户端模组（即它是检测到另一模组的守护者，如 tcrcore 检测到 aaa_particles），
+     * 从异常消息里找被点名的真·客户端模组并隔离它，保留守护者。
+     */
+    private static Path resolveRealCulprit(Throwable t, Path located, List<Path> jars) {
+        // 1) 定位到的模组本身就是纯客户端模组 → 它即真凶，无需改判
+        ScanResult lr = null;
+        try { lr = scanJarFull(located); } catch (Throwable ignored) {}
+        if (lr != null && lr.hasClient && !lr.hasServer && !lr.hasDistGuard && !lr.hasBroadGuard) {
+            return located;
+        }
+        // 2) 定位到的是「守护者」：从异常消息里找被点名的真·客户端模组（如 tcrcore 点名 aaa_particles）
+        String msg = normalizeForMatch(summarize(t));
+        for (Path jar : jars) {
+            if (jar.equals(located)) continue;
+            if (!referencedInMessage(msg, jar.getFileName().toString())) continue;
+            ScanResult r2 = null;
+            try { r2 = scanJarFull(jar); } catch (Throwable ignored) {}
+            if (r2 != null && r2.hasClient && !r2.hasServer && !r2.hasDistGuard && !r2.hasBroadGuard) {
+                note("  v16: 异常消息点名 " + jar.getFileName() + "，其为纯客户端模组，隔离之（守护者 "
+                    + located.getFileName() + " 保留）");
+                return jar;
+            }
+        }
+        return null;
+    }
+
+    /** 归一化：小写 + 去掉所有非字母数字字符，用于容错包含比对。 */
+    private static String normalizeForMatch(String s) {
+        return s == null ? "" : s.toLowerCase().replaceAll("[^a-z0-9]", "");
+    }
+
+    /**
+     * 已归一化的异常消息是否点名了给定模组文件名（忽略大小写/分隔符/版本号做容错比对）。
+     * core 过短（&lt;5）时直接放弃，避免 "core"/"lib" 之类通配误伤。
+     */
+    static boolean referencedInMessage(String normalizedMsg, String fileName) {
+        String core = normalizeForMatch(fileName.replaceAll("(?i)\\.jar$", "")
+            .replaceAll("(?i)[-_]?forge[-_]?\\d*(\\.\\d+)*", "")
+            .replaceAll("(?i)[-_+]?\\d+(\\.\\d+)*", ""));
+        if (core.length() < 5) return false;
+        return normalizedMsg.contains(core);
+    }
 
     /** 是否为"缺失客户端类"导致的崩溃（strict：仅客户端类前缀才算，避免吞掉无关崩溃）。 */
     static boolean isClientClassMissing(Throwable t) {
@@ -1816,6 +1991,82 @@ public final class ClientModGuard {
         for (Path jar : jars) {
             try (JarFile jf = new JarFile(jar.toFile())) {
                 if (jf.getJarEntry(classPath) != null) return jar;
+            } catch (IOException ignored) {}
+        }
+        return null;
+    }
+
+    /** v16：从异常链消息里提取「Mixin 配置名」（如 betterlockon.mixins.json），用于直接归属崩溃属主。 */
+    private static final Pattern MIXIN_CFG_PATTERN =
+        Pattern.compile("([\\w.+-]+\\.mixins?\\.json)(?::|\\b)");
+
+    private static List<String> parseMixinConfigNames(Throwable t) {
+        List<String> out = new ArrayList<String>();
+        Throwable c = t;
+        int n = 0;
+        while (c != null && n++ < 16) {
+            String msg = c.getMessage();
+            if (msg != null) {
+                Matcher m = MIXIN_CFG_PATTERN.matcher(msg);
+                while (m.find()) {
+                    String cfg = m.group(1);
+                    if (!out.contains(cfg)) out.add(cfg);
+                }
+            }
+            c = c.getCause();
+        }
+        return out;
+    }
+
+    /**
+     * v16b：从 logs/latest.log 尾部提取「崩溃的 Mixin 配置名」（如 betterlockon.mixins.json）。
+     * 实测：betterlockon 这类「Mixin APPLY 阶段 CHECKCAST 客户端类失败」会被 Forge 在内部捕获后 System.exit，
+     * 既不抛到 Launcher 的 try/catch(handleCrash)，也不生成 crash-report —— 崩溃特征只残留在日志里。
+     * 故在 shutdown hook(shutdownHeal) 补一路：扫日志尾部，命中 *.mixins.json 配置名即归属其属主模组并隔离，
+     * 与 handleCrash 的 path 0.5 共用同一判据与零误伤前提（仅真崩时日志才含 FAILED during APPLY）。
+     */
+    private static List<String> parseMixinConfigNamesFromLog() {
+        List<String> out = new ArrayList<String>();
+        Path log = Paths.get("logs", "latest.log");
+        if (!Files.isRegularFile(log)) return out;
+        try {
+            List<String> lines = Files.readAllLines(log, StandardCharsets.UTF_8);
+            int start = Math.max(0, lines.size() - 600);
+            int lastFail = -1;
+            for (int i = start; i < lines.size(); i++) {
+                String l = lines.get(i);
+                if (l.contains("FAILED during APPLY")
+                    || (l.contains("InvalidMixinException") && l.toLowerCase().contains("mixin"))
+                    || l.contains("Mixin apply for mod")) {
+                    Matcher m = MIXIN_CFG_PATTERN.matcher(l);
+                    while (m.find()) {
+                        String cfg = m.group(1);
+                        if (!out.contains(cfg)) out.add(cfg);
+                    }
+                    if (!out.isEmpty()) lastFail = i;
+                }
+            }
+            if (lastFail < 0) return out;
+            // 零误伤闸门（v16c）：Mixin APPLY 失败并不必然致命 —— required=false 的 mixin 注入失败
+            // 只会打一行日志，服务端照常起来。若失败行之后仍出现 "Done (" （服务端成功启动），
+            // 说明这次失败是良性的，本次关服属于正常停服而非崩溃 → 一律不隔离。
+            // 只有「失败之后再没起来」才认定为真凶，与 v12「证据不足一律保留」一致。
+            for (int i = lastFail + 1; i < lines.size(); i++) {
+                String l = lines.get(i);
+                if (l.contains("Done (") || l.contains("For help, type")) {
+                    note("MIXIN_CFG_SKIP benign (server reached Done after "
+                        + out.get(0) + " failure)");
+                    return new ArrayList<String>();
+                }
+            }
+        } catch (Throwable ignored) {}
+        return out;
+    }
+
+    private static Path findJarContainingEntry(List<Path> jars, String entry) {
+        for (Path jar : jars) {
+            try (JarFile jf = new JarFile(jar.toFile())) {
+                if (jf.getJarEntry(entry) != null) return jar;
             } catch (IOException ignored) {}
         }
         return null;
@@ -2094,7 +2345,7 @@ public final class ClientModGuard {
                 if (scBlock != null) {
                     // v15：正则末尾强制要求 "poisonMixin" 字段。旧版(v12 及以前)缓存没有该字段，
                     // 匹配不上即整条失效 -> 自动重扫，不会拿旧缓存漏掉中毒 mixin 判定。
-                    Matcher m = Pattern.compile("\"((?:[^\"\\\\]|\\\\.)*)\"\\s*:\\s*\\{\\s*\"hasClient\"\\s*:\\s*(true|false),\\s*\"hasServer\"\\s*:\\s*(true|false),\\s*\"hasContent\"\\s*:\\s*(true|false),\\s*\"hasCommonMixin\"\\s*:\\s*(true|false),\\s*\"hasDistGuard\"\\s*:\\s*(true|false),\\s*\"hasKjsPlugin\"\\s*:\\s*(true|false),\\s*\"hasBroadGuard\"\\s*:\\s*(true|false),\\s*\"poisonMixin\"\\s*:\\s*(?:null|\"((?:[^\"\\\\]|\\\\.)*)\")")
+                    Matcher m = Pattern.compile("\"((?:[^\"\\\\]|\\\\.)*)\"\\s*:\\s*\\{\\s*\"hasClient\"\\s*:\\s*(true|false),\\s*\"hasServer\"\\s*:\\s*(true|false),\\s*\"hasContent\"\\s*:\\s*(true|false),\\s*\"hasCommonMixin\"\\s*:\\s*(true|false),\\s*\"hasDistGuard\"\\s*:\\s*(true|false),\\s*\"hasKjsPlugin\"\\s*:\\s*(true|false),\\s*\"hasBroadGuard\"\\s*:\\s*(true|false),\\s*\"poisonMixin\"\\s*:\\s*(?:null|\"((?:[^\"\\\\]|\\\\.)*)\"),\\s*\"clientTargetMixin\"\\s*:\\s*(?:null|\"((?:[^\"\\\\]|\\\\.)*)\")")
                         .matcher(scBlock);
                     while (m.find()) {
                         ScanResult sr = new ScanResult();
@@ -2106,6 +2357,7 @@ public final class ClientModGuard {
                         sr.hasKjsPlugin = Boolean.parseBoolean(m.group(7));
                         sr.hasBroadGuard = Boolean.parseBoolean(m.group(8));
                         sr.poisonMixin = m.group(9) == null ? null : unquote(m.group(9));
+                sr.clientTargetMixin = m.group(10) == null ? null : unquote(m.group(10));
                         s.scanCache.put(m.group(1), sr);
                     }
                 }
@@ -2151,6 +2403,7 @@ public final class ClientModGuard {
                         .append(", \"hasKjsPlugin\": ").append(r.hasKjsPlugin)
                         .append(", \"hasBroadGuard\": ").append(r.hasBroadGuard)
                         .append(", \"poisonMixin\": ").append(r.poisonMixin == null ? "null" : quote(r.poisonMixin))
+                        .append(", \"clientTargetMixin\": ").append(r.clientTargetMixin == null ? "null" : quote(r.clientTargetMixin))
                         .append(" }");
                 }
                 sb.append("\n  }\n}\n");
@@ -2217,7 +2470,7 @@ public final class ClientModGuard {
                 StandardOpenOption.CREATE, StandardOpenOption.APPEND);
             // 自愈/崩溃事件额外写入持久日志（precheck log 每次启动会被清空重建）
             if (s.startsWith("SELFHEAL") || s.startsWith("SHUTDOWN_HEAL") || s.startsWith("CRASH")
-                || s.startsWith("QUARANTINE_FAIL") || s.startsWith("CRASHREPORT")) {
+                || s.startsWith("MIXIN_CFG") || s.startsWith("QUARANTINE_FAIL") || s.startsWith("CRASHREPORT")) {
                 Files.write(Paths.get("_guard_heal.log"), line.getBytes(StandardCharsets.UTF_8),
                     StandardOpenOption.CREATE, StandardOpenOption.APPEND);
                 // v10b: 自愈/崩溃事件额外桥接进 logs/ 目录（管理员常规查看 logs/latest.log 时也能发现）
