@@ -30,6 +30,18 @@ import java.util.regex.*;
  *     跳过一切判定（即便它真缺客户端类也交给 FML 原生报错）。
  *  4) 指纹降级：KNOWN_BAD_FINGERPRINTS 仍为【加速提示】——命中即预隔离、少崩一圈；删光指纹也不影响正确性。
  *
+ * v12 P0 判定转向（基于 283 个真实 jar 的三方对账实测，见 docs/clientmodguard-v12-precision-plan.md）：
+ *  判定对象从「这是不是客户端模组」改为「这个模组会不会让服务端崩」。实测 209 个正常运行的模组里
+ *  81% 都含客户端代码——「客户端性」与「危害性」是两回事，v11 把二者混为一谈，才会既误杀又漏检。
+ *  a) 删除 hasDistGuard / hasKjsPlugin 对 suspect 的豁免（实测该信号在安全集命中率 72% > 客户端集 61%，
+ *     方向甚至是反的，当免死金牌造成 61% 漏检）；二者降级为 L3 价值信号。
+ *  b) DIST_GUARD_MARKERS 剔除裸 Dist / EnvType（@OnlyIn 注解本身就写入常量池，无区分度）。
+ *  c) 【核心】证据不足 → AMBER = 保留 + 观察 + 报告，不再有罪推定。只有 L1 硬证据
+ *     （黑名单 / 类名指纹 / mods.toml 自声明 CLIENT）才自动隔离。历史 5 次误删由此根除。
+ *  d) trustedModList：权威参考清单否决启发式隔离，但不否决硬证据，且仍完整跑判定进报告。
+ *  e) 隔离动作原子化（实测发现 3 个 jar 同时存在于 mods/ 与隔离区，隔离形同虚设）。
+ *  f) _guard_precheck.log 输出每模组 SIG 明细行，任何一次判定都可审计。
+ *
  * 历史判定策略（保留）：
  *  v7 依赖一致性闭包 + common mixin 精确化；v8 anyPoison 毒 mixin 否决；v9 GeneralFeedback/ServerCore 指纹；
  *  v9b MineMenu/FancyMenu/Konkrete 指纹 + _guard_precheck.log 落盘；v9c ae2ct 白名单 + mcwifipnp 指纹；
@@ -91,17 +103,22 @@ public final class ClientModGuard {
         "RegistryEvent"
     };
 
-    // 双端守卫标记：模组主动检查 Dist.CLIENT / EnvType.CLIENT 后才跑客户端逻辑。
-    // 命中即说明它"自知双端"——服务端加载时跳过客户端分支、不会崩，属于安全的客户端模组
+    // 双端守卫标记：模组在【运行期主动分支】检查 dist 后才跑客户端逻辑
     // (如 FTB Ultimine Indicator 用 DistExecutor.safeRunWhenOn(Dist.CLIENT) 守卫)。
-    // 这是"通式通法"关键信号：彻底避免把 Dist 守卫型客户端模组误判为 suspect。
+    //
+    // v12 P0-2 信号提纯（实测依据）：原先包含裸 `Dist` / `EnvType` 是【严重错误】——
+    //   `@OnlyIn(Dist.CLIENT)` 注解本身就往字节码常量池写入 `net/minecraftforge/api/distmarker/Dist`，
+    //   凡是规矩标注客户端代码的模组（【包括纯客户端模组】）全部命中。
+    //   实测：隔离集(74 已知客户端) 61% 命中，保留集(209 已知安全) 72% 命中——信号方向甚至是【反】的。
+    //   v11 把它当免死金牌，等于给 61% 的真客户端模组发通行证（oculus 簇漏网即源于此）。
+    // 故只保留【真正表示运行期分支】的类：DistExecutor / FMLEnvironment / FabricLoader。
+    //
+    // 注意：本标记在 v12 中【不再豁免 suspect 判定】，仅作为 L3 价值信号之一（见 decide()）。
     private static final String[] DIST_GUARD_MARKERS = {
-        "net/minecraftforge/api/distmarker/Dist",
-        "net/minecraftforge/fml/loading/FMLEnvironment",
         "net/minecraftforge/fml/DistExecutor",
-        "net/neoforged/neoforge/api/distmarker/Dist",
+        "net/minecraftforge/fml/loading/FMLEnvironment",
+        "net/neoforged/fml/DistExecutor",
         "net/neoforged/fml/loading/FMLEnvironment",
-        "net/fabricmc/api/EnvType",
         "net/fabricmc/loader/api/FabricLoader"
     };
 
@@ -496,7 +513,16 @@ public final class ClientModGuard {
         List<Path> jars = new ArrayList<Path>();
         collectJars(MODS_DIR, jars);
         try { Files.deleteIfExists(PRECHECK_LOG); } catch (IOException ignored) {}
-        note("START modsDir=" + MODS_DIR.toAbsolutePath() + " jars=" + jars.size());
+        note("START modsDir=" + MODS_DIR.toAbsolutePath() + " jars=" + jars.size()
+            + " autoQuarantine=" + cfg.autoQuarantine + " prune=" + cfg.pruneHarmlessClientMods);
+        if (!cfg.trustedSources.isEmpty()) {
+            System.out.println("[PRTS] 客户端模组预检: 已载入权威参考清单 " + String.join(", ", cfg.trustedSources)
+                + "（合计 " + cfg.trustedIds.size() + " 个 modId / " + cfg.trustedNames.size() + " 个文件名）");
+            note("TRUSTED_SOURCES " + String.join(", ", cfg.trustedSources));
+        }
+
+        // v12 P0-6b：先清除「隔离未生效」的残留，否则后续判定基于一份被污染的模组集
+        reconcileQuarantineDuplicates(jars);
 
         Decision d = decide(jars, cfg, state);
 
@@ -519,11 +545,35 @@ public final class ClientModGuard {
         if (!d.keptByDep.isEmpty()) {
             System.out.println("[PRTS] 因被服务端模组依赖而保留（避免缺依赖）: " + String.join(", ", d.keptByDep));
         }
+        if (!d.brokenDeps.isEmpty()) {
+            System.err.println("[PRTS] 注意：以下依赖关系因目标模组命中硬证据（已确证客户端/崩服）而【未】回补——");
+            System.err.println("[PRTS]       依赖方可能功能异常，但把崩服模组放回会导致整包起不来，故优先保证可启动：");
+            for (String s : d.brokenDeps) {
+                System.err.println("[PRTS]   - " + s);
+                note("  BROKEN_DEP " + s);
+            }
+        }
         if (!d.restored.isEmpty()) {
             System.out.println("[PRTS] 曾被隔离、已被用户加回的模组（尊重用户选择，跳过预隔离）: " + String.join(", ", d.restored));
             for (String s : d.restored) note("  RESTORED " + s);
         }
-        if (!d.reported.isEmpty()) {
+        if (!d.trustedConflict.isEmpty()) {
+            System.err.println("[PRTS] 警告：以下模组虽在权威参考清单中，但命中了硬证据仍被隔离——");
+            System.err.println("[PRTS]       说明该参考清单自身混有客户端模组，建议人工复核清单本身：");
+            for (String s : d.trustedConflict) {
+                System.err.println("[PRTS]   - " + s);
+                note("  TRUSTED_CONFLICT " + s);
+            }
+        }
+        if (!d.amber.isEmpty()) {
+            System.out.println("[PRTS] 客户端模组预检: " + d.amber.size()
+                + " 个模组含客户端代码但无确证危害证据，已【保留】并列入观察名单（明细见 _guard_precheck.log 的 AMBER 行）");
+            if (!cfg.pruneHarmlessClientMods) {
+                System.out.println("[PRTS]       如需一并清理，请在 clientside-guard.json 设 \"pruneHarmlessClientMods\": true");
+            }
+            for (String s : d.amber) note("  AMBER " + s);
+        }
+        if (!cfg.autoQuarantine && !d.reported.isEmpty()) {
             System.out.println("[PRTS] autoQuarantine=false，以下仅报告未隔离: " + String.join(", ", d.reported));
         }
         if (moved) {
@@ -536,7 +586,8 @@ public final class ClientModGuard {
             + " 个 / 保留 " + d.keepCount + " 个，继续启动服务端...");
         note("DONE quarantined=" + d.toQuarantine.size() + " kept=" + d.keepCount
             + " fingerprint=" + d.byFingerprint.size() + " chained=" + d.chained.size()
-            + " reported=" + d.reported.size()
+            + " reported=" + d.reported.size() + " amber=" + d.amber.size()
+            + " trustedConflict=" + d.trustedConflict.size()
             + (moved ? " (moved)" : (d.toQuarantine.isEmpty() && d.reported.isEmpty() ? " (none)" : " (report-only)")));
         for (String s : d.byFingerprint) note("  FINGERPRINT " + s);
         for (Path p : d.toQuarantine) note("  QUARANTINE " + p.getFileName());
@@ -616,7 +667,11 @@ public final class ClientModGuard {
             if (!fileName.endsWith(".jar")) continue;
             ModMeta m = meta.get(jar);
             ScanResult r = result.get(jar);
-            if (CORE_MODIDS.contains(m.modId)) { d.keepCount++; continue; }
+            if (CORE_MODIDS.contains(m.modId)) {
+                d.keepCount++;
+                sig(jar.getFileName().toString(), m.modId, m, r, false, "KEEP", "L0/core");
+                continue;
+            }
 
             String id = m.modId;
             String fn = jar.getFileName().toString();
@@ -636,47 +691,86 @@ public final class ClientModGuard {
                     System.err.println("[PRTS]       它几乎可以确定是客户端专用模组。若坚持保留请加入 clientside-guard.json 的 allowlist；否则请将其移出 mods/，避免反复崩溃重启。");
                     note("INSISTED_WARN " + fn + " modId=" + id + " fails=" + fi.at);
                 }
+                sig(fn, id, m, r, cfg.isTrusted(id, fn), "KEEP", "L0/user-restored");
                 continue;
             }
 
             boolean envClient = "CLIENT".equalsIgnoreCase(m.environment);
             boolean envServer = "SERVER".equalsIgnoreCase(m.environment) || "BOTH".equalsIgnoreCase(m.environment);
-            // 通式通法 v11: 即便 hasClient 但带双端信号(Dist 守卫 / KubeJS 插件 / data 内容)也不算 suspect,
-            // 因为这些信号说明模组自知双端或服务端需要其内容, 放服务端不会崩(即便崩也有运行时自愈兜底)。
-            boolean suspect = r.hasClient && !r.hasServer && !r.hasContent && !r.hasCommonMixin
-                && !r.hasDistGuard && !r.hasKjsPlugin;
+
+            // v12 P0-1：hasDistGuard / hasKjsPlugin 不再豁免 suspect。
+            // 实测（74 已知客户端 vs 209 已知安全）二者在两集分布几乎相同，作为「是不是客户端模组」的判据完全无效，
+            // 当免死金牌用直接造成 61% 漏检（oculus 簇即由此漏网并硬崩 ModSorter）。
+            // 二者降级为下方 L3 的 VALUE 信号：只回答「服务端是否需要它」，不回答「它是否客户端」。
+            boolean suspect = r.hasClient && !r.hasServer && !r.hasContent && !r.hasCommonMixin;
+            // L3 价值信号：data 内容（实测保留集 52% vs 隔离集 1%，高精度）/ KubeJS 插件 / 运行期 dist 分支
+            boolean hasValue = r.hasContent || r.hasKjsPlugin || r.hasDistGuard;
+            boolean trusted = cfg.isTrusted(id, fn);
 
             String fpReason = matchFingerprint(jar);
             if (fpReason != null && !inWhite) {
                 d.toQuarantine.add(jar);
+                d.hardQuarantined.add(jar);
                 d.byFingerprint.add(fn + " [" + fpReason + "]");
+                // 权威清单不否决已确证的硬证据，但要显式告警：说明该参考清单自身含客户端模组
+                if (trusted) d.trustedConflict.add(fn + " [类名指纹: " + fpReason + "]");
+                sig(fn, id, m, r, trusted, "QUARANTINE", "L1/fingerprint");
                 continue;
             }
 
             Verdict v;
+            String src;
             if (inBlack) {
                 v = Verdict.QUARANTINE;
+                src = "L0/blacklist";
+                if (trusted) d.trustedConflict.add(fn + " [黑名单]");
             } else if (inWhite || BUILTIN_SAFE.contains(id) || envServer) {
                 v = Verdict.KEEP;
+                src = inWhite ? "L0/allowlist"
+                    : (envServer ? "L1/declared-" + m.environment.toLowerCase(Locale.ROOT) : "L0/builtin-safe");
             } else if (envClient) {
+                // L1 硬证据：模组在 mods.toml 里自己声明 CLIENT。这是模组作者的明示，可信度最高。
                 v = cfg.autoQuarantine ? Verdict.QUARANTINE : Verdict.REPORT;
+                src = "L1/declared-client";
+                if (trusted && v == Verdict.QUARANTINE) d.trustedConflict.add(fn + " [mods.toml 自声明 CLIENT]");
             } else if (suspect) {
                 boolean requiredByKept = isRequiredByKept(id, deps, meta, result, cfg);
-                if (requiredByKept) {
+                if (hasValue) {
                     v = Verdict.KEEP;
+                    src = "L3/value(" + (r.hasContent ? "data" : r.hasKjsPlugin ? "kjs" : "dist") + ")";
+                } else if (requiredByKept) {
+                    v = Verdict.KEEP;
+                    src = "L3/required-by-kept";
                     d.keptByDep.add(fn);
-                } else if (cfg.autoQuarantine) {
-                    v = Verdict.QUARANTINE;
-                } else {
+                } else if (trusted) {
+                    // P0-4：权威清单否决启发式隔离，但仍进报告供人工二次确认
                     v = Verdict.REPORT;
+                    src = "L0/trusted-veto";
+                    d.amber.add(fn + " [权威清单否决隔离]");
+                } else if (cfg.pruneHarmlessClientMods && cfg.autoQuarantine) {
+                    v = Verdict.QUARANTINE;
+                    src = "L2/amber+prune";
+                } else {
+                    // v12 P0-3 核心转向：证据不足 → AMBER = 保留 + 观察 + 报告。
+                    // 判「会不会崩服」而非「是不是客户端模组」——留一个不崩服的客户端模组代价是几 MB 内存，
+                    // 误删一个库的代价是整包起不来。历史 5 次误删全部源于此处旧的有罪推定。
+                    v = Verdict.REPORT;
+                    src = "L2/amber";
+                    d.amber.add(fn);
                 }
             } else {
                 v = Verdict.KEEP;
+                src = "L3/no-harm";
             }
+            sig(fn, id, m, r, trusted, v.name(), src);
 
             switch (v) {
                 case QUARANTINE:
                     d.toQuarantine.add(jar);
+                    // 黑名单与「自声明 CLIENT」同属硬证据，不允许被依赖闭包回补
+                    if ("L0/blacklist".equals(src) || "L1/declared-client".equals(src)) {
+                        d.hardQuarantined.add(jar);
+                    }
                     break;
                 case REPORT:
                     d.reported.add(fn);
@@ -711,6 +805,17 @@ public final class ClientModGuard {
                         || cfg.whitelist.contains(m.modId)
                         || "SERVER".equalsIgnoreCase(m.environment) || "BOTH".equalsIgnoreCase(m.environment)
                         || (r != null && (r.hasServer || r.hasContent || r.hasDistGuard || r.hasKjsPlugin));
+
+                    // v12 关键修复：硬证据（类名指纹 / 黑名单 / mods.toml 自声明 CLIENT）不得被依赖闭包回补。
+                    // 旧逻辑下只要有任一"强"模组声明依赖它，已确证会崩服的模组就会被放回 mods/——
+                    // 实测 MaFgLib(确证崩服) / fancymenu / konkrete / mekalus(oculus 簇) 四个全部由此漏网。
+                    // 缺依赖顶多让依赖方功能异常或自行报错，把崩服模组放回去则是整包起不来。
+                    if (d.hardQuarantined.contains(depJar)) {
+                        d.brokenDeps.add(m.modId + " 依赖已隔离的 " + dep
+                            + "（" + depJar.getFileName() + "，硬证据不予回补）");
+                        continue; // 不改变任何集合，也不置 changed，避免死循环
+                    }
+
                     if (strong) {
                         d.toQuarantine.remove(depJar);
                         quarantinedIds.remove(dep);
@@ -737,7 +842,34 @@ public final class ClientModGuard {
         final List<String> byFingerprint = new ArrayList<String>();
         final List<String> chained = new ArrayList<String>();
         final List<String> restored = new ArrayList<String>(); // v10: 用户加回、本次跳过预隔离的模组
+        // v12: AMBER = 含客户端代码但无确证危害证据，默认保留 + 列入观察名单
+        final List<String> amber = new ArrayList<String>();
+        // v12: 命中权威清单却仍被硬证据判为隔离——说明该参考清单自身混有客户端模组，需人工复核
+        final List<String> trustedConflict = new ArrayList<String>();
+        // v12: 硬证据隔离集（指纹 / 黑名单 / 自声明 CLIENT）。这些【不允许】被依赖闭包回补。
+        final Set<Path> hardQuarantined = new HashSet<Path>();
+        // v12: 因硬证据不回补而产生的依赖断链，仅告警，供人工决定是否找替代版本
+        final Set<String> brokenDeps = new LinkedHashSet<String>();
         int keepCount;
+    }
+
+    /** v12 P0-7：把单个模组的全部信号与判定来源写入 _guard_precheck.log，使每一次隔离/保留都可审计、可复盘。 */
+    private static void sig(String fn, String id, ModMeta m, ScanResult r, boolean trusted,
+                            String verdict, String src) {
+        note("  SIG " + fn + " id=" + id
+            + " env=" + (m == null || m.environment == null ? "-" : m.environment)
+            + " client=" + bit(r != null && r.hasClient)
+            + " server=" + bit(r != null && r.hasServer)
+            + " content=" + bit(r != null && r.hasContent)
+            + " mixin=" + bit(r != null && r.hasCommonMixin)
+            + " dist=" + bit(r != null && r.hasDistGuard)
+            + " kjs=" + bit(r != null && r.hasKjsPlugin)
+            + " trusted=" + bit(trusted)
+            + " -> " + verdict + " [" + src + "]");
+    }
+
+    private static String bit(boolean v) {
+        return v ? "1" : "0";
     }
 
     /** 类名指纹匹配（加速提示）。 */
@@ -778,19 +910,105 @@ public final class ClientModGuard {
         });
     }
 
+    /**
+     * v12 P0-6：原子隔离。
+     *
+     * 旧实现用 Files.move(REPLACE_EXISTING)，在 Windows 上若源文件被占用会「目标已生成、源未删除」，
+     * 造成同一 jar 同时存在于 mods/ 与 _quarantine/（实测发现 3 个：CutThrough / gtmoldraw / UniLib，
+     * sha1 完全相同）——隔离形同虚设，模组仍被加载。
+     *
+     * 新实现：优先 ATOMIC_MOVE；不支持或失败则回退「复制 → 校验哈希 → 删源 → 确认源已消失」，
+     * 且删源失败时【必须回滚删掉已复制的目标】，绝不留下半成品。
+     */
     private static void quarantine(Path jar) throws IOException {
         Path rel = MODS_DIR.relativize(jar);
         Path target = QUARANTINE_DIR.resolve(rel);
         Files.createDirectories(target.getParent());
-        if (Files.exists(target)) Files.delete(target);
-        Files.move(jar, target, StandardCopyOption.REPLACE_EXISTING);
+        Files.deleteIfExists(target);
+        try {
+            Files.move(jar, target, StandardCopyOption.ATOMIC_MOVE);
+            return;
+        } catch (IOException atomicFailed) {
+            // AtomicMoveNotSupportedException（跨卷）或占用失败，走校验式回退
+            note("  QUARANTINE_FALLBACK " + jar.getFileName() + " (" + atomicFailed.getClass().getSimpleName() + ")");
+        }
+
+        String srcHash = sha1(jar);
+        Files.copy(jar, target, StandardCopyOption.REPLACE_EXISTING);
+        String dstHash = sha1(target);
+        if (srcHash.isEmpty() || !srcHash.equals(dstHash)) {
+            try { Files.deleteIfExists(target); } catch (IOException ignored) {}
+            throw new IOException("隔离复制校验失败(哈希不一致): " + jar.getFileName());
+        }
+        try {
+            Files.delete(jar);
+        } catch (IOException delFailed) {
+            // 关键：删源失败必须回滚，否则就复现了 mods/ 与 _quarantine/ 同时存在的 bug
+            try { Files.deleteIfExists(target); } catch (IOException ignored) {}
+            throw delFailed;
+        }
+        if (Files.exists(jar)) {
+            try { Files.deleteIfExists(target); } catch (IOException ignored) {}
+            throw new IOException("隔离后源文件仍存在: " + jar.getFileName());
+        }
     }
 
-    /** 运行时隔离：优先移动到隔离区（同卷 rename，通常可行）；Windows 占用失败则同目录改名兜底。 */
+    /**
+     * v12 P0-6b：启动时校验 mods/ 与隔离区的重复残留。
+     * 只比对【同名】文件（真实 bug 的形态），同名再比 sha1：
+     *   - 哈希相同  → mods/ 侧是隔离失败的残留，直接删除（隔离区已有完整副本，不丢文件）；
+     *   - 哈希不同  → 多为版本升级后重名，只告警不动手，交人工判断。
+     * 只比同名可把开销压到近乎为零，避免为此全量哈希 280+ 个 jar。
+     */
+    private static void reconcileQuarantineDuplicates(List<Path> jars) {
+        if (!Files.isDirectory(QUARANTINE_DIR)) return;
+        Map<String, Path> quarantined = new HashMap<String, Path>();
+        try {
+            List<Path> qJars = new ArrayList<Path>();
+            collectJars(QUARANTINE_DIR, qJars);
+            for (Path q : qJars) quarantined.put(q.getFileName().toString().toLowerCase(Locale.ROOT), q);
+        } catch (IOException e) {
+            return;
+        }
+        if (quarantined.isEmpty()) return;
+
+        int removed = 0;
+        for (Iterator<Path> it = jars.iterator(); it.hasNext(); ) {
+            Path live = it.next();
+            Path dup = quarantined.get(live.getFileName().toString().toLowerCase(Locale.ROOT));
+            if (dup == null) continue;
+            String h1 = sha1(live);
+            String h2 = sha1(dup);
+            if (!h1.isEmpty() && h1.equals(h2)) {
+                try {
+                    Files.delete(live);
+                    it.remove();
+                    removed++;
+                    System.out.println("[PRTS] 客户端模组预检: 清除隔离残留（mods/ 与隔离区同文件）-> " + live.getFileName());
+                    note("  DUP_RESIDUE_REMOVED " + live.getFileName() + " sha1=" + h1);
+                } catch (IOException e) {
+                    note("  DUP_RESIDUE_REMOVE_FAIL " + live.getFileName() + " " + e);
+                }
+            } else {
+                System.out.println("[PRTS] 客户端模组预检: 注意——" + live.getFileName()
+                    + " 在 mods/ 与隔离区同名但内容不同（疑似版本升级），保持原样，请人工确认");
+                note("  DUP_NAME_DIFF " + live.getFileName());
+            }
+        }
+        if (removed > 0) {
+            System.out.println("[PRTS] 客户端模组预检: 共清除 " + removed + " 个隔离残留（此前隔离未生效，模组仍在被加载）");
+        }
+    }
+
+    /**
+     * 运行时隔离：优先移动到隔离区（同卷 rename，通常可行）；Windows 占用失败则同目录改名兜底。
+     * v12：捕获范围放宽到 IOException——新的原子隔离在校验失败时会抛普通 IOException，
+     * 此时同样应走改名兜底，而不是让异常冒泡打断自愈流程。
+     */
     private static void runtimeQuarantine(Path jar) throws IOException {
         try {
             quarantine(jar);
-        } catch (FileSystemException fse) {
+        } catch (IOException fse) {
             Path renamed = jar.resolveSibling(jar.getFileName().toString() + PENDING_SUFFIX);
             Files.move(jar, renamed, StandardCopyOption.REPLACE_EXISTING);
             note("  RUNTIME_QUARANTINE_RENAME " + renamed.getFileName());
@@ -906,12 +1124,19 @@ public final class ClientModGuard {
         return false;
     }
 
-    /** 扫描结果缓存键：文件名 + 文件大小 + 最后修改时间（三者唯一标识 jar 内容，任一变化即失效）。 */
+    /**
+     * 扫描结果缓存键：算法版本 + 文件名 + 文件大小 + 最后修改时间（后三者唯一标识 jar 内容，任一变化即失效）。
+     * v12: 前缀算法版本号——DIST_GUARD_MARKERS 语义变更后，旧缓存里的 hasDistGuard 值不再可信，
+     * 必须整体作废重扫，否则升级后首启会继续沿用错误信号。今后每次改扫描判据都要 bump 此常量。
+     */
+    private static final String SCAN_ALGO_VERSION = "v12";
+
     private static String cacheKey(Path jar) {
         try {
-            return jar.getFileName() + ":" + Files.size(jar) + ":" + Files.getLastModifiedTime(jar).toMillis();
+            return SCAN_ALGO_VERSION + "|" + jar.getFileName() + ":" + Files.size(jar)
+                + ":" + Files.getLastModifiedTime(jar).toMillis();
         } catch (IOException e) {
-            return jar.getFileName().toString(); // 取不到元信息则退化（每轮重扫）
+            return SCAN_ALGO_VERSION + "|" + jar.getFileName(); // 取不到元信息则退化（每轮重扫）
         }
     }
 
@@ -1208,6 +1433,33 @@ public final class ClientModGuard {
         final Set<String> blacklist = new HashSet<String>();
         boolean autoQuarantine = true;
 
+        /**
+         * v12 P0-5：AMBER（有客户端代码、但无任何确证危害证据）是否也隔离。
+         * 默认 false —— 无罪推定。一个不崩服的客户端模组留在服务端，代价是几 MB 内存；
+         * 误删一个库的代价是整包起不来。历史 5 次误删全部源于「证据不足即隔离」。
+         * 想要「清干净」的管理员可显式开启。
+         */
+        boolean pruneHarmlessClientMods = false;
+
+        /**
+         * v12 P0-4：权威参考清单。可填目录（取其中所有 jar 的文件名与 modId）或文本文件（每行一个 modId/文件名）。
+         * 语义 = 【否决启发式隔离，但不跳过判定】：
+         *   - 命中者不会因 AMBER/启发式判据被自动隔离；
+         *   - 仍然完整跑判定并写入审计日志；
+         *   - 【不否决】黑名单、类名指纹、mods.toml 显式 CLIENT 声明这三类硬证据——
+         *     实测参考集 D:/mc/PRTS/1/mods 自身就混有至少 4 个纯客户端模组，
+         *     若无条件放行等于把人工失误固化进系统。此时会打印 TRUSTED_CONFLICT 告警。
+         */
+        final Set<String> trustedIds = new HashSet<String>();
+        final Set<String> trustedNames = new HashSet<String>();
+        final List<String> trustedSources = new ArrayList<String>();
+
+        boolean isTrusted(String modId, String fileName) {
+            if (trustedIds.isEmpty() && trustedNames.isEmpty()) return false;
+            if (modId != null && trustedIds.contains(modId.toLowerCase(Locale.ROOT))) return true;
+            return fileName != null && trustedNames.contains(fileName.toLowerCase(Locale.ROOT));
+        }
+
         static Config load() {
             Config c = new Config();
             Path p = Paths.get("clientside-guard.json");
@@ -1219,11 +1471,62 @@ public final class ClientModGuard {
                     c.blacklist.addAll(parseArray(json, "blacklist"));
                     Matcher m = Pattern.compile("\"autoQuarantine\"\\s*:\\s*(true|false)").matcher(json);
                     if (m.find()) c.autoQuarantine = Boolean.parseBoolean(m.group(1));
+                    Matcher pm = Pattern.compile("\"pruneHarmlessClientMods\"\\s*:\\s*(true|false)").matcher(json);
+                    if (pm.find()) c.pruneHarmlessClientMods = Boolean.parseBoolean(pm.group(1));
+                    for (String src : parseArrayRaw(json, "trustedModList")) c.loadTrusted(src);
                 } catch (IOException ignored) {}
             }
             // v10: 兼容 prts.yml guard.allowlist（尽力解析，失败忽略）
             c.whitelist.addAll(readPrtsAllowlist());
             return c;
+        }
+
+        /** 载入一个权威清单来源：目录（扫 *.jar 取文件名+modId）或文本文件（每行一项，# 开头为注释）。 */
+        private void loadTrusted(String src) {
+            if (src == null || src.trim().isEmpty()) return;
+            String s = src.trim();
+            int n = 0;
+            try {
+                Path p = Paths.get(s);
+                if (!Files.exists(p)) {
+                    trustedSources.add(s + " [路径不存在，已忽略]");
+                    return;
+                }
+                if (Files.isDirectory(p)) {
+                    try (DirectoryStream<Path> ds = Files.newDirectoryStream(p, "*.jar")) {
+                        for (Path jar : ds) {
+                            trustedNames.add(jar.getFileName().toString().toLowerCase(Locale.ROOT));
+                            String id = detectModMeta(jar).modId;
+                            if (id != null && !id.isEmpty()) trustedIds.add(id.toLowerCase(Locale.ROOT));
+                            n++;
+                        }
+                    }
+                } else {
+                    for (String line : Files.readAllLines(p, StandardCharsets.UTF_8)) {
+                        String t = line.trim();
+                        if (t.isEmpty() || t.startsWith("#")) continue;
+                        String lower = t.toLowerCase(Locale.ROOT);
+                        if (lower.endsWith(".jar")) trustedNames.add(lower);
+                        else trustedIds.add(lower);
+                        n++;
+                    }
+                }
+                trustedSources.add(s + " [" + n + " 项]");
+            } catch (Exception e) {
+                // 权威清单是【锦上添花】的兜底，读取失败绝不能影响启动
+                trustedSources.add(s + " [读取失败: " + e.getClass().getSimpleName() + "，已忽略]");
+            }
+        }
+
+        /** 与 parseArray 相同，但保留原始大小写（路径不可小写化）。 */
+        private static List<String> parseArrayRaw(String json, String key) {
+            List<String> list = new ArrayList<String>();
+            Matcher m = Pattern.compile("\"" + key + "\"\\s*:\\s*\\[(.*?)\\]", Pattern.DOTALL).matcher(json);
+            if (m.find()) {
+                Matcher sm = Pattern.compile("\"([^\"]+)\"").matcher(m.group(1));
+                while (sm.find()) list.add(sm.group(1));
+            }
+            return list;
         }
 
         private static Set<String> parseArray(String json, String key) {
