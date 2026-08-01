@@ -23,6 +23,13 @@ public class Main_Neoforge {
             method.invoke(null, (Object) target);
         } catch (Exception e) {
             e.printStackTrace();
+            // v24b: 启动期崩溃（如 sodium 跑 PreLaunchChecks 缺 org.lwjgl.Version）先交 ClientModGuard 自愈；命中则内部 restart 退出当前 JVM。
+            // neoforge 与 applaunch 是独立 source set，编译期不可见，运行时同 classloader，用反射调；不命中则照常 Fail to launch。
+            try {
+                Class<?> guard = Class.forName("io.izzel.arclight.server.ClientModGuard");
+                java.lang.reflect.Method m = guard.getMethod("handleCrash", Throwable.class, String[].class);
+                m.invoke(null, e, args);
+            } catch (Throwable ignored) {}
             System.err.println("Fail to launch Arclight.");
             System.exit(-1);
         }
