@@ -263,7 +263,7 @@ public final class ClientModGuard {
         b.append("## 其它生成文件（勿手改）\n\n");
         b.append("- `precheck.log` 预检日志、`isolation.log` 隔离记录、`state.json` 判定状态、`launch.args` 自愈重启命令行。\n\n");
         b.append("## 常用开关（guard.yml 内）\n\n");
-        b.append("- `autoQuarantine: false` 总开关默认关闭：预检仅报告不隔离，且关闭运行时自愈（崩溃不隔离不重启）；设 `true` 同时启用预检隔离与崩溃自愈。\n");
+        b.append("- `autoQuarantine: false` 总开关默认关闭：整套客户端模组自检（启动预检+隔离+运行时自愈）完全不启用，不扫描不隔离；设 `true` 才完整启用预检隔离与崩溃自愈。\n");
         b.append("- `allowlist: []` 双端/服务端模组写这里放行。\n");
         b.append("- `maxRestarts: 5` 自愈重启上限。\n");
         try {
@@ -309,11 +309,16 @@ public final class ClientModGuard {
         Config cfg = Config.load();
         MAX_RESTART = cfg.maxRestarts > 0 ? cfg.maxRestarts : 5;
         persistLaunchArgs(LAUNCH_ARGS);
-        try {
-            scan();
-        } catch (Throwable t) {
-            System.err.println("[PRTS] 客户端模组预检异常（已跳过，不影响启动）: " + t);
-            note("EXCEPTION " + t);
+        if (cfg.autoQuarantine) {
+            // 总开关：true 才运行整套自检（预检+隔离+自愈）；false 整套关闭，不扫描不隔离
+            try {
+                scan();
+            } catch (Throwable t) {
+                System.err.println("[PRTS] 客户端模组预检异常（已跳过，不影响启动）: " + t);
+                note("EXCEPTION " + t);
+            }
+        } else {
+            System.out.println("[PRTS] 客户端模组自检已关闭 (autoQuarantine=false)，整套预检/隔离/自愈均不启用");
         }
         // v10: vanilla Main.main 会吞掉模组加载异常后正常退出 JVM（不向上抛），
         // 所以运行时自愈的主路径是 shutdown hook：JVM 退出时检查本次启动产生的崩溃报告。
@@ -2270,7 +2275,7 @@ public final class ClientModGuard {
     public static final class Config {
         final Set<String> whitelist = new HashSet<String>();
         final Set<String> blacklist = new HashSet<String>();
-        boolean autoQuarantine = false; // 守卫总开关：true=预检隔离+自愈(隔离并重启)；false=同步关闭两者(仅报告)；guard.yml autoQuarantine: true 可开启
+        boolean autoQuarantine = false; // 守卫总开关：true=完整启用整套自检(预检+隔离+自愈)；false=整套关闭，不扫描不隔离不自愈
         int maxRestarts = 5; // 自愈重启上限，从配置读，fallback 5
 
         /** v18: 实际生效的配置文件绝对路径，null=未找到；用于日志消歧（新旧文件名并存时服主易改错文件）。 */
