@@ -13,62 +13,23 @@ import java.util.jar.*;
 import java.util.regex.*;
 
 /**
- * 启动前扫描 mods 目录，识别并隔离"客户端专用模组"，避免其被加载进服务端导致崩溃（参考 IMBlocker 案例）。
- *
- * v10 架构（自愈式 + 状态记忆，发布后健壮性）：
- *  0) 预扫描只做【高置信】隔离（精确率优先）。模糊双端模组(hasClient && hasServer 但无内容/无 common mixin)
- *     本就不预隔离，交给运行时自愈兜底——避免误伤 spark/ae2ct 这类双端模组。
- *  1) 运行时自愈：Launcher.main 用 try/catch 包住 Main_Forge.main。一旦捕获到"缺失客户端类"
- *     (NoClassDefFoundError/ClassNotFoundException 且缺失类 ∈ net/minecraft/client|com/mojang/blaze3d|
- *     net/minecraftforge/client|net/neoforged/neoforge/client) → 从栈定位 offending mod →
- *     隔离 → 新 JVM 进程重启（带 PRTS_GUARD_RETRY 计数，上限 MAX_RESTART）。
- *     这样【未知客户端模组不需要任何指纹】，JVM 自己暴露，彻底解决"指纹列不全"死穴。
- *  2) 状态记忆 _guard_state.json：记录 quarantined(我们隔离过的 modId) 与 insisted_failed(用户加回后仍崩)。
- *     用户把隔离模组加回 mods/ → 视为显式覆盖，预扫描不再隔离它；若它真崩，自愈再隔离并计次，连崩告警。
- *     彻底解决"误删死循环"死穴。
- *  3) 白名单（逃生口）：clientside-guard.json 的 allowlist（及兼容 prts.yml guard.allowlist）→ 强制保留，
- *     跳过一切判定（即便它真缺客户端类也交给 FML 原生报错）。
- *  4) 指纹降级：KNOWN_BAD_FINGERPRINTS 仍为【加速提示】——命中即预隔离、少崩一圈；删光指纹也不影响正确性。
- *
- * v12 P0 判定转向（基于 283 个真实 jar 的三方对账实测，见 docs/clientmodguard-v12-precision-plan.md）：
- *  判定对象从「这是不是客户端模组」改为「这个模组会不会让服务端崩」。实测 209 个正常运行的模组里
- *  81% 都含客户端代码——「客户端性」与「危害性」是两回事，v11 把二者混为一谈，才会既误杀又漏检。
- *  a) 删除 hasDistGuard / hasKjsPlugin 对 suspect 的豁免（实测该信号在安全集命中率 72% > 客户端集 61%，
- *     方向甚至是反的，当免死金牌造成 61% 漏检）；二者降级为 L3 价值信号。
- *  b) DIST_GUARD_MARKERS 剔除裸 Dist / EnvType（@OnlyIn 注解本身就写入常量池，无区分度）。
- *  c) 【核心】证据不足 → AMBER = 保留 + 观察 + 报告，不再有罪推定。只有 L1 硬证据
- *     （黑名单 / 类名指纹 / mods.toml 自声明 CLIENT）才自动隔离。历史 5 次误删由此根除。
- *  d) trustedModList：权威参考清单否决启发式隔离，但不否决硬证据，且仍完整跑判定进报告。
- *  e) 隔离动作原子化（实测发现 3 个 jar 同时存在于 mods/ 与隔离区，隔离形同虚设）。
- *  f) _guard_precheck.log 输出每模组 SIG 明细行，任何一次判定都可审计。
- *
- * v16 两项增强（源于 "The Casket of Reveries" 整合包实测暴露的两个盲区）：
- *  a) 静态：客户端目标 mixin（detectClientTargetMixin）。@Mixin 目标本身在 net/minecraft/client/** 下时，
- *     专用服上该类被 RuntimeDistCleaner 拦截 → InvalidMixinException 必崩（betterlockon 即属此类）。
- *     v15 的 detectPoisonMixin 只抓「注入服务端类却调用客户端类」，恰好与之互补，故新增对称检测。
- *     误判防护：配置声明 environment=CLIENT / IMixinConfigPlugin / required=false，或 mixin 类带 CLIENT
- *     dist 注解 / @Pseudo 的，一律跳过（运行期可能被过滤，静态无法断定 → 零误删优先）。
- *  b) 运行期：自愈隔离「真凶」而非「守护者」（resolveRealCulprit）。有些双端模组会主动检测别的模组缺
- *     客户端类并抛错（如 tcrcore 点名 aaa_particles），栈帧定位到的是报错者而非肇事者。现在先判定被定位
- *     模组自身是否为纯客户端模组，若不是则从异常消息里反查被点名且确为纯客户端模组的 jar，隔离它、保留守护者。
- *
- * 历史判定策略（保留）：
- *  v7 依赖一致性闭包 + common mixin 精确化；v8 anyPoison 毒 mixin 否决；v9 GeneralFeedback/ServerCore 指纹；
- *  v9b MineMenu/FancyMenu/Konkrete 指纹 + _guard_precheck.log 落盘；v9c ae2ct 白名单 + mcwifipnp 指纹；
- *  v9d MaFgLib/Tweakerge/leawind/chat_heads/appleskin 指纹。详见 git 历史。
- *
- * 隔离只是把文件移动到 _quarantine/clientside/，可随时移回。
+ * 启动前扫描 mods 目录，隔离会导致服务端崩溃的客户端专用模组（参考 IMBlocker 案例），并运行期自愈。
+ * 版本迭代史与判据实证见 docs/clientmodguard-iteration-log.md；代码注释一律 ≤2 行。
  */
 public final class ClientModGuard {
 
-    private static final Path QUARANTINE_DIR = Paths.get("_quarantine", "clientside");
+    private static final Path QUARANTINE_DIR = Paths.get("_disabled_mods");
+    // v17b：预检/自愈/状态/白名单等生成文件统一收敛到此目录（改动 B）
+    private static final Path CLIENTCHECK_DIR = Paths.get("_clientcheck");
     // 运行时隔离失败（Windows 文件占用）时的同目录改名后缀；下次启动预扫描会把它真正移走。
     private static final String PENDING_SUFFIX = ".prts-quarantined";
-    private static final Path PRECHECK_LOG = Paths.get("_guard_precheck.log");
+    private static final Path PRECHECK_LOG = CLIENTCHECK_DIR.resolve("precheck.log");
+    // v18: boot 期落盘的自愈重启命令行，服主可手工修正；自愈时优先复用，非法则回退自动重建。
+    private static final Path LAUNCH_ARGS_FILE = CLIENTCHECK_DIR.resolve("launch.args");
     private static Path MODS_DIR;
 
     // 自愈重启上限（单次会话最多自动重启次数，防级联/失控）
-    private static final int MAX_RESTART = 5;
+    private static int MAX_RESTART = 5; // 兜底默认值，run() 里被配置覆盖
     private static final String RETRY_ENV = "PRTS_GUARD_RETRY";
 
     // 客户端渲染/界面标记：命中即说明该模组含客户端逻辑
@@ -113,17 +74,8 @@ public final class ClientModGuard {
         "RegistryEvent"
     };
 
-    // 双端守卫标记：模组在【运行期主动分支】检查 dist 后才跑客户端逻辑
-    // (如 FTB Ultimine Indicator 用 DistExecutor.safeRunWhenOn(Dist.CLIENT) 守卫)。
-    //
-    // v12 P0-2 信号提纯（实测依据）：原先包含裸 `Dist` / `EnvType` 是【严重错误】——
-    //   `@OnlyIn(Dist.CLIENT)` 注解本身就往字节码常量池写入 `net/minecraftforge/api/distmarker/Dist`，
-    //   凡是规矩标注客户端代码的模组（【包括纯客户端模组】）全部命中。
-    //   实测：隔离集(74 已知客户端) 61% 命中，保留集(209 已知安全) 72% 命中——信号方向甚至是【反】的。
-    //   v11 把它当免死金牌，等于给 61% 的真客户端模组发通行证（oculus 簇漏网即源于此）。
-    // 故只保留【真正表示运行期分支】的类：DistExecutor / FMLEnvironment / FabricLoader。
-    //
-    // 注意：本标记在 v12 中【不再豁免 suspect 判定】，仅作为 L3 价值信号之一（见 decide()）。
+    // 双端守卫标记：DistExecutor/FMLEnvironment/FabricLoader（模组运行期主动分支检查 dist 后才跑客户端逻辑）。
+    // v12 已剔除裸 Dist/EnvType（常量池无区分度，安全集命中率反高于客户端集）；仅作 L3 价值信号。
     private static final String[] DIST_GUARD_MARKERS = {
         "net/minecraftforge/fml/DistExecutor",
         "net/minecraftforge/fml/loading/FMLEnvironment",
@@ -132,9 +84,7 @@ public final class ClientModGuard {
         "net/fabricmc/loader/api/FabricLoader"
     };
 
-    // 宽泛守卫标记：模组【知道分服务端】的弱信号（@OnlyIn / EnvType / Environment 常量）。
-    // 这些常量在客户端集与安全集里出现率几乎相同（v12 实测 61% vs 72%），【不能】用来判别是否客户端，
-    // 但可充当"该模组至少有过 dist 意识"的弱证据——用于避免误删仅用 @OnlyIn 守卫过的双端模组。
+    // 宽泛守卫标记（@OnlyIn/EnvType/Environment 常量）：弱信号，只证明模组有过 dist 意识，不能判客户端性。
     // 未守卫客户端判定 = hasClient && !hasDistGuard && !hasBroadGuard，只抓零守卫的裸客户端模组。
     private static final String[] BROAD_GUARD_MARKERS = {
         "net/minecraftforge/api/distmarker/Dist",
@@ -217,6 +167,9 @@ public final class ClientModGuard {
         KNOWN_BAD_FINGERPRINTS.put("me/wesley1808/servercore/common/ServerCore.class", "Arclight混合端不兼容(ServerCore,其PlayerListMixin与混合端Bukkit重映射冲突,核心已内置等价优化)");
     }
 
+    // v18: 单 jar 内 mixin 类扫描上限，保险丝——超大配置不拖慢启动（两条检测路径共用，避免预算分叉）
+    private static final int MIXIN_SCAN_BUDGET = 800;
+
     // 核心/底层模组，永不动
     private static final Set<String> CORE_MODIDS = new HashSet<String>(Arrays.asList(
         "minecraft", "forge", "neoforge", "fml", "mcp", "arclight", "luminara", "forgefml"
@@ -229,8 +182,38 @@ public final class ClientModGuard {
     ));
 
     private static volatile boolean SELF_HEALED = false;
+    private static volatile boolean CUSTOM_FP_LOADED = false;
     private static String[] LAUNCH_ARGS = new String[0];
     private static long BOOT_TIME = System.currentTimeMillis();
+
+    // v19b: 首次启动若 prts.yml 缺 guard 段，追加默认(关闭)配置，免服主手加；已有则跳过(幂等)
+    private static void ensurePrtsGuardConfig() {
+        Path p = Paths.get("prts.yml");
+        if (!Files.exists(p)) return; // Arclight 尚未生成，下轮启动再补
+        try {
+            List<String> lines = Files.readAllLines(p, StandardCharsets.UTF_8);
+            for (String l : lines) {
+                if (l.trim().equals("guard:") || l.trim().startsWith("guard:")) return;
+            }
+            byte[] data = Files.readAllBytes(p);
+            int n = data.length;
+            boolean endsNL = n == 0 || data[n - 1] == '\n' || data[n - 1] == '\r';
+            StringBuilder b = new StringBuilder();
+            if (!endsNL) b.append("\n");
+            b.append("\n");
+            b.append("# 客户端模组守卫（自动生成；autoQuarantine=false 关闭隔离，仅报告）\n");
+            b.append("guard:\n");
+            b.append("  # 客户端模组自动隔离总开关：true=启用自动隔离，false=仅报告不挪动（默认关闭）\n");
+            b.append("  autoQuarantine: false\n");
+            b.append("  # 自愈重启上限（连续崩溃自动重启次数，0=不重启）\n");
+            b.append("  maxRestarts: 5\n");
+            Files.write(p, b.toString().getBytes(StandardCharsets.UTF_8),
+                StandardOpenOption.APPEND, StandardOpenOption.CREATE);
+            note("CONFIG_AUTOGEN prts.yml -> guard: autoQuarantine=false maxRestarts=5");
+        } catch (IOException e) {
+            note("CONFIG_AUTOGEN_FAIL prts.yml: " + e);
+        }
+    }
 
     public static void run() {
         run(new String[0]);
@@ -239,6 +222,10 @@ public final class ClientModGuard {
     public static void run(String[] args) {
         if (args != null) LAUNCH_ARGS = args;
         BOOT_TIME = System.currentTimeMillis();
+        ensurePrtsGuardConfig(); // 先于 load，保证本次启动即读到默认段
+        Config cfg = Config.load();
+        MAX_RESTART = cfg.maxRestarts > 0 ? cfg.maxRestarts : 5;
+        persistLaunchArgs(LAUNCH_ARGS);
         try {
             scan();
         } catch (Throwable t) {
@@ -280,12 +267,7 @@ public final class ClientModGuard {
         } catch (Throwable ignored) {}
     }
 
-    /**
-     * shutdown hook 自愈：JVM 退出时，若发现本次启动之后新生成的崩溃报告中
-     * 存在"模组因客户端类缺失加载失败"，则隔离 offending mod 并拉起新 JVM。
-     * 正常关服（/stop、Ctrl+C）不会有此类报告，钩子静默返回。
-     * 注意：hook 内严禁 System.exit（会死锁）。
-     */
+    /** shutdown hook 自愈：JVM 退出时若有本次启动后生成的客户端类缺失崩溃报告，隔离 offending mod 并重启；正常关服静默返回（hook 内禁 System.exit 防死锁）。 */
     static void shutdownHeal() {
         if (SELF_HEALED) return; // handleCrash 已处理过
 
@@ -293,6 +275,7 @@ public final class ClientModGuard {
             ? MODS_DIR : Paths.get(System.getProperty("fml.modsDir", "mods"));
         List<Path> jars = new ArrayList<Path>();
         try { collectJars(dir, jars); } catch (IOException ignored) {}
+        Config guardCfg = Config.load();
 
         Map<String, Object[]> offenders = new LinkedHashMap<String, Object[]>();
 
@@ -304,17 +287,32 @@ public final class ClientModGuard {
         }
         if (!offenders.isEmpty()) note("SHUTDOWN_HEAL detected clientFailures=" + failures.size());
 
-        // 路径 B（v15）：崩溃报告只写"Failure message: X has class loading errors"，没有客户端类名。
-        // 实测场景：ItemPhysicLite 被 itemphysicguns.mixins.json:ItemPhysicLiteClientMixin 在专用服上 APPLY 失败，
-        //   → MixinTransformerError → Forge LoadingFailedException → vanilla Main.main 吞掉异常后正常退出，
-        //   → Launcher 的 try/catch(handleCrash) 收不到，只有本 shutdown hook 能兜住。
-        // 该路径证据是"Forge 自己认定这个模组把服务端搞挂了"，精度极高；
-        // 但为守住零误删底线，仍要求该 jar 确有客户端代码特征，否则只记录不动手。
+        // 路径 B（v15）：崩溃报告只有"X has class loading errors"，无客户端类名，但 Forge 已认定该模组搞挂服务端。
+        // 仅当该 jar 确有客户端代码特征才隔离（零误删底线），否则只记录不动手。
         if (offenders.isEmpty()) {
             List<String[]> modFails = parseCrashReportModFailures(BOOT_TIME);
             for (String[] pr : modFails) {
                 Path jar = findJarByModIdOrName(jars, pr[0]);
                 if (jar == null) { note("SHUTDOWN_HEAL_SKIP no-jar " + pr[0]); continue; }
+
+                // v17 守护者归因：先判失败是否由作者点名他人并要求移除；命中则隔离被点名真凶（含同家族姊妹包）、保住守护者，不新增隔离对象。
+                List<Path> culprits = resolveGuardianCulprit(pr.length > 2 ? pr[2] : "", jar, jars, guardCfg);
+                if (!culprits.isEmpty()) {
+                    StringBuilder names = new StringBuilder();
+                    for (Path c : culprits) {
+                        String cid;
+                        try { cid = detectModMeta(c).modId; }
+                        catch (Throwable e) { cid = c.getFileName().toString(); }
+                        offenders.put(cid, new Object[]{c, "runtime: 被 " + jar.getFileName()
+                            + " 检测为服务端不兼容并要求移除（守护者归因）"});
+                        if (names.length() > 0) names.append(", ");
+                        names.append(c.getFileName().toString());
+                    }
+                    System.err.println("[PRTS] " + jar.getFileName() + " 点名以下模组为服务端不兼容并要求移除，已按家族隔离被点名者，保留报告者：" + names);
+                    note("GUARDIAN_ATTRIB " + jar.getFileName() + " -> " + names);
+                    continue;
+                }
+
                 ScanResult r = null;
                 try { r = scanJarFull(jar); } catch (Throwable ignored) {}
                 if (r == null || !r.hasClient) {
@@ -330,11 +328,8 @@ public final class ClientModGuard {
             if (!offenders.isEmpty()) note("SHUTDOWN_HEAL detected modLoadFailures=" + offenders.size());
         }
 
-        // 路径 C（v16b）：崩溃特征只在日志里（Forge 内部吞掉异常并 System.exit，无 crash-report）。
-        // 实测场景：betterlockon 的 LocalPlayerPatchMixin 在专用服 APPLY 阶段 CHECKCAST net/minecraft/client/player/LocalPlayer
-        //   失败 → InvalidMixinException → FATAL，但既不到 handleCrash 也不生成 crash-report。
-        //   此处扫 logs/latest.log 尾部，命中「*.mixins.json 在专用服注入失败」即归属其属主模组并隔离。
-        //   与 handleCrash 的 path 0.5 共用判据：仅真崩（日志确实含 FAILED during APPLY）时触发，正常运行模组零误伤。
+        // 路径 C（v16b）：崩溃特征只在日志里（Forge 吞异常并 System.exit，无 crash-report）。
+        // 扫 logs/latest.log 尾部，命中"*.mixins.json 在专用服注入失败"即归属属主并隔离；仅真崩时触发。
         if (offenders.isEmpty()) {
             for (String cfg : parseMixinConfigNamesFromLog()) {
                 Path jar = findJarContainingEntry(jars, cfg);
@@ -400,18 +395,14 @@ public final class ClientModGuard {
             note("SELFHEAL " + jar.getFileName() + " modId=" + modId + " " + reason + " insistedFails=" + fails);
             if (fails >= 2) {
                 System.err.println("[PRTS] 警告：模组 '" + modId + "' 已被多次隔离（疑似必须为客户端）。后续每次启动都会自动隔离它。");
-                System.err.println("[PRTS] 如需强制保留，请在 clientside-guard.json 的 allowlist 加入 \"" + modId + "\"（或 prts.yml guard.allowlist）；否则请将其移出 mods/。");
+                System.err.println("[PRTS] 如需强制保留，请在 _clientcheck/allowlist.json 的 allowlist 加入 \"" + modId + "\"（或 prts.yml guard.allowlist）；否则请将其移出 mods/。");
             }
         }
         state.save();
         return true;
     }
 
-    /**
-     * 运行时自愈入口：由 Launcher.main 在 try/catch 中捕获 Main_Forge.main 抛出的异常后调用。
-     * 若异常是"缺失客户端类"导致，则定位并隔离 offending mod 并自动重启（不返回）。
-     * 否则直接返回，由调用方继续向上抛（正常崩溃）。
-     */
+    /** 运行时自愈入口：捕获 Main_Forge.main 抛出的"缺失客户端类/模组加载失败"异常，定位并隔离 offending mod 后重启。 */
     public static synchronized void handleCrash(Throwable t, String[] args) {
         boolean direct = isClientClassMissing(t);
         boolean modLoadFail = isModLoadingFailed(t);
@@ -426,11 +417,8 @@ public final class ClientModGuard {
         // offenders: modId -> {jar, reason}
         Map<String, Object[]> offenders = new LinkedHashMap<String, Object[]>();
 
-        // 路径0.5（v16，最高优先级）: Mixin APPLY 崩溃消息里直接带「配置名」（如
-        //   betterlockon.mixins.json:LocalPlayerPatchMixin ... FAILED during APPLY
-        //   ... CHECKCAST net/minecraft/client/player/LocalPlayer）
-        // 配置名即属主模组，无需依赖 crash-report 落盘，精度最高。仅在真崩（消息确实含 mixin 配置名）时触发，
-        // 正常运行的模组（如同样大量指向 EpicFight 客户端类的 CombatEvolution/tcrcore 等）从不触发此路径，零误伤。
+            // 路径0.5（v16，最高优先）：Mixin APPLY 崩溃消息直接带配置名（如 betterlockon.mixins.json:...FAILED during APPLY），配置名即属主模组，精度最高。
+            // 仅真崩（消息含 mixin 配置名）时触发，正常运行模组（如大量指向 EpicFight 客户端类的 CombatEvolution/tcrcore）从不触发，零误伤。
         if (offenders.isEmpty()) {
             for (String cfg : parseMixinConfigNames(t)) {
                 Path jar = findJarContainingEntry(jars, cfg);
@@ -464,13 +452,8 @@ public final class ClientModGuard {
                 }
             }
         }
-        // 路径1.5（v14）: Forge 的 LoadingFailedException 会在消息里【直接点名】失败模组，例如
-        //   Loading errors encountered: [
-        //       ItemPhysicLite has class loading errors
-        //       ...MixinTransformerError...
-        //   ]
-        // 这是精度最高的信号——Forge 自己认定该模组加载失败，且此路径不依赖 crash-report 落盘。
-        // 为守住"零误删"底线：仅当该 jar 确实含客户端代码特征时才隔离，否则只告警并交还正常崩溃。
+            // 路径1.5（v14）: Forge 的 LoadingFailedException 直接在消息里【点名】失败模组（"X has class loading errors"），精度最高且不依赖 crash-report 落盘。
+            // 为守零误删底线：仅当该 jar 确含客户端代码特征才隔离，否则只告警交还正常崩溃。
         if (offenders.isEmpty() && modLoadFail) {
             for (String name : parseLoadingFailureNames(t)) {
                 Path jar = findJarByModIdOrName(jars, name);
@@ -515,11 +498,7 @@ public final class ClientModGuard {
         restart(args);
     }
 
-    /**
-     * 子线程感知运行时自愈：复用 v10 既有定位/隔离/重启机器，对任意线程的"客户端类加载失败"兜底。
-     * 盲区 3 根因：forgematica 在 Worker-Main 子线程懒加载 ClientLevel 失败，不冒泡主线程、不写 crash-report，
-     * 主线程 try/catch(handleCrash) 与 shutdown hook(shutdownHeal) 都抓不到 → 服务端静默带病跑。本方法由其未捕获异常处理器调用。
-     */
+    /** 子线程感知运行时自愈：兜底"子线程懒加载客户端类失败"盲区（主线程 try/catch 与 shutdown hook 都抓不到）。 */
     public static synchronized void onUncaughtClientFailure(Throwable t) {
         if (SELF_HEALED) return; // handleCrash 已处理 / 已重启，避免重入与级联重复隔离
         Path mod = locateOffendingMod(t);
@@ -557,20 +536,8 @@ public final class ClientModGuard {
     static List<String[]> parseCrashReportClientFailures(long sinceMillis) {
         List<String[]> out = new ArrayList<String[]>();
         try {
-            Path dir = Paths.get("crash-reports");
-            if (!Files.isDirectory(dir)) return out;
-            Path newest = null;
-            long best = 0L;
-            try (DirectoryStream<Path> ds = Files.newDirectoryStream(dir)) {
-                for (Path p : ds) {
-                    String n = p.getFileName().toString();
-                    if (!n.endsWith(".txt")) continue;
-                    long m = Files.getLastModifiedTime(p).toMillis();
-                    if (m > best) { best = m; newest = p; }
-                }
-            }
+            Path newest = newestCrashReport(sinceMillis);
             if (newest == null) return out;
-            if (best < sinceMillis) return out; // 只认本次启动之后生成的报告
             List<String> lines = Files.readAllLines(newest, StandardCharsets.UTF_8);
             Pattern fp = Pattern.compile("Failure message:.*\\(([\\w .-]+)\\) has failed to load correctly");
             for (int i = 0; i < lines.size(); i++) {
@@ -594,38 +561,20 @@ public final class ClientModGuard {
         return out;
     }
 
-    /**
-     * v15：解析最新崩溃报告中「Forge 点名的加载失败模组」，不要求出现客户端类名。
-     * 返回 {modId 或展示名, 原因}。两类证据：
-     *   1) "-- MOD &lt;modid&gt; --" 段内的 "Failure message: X has class loading errors"（Forge 官方结论，精度最高）；
-     *   2) "Mixin [foo.mixins.json:BarClientMixin] ... FAILED" —— 真正闯祸的是 mixin 配置的属主 foo，
-     *      而 Forge 只会点名被注入的目标模组。不把属主一起揪出来，下一轮它还会去炸别人。
-     * 本方法只负责取证，是否隔离由调用方按「必须含客户端代码」的安全闸门决定。
-     */
+    /** v15：解析崩溃报告中 Forge 点名的加载失败模组（段内 Failure message 或 mixin 配置属主），只取证不隔离。 */
     static List<String[]> parseCrashReportModFailures(long sinceMillis) {
         List<String[]> out = new ArrayList<String[]>();
         try {
-            Path dir = Paths.get("crash-reports");
-            if (!Files.isDirectory(dir)) return out;
-            Path newest = null;
-            long best = 0L;
-            try (DirectoryStream<Path> ds = Files.newDirectoryStream(dir)) {
-                for (Path p : ds) {
-                    String n = p.getFileName().toString();
-                    if (!n.endsWith(".txt")) continue;
-                    long m = Files.getLastModifiedTime(p).toMillis();
-                    if (m > best) { best = m; newest = p; }
-                }
-            }
-            if (newest == null || best < sinceMillis) return out;
+            Path newest = newestCrashReport(sinceMillis);
+            if (newest == null) return out;
             List<String> lines = Files.readAllLines(newest, StandardCharsets.UTF_8);
 
             String curMod = null;
             Pattern sec = Pattern.compile("^--\\s*MOD\\s+([\\w.-]+)\\s*--\\s*$");
             Pattern mix = Pattern.compile("Mixin \\[([\\w.-]+)\\.mixins\\.json:");
             Set<String> seen = new LinkedHashSet<String>();
-            for (String raw : lines) {
-                String line = raw.trim();
+            for (int i = 0; i < lines.size(); i++) {
+                String line = lines.get(i).trim();
                 Matcher ms = sec.matcher(line);
                 if (ms.matches()) { curMod = ms.group(1); continue; }
                 if (line.startsWith("Failure message:")) {
@@ -635,7 +584,10 @@ public final class ClientModGuard {
                         int k = msg.indexOf(" has ");
                         if (k > 0) id = msg.substring(0, k).trim();
                     }
-                    if (id != null && seen.add(id)) out.add(new String[]{id, "Forge 报告加载失败(" + msg + ")"});
+                    if (id != null && seen.add(id)) {
+                        out.add(new String[]{id, "Forge 报告加载失败(" + msg + ")",
+                            collectAttribution(lines, i, sec)});
+                    }
                 }
                 Matcher mm = mix.matcher(line);
                 if (mm.find()) {
@@ -643,13 +595,30 @@ public final class ClientModGuard {
                     // 排除 mixin 配置名等于当前段模组本身的情况（那已由上面的 Failure message 覆盖）
                     if (seen.add(owner)) {
                         out.add(new String[]{owner, "其 mixin 配置 " + owner
-                            + ".mixins.json 在专用服上注入失败并拖垮模组加载"});
+                            + ".mixins.json 在专用服上注入失败并拖垮模组加载", ""});
                     }
                 }
             }
             if (!out.isEmpty()) note("CRASHREPORT_MODFAIL " + newest.getFileName() + " candidates=" + out.size());
         } catch (Throwable e) { note("CRASHREPORT_MODFAIL_PARSE_FAIL " + e); }
         return out;
+    }
+
+    /** v17：从 Failure message 行起向下收集同段归因文本（≤8 行，遇段落/堆栈边界即止），供守护者归因判定使用。 */
+    private static String collectAttribution(List<String> lines, int start, Pattern secPattern) {
+        StringBuilder sb = new StringBuilder();
+        for (int j = start; j < lines.size() && j <= start + 8; j++) {
+            String s = lines.get(j).trim();
+            if (s.isEmpty()) continue;
+            if (j > start) {
+                // 段落边界：下一个模组段 / 堆栈 / 下一条失败记录
+                if (secPattern.matcher(s).matches()) break;
+                if (s.startsWith("Stacktrace:") || s.startsWith("Mod File:")
+                    || s.startsWith("Failure message:") || s.startsWith("-- ")) break;
+            }
+            sb.append(s).append('\n');
+        }
+        return sb.toString();
     }
 
     private static String extractClientClass(String line) {
@@ -733,6 +702,7 @@ public final class ClientModGuard {
     // ===================== 预扫描 =====================
 
     private static void scan() throws IOException {
+        migrateLegacyFiles();
         String prop = System.getProperty("fml.modsDir");
         MODS_DIR = prop != null ? Paths.get(prop) : Paths.get("mods");
         if (!Files.isDirectory(MODS_DIR)) return;
@@ -748,6 +718,8 @@ public final class ClientModGuard {
         try { Files.deleteIfExists(PRECHECK_LOG); } catch (IOException ignored) {}
         note("START modsDir=" + MODS_DIR.toAbsolutePath() + " jars=" + jars.size()
             + " autoQuarantine=" + cfg.autoQuarantine + " prune=" + cfg.pruneHarmlessClientMods);
+        if (cfg.sourceFile != null) note("CONFIG " + cfg.sourceFile);
+        loadCustomFingerprints();
         if (!cfg.trustedSources.isEmpty()) {
             System.out.println("[PRTS] 客户端模组预检: 已载入权威参考清单 " + String.join(", ", cfg.trustedSources)
                 + "（合计 " + cfg.trustedIds.size() + " 个 modId / " + cfg.trustedNames.size() + " 个文件名）");
@@ -807,7 +779,7 @@ public final class ClientModGuard {
             System.out.println("[PRTS] 客户端模组预检: " + d.amber.size()
                 + " 个模组含客户端代码但无确证危害证据，已【保留】并列入观察名单（明细见 _guard_precheck.log 的 AMBER 行）");
             if (!cfg.pruneHarmlessClientMods) {
-                System.out.println("[PRTS]       如需一并清理，请在 clientside-guard.json 设 \"pruneHarmlessClientMods\": true");
+                System.out.println("[PRTS]       如需一并清理，请在 _clientcheck/allowlist.json 设 \"pruneHarmlessClientMods\": true");
             }
             for (String s : d.amber) note("  AMBER " + s);
         }
@@ -816,7 +788,7 @@ public final class ClientModGuard {
         }
         if (moved) {
             System.out.println("[PRTS] 已将疑似客户端模组隔离至 " + QUARANTINE_DIR.toAbsolutePath());
-            System.out.println("[PRTS] 若系误判，请移回 mods 并在 clientside-guard.json 的 allowlist 加入其 modId/文件名");
+            System.out.println("[PRTS] 若系误判，请移回 mods 并在 _clientcheck/whitelist.json 的 allowlist 加入其 modId/文件名");
         } else if (d.toQuarantine.isEmpty() && d.reported.isEmpty()) {
             System.out.println("[PRTS] 客户端模组预检：未发现疑似客户端专用模组");
         }
@@ -920,8 +892,7 @@ public final class ClientModGuard {
             boolean inWhite = cfg.whitelist.contains(id) || cfg.whitelist.contains(fileName);
             boolean inBlack = cfg.blacklist.contains(id) || cfg.blacklist.contains(fileName);
 
-            // v10: 用户加回的模组（曾在 quarantined 记忆里、本次又出现在 mods/）= 显式覆盖，跳过一切预隔离判定。
-            // 若它是真客户端模组，运行时自愈会再抓它；若系误伤（如 ae2ct），则保留成功。
+            // v10: 用户加回的模组=显式覆盖，跳过预隔离；若真崩，运行时自愈会再抓（误伤如 ae2ct 则保留成功）。
             boolean restored = state.quarantined.containsKey(id);
             if (restored) {
                 d.keepCount++;
@@ -930,7 +901,7 @@ public final class ClientModGuard {
                 if (fi != null && fi.at >= 2) {
                     // 连崩告警：shutdown hook 里的 System.err 会被 log4j 关闭吞掉，故在预扫描阶段（控制台可见）重复告警
                     System.err.println("[PRTS] 警告：模组 '" + id + "' (" + fn + ") 曾连续 " + fi.at + " 次因缺失客户端类崩溃后被自动隔离，现已被加回。");
-                    System.err.println("[PRTS]       它几乎可以确定是客户端专用模组。若坚持保留请加入 clientside-guard.json 的 allowlist；否则请将其移出 mods/，避免反复崩溃重启。");
+                    System.err.println("[PRTS]       它几乎可以确定是客户端专用模组。若坚持保留请加入 _clientcheck/allowlist.json 的 allowlist；否则请将其移出 mods/，避免反复崩溃重启。");
                     note("INSISTED_WARN " + fn + " modId=" + id + " fails=" + fi.at);
                 }
                 sig(fn, id, m, r, cfg.isTrusted(id, fn), "KEEP", "L0/user-restored");
@@ -941,10 +912,7 @@ public final class ClientModGuard {
             boolean cso = m.clientSideOnly; // 根级 clientSideOnly=true（Forge 专用服会跳过）
             boolean envServer = "SERVER".equalsIgnoreCase(m.environment) || "BOTH".equalsIgnoreCase(m.environment);
 
-            // v12 P0-1：hasDistGuard / hasKjsPlugin 不再豁免 suspect。
-            // 实测（74 已知客户端 vs 209 已知安全）二者在两集分布几乎相同，作为「是不是客户端模组」的判据完全无效，
-            // 当免死金牌用直接造成 61% 漏检（oculus 簇即由此漏网并硬崩 ModSorter）。
-            // 二者降级为下方 L3 的 VALUE 信号：只回答「服务端是否需要它」，不回答「它是否客户端」。
+            // v12 P0-1：hasDistGuard/hasKjsPlugin 不再豁免 suspect（实测两集分布几乎相同，当免死金牌造成 61% 漏检），降级为 L3 VALUE 信号。
             boolean suspect = r.hasClient && !r.hasServer && !r.hasContent && !r.hasCommonMixin;
             // L3 价值信号：data 内容（实测保留集 52% vs 隔离集 1%，高精度）/ KubeJS 插件 / 运行期 dist 分支
             boolean hasValue = r.hasContent || r.hasKjsPlugin || r.hasDistGuard;
@@ -961,8 +929,7 @@ public final class ClientModGuard {
                 continue;
             }
 
-            // v15 L1：中毒 mixin。详见 detectPoisonMixin 注释——这类崩溃发生在 vanilla Main.main 内部，
-            // 不写 crash-report、不点名模组，运行期自愈抓不到，必须启动前拦下，否则整个服务端起不来。
+            // v15 L1：中毒 mixin（见 detectPoisonMixin），启动前拦下，否则服务端起不来且不写崩溃报告，运行期自愈抓不到。
             if (r != null && r.poisonMixin != null && !inWhite) {
                 d.toQuarantine.add(jar);
                 d.hardQuarantined.add(jar);
@@ -972,13 +939,7 @@ public final class ClientModGuard {
                 continue;
             }
 
-            // v16：客户端目标 mixin —— 【只观察不隔离】。
-            // 原设想「@Mixin 目标是 net/minecraft/client/** → 专用服必 InvalidMixinException 崩」已被实测证伪：
-            // 177 模组整合包里 ItemBorders / fdlib / visual_keybinder 三个模组都把注入原版客户端类的 mixin
-            // 放在公共 mixins 列表且 required=true，服务端照样 Done 启动。原因是 Mixin 只在目标类【真正被加载】
-            // 时才应用，而专用服永远不会加载 net/minecraft/client/** ——mixin 静静躺着，不会崩。
-            // 该信号命中 3 个全是误判、0 个真凶，故降级为 AMBER 观察项，仅进报告供人工排查（延续 v12 原则：
-            // 「客户端性 ≠ 危害性」，证据不足一律保留）。
+            // v16：客户端目标 mixin 只观察不隔离——实测 3 命中全误判（专用服不加载 net/minecraft/client/**，mixin 静躺不崩），降级 AMBER。
             if (r != null && r.clientTargetMixin != null) {
                 d.byClientTargetMixin.add(fn + " [" + r.clientTargetMixin + "]");
             }
@@ -994,23 +955,18 @@ public final class ClientModGuard {
                 src = inWhite ? "L0/allowlist"
                     : (envServer ? "L1/declared-" + m.environment.toLowerCase(Locale.ROOT) : "L0/builtin-safe");
             } else if (envClient || cso) {
-                // L1 硬证据：模组在 mods.toml 里自己声明 CLIENT，或根级 clientSideOnly=true（Forge 专用服会跳过）。
-                // 二者都是模组作者的明示，可信度最高。复刻 Forge 行为，避免漏检客户端模组。
+                // L1 硬证据：模组自声明 CLIENT 或根级 clientSideOnly=true（Forge 专用服会跳过），复刻 Forge 行为。
                 v = cfg.autoQuarantine ? Verdict.QUARANTINE : Verdict.REPORT;
                 src = "L1/declared-client" + (cso && !envClient ? "[clientSideOnly]" : "");
                 if (trusted && v == Verdict.QUARANTINE)
                     d.trustedConflict.add(fn + " [mods.toml 自声明 " + (envClient ? "CLIENT" : "clientSideOnly=true") + "]");
-            } else if (r != null && r.hasClient && !r.hasServer && !r.hasDistGuard && !r.hasBroadGuard) {
-                // 软信号（非硬证据）：引用了 net/minecraft/client 等客户端类，且【完全没有任何服务端信号、也无分服务端守卫】。
-                // 可能是未自声明 clientSideOnly 的纯客户端模组；但字节扫描无法 100% 区分"纯客户端"与"双端但服务端逻辑极简"的模组
-                // （kubejs/balm/ad_astra/patchouli 等大量双端模组都引用客户端类做配置界面），直接隔离会误删、整包起不来。
-                // 故：只观察+报告（保留），绝不自动隔离。需纯净服务端者用 opt-in 的 strict 模式。
+            } else if (isUnguardedClient(r)) {
+                // 软信号（非硬证据）：引用客户端类且无任何服务端信号/分服务端守卫。字节扫描无法 100% 区分纯客户端与极简双端，故只观察不隔离。
                 v = Verdict.REPORT;
                 src = "L2/unguarded-client";
                 d.amber.add(fn + " [引用客户端类且无服务端信号，已保留观察]");
             } else if (cfg.strictMode && r != null && r.hasClient) {
-                // 严格模式（opt-in）：移除一切引用客户端类的模组，追求纯净服务端（贴近人工筛选集）。
-                // 可能误删"带守卫但作者标为双端"的模组，故默认关闭，由服主自决。
+                // 严格模式（opt-in）：移除一切引用客户端类的模组，追求纯净服务端，可能误删双端模组，默认关闭。
                 v = cfg.autoQuarantine ? Verdict.QUARANTINE : Verdict.REPORT;
                 src = "L1/strict-client";
                 if (trusted && v == Verdict.QUARANTINE)
@@ -1033,9 +989,7 @@ public final class ClientModGuard {
                     v = Verdict.QUARANTINE;
                     src = "L2/amber+prune";
                 } else {
-                    // v12 P0-3 核心转向：证据不足 → AMBER = 保留 + 观察 + 报告。
-                    // 判「会不会崩服」而非「是不是客户端模组」——留一个不崩服的客户端模组代价是几 MB 内存，
-                    // 误删一个库的代价是整包起不来。历史 5 次误删全部源于此处旧的有罪推定。
+                    // v12 P0-3：证据不足→AMBER 保留+观察+报告（留不崩服模组代价几 MB，误删库代价整包起不来）。
                     v = Verdict.REPORT;
                     src = "L2/amber";
                     d.amber.add(fn);
@@ -1089,21 +1043,11 @@ public final class ClientModGuard {
                         || "SERVER".equalsIgnoreCase(m.environment) || "BOTH".equalsIgnoreCase(m.environment)
                         || (r != null && (r.hasServer || r.hasContent || r.hasDistGuard || r.hasKjsPlugin));
 
-                    // v12 关键修复：硬证据（类名指纹 / 黑名单 / mods.toml 自声明 CLIENT）不得被依赖闭包回补。
-                    // 旧逻辑下只要有任一"强"模组声明依赖它，已确证会崩服的模组就会被放回 mods/——
-                    // 实测 MaFgLib(确证崩服) / fancymenu / konkrete / mekalus(oculus 簇) 四个全部由此漏网。
-                    // 缺依赖顶多让依赖方功能异常或自行报错，把崩服模组放回去则是整包起不来。
+                    // 硬证据（指纹/黑名单/自声明 CLIENT）不得被依赖闭包回补：缺依赖顶多功能异常，放回崩服模组则整包起不来。
+                    // 实测 MaFgLib/fancymenu/konkrete/mekalus(oculus 簇) 旧逻辑全漏网。
                     if (d.hardQuarantined.contains(depJar)) {
-                        // v14 关键修复：硬证据目标绝不回补，但【依赖方必须连坐隔离】。
-                        //
-                        // 实测教训：把孤儿依赖方留在 mods/ 会让 Forge 抛
-                        //   "Missing or unsupported mandatory dependencies"
-                        // 该错误会中断 Forge 的模组装配流程，连 Arclight 自身的 mod jar 都不会被加载，
-                        // 结果是 Blocks.<clinit> 阶段直接
-                        //   NoClassDefFoundError: io/izzel/arclight/common/bridge/core/inventory/IInventoryBridge
-                        // 整包起不来。症状与守卫毫无字面关联，极难排查，故必须在此处根治。
-                        //
-                        // 连坐对象同样标记为硬证据，保证多级依赖链（A->B->C）能一路传递下去。
+                        // 硬证据目标绝不回补，但依赖方必须连坐隔离：孤儿依赖方会令 Forge 抛缺依赖、中断装配、整包起不来（连 Arclight 自身 jar 都加载不到）。
+                        // 连坐对象同样标记为硬证据，保证多级依赖链（A->B->C）一路传递。
                         d.brokenDeps.add(m.modId + " 强依赖已隔离的 " + dep
                             + "（" + depJar.getFileName() + "，硬证据不予回补）→ 依赖方 "
                             + jar.getFileName() + " 一并连坐隔离，否则 Forge 缺依赖会导致整包无法启动");
@@ -1217,16 +1161,7 @@ public final class ClientModGuard {
         });
     }
 
-    /**
-     * v12 P0-6：原子隔离。
-     *
-     * 旧实现用 Files.move(REPLACE_EXISTING)，在 Windows 上若源文件被占用会「目标已生成、源未删除」，
-     * 造成同一 jar 同时存在于 mods/ 与 _quarantine/（实测发现 3 个：CutThrough / gtmoldraw / UniLib，
-     * sha1 完全相同）——隔离形同虚设，模组仍被加载。
-     *
-     * 新实现：优先 ATOMIC_MOVE；不支持或失败则回退「复制 → 校验哈希 → 删源 → 确认源已消失」，
-     * 且删源失败时【必须回滚删掉已复制的目标】，绝不留下半成品。
-     */
+    /** v12 原子隔离：优先 ATOMIC_MOVE，失败则「复制→校验哈希→删源→确认消失」；删源失败必须回滚，否则 mods/ 与隔离区同名共存。 */
     private static void quarantine(Path jar) throws IOException {
         Path rel = MODS_DIR.relativize(jar);
         Path target = QUARANTINE_DIR.resolve(rel);
@@ -1250,7 +1185,7 @@ public final class ClientModGuard {
         try {
             Files.delete(jar);
         } catch (IOException delFailed) {
-            // 关键：删源失败必须回滚，否则就复现了 mods/ 与 _quarantine/ 同时存在的 bug
+            // 关键：删源失败必须回滚，否则就复现了 mods/ 与 _disabled_mods/ 同时存在的 bug
             try { Files.deleteIfExists(target); } catch (IOException ignored) {}
             throw delFailed;
         }
@@ -1260,13 +1195,7 @@ public final class ClientModGuard {
         }
     }
 
-    /**
-     * v12 P0-6b：启动时校验 mods/ 与隔离区的重复残留。
-     * 只比对【同名】文件（真实 bug 的形态），同名再比 sha1：
-     *   - 哈希相同  → mods/ 侧是隔离失败的残留，直接删除（隔离区已有完整副本，不丢文件）；
-     *   - 哈希不同  → 多为版本升级后重名，只告警不动手，交人工判断。
-     * 只比同名可把开销压到近乎为零，避免为此全量哈希 280+ 个 jar。
-     */
+    /** v12 启动时清隔离残留：仅比同名文件，sha1 相同则删 mods/ 侧（隔离区已有副本），不同则告警交人工。 */
     private static void reconcileQuarantineDuplicates(List<Path> jars) {
         if (!Files.isDirectory(QUARANTINE_DIR)) return;
         Map<String, Path> quarantined = new HashMap<String, Path>();
@@ -1307,11 +1236,7 @@ public final class ClientModGuard {
         }
     }
 
-    /**
-     * 运行时隔离：优先移动到隔离区（同卷 rename，通常可行）；Windows 占用失败则同目录改名兜底。
-     * v12：捕获范围放宽到 IOException——新的原子隔离在校验失败时会抛普通 IOException，
-     * 此时同样应走改名兜底，而不是让异常冒泡打断自愈流程。
-     */
+    /** 运行时隔离：先移动，占用失败则同目录改名兜底（放宽到 IOException 以不中断自愈）。 */
     private static void runtimeQuarantine(Path jar) throws IOException {
         try {
             quarantine(jar);
@@ -1375,37 +1300,10 @@ public final class ClientModGuard {
     }
 
     // ==================== v15：中毒 mixin 静态检测（L1 硬证据，启动前） ====================
-    // 背景（实测 lightspeed-1.20.1-1.1.2hotfix）：
-    //   lightspeed.mixins.json:resources.VanillaPackResourcesMixin 注入原版服务端必然加载的
-    //   net.minecraft.server.packs.VanillaPackResources，而 mixin 体内调用了 net.minecraft.client.Minecraft。
-    //   Mixin 0.8.5 的 MixinPreProcessorStandard.transformMethod 对【每条 invoke/field 指令的 owner】
-    //   调用 ClassInfo.forDescriptor，解析不到即抛 ClassMetadataNotFoundException -> MixinTransformerError。
-    //   该错误发生在 net.minecraft.server.Main.main 内，vanilla Main 会吞掉异常：
-    //   【不写 crash-report、不点名模组、Forge 也不报 Loading errors】-> 运行期自愈根本抓不到，
-    //   只能在启动前静态拦截。
-    //
-    // 判据（五条同时满足才隔离，精确率优先）：
-    //   1) mixin 配置未声明 environment=CLIENT，且该类来自顶层 mixins/server 列表（不取 client 子表）；
-    //   2) mixin 类自身没有 @Environment(CLIENT)/@OnlyIn(CLIENT)，也不是 @Pseudo；
-    //   3) 类内【没有任何成员】带 CLIENT dist 注解——带了就可能被 Forge RuntimeDistCleaner 先剥离，
-    //      静态无法断定会崩（实测 TFC/etched/create_hypertube 正属此类且能正常启动），只记录观察；
-    //   4) 常量池里存在 owner 为 net/minecraft/client/** 或 com/mojang/blaze3d/** 的
-    //      Methodref/Fieldref/InterfaceMethodref（= 真的调用了客户端类，而不只是出现在描述符/注解里）；
-    //   5) @Mixin 目标里有【原版非客户端类】(net/minecraft/** 且非 net/minecraft/client/**)——
-    //      专用服一定会加载它，mixin 一定会被应用。目标是模组类或客户端类的一律跳过（永不加载，不会崩）。
-    // 实测判别力：283 个模组的测试集命中 1（正是 lightspeed）；人工筛选的 213 个纯服务端模组命中 0。
+    // 注入原版必加载服务端类且体内调用客户端类的 mixin 专用服加载即 MixinTransformerError 且不写崩溃报告，须启动前拦截；五条判据同时满足才隔离（环境非CLIENT、无CLIENT注解/@Pseudo、常量池真调用客户端类、@Mixin目标为原版非客户端类）。
     private static String detectPoisonMixin(JarFile jf, Path jar) {
-        List<String> cfgs = new ArrayList<String>();
-        Enumeration<JarEntry> en = jf.entries();
-        while (en.hasMoreElements()) {
-            JarEntry e = en.nextElement();
-            if (e.isDirectory()) continue;
-            String n = e.getName();
-            if (n.indexOf('/') >= 0) continue; // mixin 配置一律在 jar 根目录
-            String ln = n.toLowerCase(Locale.ROOT);
-            if (ln.endsWith(".json") && ln.contains("mixin")) cfgs.add(n);
-        }
-        int budget = 800; // 保险丝：超大配置不拖慢启动
+        List<String> cfgs = collectMixinConfigs(jf);
+        int budget = MIXIN_SCAN_BUDGET;
         for (String cfgName : cfgs) {
             JarEntry ce = jf.getJarEntry(cfgName);
             if (ce == null || ce.getSize() > 1024L * 1024L) continue;
@@ -1447,24 +1345,10 @@ public final class ClientModGuard {
         return null;
     }
 
-    /**
-     * v16：客户端目标 mixin 静态检测（L1 硬证据，启动前）。与 detectPoisonMixin 对称：
-     * detectPoisonMixin 抓「注入原版服务端类却调用客户端类」，本方法抓「@Mixin 目标本身是 net/minecraft/client/** 下的客户端类」——
-     * 这类模组在专用服上必然 InvalidMixinException 崩服（betterlockon 即属此类），须提前隔离。
-     * 判据：mixin 配置未声明 environment=CLIENT，且其 @Mixin 目标里存在 net/minecraft/client/** 类。
-     */
+    /** v16 与 detectPoisonMixin 对称：@Mixin 目标本身是 net/minecraft/client/** 类，专用服必 InvalidMixinException 崩，须提前隔离。 */
     private static String detectClientTargetMixin(JarFile jf, Path jar) {
-        List<String> cfgs = new ArrayList<String>();
-        Enumeration<JarEntry> en = jf.entries();
-        while (en.hasMoreElements()) {
-            JarEntry e = en.nextElement();
-            if (e.isDirectory()) continue;
-            String n = e.getName();
-            if (n.indexOf('/') >= 0) continue;
-            String ln = n.toLowerCase(Locale.ROOT);
-            if (ln.endsWith(".json") && ln.contains("mixin")) cfgs.add(n);
-        }
-        int budget = 800; // 保险丝：超大配置不拖慢启动
+        List<String> cfgs = collectMixinConfigs(jf);
+        int budget = MIXIN_SCAN_BUDGET;
         for (String cfgName : cfgs) {
             JarEntry ce = jf.getJarEntry(cfgName);
             if (ce == null || ce.getSize() > 1024L * 1024L) continue;
@@ -1699,11 +1583,7 @@ public final class ClientModGuard {
         return false;
     }
 
-    /**
-     * 扫描结果缓存键：算法版本 + 文件名 + 文件大小 + 最后修改时间（后三者唯一标识 jar 内容，任一变化即失效）。
-     * v12: 前缀算法版本号——DIST_GUARD_MARKERS 语义变更后，旧缓存里的 hasDistGuard 值不再可信，
-     * 必须整体作废重扫，否则升级后首启会继续沿用错误信号。今后每次改扫描判据都要 bump 此常量。
-     */
+    /** 缓存键=算法版本+文件名+大小+修改时间；改扫描判据须 bump SCAN_ALGO_VERSION，否则旧缓存信号失准。 */
     private static final String SCAN_ALGO_VERSION = "v14";
 
     private static String cacheKey(Path jar) {
@@ -1767,8 +1647,7 @@ public final class ClientModGuard {
                             String sv = tomlValue(t, "side");
                             if (sv != null) depClientSide = "CLIENT".equalsIgnoreCase(sv);
                         }
-                        // v14: 记录展示名。Forge 的 LoadingFailedException 用【展示名】点名失败模组
-                        // （如 "ItemPhysicLite has class loading errors"），运行时自愈需据此反查 jar。
+                        // v14: 记录展示名，供反查 Forge 用展示名点名的失败模组。
                         if (meta.displayName == null) {
                             String dn = tomlValue(t, "displayName");
                             if (dn != null && !dn.isEmpty()) meta.displayName = dn;
@@ -1782,11 +1661,7 @@ public final class ClientModGuard {
                             String env = rawEnv.trim().replace("\"", "").trim();
                             if (!env.isEmpty()) meta.environment = env.toUpperCase();
                         }
-                        // v12b: 复刻 Forge 的 clientSideOnly 判定。
-                        // Forge(1.20.1-47.4.16) 的 ModFileParser 用 mods.toml 根级配置构造 ModFileInfo，
-                        // 仅根级（首个 [section] 之前）的 clientSideOnly=true 会被读取并置 __FORGE_clientSideOnly=TRUE，
-                        // 专用服据此跳过该模组（日志 "client-side-only mods ... skipped"）。
-                        // [[mods]] 内部的 clientSideOnly 声明 Forge 不读取，故不在此处理（避免误删 Forge 会正常加载的模组）。
+                        // v12b: 复刻 Forge——仅根级（首个[section]前）clientSideOnly=true 被读取并跳过；[[mods]] 内部声明 Forge 不读，故不处理。
                         if (!inAnySection) {
                             String cso = tomlValue(t, "clientSideOnly");
                             if (cso != null && "true".equalsIgnoreCase(cso)) {
@@ -1865,16 +1740,12 @@ public final class ClientModGuard {
 
     // ===================== 运行时自愈 =====================
 
-    /**
-     * v16：运行时自愈隔离「真凶」而非「守护者」。
-     * 当定位到的模组本身不是客户端模组（即它是检测到另一模组的守护者，如 tcrcore 检测到 aaa_particles），
-     * 从异常消息里找被点名的真·客户端模组并隔离它，保留守护者。
-     */
+    /** v16：定位到的模组若为守护者（自身双端安全，仅点名他人），从异常消息反查并隔离被点名的真·客户端模组，保留守护者。 */
     private static Path resolveRealCulprit(Throwable t, Path located, List<Path> jars) {
         // 1) 定位到的模组本身就是纯客户端模组 → 它即真凶，无需改判
         ScanResult lr = null;
         try { lr = scanJarFull(located); } catch (Throwable ignored) {}
-        if (lr != null && lr.hasClient && !lr.hasServer && !lr.hasDistGuard && !lr.hasBroadGuard) {
+        if (isUnguardedClient(lr)) {
             return located;
         }
         // 2) 定位到的是「守护者」：从异常消息里找被点名的真·客户端模组（如 tcrcore 点名 aaa_particles）
@@ -1884,7 +1755,7 @@ public final class ClientModGuard {
             if (!referencedInMessage(msg, jar.getFileName().toString())) continue;
             ScanResult r2 = null;
             try { r2 = scanJarFull(jar); } catch (Throwable ignored) {}
-            if (r2 != null && r2.hasClient && !r2.hasServer && !r2.hasDistGuard && !r2.hasBroadGuard) {
+            if (isUnguardedClient(r2)) {
                 note("  v16: 异常消息点名 " + jar.getFileName() + "，其为纯客户端模组，隔离之（守护者 "
                     + located.getFileName() + " 保留）");
                 return jar;
@@ -1893,9 +1764,89 @@ public final class ClientModGuard {
         return null;
     }
 
+    /** v17 守护者归因：崩溃文本含「移除/不兼容」祈使句且能唯一点名他人时，隔离被点名者、保留报警的守护者（不要求被点名者是纯客户端）。 */
+    /** v17b 家族连坐：directHit 取核心名 familyCore，凡双向前缀匹配的同家族姊妹包一并隔离；多家族歧义则退回保留。 */
+    private static List<Path> resolveGuardianCulprit(String attributionText, Path guardian, List<Path> jars, Config cfg) {
+        if (attributionText == null || attributionText.isEmpty()) return new ArrayList<Path>();
+        String norm = normalizeForMatch(attributionText);
+        if (!hasRemovalDirective(attributionText.toLowerCase(), norm)) {
+            note("GUARDIAN_ATTRIB_MISS no-directive " + guardian.getFileName());
+            return new ArrayList<Path>();
+        }
+        // 1) 被消息直接点名的 jar（消息含其归一化核心名）
+        List<Path> direct = new ArrayList<Path>();
+        for (Path jar : jars) {
+            if (jar.equals(guardian)) continue;
+            if (referencedInMessage(norm, jar.getFileName().toString())) direct.add(jar);
+        }
+        if (direct.isEmpty()) {
+            note("GUARDIAN_ATTRIB_MISS no-target " + guardian.getFileName());
+            return new ArrayList<Path>();
+        }
+        // 2) 多个 directHit 分属不同家族 → 歧义，保 guardian
+        String familyCore = jarCore(direct.get(0).getFileName().toString());
+        for (Path d : direct) {
+            if (!jarCore(d.getFileName().toString()).equals(familyCore)) {
+                note("GUARDIAN_ATTRIB_MISS ambiguous " + direct.get(0).getFileName() + " / " + d.getFileName());
+                return new ArrayList<Path>();
+            }
+        }
+        // 3) 家族连坐：同前缀（双向）姊妹包一并隔离
+        List<Path> out = familyMembers(familyCore, jars, guardian, cfg);
+        if (out.isEmpty()) note("GUARDIAN_ATTRIB_MISS no-family " + guardian.getFileName());
+        return out;
+    }
+
+    /** v17b：以 familyCore 为前缀，收集所有同家族姊妹包（排除 guardian、白名单/L0 覆盖）。 */
+    private static List<Path> familyMembers(String familyCore, List<Path> jars, Path guardian, Config cfg) {
+        List<Path> out = new ArrayList<Path>();
+        for (Path jar : jars) {
+            if (jar.equals(guardian)) continue;
+            String core = jarCore(jar.getFileName().toString());
+            if (core.length() < 5) continue;
+            if (isWhitelisted(jar, cfg)) continue;
+            if (familyCore.startsWith(core) || core.startsWith(familyCore)) out.add(jar);
+        }
+        return out;
+    }
+
+    /** v17b：jar 是否在白名单（modId 或文件名），与 path A 静态预检口径一致。 */
+    private static boolean isWhitelisted(Path jar, Config cfg) {
+        if (cfg == null) return false;
+        String name = jar.getFileName().toString().toLowerCase(java.util.Locale.ROOT);
+        if (cfg.whitelist.contains(name)) return true;
+        String id;
+        try { id = detectModMeta(jar).modId.toLowerCase(java.util.Locale.ROOT); }
+        catch (Throwable e) { return false; }
+        return cfg.whitelist.contains(id);
+    }
+
+    /** v17：移除类祈使语义关键词。ASCII 走归一化文本，中文只能走原文（归一化会清掉非 a-z0-9）。 */
+    private static final String[] REMOVE_HINT_ASCII = {
+        "removeit", "pleaseremove", "mustberemoved", "shouldberemoved", "removethe",
+        "removethis", "deleteit", "pleasedelete", "uninstall",
+        "notcompatible", "incompatiblewith", "isincompatible", "donotuse", "shouldnotbeinstalled"
+    };
+    private static final String[] REMOVE_HINT_RAW = {
+        "请移除", "请删除", "移除它", "删除它", "需要移除", "不兼容", "请卸载"
+    };
+
+    private static boolean hasRemovalDirective(String rawLower, String normalized) {
+        for (String k : REMOVE_HINT_ASCII) if (normalized.contains(k)) return true;
+        for (String k : REMOVE_HINT_RAW) if (rawLower.contains(k)) return true;
+        return false;
+    }
+
     /** 归一化：小写 + 去掉所有非字母数字字符，用于容错包含比对。 */
     private static String normalizeForMatch(String s) {
         return s == null ? "" : s.toLowerCase().replaceAll("[^a-z0-9]", "");
+    }
+
+    /** 取模组文件名的「归一化核心名」：去版本/forge/分隔符，仅留 a-z0-9（如 aaa_particles-forge → aaaparticles）。 */
+    private static String jarCore(String fileName) {
+        return normalizeForMatch(fileName.replaceAll("(?i)\\.jar$", "")
+            .replaceAll("(?i)[-_]?forge[-_]?\\d*(\\.\\d+)*", "")
+            .replaceAll("(?i)[-_+]?\\d+(\\.\\d+)*", ""));
     }
 
     /**
@@ -1903,9 +1854,7 @@ public final class ClientModGuard {
      * core 过短（&lt;5）时直接放弃，避免 "core"/"lib" 之类通配误伤。
      */
     static boolean referencedInMessage(String normalizedMsg, String fileName) {
-        String core = normalizeForMatch(fileName.replaceAll("(?i)\\.jar$", "")
-            .replaceAll("(?i)[-_]?forge[-_]?\\d*(\\.\\d+)*", "")
-            .replaceAll("(?i)[-_+]?\\d+(\\.\\d+)*", ""));
+        String core = jarCore(fileName);
         if (core.length() < 5) return false;
         return normalizedMsg.contains(core);
     }
@@ -2018,13 +1967,8 @@ public final class ClientModGuard {
         return out;
     }
 
-    /**
-     * v16b：从 logs/latest.log 尾部提取「崩溃的 Mixin 配置名」（如 betterlockon.mixins.json）。
-     * 实测：betterlockon 这类「Mixin APPLY 阶段 CHECKCAST 客户端类失败」会被 Forge 在内部捕获后 System.exit，
-     * 既不抛到 Launcher 的 try/catch(handleCrash)，也不生成 crash-report —— 崩溃特征只残留在日志里。
-     * 故在 shutdown hook(shutdownHeal) 补一路：扫日志尾部，命中 *.mixins.json 配置名即归属其属主模组并隔离，
-     * 与 handleCrash 的 path 0.5 共用同一判据与零误伤前提（仅真崩时日志才含 FAILED during APPLY）。
-     */
+    /** v16b：从 logs/latest.log 尾部提取崩溃的 Mixin 配置名（如 betterlockon.mixins.json）；此类被 Forge 内部捕获后 System.exit、不抛 handleCrash、不写 crash-report，特征只残留在日志。 */
+    /** 命中 *.mixins.json 配置名即归属其属主模组并隔离，与 handleCrash path 0.5 共用判据（仅真崩日志含 FAILED during APPLY 时触发）。 */
     private static List<String> parseMixinConfigNamesFromLog() {
         List<String> out = new ArrayList<String>();
         Path log = Paths.get("logs", "latest.log");
@@ -2047,10 +1991,8 @@ public final class ClientModGuard {
                 }
             }
             if (lastFail < 0) return out;
-            // 零误伤闸门（v16c）：Mixin APPLY 失败并不必然致命 —— required=false 的 mixin 注入失败
-            // 只会打一行日志，服务端照常起来。若失败行之后仍出现 "Done (" （服务端成功启动），
-            // 说明这次失败是良性的，本次关服属于正常停服而非崩溃 → 一律不隔离。
-            // 只有「失败之后再没起来」才认定为真凶，与 v12「证据不足一律保留」一致。
+            // 零误伤闸门（v16c）：Mixin APPLY 失败不必然致命（required=false 只打日志、服务端照常起来）。
+            // 失败行之后若仍出现 "Done (" 即良性、本次关服为正常停服→一律不隔离；只有之后再没起来才认定真凶（与 v12「证据不足一律保留」一致）。
             for (int i = lastFail + 1; i < lines.size(); i++) {
                 String l = lines.get(i);
                 if (l.contains("Done (") || l.contains("For help, type")) {
@@ -2079,7 +2021,9 @@ public final class ClientModGuard {
             System.exit(1);
             return;
         }
-        List<String> cmd = buildCommand(args);
+        List<String> cmd = readPersistedLaunchArgs();
+        if (cmd == null) cmd = buildCommand(args);
+        else note("RESTART_ARGS 复用 " + LAUNCH_ARGS_FILE);
         ProcessBuilder pb = new ProcessBuilder(cmd);
         pb.inheritIO();
         pb.environment().put(RETRY_ENV, String.valueOf(retry));
@@ -2098,28 +2042,78 @@ public final class ClientModGuard {
         try { return Integer.parseInt(v); } catch (NumberFormatException e) { return 0; }
     }
 
-    /** 重建启动命令：复用原 JVM 参数（含 -Xmx 等）与 jar 路径，保证重启与首次一致。
-     *  返回 List<String> 供 ProcessBuilder 直接使用（避免字符串拼接的引号转义/空格路径陷阱）。
-     *  兼容 JAVA_HOME 含空格（Windows 常见 C:\Program Files\Java\...）、-D 参数值含空格、自定义 ClassLoader 等边缘场景。 */
+    /** 重建启动命令：JVM 参数取自 RuntimeMXBean，主入口另行还原（getInputArguments 不含 -jar/主类，旧版 hasJar 分支恒为 false）。 */
     private static List<String> buildCommand(String[] args) {
         List<String> cmd = new ArrayList<String>();
         cmd.add(javaExe());
         RuntimeMXBean bean = ManagementFactory.getRuntimeMXBean();
-        List<String> inputArgs = bean.getInputArguments();
-        boolean hasJar = false;
-        for (String a : inputArgs) {
-            if ("-jar".equals(a)) hasJar = true;
-            cmd.add(a);
-        }
-        if (!hasJar) {
+        for (String a : bean.getInputArguments()) cmd.add(a);
+        // -jar 启动时 JVM 会把 classpath 设为该 jar 单条，据此判别比切 sun.java.command 更稳（不受路径空格影响）
+        String cp = System.getProperty("java.class.path");
+        String sep = System.getProperty("path.separator", ";");
+        if (cp != null && !cp.contains(sep) && cp.toLowerCase(Locale.ROOT).endsWith(".jar")) {
+            cmd.add("-jar");
+            cmd.add(cp);
+        } else {
             cmd.add("-cp");
-            cmd.add(System.getProperty("java.class.path"));
-            cmd.add("io.izzel.arclight.server.Launcher");
+            cmd.add(cp == null ? "." : cp);
+            cmd.add(mainClassName());
         }
         if (args != null) {
             for (String a : args) cmd.add(a);
         }
         return cmd;
+    }
+
+    /** 主类名取自 sun.java.command 首 token，不可用时回退核心启动器。 */
+    private static String mainClassName() {
+        String c = System.getProperty("sun.java.command");
+        if (c != null) {
+            String first = c.trim().split("\\s+")[0];
+            if (!first.isEmpty() && !first.toLowerCase(Locale.ROOT).endsWith(".jar")) return first;
+        }
+        return "io.izzel.arclight.server.Launcher";
+    }
+
+    /** v18: boot 期落盘重启命令行，服主可手工修正（JAVA_TOOL_OPTIONS 等注入参数 getInputArguments 未必可见）。写盘失败静默。 */
+    private static void persistLaunchArgs(String[] args) {
+        try {
+            Files.createDirectories(CLIENTCHECK_DIR);
+            List<String> cmd = buildCommand(args);
+            // 主入口(jar/classpath)未变则保留旧文件，不覆盖服主手工修正；换 jar 升版后自动重写
+            String cp = System.getProperty("java.class.path");
+            List<String> old = readPersistedLaunchArgs();
+            if (old != null && cp != null && old.contains(cp)) return;
+            StringBuilder sb = new StringBuilder();
+            sb.append("# PRTS 自愈重启命令行：每行一个参数，# 为注释。删除本文件则自动重建。")
+                .append(System.lineSeparator());
+            sb.append("# 生成于 ")
+                .append(new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new java.util.Date()))
+                .append(System.lineSeparator());
+            for (String c : cmd) sb.append(c).append(System.lineSeparator());
+            Files.write(LAUNCH_ARGS_FILE, sb.toString().getBytes(StandardCharsets.UTF_8));
+        } catch (Throwable ignored) {}
+    }
+
+    /** 读回持久化命令行；缺失/token 过少/首项不存在一律返回 null，由调用方回退自动重建。 */
+    private static List<String> readPersistedLaunchArgs() {
+        try {
+            if (!Files.exists(LAUNCH_ARGS_FILE)) return null;
+            List<String> cmd = new ArrayList<String>();
+            for (String line : Files.readAllLines(LAUNCH_ARGS_FILE, StandardCharsets.UTF_8)) {
+                String t = line.trim();
+                if (t.isEmpty() || t.startsWith("#")) continue;
+                cmd.add(t);
+            }
+            if (cmd.size() < 2 || !Files.exists(Paths.get(cmd.get(0)))) return null;
+            // -jar 目标不存在说明文件已过期（如升版换名），判为非法让调用方重建
+            for (int i = 0; i < cmd.size() - 1; i++) {
+                if ("-jar".equals(cmd.get(i)) && !Files.exists(Paths.get(cmd.get(i + 1)))) return null;
+            }
+            return cmd;
+        } catch (Throwable t) {
+            return null;
+        }
     }
 
     private static String javaExe() {
@@ -2152,17 +2146,51 @@ public final class ClientModGuard {
 
     // ===================== 配置 / 状态 =====================
 
+    // v18: 可选外部指纹增量 _clientcheck/custom_fingerprints.json，格式 {"fingerprints":{"包/类.class":"原因"}}。
+    // 只增不覆盖内置条目（放行请用 allowlist，语义清晰且有日志）；文件缺失或解析失败一律静默跳过。
+    private static void loadCustomFingerprints() {
+        if (CUSTOM_FP_LOADED) return;
+        CUSTOM_FP_LOADED = true;
+        Path p = CLIENTCHECK_DIR.resolve("custom_fingerprints.json");
+        if (!Files.exists(p)) return;
+        try {
+            String json = new String(Files.readAllBytes(p), StandardCharsets.UTF_8);
+            Matcher blk = Pattern.compile("\"fingerprints\"\\s*:\\s*\\{(.*?)\\}", Pattern.DOTALL).matcher(json);
+            if (!blk.find()) return;
+            Matcher kv = Pattern.compile("\"([^\"]+)\"\\s*:\\s*\"([^\"]*)\"").matcher(blk.group(1));
+            int added = 0;
+            int skipped = 0;
+            while (kv.find()) {
+                String raw = kv.group(1).trim();
+                if (raw.endsWith(".class")) raw = raw.substring(0, raw.length() - 6);
+                String key = raw.replace('.', '/') + ".class";
+                if (key.length() < 8 || key.startsWith("/") || KNOWN_BAD_FINGERPRINTS.containsKey(key)) {
+                    skipped++;
+                    continue;
+                }
+                String reason = kv.group(2).trim();
+                KNOWN_BAD_FINGERPRINTS.put(key, (reason.isEmpty() ? "自定义指纹" : reason) + " [custom]");
+                added++;
+            }
+            if (added > 0 || skipped > 0) {
+                note("CUSTOM_FINGERPRINTS 载入 " + added + " 条，跳过 " + skipped + " 条（重复或格式非法） <- " + p.toAbsolutePath());
+            }
+            if (added > 0) {
+                System.out.println("[PRTS] 客户端模组预检: 已载入自定义类名指纹 " + added + " 条");
+            }
+        } catch (Exception ignored) {}
+    }
+
     public static final class Config {
         final Set<String> whitelist = new HashSet<String>();
         final Set<String> blacklist = new HashSet<String>();
-        boolean autoQuarantine = true;
+        boolean autoQuarantine = false; // 默认关闭隔离(仅报告)；prts.yml guard.autoQuarantine=true 可开启
+        int maxRestarts = 5; // 自愈重启上限，从配置读，fallback 5
 
-        /**
-         * v12 P0-5：AMBER（有客户端代码、但无任何确证危害证据）是否也隔离。
-         * 默认 false —— 无罪推定。一个不崩服的客户端模组留在服务端，代价是几 MB 内存；
-         * 误删一个库的代价是整包起不来。历史 5 次误删全部源于「证据不足即隔离」。
-         * 想要「清干净」的管理员可显式开启。
-         */
+        /** v18: 实际生效的配置文件绝对路径，null=未找到；用于日志消歧（新旧文件名并存时服主易改错文件）。 */
+        String sourceFile = null;
+
+        /** v12 P0-5：AMBER（有客户端代码但无确证危害证据）是否也隔离；默认 false=无罪推定（误删库代价整包起不来，历史 5 次误删源于此）。管理员可显式开启。 */
         boolean pruneHarmlessClientMods = false;
 
         /**
@@ -2171,15 +2199,7 @@ public final class ClientModGuard {
          */
         boolean strictMode = false;
 
-        /**
-         * v12 P0-4：权威参考清单。可填目录（取其中所有 jar 的文件名与 modId）或文本文件（每行一个 modId/文件名）。
-         * 语义 = 【否决启发式隔离，但不跳过判定】：
-         *   - 命中者不会因 AMBER/启发式判据被自动隔离；
-         *   - 仍然完整跑判定并写入审计日志；
-         *   - 【不否决】黑名单、类名指纹、mods.toml 显式 CLIENT 声明这三类硬证据——
-         *     实测参考集 D:/mc/PRTS/1/mods 自身就混有至少 4 个纯客户端模组，
-         *     若无条件放行等于把人工失误固化进系统。此时会打印 TRUSTED_CONFLICT 告警。
-         */
+        /** v12 P0-4：权威参考清单（目录或文本文件，每行一个 modId/文件名）。语义=否决启发式隔离但不跳过判定，且不否决黑名单/类名指纹/mods.toml CLIENT 三类硬证据（参考集自身混有客户端模组，会打 TRUSTED_CONFLICT）。 */
         final Set<String> trustedIds = new HashSet<String>();
         final Set<String> trustedNames = new HashSet<String>();
         final List<String> trustedSources = new ArrayList<String>();
@@ -2192,13 +2212,19 @@ public final class ClientModGuard {
 
         static Config load() {
             Config c = new Config();
-            Path p = Paths.get("clientside-guard.json");
+            // v18: 官方名 allowlist.json；whitelist.json / 根目录 clientside-guard.json 为旧名兼容
+            Path p = CLIENTCHECK_DIR.resolve("allowlist.json");
+            if (!Files.exists(p)) p = CLIENTCHECK_DIR.resolve("whitelist.json");
+            if (!Files.exists(p)) p = Paths.get("clientside-guard.json");
             if (Files.exists(p)) {
                 try {
                     String json = new String(Files.readAllBytes(p), StandardCharsets.UTF_8);
+                    // 文件名与字段名统一为 allowlist/denylist，whitelist/blacklist 作同义词永久兼容
+                    c.whitelist.addAll(parseArray(json, "allowlist"));
                     c.whitelist.addAll(parseArray(json, "whitelist"));
-                    c.whitelist.addAll(parseArray(json, "allowlist")); // v10: allowlist 同义逃生口
+                    c.blacklist.addAll(parseArray(json, "denylist"));
                     c.blacklist.addAll(parseArray(json, "blacklist"));
+                    c.sourceFile = p.toAbsolutePath().toString();
                     Matcher m = Pattern.compile("\"autoQuarantine\"\\s*:\\s*(true|false)").matcher(json);
                     if (m.find()) c.autoQuarantine = Boolean.parseBoolean(m.group(1));
                     Matcher pm = Pattern.compile("\"pruneHarmlessClientMods\"\\s*:\\s*(true|false)").matcher(json);
@@ -2206,10 +2232,26 @@ public final class ClientModGuard {
                     Matcher sm = Pattern.compile("\"strictMode\"\\s*:\\s*(true|false)").matcher(json);
                     if (sm.find()) c.strictMode = Boolean.parseBoolean(sm.group(1));
                     for (String src : parseArrayRaw(json, "trustedModList")) c.loadTrusted(src);
+                    Matcher rm = Pattern.compile("\"maxRestarts\"\\s*:\\s*(\\d+)").matcher(json);
+                    if (rm.find()) c.maxRestarts = Integer.parseInt(rm.group(1));
                 } catch (IOException ignored) {}
             }
             // v10: 兼容 prts.yml guard.allowlist（尽力解析，失败忽略）
             c.whitelist.addAll(readPrtsAllowlist());
+            // 补充来源：prts.yml 的 guard 段（服主在此配置开关则以它为准，否则沿用上面 json 解析结果）
+            Path prtsYml = Paths.get("prts.yml");
+            if (Files.exists(prtsYml)) {
+                try {
+                    List<String> ls = Files.readAllLines(prtsYml, StandardCharsets.UTF_8);
+                    StringBuilder sb = new StringBuilder();
+                    for (String l : ls) sb.append(l).append("\n");
+                    String txt = sb.toString();
+                    Matcher am = Pattern.compile("(?m)^\\s*autoQuarantine\\s*:\\s*(true|false)").matcher(txt);
+                    if (am.find()) c.autoQuarantine = Boolean.parseBoolean(am.group(1));
+                    Matcher mr = Pattern.compile("(?m)^\\s*maxRestarts\\s*:\\s*(\\d+)").matcher(txt);
+                    if (mr.find()) c.maxRestarts = Integer.parseInt(mr.group(1));
+                } catch (IOException ignored) {}
+            }
             return c;
         }
 
@@ -2326,7 +2368,7 @@ public final class ClientModGuard {
 
         static GuardState load() {
             GuardState s = new GuardState();
-            Path p = Paths.get("_guard_state.json");
+            Path p = CLIENTCHECK_DIR.resolve("state.json");
             if (!Files.exists(p)) return s;
             try {
                 String json = new String(Files.readAllBytes(p), StandardCharsets.UTF_8);
@@ -2407,7 +2449,8 @@ public final class ClientModGuard {
                         .append(" }");
                 }
                 sb.append("\n  }\n}\n");
-                Files.write(Paths.get("_guard_state.json"), sb.toString().getBytes(StandardCharsets.UTF_8),
+                try { Files.createDirectories(CLIENTCHECK_DIR); } catch (IOException ignored3) {}
+                Files.write(CLIENTCHECK_DIR.resolve("state.json"), sb.toString().getBytes(StandardCharsets.UTF_8),
                     StandardOpenOption.CREATE, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING);
             } catch (IOException ignored) {}
         }
@@ -2464,22 +2507,122 @@ public final class ClientModGuard {
 
     private static void note(String s) {
         try {
+            Files.createDirectories(CLIENTCHECK_DIR);
             String ts = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new java.util.Date());
             String line = "[" + ts + "] " + s + System.lineSeparator();
             Files.write(PRECHECK_LOG, line.getBytes(StandardCharsets.UTF_8),
                 StandardOpenOption.CREATE, StandardOpenOption.APPEND);
             // 自愈/崩溃事件额外写入持久日志（precheck log 每次启动会被清空重建）
             if (s.startsWith("SELFHEAL") || s.startsWith("SHUTDOWN_HEAL") || s.startsWith("CRASH")
-                || s.startsWith("MIXIN_CFG") || s.startsWith("QUARANTINE_FAIL") || s.startsWith("CRASHREPORT")) {
-                Files.write(Paths.get("_guard_heal.log"), line.getBytes(StandardCharsets.UTF_8),
+                || s.startsWith("MIXIN_CFG") || s.startsWith("GUARDIAN_ATTRIB")
+                || s.startsWith("QUARANTINE_FAIL") || s.startsWith("CRASHREPORT")) {
+                Files.write(CLIENTCHECK_DIR.resolve("isolation.log"), line.getBytes(StandardCharsets.UTF_8),
                     StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-                // v10b: 自愈/崩溃事件额外桥接进 logs/ 目录（管理员常规查看 logs/latest.log 时也能发现）
-                try {
-                    Files.createDirectories(Paths.get("logs"));
-                    Files.write(Paths.get("logs", "guard-heal.log"), line.getBytes(StandardCharsets.UTF_8),
-                        StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-                } catch (IOException ignored2) {}
             }
         } catch (IOException ignored) {}
+    }
+
+    // ===================== 旧文件迁移（v17b：收敛到 _clientcheck/ + 隔离区去双层） =====================
+
+    /** 启动时一次性迁移：根目录旧 guard 文件 → _clientcheck/，旧隔离区 _quarantine[/clientside] → _disabled_mods/。失败忽略。 */
+    private static void migrateLegacyFiles() {
+        try { Files.createDirectories(CLIENTCHECK_DIR); } catch (IOException ignored) {}
+        moveRename(Paths.get("_guard_state.json"), CLIENTCHECK_DIR.resolve("state.json"));
+        moveRename(Paths.get("_guard_heal.log"), CLIENTCHECK_DIR.resolve("isolation.log"));
+        moveRename(Paths.get("_guard_precheck.log"), CLIENTCHECK_DIR.resolve("precheck.log"));
+        // v18: 配置文件统一为 _clientcheck/allowlist.json（与字段名 allowlist 对齐）
+        moveRename(Paths.get("clientside-guard.json"), CLIENTCHECK_DIR.resolve("allowlist.json"));
+        moveRename(CLIENTCHECK_DIR.resolve("whitelist.json"), CLIENTCHECK_DIR.resolve("allowlist.json"));
+        // 隔离区改名（v17c）：旧 _quarantine/clientside/* → _quarantine/，再 _quarantine/* → _disabled_mods/
+        Path oldQ = Paths.get("_quarantine");
+        if (Files.isDirectory(oldQ)) {
+            try {
+                // 1) 拍平双层 clientside 子目录到 _quarantine/ 根
+                Path oldQc = Paths.get("_quarantine", "clientside");
+                if (Files.isDirectory(oldQc)) {
+                    try {
+                        List<Path> oldc = new ArrayList<Path>();
+                        collectJars(oldQc, oldc);
+                        for (Path f : oldc) {
+                            try { Files.move(f, oldQ.resolve(f.getFileName().toString()), StandardCopyOption.REPLACE_EXISTING); }
+                            catch (IOException ignored2) {}
+                        }
+                        try { Files.deleteIfExists(oldQc); } catch (IOException ignored2) {}
+                    } catch (IOException ignored2) {}
+                }
+                // 2) 整目录 jar 迁到新隔离区
+                Files.createDirectories(QUARANTINE_DIR);
+                List<Path> old = new ArrayList<Path>();
+                collectJars(oldQ, old);
+                for (Path f : old) {
+                    try { Files.move(f, QUARANTINE_DIR.resolve(f.getFileName().toString()), StandardCopyOption.REPLACE_EXISTING); }
+                    catch (IOException ignored2) {}
+                }
+                // 3) 删掉旧目录残余
+                deleteDirRecursive(oldQ);
+            } catch (IOException ignored2) {}
+        }
+    }
+
+    /** 递归删除目录（迁移后清理旧隔离区用），失败忽略。 */
+    private static void deleteDirRecursive(Path dir) {
+        if (!Files.isDirectory(dir)) return;
+        try {
+            java.nio.file.DirectoryStream<Path> ds = Files.newDirectoryStream(dir);
+            try {
+                for (Path child : ds) {
+                    if (Files.isDirectory(child)) deleteDirRecursive(child);
+                    else Files.deleteIfExists(child);
+                }
+            } finally {
+                ds.close();
+            }
+        } catch (IOException ignored) {}
+        try { Files.deleteIfExists(dir); } catch (IOException ignored) {}
+    }
+
+    // v18: 目标已存在则不迁移——旧名文件回灌覆盖新名会丢掉现行配置/状态，新名永远更权威
+    private static void moveRename(Path from, Path to) {
+        if (!Files.exists(from) || Files.exists(to)) return;
+        try { Files.move(from, to); }
+        catch (IOException ignored) {}
+    }
+
+    /** 无服务端信号且无分服务端守卫的裸客户端模组（疑似纯客户端），用于守护者归因判定。 */
+    private static boolean isUnguardedClient(ScanResult r) {
+        return r != null && r.hasClient && !r.hasServer && !r.hasDistGuard && !r.hasBroadGuard;
+    }
+
+    /** 收集 jar 根目录下的所有 mixin 配置文件名（mixin 配置一律在 jar 根）。 */
+    private static List<String> collectMixinConfigs(JarFile jf) {
+        List<String> cfgs = new ArrayList<String>();
+        Enumeration<JarEntry> en = jf.entries();
+        while (en.hasMoreElements()) {
+            JarEntry e = en.nextElement();
+            if (e.isDirectory()) continue;
+            String n = e.getName();
+            if (n.indexOf('/') >= 0) continue;
+            String ln = n.toLowerCase(Locale.ROOT);
+            if (ln.endsWith(".json") && ln.contains("mixin")) cfgs.add(n);
+        }
+        return cfgs;
+    }
+
+    /** 取 crash-reports 中本次启动后(>=sinceMillis)最新的一份 .txt，无则返回 null。 */
+    private static Path newestCrashReport(long sinceMillis) {
+        Path dir = Paths.get("crash-reports");
+        if (!Files.isDirectory(dir)) return null;
+        Path newest = null;
+        long best = 0L;
+        try (DirectoryStream<Path> ds = Files.newDirectoryStream(dir)) {
+            for (Path p : ds) {
+                String n = p.getFileName().toString();
+                if (!n.endsWith(".txt")) continue;
+                long m = Files.getLastModifiedTime(p).toMillis();
+                if (m > best) { best = m; newest = p; }
+            }
+        } catch (IOException ignored) { return null; }
+        if (newest == null || best < sinceMillis) return null;
+        return newest;
     }
 }
