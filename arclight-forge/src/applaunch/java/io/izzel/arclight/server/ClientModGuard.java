@@ -21,6 +21,10 @@ public final class ClientModGuard {
     private static final Path QUARANTINE_DIR = Paths.get("_disabled_mods");
     // v17b：预检/自愈/状态/白名单等生成文件统一收敛到此目录（改动 B）
     private static final Path CLIENTCHECK_DIR = Paths.get("_clientcheck");
+    // v20: 统一配置落点（带注释 YAML，首次启动自动生成），所有开关/白名单集中于此
+    private static final Path GUARD_YML = CLIENTCHECK_DIR.resolve("guard.yml");
+    // v20: 外部指纹增量文件路径，可被 guard.yml 的 customFingerprintsFile 覆盖；默认骨架路径
+    private static Path CUSTOM_FP_FILE = CLIENTCHECK_DIR.resolve("custom_fingerprints.json");
     // 运行时隔离失败（Windows 文件占用）时的同目录改名后缀；下次启动预扫描会把它真正移走。
     private static final String PENDING_SUFFIX = ".prts-quarantined";
     private static final Path PRECHECK_LOG = CLIENTCHECK_DIR.resolve("precheck.log");
@@ -186,33 +190,112 @@ public final class ClientModGuard {
     private static String[] LAUNCH_ARGS = new String[0];
     private static long BOOT_TIME = System.currentTimeMillis();
 
-    // v19b: 首次启动若 prts.yml 缺 guard 段，追加默认(关闭)配置，免服主手加；已有则跳过(幂等)
-    private static void ensurePrtsGuardConfig() {
-        Path p = Paths.get("prts.yml");
-        if (!Files.exists(p)) return; // Arclight 尚未生成，下轮启动再补
+    // v20: 统一配置落点 guard.yml；首次启动全部自动生成(带注释)，幂等；不污染 prts.yml
+    private static void ensureGuardConfig() {
+        boolean seedAuto = false; // 默认关闭隔离(仅报告)；老服种子仅来自 allowlist.json 等 json
+        int seedRestarts = 5;     // 自愈重启上限
+        Set<String> seedAllow = readAllowlistJsonAllowlist();
+        if (!Files.exists(GUARD_YML)) genGuardYml(seedAuto, seedRestarts, seedAllow);
+        genCustomFpSkeleton();
+        genCustomFpExample();
+        genReadme();
+    }
+
+    // 生成带注释的 guard.yml；seed 来自老服既有配置，无则用安全默认
+    private static void genGuardYml(boolean auto, int restarts, Set<String> allow) {
+        StringBuilder b = new StringBuilder();
+        b.append("# ClientModGuard 客户端模组守卫配置（自动生成，可安全编辑；改完重启生效）\n");
+        b.append("# 任意字段删除即恢复内置默认。所有字段可选。\n\n");
+        b.append("# 客户端模组自动隔离总开关：true=启用自动隔离，false=仅报告不挪动\n");
+        b.append("autoQuarantine: ").append(auto).append("\n\n");
+        b.append("# 自愈重启上限（连续崩溃自动重启次数，0=不重启）\n");
+        b.append("maxRestarts: ").append(restarts).append("\n\n");
+        b.append("# 白名单：双端/服务端模组写这里，永不隔离（modId 或文件名，小写）\n");
+        if (allow.isEmpty()) b.append("allowlist: []\n");
+        else { b.append("allowlist:\n"); for (String s : allow) b.append("  - ").append(s).append("\n"); }
+        b.append("# 黑名单：强制隔离（即使出现在 allowlist 也优先）\n");
+        b.append("denylist: []\n\n");
+        b.append("# 无害客户端模组（有客户端代码但无确证危害）是否也隔离；默认 false=无罪推定\n");
+        b.append("pruneHarmlessClientMods: false\n\n");
+        b.append("# 严格模式：移除一切引用客户端类的模组，追求纯净服务端；默认 false（可能误删双端模组）\n");
+        b.append("strictMode: false\n\n");
+        b.append("# 权威参考清单（每行一个 modId/文件名或路径），否决启发式隔离（不否决硬证据）\n");
+        b.append("trustedModList: []\n\n");
+        b.append("# 外部指纹增量文件（只增不覆盖内置），格式 {\"fingerprints\":{\"包/类.class\":\"原因\"}}\n");
+        b.append("customFingerprintsFile: ").append(CUSTOM_FP_FILE.toString()).append("\n");
         try {
-            List<String> lines = Files.readAllLines(p, StandardCharsets.UTF_8);
-            for (String l : lines) {
-                if (l.trim().equals("guard:") || l.trim().startsWith("guard:")) return;
+            Files.createDirectories(CLIENTCHECK_DIR);
+            Files.write(GUARD_YML, b.toString().getBytes(StandardCharsets.UTF_8), StandardOpenOption.CREATE_NEW);
+            note("CONFIG_AUTOGEN guard.yml -> autoQuarantine=" + auto + " maxRestarts=" + restarts + " allow=" + allow.size());
+        } catch (IOException e) { note("CONFIG_AUTOGEN_FAIL guard.yml: " + e); }
+    }
+
+    // 幂等：骨架/范例/README 仅不存在时生成
+    private static void genCustomFpSkeleton() {
+        Path p = CLIENTCHECK_DIR.resolve("custom_fingerprints.json");
+        if (Files.exists(p)) return;
+        try {
+            Files.createDirectories(CLIENTCHECK_DIR);
+            Files.write(p, "{\"fingerprints\":{}}".getBytes(StandardCharsets.UTF_8), StandardOpenOption.CREATE_NEW);
+        } catch (IOException ignored) {}
+    }
+
+    private static void genCustomFpExample() {
+        Path p = CLIENTCHECK_DIR.resolve("custom_fingerprints.example.json");
+        if (Files.exists(p)) return;
+        String s = "{\n  \"fingerprints\": {\n    \"net/minecraft/client/gui/screens/TitleScreen.class\": \"引用原版客户端界面\"\n  }\n}\n";
+        try {
+            Files.createDirectories(CLIENTCHECK_DIR);
+            Files.write(p, s.getBytes(StandardCharsets.UTF_8), StandardOpenOption.CREATE_NEW);
+        } catch (IOException ignored) {}
+    }
+
+    private static void genReadme() {
+        Path p = CLIENTCHECK_DIR.resolve("README.md");
+        if (Files.exists(p)) return;
+        StringBuilder b = new StringBuilder();
+        b.append("# _clientcheck 目录说明（自动生成）\n\n");
+        b.append("客户端模组守卫(ClientModGuard)的运行与配置文件都在本目录。\n\n");
+        b.append("## 可调配置文件\n\n");
+        b.append("- `guard.yml` —— **主配置文件**，所有开关与白名单都在这里（带注释，改完重启生效）。\n");
+        b.append("- `custom_fingerprints.json` —— 外部类名指纹增量（只增不覆盖内置）。\n");
+        b.append("- `custom_fingerprints.example.json` —— 指纹格式参考范例（代码不读，仅参考）。\n\n");
+        b.append("## 其它生成文件（勿手改）\n\n");
+        b.append("- `precheck.log` 预检日志、`isolation.log` 隔离记录、`state.json` 判定状态、`launch.args` 自愈重启命令行。\n\n");
+        b.append("## 常用开关（guard.yml 内）\n\n");
+        b.append("- `autoQuarantine: false` 默认关闭隔离，仅报告；设 `true` 启用自动隔离。\n");
+        b.append("- `allowlist: []` 双端/服务端模组写这里放行。\n");
+        b.append("- `maxRestarts: 5` 自愈重启上限。\n");
+        try {
+            Files.createDirectories(CLIENTCHECK_DIR);
+            Files.write(p, b.toString().getBytes(StandardCharsets.UTF_8), StandardOpenOption.CREATE_NEW);
+        } catch (IOException ignored) {}
+    }
+
+    // 老服种子：旧 allowlist.json/whitelist.json/clientside-guard.json 的白名单并入 guard.yml
+    private static Set<String> readAllowlistJsonAllowlist() {
+        Set<String> set = new HashSet<String>();
+        Path p = CLIENTCHECK_DIR.resolve("allowlist.json");
+        if (!Files.exists(p)) p = CLIENTCHECK_DIR.resolve("whitelist.json");
+        if (!Files.exists(p)) p = Paths.get("clientside-guard.json");
+        if (!Files.exists(p)) return set;
+        try {
+            String json = new String(Files.readAllBytes(p), StandardCharsets.UTF_8);
+            Matcher m = Pattern.compile("\"(allowlist|whitelist)\"\\s*:\\s*\\[(.*?)\\]", Pattern.DOTALL).matcher(json);
+            while (m.find()) {
+                Matcher sm = Pattern.compile("\"([^\"]+)\"").matcher(m.group(2));
+                while (sm.find()) set.add(sm.group(1).toLowerCase());
             }
-            byte[] data = Files.readAllBytes(p);
-            int n = data.length;
-            boolean endsNL = n == 0 || data[n - 1] == '\n' || data[n - 1] == '\r';
-            StringBuilder b = new StringBuilder();
-            if (!endsNL) b.append("\n");
-            b.append("\n");
-            b.append("# 客户端模组守卫（自动生成；autoQuarantine=false 关闭隔离，仅报告）\n");
-            b.append("guard:\n");
-            b.append("  # 客户端模组自动隔离总开关：true=启用自动隔离，false=仅报告不挪动（默认关闭）\n");
-            b.append("  autoQuarantine: false\n");
-            b.append("  # 自愈重启上限（连续崩溃自动重启次数，0=不重启）\n");
-            b.append("  maxRestarts: 5\n");
-            Files.write(p, b.toString().getBytes(StandardCharsets.UTF_8),
-                StandardOpenOption.APPEND, StandardOpenOption.CREATE);
-            note("CONFIG_AUTOGEN prts.yml -> guard: autoQuarantine=false maxRestarts=5");
-        } catch (IOException e) {
-            note("CONFIG_AUTOGEN_FAIL prts.yml: " + e);
-        }
+        } catch (IOException ignored) {}
+        return set;
+    }
+
+    // 去掉 YAML 行内/整行注释（值中不含 #，安全）
+    private static String stripYamlComment(String s) {
+        if (s.trim().startsWith("#")) return "";
+        int i = s.indexOf(" #");
+        if (i >= 0) s = s.substring(0, i);
+        return s;
     }
 
     public static void run() {
@@ -222,7 +305,7 @@ public final class ClientModGuard {
     public static void run(String[] args) {
         if (args != null) LAUNCH_ARGS = args;
         BOOT_TIME = System.currentTimeMillis();
-        ensurePrtsGuardConfig(); // 先于 load，保证本次启动即读到默认段
+        ensureGuardConfig(); // 先于 load，保证本次启动即生成/读到 guard.yml
         Config cfg = Config.load();
         MAX_RESTART = cfg.maxRestarts > 0 ? cfg.maxRestarts : 5;
         persistLaunchArgs(LAUNCH_ARGS);
@@ -395,7 +478,7 @@ public final class ClientModGuard {
             note("SELFHEAL " + jar.getFileName() + " modId=" + modId + " " + reason + " insistedFails=" + fails);
             if (fails >= 2) {
                 System.err.println("[PRTS] 警告：模组 '" + modId + "' 已被多次隔离（疑似必须为客户端）。后续每次启动都会自动隔离它。");
-                System.err.println("[PRTS] 如需强制保留，请在 _clientcheck/allowlist.json 的 allowlist 加入 \"" + modId + "\"（或 prts.yml guard.allowlist）；否则请将其移出 mods/。");
+                System.err.println("[PRTS] 如需强制保留，请在 _clientcheck/allowlist.json 的 allowlist 加入 \"" + modId + "\"（或 guard.yml allowlist）；否则请将其移出 mods/。");
             }
         }
         state.save();
@@ -2151,7 +2234,7 @@ public final class ClientModGuard {
     private static void loadCustomFingerprints() {
         if (CUSTOM_FP_LOADED) return;
         CUSTOM_FP_LOADED = true;
-        Path p = CLIENTCHECK_DIR.resolve("custom_fingerprints.json");
+        Path p = CUSTOM_FP_FILE;
         if (!Files.exists(p)) return;
         try {
             String json = new String(Files.readAllBytes(p), StandardCharsets.UTF_8);
@@ -2184,7 +2267,7 @@ public final class ClientModGuard {
     public static final class Config {
         final Set<String> whitelist = new HashSet<String>();
         final Set<String> blacklist = new HashSet<String>();
-        boolean autoQuarantine = false; // 默认关闭隔离(仅报告)；prts.yml guard.autoQuarantine=true 可开启
+        boolean autoQuarantine = false; // 默认关闭隔离(仅报告)；guard.yml autoQuarantine: true 可开启
         int maxRestarts = 5; // 自愈重启上限，从配置读，fallback 5
 
         /** v18: 实际生效的配置文件绝对路径，null=未找到；用于日志消歧（新旧文件名并存时服主易改错文件）。 */
@@ -2212,47 +2295,79 @@ public final class ClientModGuard {
 
         static Config load() {
             Config c = new Config();
-            // v18: 官方名 allowlist.json；whitelist.json / 根目录 clientside-guard.json 为旧名兼容
+            readGuardYml(c); // canonical（无 guard.yml 则全默认）
+            boolean hasGuard = c.sourceFile != null;
+            // legacy json（旧名兼容）：仅补充白/黑名单（开关已由 guard.yml 接管）
             Path p = CLIENTCHECK_DIR.resolve("allowlist.json");
             if (!Files.exists(p)) p = CLIENTCHECK_DIR.resolve("whitelist.json");
             if (!Files.exists(p)) p = Paths.get("clientside-guard.json");
             if (Files.exists(p)) {
                 try {
                     String json = new String(Files.readAllBytes(p), StandardCharsets.UTF_8);
-                    // 文件名与字段名统一为 allowlist/denylist，whitelist/blacklist 作同义词永久兼容
                     c.whitelist.addAll(parseArray(json, "allowlist"));
                     c.whitelist.addAll(parseArray(json, "whitelist"));
                     c.blacklist.addAll(parseArray(json, "denylist"));
                     c.blacklist.addAll(parseArray(json, "blacklist"));
-                    c.sourceFile = p.toAbsolutePath().toString();
-                    Matcher m = Pattern.compile("\"autoQuarantine\"\\s*:\\s*(true|false)").matcher(json);
-                    if (m.find()) c.autoQuarantine = Boolean.parseBoolean(m.group(1));
-                    Matcher pm = Pattern.compile("\"pruneHarmlessClientMods\"\\s*:\\s*(true|false)").matcher(json);
-                    if (pm.find()) c.pruneHarmlessClientMods = Boolean.parseBoolean(pm.group(1));
-                    Matcher sm = Pattern.compile("\"strictMode\"\\s*:\\s*(true|false)").matcher(json);
-                    if (sm.find()) c.strictMode = Boolean.parseBoolean(sm.group(1));
                     for (String src : parseArrayRaw(json, "trustedModList")) c.loadTrusted(src);
-                    Matcher rm = Pattern.compile("\"maxRestarts\"\\s*:\\s*(\\d+)").matcher(json);
-                    if (rm.find()) c.maxRestarts = Integer.parseInt(rm.group(1));
+                    if (c.sourceFile == null) c.sourceFile = p.toAbsolutePath().toString();
                 } catch (IOException ignored) {}
             }
-            // v10: 兼容 prts.yml guard.allowlist（尽力解析，失败忽略）
-            c.whitelist.addAll(readPrtsAllowlist());
-            // 补充来源：prts.yml 的 guard 段（服主在此配置开关则以它为准，否则沿用上面 json 解析结果）
-            Path prtsYml = Paths.get("prts.yml");
-            if (Files.exists(prtsYml)) {
-                try {
-                    List<String> ls = Files.readAllLines(prtsYml, StandardCharsets.UTF_8);
-                    StringBuilder sb = new StringBuilder();
-                    for (String l : ls) sb.append(l).append("\n");
-                    String txt = sb.toString();
-                    Matcher am = Pattern.compile("(?m)^\\s*autoQuarantine\\s*:\\s*(true|false)").matcher(txt);
-                    if (am.find()) c.autoQuarantine = Boolean.parseBoolean(am.group(1));
-                    Matcher mr = Pattern.compile("(?m)^\\s*maxRestarts\\s*:\\s*(\\d+)").matcher(txt);
-                    if (mr.find()) c.maxRestarts = Integer.parseInt(mr.group(1));
-                } catch (IOException ignored) {}
-            }
+            // 开关仅由 guard.yml 接管（不再回退 prts.yml）
             return c;
+        }
+
+        // v20: 解析 _clientcheck/guard.yml（带注释/缩进容忍），填充 c；失败静默忽略
+        static void readGuardYml(Config c) {
+            if (!Files.exists(GUARD_YML)) return;
+            try {
+                List<String> lines = Files.readAllLines(GUARD_YML, StandardCharsets.UTF_8);
+                String listKey = null;
+                for (String raw : lines) {
+                    String line = stripYamlComment(raw).replace("\t", " ");
+                    if (line.trim().isEmpty()) { listKey = null; continue; }
+                    Matcher li = Pattern.compile("^\\s*-\\s+(.+)$").matcher(line);
+                    if (li.find() && listKey != null) {
+                        addGuardListItem(c, listKey, li.group(1).trim());
+                        continue;
+                    }
+                    Matcher kv = Pattern.compile("^\\s*([A-Za-z_][A-Za-z0-9_]*)\\s*:\\s*(.*)$").matcher(line);
+                    if (kv.find()) {
+                        String key = kv.group(1);
+                        String val = kv.group(2).trim();
+                        listKey = null;
+                        if (val.isEmpty() || val.equals("[]") || val.equals("{}")) { listKey = key; continue; }
+                        if (val.startsWith("[")) {
+                            Matcher am = Pattern.compile("\"([^\"]+)\"").matcher(val);
+                            while (am.find()) addGuardListItem(c, key, am.group(1).trim());
+                            continue;
+                        }
+                        setGuardScalar(c, key, val);
+                    } else {
+                        listKey = null;
+                    }
+                }
+                c.sourceFile = GUARD_YML.toAbsolutePath().toString();
+            } catch (IOException ignored) {}
+        }
+
+        static void addGuardListItem(Config c, String key, String item) {
+            if (item.isEmpty()) return;
+            if (key.equals("allowlist") || key.equals("whitelist")) c.whitelist.add(item.toLowerCase());
+            else if (key.equals("denylist") || key.equals("blacklist")) c.blacklist.add(item.toLowerCase());
+            else if (key.equals("trustedModList")) c.loadTrusted(item);
+        }
+
+        static void setGuardScalar(Config c, String key, String val) {
+            if (key.equals("autoQuarantine")) c.autoQuarantine = Boolean.parseBoolean(val.trim());
+            else if (key.equals("maxRestarts")) {
+                try { c.maxRestarts = Integer.parseInt(val.trim()); } catch (Exception ignored) {}
+            } else if (key.equals("pruneHarmlessClientMods")) c.pruneHarmlessClientMods = Boolean.parseBoolean(val.trim());
+            else if (key.equals("strictMode")) c.strictMode = Boolean.parseBoolean(val.trim());
+            else if (key.equals("customFingerprintsFile")) {
+                Path fp = Paths.get(val.trim());
+                if (!fp.isAbsolute()) fp = Paths.get("").toAbsolutePath().resolve(fp);
+                CUSTOM_FP_FILE = fp;
+            }
         }
 
         /** 载入一个权威清单来源：目录（扫 *.jar 取文件名+modId）或文本文件（每行一项，# 开头为注释）。 */
@@ -2313,52 +2428,7 @@ public final class ClientModGuard {
             return set;
         }
 
-        /** 尽力从 prts.yml 解析 guard.allowlist（容忍缩进/顺序/注释/多行数组，解析失败返回空集并记录）。 */
-        private static Set<String> readPrtsAllowlist() {
-            Set<String> set = new HashSet<String>();
-            Path p = Paths.get("prts.yml");
-            if (!Files.exists(p)) return set;
-            try {
-                List<String> lines = Files.readAllLines(p, StandardCharsets.UTF_8);
-                boolean inGuard = false;
-                boolean inAllow = false;
-                int allowIndent = -1; // 记录 allowlist 行缩进基准（容忍不同缩进风格）
-                for (String raw : lines) {
-                    String line = raw.replace("\t", " ");
-                    // 跳过空行与纯注释行
-                    String trim = line.trim();
-                    if (trim.isEmpty() || trim.startsWith("#")) continue;
-                    int indent = 0;
-                    while (indent < line.length() && line.charAt(indent) == ' ') indent++;
-                    if (!inGuard) {
-                        if (trim.startsWith("guard:") || trim.equals("guard:")) inGuard = true;
-                        continue;
-                    }
-                    if (trim.startsWith("allowlist:") || trim.equals("allowlist:")) {
-                        inAllow = true;
-                        allowIndent = indent; // 基准缩进
-                        continue;
-                    }
-                    if (inAllow) {
-                        // 允许同层或更深缩进的列表项；遇到同层或更浅的非列表项则退出
-                        if (!trim.startsWith("-") && indent <= allowIndent) { inAllow = false; continue; }
-                        if (trim.startsWith("- ")) {
-                            String id = trim.substring(2).split("#")[0].trim().replace("\"", "").replace("'", "");
-                            if (!id.isEmpty()) set.add(id.toLowerCase());
-                        } else if (trim.startsWith("-")) {
-                            String id = trim.substring(1).split("#")[0].trim().replace("\"", "").replace("'", "");
-                            if (!id.isEmpty()) set.add(id.toLowerCase());
-                        }
-                        // 忽略非 "-" 开头的深层嵌套（如子对象），不退出
-                    }
-                    // 其他 guard 子段（如 blacklist / autoQuarantine）不处理，也不退出 guard
-                }
-            } catch (IOException e) {
-                note("CONFIG_PARSE_FAIL prts.yml: " + e);
             }
-            return set;
-        }
-    }
 
     /** v10: 跨启动状态记忆。quarantined=我们隔离过的 modId（用于识别"用户加回"）；insistedFailed=连崩计数。 */
     public static final class GuardState {
