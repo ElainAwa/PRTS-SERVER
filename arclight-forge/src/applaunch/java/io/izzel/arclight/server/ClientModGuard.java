@@ -206,7 +206,7 @@ public final class ClientModGuard {
         StringBuilder b = new StringBuilder();
         b.append("# ClientModGuard 客户端模组守卫配置（自动生成，可安全编辑；改完重启生效）\n");
         b.append("# 任意字段删除即恢复内置默认。所有字段可选。\n\n");
-        b.append("# 客户端模组自动隔离总开关：true=启用自动隔离，false=仅报告不挪动\n");
+        b.append("# 客户端模组守卫总开关：true=启用（启动预检隔离 + 运行时崩溃自愈隔离并重启）；false=同步关闭预检隔离与自愈（仅报告，不挪动不重启）\n");
         b.append("autoQuarantine: ").append(auto).append("\n\n");
         b.append("# 自愈重启上限（连续崩溃自动重启次数，0=不重启）\n");
         b.append("maxRestarts: ").append(restarts).append("\n\n");
@@ -263,7 +263,7 @@ public final class ClientModGuard {
         b.append("## 其它生成文件（勿手改）\n\n");
         b.append("- `precheck.log` 预检日志、`isolation.log` 隔离记录、`state.json` 判定状态、`launch.args` 自愈重启命令行。\n\n");
         b.append("## 常用开关（guard.yml 内）\n\n");
-        b.append("- `autoQuarantine: false` 默认关闭隔离，仅报告；设 `true` 启用自动隔离。\n");
+        b.append("- `autoQuarantine: false` 总开关默认关闭：预检仅报告不隔离，且关闭运行时自愈（崩溃不隔离不重启）；设 `true` 同时启用预检隔离与崩溃自愈。\n");
         b.append("- `allowlist: []` 双端/服务端模组写这里放行。\n");
         b.append("- `maxRestarts: 5` 自愈重启上限。\n");
         try {
@@ -359,6 +359,7 @@ public final class ClientModGuard {
         List<Path> jars = new ArrayList<Path>();
         try { collectJars(dir, jars); } catch (IOException ignored) {}
         Config guardCfg = Config.load();
+        if (!guardCfg.autoQuarantine) return; // 统一总开关：autoQuarantine=false 时同步关闭自愈，崩溃不隔离不重启
 
         Map<String, Object[]> offenders = new LinkedHashMap<String, Object[]>();
 
@@ -487,6 +488,7 @@ public final class ClientModGuard {
 
     /** 运行时自愈入口：捕获 Main_Forge.main 抛出的"缺失客户端类/模组加载失败"异常，定位并隔离 offending mod 后重启。 */
     public static synchronized void handleCrash(Throwable t, String[] args) {
+        if (!Config.load().autoQuarantine) return; // 统一总开关：autoQuarantine=false 时预检与自愈同步关闭，崩溃交还 JVM 默认行为
         boolean direct = isClientClassMissing(t);
         boolean modLoadFail = isModLoadingFailed(t);
         if (!direct && !modLoadFail) return; // 无关崩溃，交还调用方正常抛出
@@ -584,6 +586,7 @@ public final class ClientModGuard {
     /** 子线程感知运行时自愈：兜底"子线程懒加载客户端类失败"盲区（主线程 try/catch 与 shutdown hook 都抓不到）。 */
     public static synchronized void onUncaughtClientFailure(Throwable t) {
         if (SELF_HEALED) return; // handleCrash 已处理 / 已重启，避免重入与级联重复隔离
+        if (!Config.load().autoQuarantine) return; // 统一总开关：autoQuarantine=false 时同步关闭自愈
         Path mod = locateOffendingMod(t);
         if (mod == null) {
             note("UNCAUGHT_UNLOCATED " + summarize(t));
@@ -2267,7 +2270,7 @@ public final class ClientModGuard {
     public static final class Config {
         final Set<String> whitelist = new HashSet<String>();
         final Set<String> blacklist = new HashSet<String>();
-        boolean autoQuarantine = false; // 默认关闭隔离(仅报告)；guard.yml autoQuarantine: true 可开启
+        boolean autoQuarantine = false; // 守卫总开关：true=预检隔离+自愈(隔离并重启)；false=同步关闭两者(仅报告)；guard.yml autoQuarantine: true 可开启
         int maxRestarts = 5; // 自愈重启上限，从配置读，fallback 5
 
         /** v18: 实际生效的配置文件绝对路径，null=未找到；用于日志消歧（新旧文件名并存时服主易改错文件）。 */
