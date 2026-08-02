@@ -4,6 +4,7 @@ import io.izzel.arclight.common.bridge.core.entity.player.ServerPlayerEntityBrid
 import io.izzel.arclight.common.bridge.core.world.server.ChunkMap_TrackedEntityBridge;
 import io.izzel.arclight.common.mod.compat.ModIds;
 import io.izzel.arclight.common.mod.mixins.annotation.LoadIfMod;
+import io.izzel.arclight.i18n.ArclightConfig;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet;
 import net.minecraft.core.SectionPos;
@@ -35,6 +36,10 @@ public class ChunkMapMixin_Optimize {
 
     @Inject(method = "tick()V", cancellable = true, at = @At("HEAD"))
     private void arclight$optimizedTick(CallbackInfo ci) {
+        // 互斥：routeB（空间化追踪）启用时回退原版，避免每 tick 双份实体广播
+        if (ArclightConfig.spec().getOptimization().isRouteBEnabled()) {
+            return;
+        }
         var list = new ArrayList<ChunkMap.TrackedEntity>(this.level.players().size());
 
         for (var trackedEntity : this.entityMap.values()) {

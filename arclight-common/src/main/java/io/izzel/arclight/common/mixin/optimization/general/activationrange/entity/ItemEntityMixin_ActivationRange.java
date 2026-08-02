@@ -22,7 +22,7 @@ public abstract class ItemEntityMixin_ActivationRange extends EntityMixin_Activa
     @Shadow public int pickupDelay;
     @Shadow public int age;
     @Shadow(remap = false) public int lifespan;
-    private int lastTick = ArclightConstants.currentTick - 1;
+    private int luminara$activationLastTick = ArclightConstants.currentTick - 1;
     // @formatter:on
 
     @Shadow public abstract ItemStack getItem();
@@ -44,10 +44,10 @@ public abstract class ItemEntityMixin_ActivationRange extends EntityMixin_Activa
     @Override
     public void inactiveTick() {
         super.inactiveTick();
-        int elapsedTicks = ArclightConstants.currentTick - this.lastTick;
+        int elapsedTicks = ArclightConstants.currentTick - this.luminara$activationLastTick;
         if (this.pickupDelay > 0 && this.pickupDelay != 32767 && elapsedTicks > 0) this.pickupDelay -= elapsedTicks;
         if (this.age != -32768) this.age += elapsedTicks;
-        this.lastTick = ArclightConstants.currentTick;
+        this.luminara$activationLastTick = ArclightConstants.currentTick;
 
         if (!this.level().isClientSide && this.age >= this.lifespan) {
             int hook = ForgeEventFactory.onItemExpire((ItemEntity) (Object) this, this.getItem());

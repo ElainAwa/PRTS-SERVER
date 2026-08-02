@@ -15,8 +15,11 @@ import net.minecraft.world.level.chunk.ChunkAccess;
 /** 村民脑切（源自 Mohist 1.20.1 com.mohistmc.optimizations.OptVillager，去 Mohist 化移植）。 */
 public final class VillagerBrainOffloader {
 
+    private static final VillagerBrainOffloader INSTANCE = new VillagerBrainOffloader();
+
+    // 静态单例：notLobotomizedCount 才能跨调用累积，降频(300→600 tick)优化生效
     public static VillagerBrainOffloader getInstance() {
-        return new VillagerBrainOffloader();
+        return INSTANCE;
     }
 
     private boolean isLobotomized = false;

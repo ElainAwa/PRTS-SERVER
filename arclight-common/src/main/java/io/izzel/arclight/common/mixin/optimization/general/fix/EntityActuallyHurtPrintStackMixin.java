@@ -14,7 +14,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(targets = "com.mega.revelationfix.util.entity.EntityActuallyHurt", remap = false)
 public class EntityActuallyHurtPrintStackMixin {
 
-    private static final ThreadLocal<Boolean> luminara$inActuallyHurt = ThreadLocal.withInitial(() -> Boolean.FALSE);
+    // 记录进入时间戳；RETURN 复位。异常路径悬挂时超时自愈，避免线程永久放行阻塞
+    private static final ThreadLocal<Long> luminara$enteredAt = new ThreadLocal<>();
+    private static final long STALE_MS = 5000L;
     private static final Logger LOGGER = LogManager.getLogger("PRTS-RevelationFix");
     private static final long WARN_INTERVAL_MS = 10_000L;
     private static long luminara$lastWarn = 0L;
@@ -27,20 +29,25 @@ public class EntityActuallyHurtPrintStackMixin {
         require = 0
     )
     private void luminara$head(DamageSource source, float amount, boolean p2, CallbackInfo ci) {
-        if (luminara$inActuallyHurt.get()) {
-            // 事件回环重入 -> 打断递归，避免 StackOverflowError / 日志风暴
-            ci.cancel();
-            final long now = System.currentTimeMillis();
-            if (now - luminara$lastWarn >= WARN_INTERVAL_MS) {
-                luminara$lastWarn = now;
-                LOGGER.warn("[PRTS-RevelationFix] blocked recursive actuallyHurt event-loop call (guard active); {} earlier calls suppressed", luminara$suppressed);
-                luminara$suppressed = 0;
-            } else {
-                luminara$suppressed++;
+        long now = System.currentTimeMillis();
+        Long entered = luminara$enteredAt.get();
+        if (entered != null) {
+            if (now - entered < STALE_MS) {
+                // 事件回环重入 -> 打断递归，避免 StackOverflowError / 日志风暴
+                ci.cancel();
+                if (now - luminara$lastWarn >= WARN_INTERVAL_MS) {
+                    luminara$lastWarn = now;
+                    LOGGER.warn("[PRTS-RevelationFix] blocked recursive actuallyHurt event-loop call (guard active); {} earlier calls suppressed", luminara$suppressed);
+                    luminara$suppressed = 0;
+                } else {
+                    luminara$suppressed++;
+                }
+                return;
             }
-            return;
+            // 悬挂超时（异常路径未复位）→ 强制复位放行
+            luminara$enteredAt.remove();
         }
-        luminara$inActuallyHurt.set(Boolean.TRUE);
+        luminara$enteredAt.set(now);
     }
 
     @Inject(
@@ -49,6 +56,6 @@ public class EntityActuallyHurtPrintStackMixin {
         require = 0
     )
     private void luminara$ret(DamageSource source, float amount, boolean p2, CallbackInfo ci) {
-        luminara$inActuallyHurt.set(Boolean.FALSE);
+        luminara$enteredAt.remove();
     }
 }

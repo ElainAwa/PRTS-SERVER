@@ -21,6 +21,7 @@ public class ServerChunkCacheMixin_Broadcast implements IServerChunkCache {
     private final ReferenceLinkedOpenHashSet<ChunkHolder> arclight$requiresBroadcast = new ReferenceLinkedOpenHashSet<>(128);
 
     // 仅当下方 @Redirect 真正生效（require=0 可能静默失配）后才收集，否则集合永不清空会泄漏。
+    // active 由 ChunkHolder 注入点置位：注入点失效 ⇒ active 恒 false ⇒ Redirect 恒回退原版，杜绝广播短路。
     @Unique
     private boolean arclight$broadcastActive = false;
 
@@ -37,15 +38,13 @@ public class ServerChunkCacheMixin_Broadcast implements IServerChunkCache {
     private void arclight$broadcastChanges(List<?> list, Consumer consumer) {
         if (!ServerCoreConfig.optimizations().optimizeChunkBroadcasts()) {
             this.arclight$broadcastActive = false;
-            list.forEach(consumer);
             this.arclight$requiresBroadcast.clear();
+            list.forEach(consumer);
             return;
         }
         if (!this.arclight$broadcastActive) {
-            // 首次生效前的变更未被收集，本次仍走原版广播，避免丢包
-            this.arclight$broadcastActive = true;
+            // 注入点尚未生效（本 tick 无变更）→ 仍走原版广播，避免丢包
             list.forEach(consumer);
-            this.arclight$requiresBroadcast.clear();
             return;
         }
         for (ChunkHolder holder : this.arclight$requiresBroadcast) {
@@ -59,6 +58,8 @@ public class ServerChunkCacheMixin_Broadcast implements IServerChunkCache {
 
     @Override
     public void arclight$requiresBroadcast(ChunkHolder holder) {
-        if (this.arclight$broadcastActive) this.arclight$requiresBroadcast.add(holder);
+        if (!ServerCoreConfig.optimizations().optimizeChunkBroadcasts()) return;
+        this.arclight$broadcastActive = true;
+        this.arclight$requiresBroadcast.add(holder);
     }
 }

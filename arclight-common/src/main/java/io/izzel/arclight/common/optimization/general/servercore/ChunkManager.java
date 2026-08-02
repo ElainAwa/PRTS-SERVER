@@ -2,11 +2,8 @@ package io.izzel.arclight.common.optimization.general.servercore;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
-import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.server.level.TicketType;
 import net.minecraft.util.Mth;
-import net.minecraft.util.Unit;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.LevelReader;
@@ -60,11 +57,8 @@ public class ChunkManager {
         }
     }
 
-    public static void disableSpawnChunks(MinecraftServer server) {
-        ServerLevel level = server.overworld();
-        ChunkPos pos = new ChunkPos(new BlockPos(level.getLevelData().getXSpawn(), 0, level.getLevelData().getZSpawn()));
-        level.getChunkSource().removeRegionTicket(TicketType.START, pos, 11, Unit.INSTANCE);
-    }
+    // (已删除 2026-08-02) disableSpawnChunks 死代码：无调用方；实际由
+    // servercore.features.spawn_chunks.ServerLevelMixin(cancel addRegionTicket) + MinecraftTweaks 接管
 
     // Utility method from PaperMC (MC-Utils.patch)
     public static boolean areChunksLoadedForMove(ServerLevel level, AABB box) {

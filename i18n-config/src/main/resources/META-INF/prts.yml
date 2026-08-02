@@ -59,6 +59,8 @@ optimization:
     aggressive-chunk-unloading: true
     chunk-unload-delay: 200
     optimize-chunk-loading: true
+    # (废弃) 原 ServerLevelMixin_Optimize 注入 tickChunk 实改 randomTickSpeed 且默认不生效，
+    # 已于 2026-08-02 删除；该键不再有任何效果。区块 IO 异步由核心原生 async 处理。
     chunk-load-rate-limit: 8
   memory-optimization:
     cache-cleanup-enabled: true
