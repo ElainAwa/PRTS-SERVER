@@ -23,6 +23,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -207,6 +208,8 @@ public final class ServerCoreConfig {
     private static final String COMMANDS_BODY = ""
             + "# Commands added by ServerCore.\n"
             + "commands:\n"
+            + "  # Master toggle: false unregisters every command below, including /servercore reload and settings.\n"
+            + "  enabled: true\n"
             + "  # Enables the /servercore status command.\n"
             + "  status-enabled: true\n"
             + "  # Enables the /mobcaps command.\n"
@@ -422,12 +425,14 @@ public final class ServerCoreConfig {
                         activationRange = ActivationRangeConfig.parse((Map<?, ?>) ar);
                     } else {
                         appendSection(cfg, DEFAULT_ACTIVATION_RANGE); // 旧配置补写新段
+                        activationRange = ActivationRangeConfig.parse(defaultSection(DEFAULT_ACTIVATION_RANGE, "activation-range"));
                     }
                     Object bc = m.get("breeding-cap");
                     if (bc instanceof Map) {
                         breedingCapConfig = parseBreedingCap((Map<?, ?>) bc);
                     } else {
                         appendSection(cfg, DEFAULT_BREEDING_CAP);
+                        breedingCapConfig = parseBreedingCap(defaultSection(DEFAULT_BREEDING_CAP, "breeding-cap"));
                     }
                     Object ms = m.get("mob-spawning");
                     if (ms instanceof Map) {
@@ -435,30 +440,38 @@ public final class ServerCoreConfig {
                         mobSpawningActive = true;
                     } else {
                         appendSection(cfg, DEFAULT_MOB_SPAWNING);
+                        mobSpawningConfig = parseMobSpawning(defaultSection(DEFAULT_MOB_SPAWNING, "mob-spawning"));
+                        mobSpawningActive = true;
                     }
                     Object ft = m.get("features");
                     if (ft instanceof Map) {
                         featureConfig = parseFeatures((Map<?, ?>) ft);
                     } else {
                         appendSection(cfg, DEFAULT_FEATURES);
+                        featureConfig = parseFeatures(defaultSection(DEFAULT_FEATURES, "features"));
                     }
                     Object dy = m.get("dynamic");
                     if (dy instanceof Map) {
                         dynamicConfig = parseDynamic((Map<?, ?>) dy);
                     } else {
                         appendSection(cfg, DEFAULT_DYNAMIC);
+                        dynamicConfig = parseDynamic(defaultSection(DEFAULT_DYNAMIC, "dynamic"));
                     }
                     Object cm = m.get("commands");
                     if (cm instanceof Map) {
                         commandConfig = parseCommands((Map<?, ?>) cm);
                     } else {
                         appendSection(cfg, DEFAULT_COMMANDS);
+                        commandConfig = parseCommands(defaultSection(DEFAULT_COMMANDS, "commands"));
                     }
                 }
             } catch (IOException | YAMLException e) {
                 loadFailed = true; // 读取失败则回退默认（全开）
             }
-            if (!master) activationRange.forceDisable();
+            if (!master) {
+                activationRange.forceDisable();
+                IMobCategory.restoreAll(); // 还原 mobcap 全局修改，避免关闭后残留
+            }
             loaded = true;
         }
     }
@@ -535,11 +548,11 @@ public final class ServerCoreConfig {
     private static FeatureConfig parseFeatures(Map<?, ?> m) {
         Map<?, ?> lobo = asMap(m.get("lobotomize-villagers"));
         return new FeatureConfig(
-                asBool(m.get("prevent-moving-into-unloaded-chunks"), false),
+                asBool(m.get("prevent-moving-into-unloaded-chunks"), true),
                 asInt(m.get("autosave-interval-seconds"), 300),
-                asInt(m.get("xp-merge-fraction"), 40),
-                asDouble(m.get("xp-merge-radius"), 0.5D),
-                asDouble(m.get("item-merge-radius"), 0.5D),
+                asInt(m.get("xp-merge-fraction"), 8),
+                asDouble(m.get("xp-merge-radius"), 3.0D),
+                asDouble(m.get("item-merge-radius"), 2.0D),
                 lobo != null && asBool(lobo.get("enabled"), false),
                 lobo != null ? asInt(lobo.get("tick-interval"), 20) : 20
         );
@@ -616,6 +629,7 @@ public final class ServerCoreConfig {
     }
 
     private static CommandConfig parseCommands(Map<?, ?> m) {
+        if (!asBool(m.get("enabled"), true)) return CommandConfig.DISABLED;
         boolean status = asBool(m.get("status-enabled"), true);
         boolean mobcaps = asBool(m.get("mobcaps-enabled"), true);
         Map<?, ?> colors = asMap(m.get("colors"));
@@ -623,7 +637,7 @@ public final class ServerCoreConfig {
         String secondary = colors != null ? asStr(colors.get("secondary")) : null;
         String tertiary = colors != null ? asStr(colors.get("tertiary")) : null;
         return new CommandConfig(
-                status, mobcaps,
+                true, status, mobcaps,
                 primary != null ? primary : "00aabb",
                 secondary != null ? secondary : "55ff55",
                 tertiary != null ? tertiary : "55ffff"
@@ -680,6 +694,19 @@ public final class ServerCoreConfig {
 
     private static String asStr(Object o) {
         return o instanceof String ? (String) o : null;
+    }
+
+    // 补写新段后回填内存值，避免升级首启整段不生效
+    private static Map<?, ?> defaultSection(String body, String key) {
+        try {
+            Object root = new Yaml().load(body);
+            if (root instanceof Map) {
+                Object sec = ((Map<?, ?>) root).get(key);
+                if (sec instanceof Map) return (Map<?, ?>) sec;
+            }
+        } catch (YAMLException ignored) {
+        }
+        return Collections.emptyMap();
     }
 
     private static void appendSection(File cfg, String section) {

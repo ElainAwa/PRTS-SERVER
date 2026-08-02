@@ -56,9 +56,9 @@ public class ChunkMap_TrackingMixin {
         return !Boolean.getBoolean("prts.routeb.disabled");
     }
 
-    /** 重定向 tick()V 里的实体广播循环（entityMap.values() 遍历）。 */
+    /** 重定向 tick()V 里的实体广播循环（entityMap.values() 第一处遍历；ordinal=0 精确拦截主广播循环）。 */
     @Redirect(method = "tick()V",
-        at = @At(value = "INVOKE", target = "Lit/unimi/dsi/fastutil/ints/Int2ObjectMap;values()Lit/unimi/dsi/fastutil/objects/ObjectCollection;"))
+        at = @At(value = "INVOKE", target = "Lit/unimi/dsi/fastutil/ints/Int2ObjectMap;values()Lit/unimi/dsi/fastutil/objects/ObjectCollection;", ordinal = 0))
     private ObjectCollection<ChunkMap.TrackedEntity> prts$skipVanillaEntityBroadcast(Int2ObjectMap<ChunkMap.TrackedEntity> instance) {
         if (!prts$experimentalOn() || prts$routeBFailed || this.nearbyEntityTracking.isEmpty()) {
             return instance.values();

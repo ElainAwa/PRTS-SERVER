@@ -25,6 +25,7 @@ public class ServerCoreCommands {
     private static final String VALUE = "value";
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
+        if (!ServerCoreConfig.commands().commandsEnabled()) return;
         var node = literal("servercore");
 
         node.then(reloadConfig());
@@ -58,6 +59,11 @@ public class ServerCoreCommands {
 
     private static int modifyDynamic(CommandSourceStack source, int value, DynamicSetting setting) {
         DynamicManager manager = DynamicManager.getInstance(source.getServer());
+        // dynamic 关闭时管理器不存在，拒绝改动而非假成功
+        if (manager == null) {
+            source.sendFailure(Component.literal("Dynamic performance settings are disabled in servercore.yml.").withStyle(ChatFormatting.RED));
+            return 0;
+        }
         setting.set(value, manager);
         source.sendSuccess(() -> Formatter.parse("<c:#secondary>%s <c:#primary>has been set to <c:#secondary>%s".formatted(
                 setting.getFormattedName(), setting.getFormattedValue()

@@ -14,6 +14,8 @@ public interface IMobCategory {
 
     void servercore$modifySpawningConfig(MobSpawnEntry config);
 
+    void servercore$restore();
+
     static IMobCategory of(MobCategory category) {
         return (IMobCategory) (Object) category;
     }
@@ -36,6 +38,13 @@ public interface IMobCategory {
             IMobCategory category = IMobCategory.of(entry.category());
             category.servercore$modifySpawningConfig(entry);
             category.servercore$modifyCapacity(1.0D);
+        }
+    }
+
+    // 总开关关闭时还原全部 MobCategory 修改，避免 mobcap 残留。
+    static void restoreAll() {
+        for (MobCategory category : MobCategory.values()) {
+            IMobCategory.of(category).servercore$restore();
         }
     }
 }

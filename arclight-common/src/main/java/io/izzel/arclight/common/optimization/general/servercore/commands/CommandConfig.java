@@ -7,20 +7,27 @@ import net.minecraft.ChatFormatting;
  * 去 dazzleconf / TextColor：颜色存 hex 字符串，运行时解析为 int。
  */
 public class CommandConfig {
-    public static final CommandConfig DISABLED = new CommandConfig(false, false, "00aabb", "55ff55", "55ffff");
+    public static final CommandConfig DISABLED = new CommandConfig(false, false, false, "00aabb", "55ff55", "55ffff");
 
+    private final boolean enabled;
     private final boolean statusEnabled;
     private final boolean mobcapsEnabled;
     private final String primaryColor;
     private final String secondaryColor;
     private final String tertiaryColor;
 
-    public CommandConfig(boolean statusEnabled, boolean mobcapsEnabled, String primaryColor, String secondaryColor, String tertiaryColor) {
+    public CommandConfig(boolean enabled, boolean statusEnabled, boolean mobcapsEnabled, String primaryColor, String secondaryColor, String tertiaryColor) {
+        this.enabled = enabled;
         this.statusEnabled = statusEnabled;
         this.mobcapsEnabled = mobcapsEnabled;
         this.primaryColor = primaryColor;
         this.secondaryColor = secondaryColor;
         this.tertiaryColor = tertiaryColor;
+    }
+
+    // 真总开关：false 时整套 servercore/sc/mobcaps 命令都不注册
+    public boolean commandsEnabled() {
+        return enabled;
     }
 
     public boolean statusCommandEnabled() {

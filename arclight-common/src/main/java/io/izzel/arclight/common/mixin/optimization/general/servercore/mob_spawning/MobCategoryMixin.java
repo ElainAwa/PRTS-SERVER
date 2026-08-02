@@ -26,6 +26,10 @@ public class MobCategoryMixin implements IMobCategory {
     @Unique
     private int servercore$originalCapacity;
     @Unique
+    private int servercore$originalDespawnDistance;
+    @Unique
+    private int servercore$originalSpawnInterval;
+    @Unique
     private int servercore$modifiedCapacity;
     @Unique
     private int servercore$spawnInterval;
@@ -33,6 +37,8 @@ public class MobCategoryMixin implements IMobCategory {
     @Inject(method = "<init>", at = @At("RETURN"))
     private void servercore$onInit(String enumName, int index, String name, int max, boolean isFriendly, boolean isPersistent, int despawnDistance, CallbackInfo ci) {
         this.servercore$originalCapacity = max;
+        this.servercore$originalDespawnDistance = despawnDistance;
+        this.servercore$originalSpawnInterval = isPersistent ? 400 : 1;
         this.servercore$modifiedCapacity = max;
         this.servercore$spawnInterval = isPersistent ? 400 : 1;
     }
@@ -65,5 +71,13 @@ public class MobCategoryMixin implements IMobCategory {
         this.max = config.capacity();
         this.despawnDistance = config.despawnDistance();
         this.servercore$spawnInterval = config.spawnInterval();
+    }
+
+    @Override
+    public void servercore$restore() {
+        this.max = this.servercore$originalCapacity;
+        this.despawnDistance = this.servercore$originalDespawnDistance;
+        this.servercore$spawnInterval = this.servercore$originalSpawnInterval;
+        this.servercore$modifiedCapacity = this.servercore$originalCapacity;
     }
 }

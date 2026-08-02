@@ -74,12 +74,13 @@ public abstract class MixinDistanceManagerTicketPropagator {
     }
 
     // Replace the vanilla immediate propagation (ticketTracker.update) inside the ticket bookkeeping methods.
+    // require=1：Forge patch 改动调用结构时允许部分失配(WARN)而非启动崩服；至少 1 处命中保证核心生效
     @Redirect(method = {
             "addTicket(JLnet/minecraft/server/level/Ticket;)V",
             "removeTicket(JLnet/minecraft/server/level/Ticket;)V",
             "purgeStaleTickets",
             "removeTicketsOnClosing"
-    }, at = @At(value = "INVOKE", target = "Lnet/minecraft/server/level/DistanceManager$ChunkTicketTracker;update(JIZ)V"), require = 4, expect = 4)
+    }, at = @At(value = "INVOKE", target = "Lnet/minecraft/server/level/DistanceManager$ChunkTicketTracker;update(JIZ)V"), require = 1, expect = 4)
     private void redirectUpdate(DistanceManager.ChunkTicketTracker instance, long l, int i, boolean b) {
         this.updateTicketLevel(l, i);
     }

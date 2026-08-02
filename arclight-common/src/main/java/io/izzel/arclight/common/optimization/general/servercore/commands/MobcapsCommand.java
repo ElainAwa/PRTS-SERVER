@@ -21,6 +21,7 @@ import static net.minecraft.commands.Commands.literal;
  */
 public class MobcapsCommand {
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
+        if (!ServerCoreConfig.commands().commandsEnabled()) return;
         if (ServerCoreConfig.commands().mobcapsCommandEnabled()) {
             dispatcher.register(literal("mobcaps").executes(ctx -> mobcaps(ctx.getSource(), ctx.getSource().getPlayerOrException())));
         }
