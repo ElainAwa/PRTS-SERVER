@@ -11,6 +11,7 @@ import io.izzel.arclight.common.mod.server.BukkitRegistry;
 import io.izzel.arclight.common.mod.util.ArclightCaptures;
 import io.izzel.arclight.common.mod.util.BukkitOptionParser;
 import io.izzel.arclight.common.mod.util.log.ArclightI18nLogger;
+import io.izzel.arclight.common.optimization.general.servercore.ServerCoreConfig;
 import io.izzel.arclight.common.optimization.paper.WorldCreationOptimizer;
 import it.unimi.dsi.fastutil.longs.LongIterator;
 import joptsimple.OptionParser;
@@ -405,6 +406,7 @@ public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<T
 
     @Inject(method = "createLevels", at = @At("RETURN"))
     public void arclight$enablePlugins(ChunkProgressListener p_240787_1_, CallbackInfo ci) {
+        ServerCoreConfig.load();
         BukkitRegistry.unlockRegistries();
         this.server.enablePlugins(PluginLoadOrder.POSTWORLD);
         BukkitRegistry.lockRegistries();
