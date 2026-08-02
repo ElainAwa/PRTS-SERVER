@@ -7,6 +7,33 @@
 
 ---
 
+## [1.0.55] — ServerCore 完整移植（Phase A–F）
+
+将 [Wesley1808/ServerCore](https://github.com/Wesley1808/ServerCore) 优化集完整对齐移植到 1.20.1 Forge 服务端，
+统一入口 `config/servercore.yml`（启动时自动补写缺失段并回填内存，避免升级首启整段不生效）：
+
+- **Phase A**：中央配置 + `breeding-cap` 繁殖上限（村民/动物 36 只 / 64 格）
+- **Phase B**：`dynamic` 动态调节 —— 按 MSPT 调整 `VIEW_DISTANCE` / `SIMULATION_DISTANCE` / `CHUNK_TICK_DISTANCE` 与 mobcap（默认关闭）
+- **Phase C**：`features` —— 物品/经验球合并、防走进未加载区块、自动保存间隔、spawn-chunks 加载开关
+- **Phase D**：`commands` —— `/servercore status|reload|settings`、`/mobcaps`（`enabled:false` 为真总开关，不注册全部命令）
+- **Phase E**：`optimizations` —— 地图物品 tick 优化、区块广播增量集合、雷击/冰霜随机刻优化（`ThreadLocalRandom` 偏差）
+- **Phase F**：`/statistics` —— TPS/MSPT/区块/实体/方块实体总览，`entities` / `block-entities` 的 `byType` / `byPlayer` 分页
+
+**实证放弃项**（不可移植）：`optimizations.players`（与 Arclight `@Overwrite PlayerList.respawn` 冲突）、
+`ticking.chunk.cache`（依赖 mixin-extras 与硬编码 LVT index）、`features.ticking` 村民脑切（树内
+`minecrafttweaks.MixinVillager_BrainOffload` 已提供同语义）。
+
+**缺陷修复**：`dynamic.enabled=false` 时 `DynamicManager` 未实例化导致 `/statistics` 与 `/servercore settings`
+NPE（改用 `MinecraftServer.getAverageTickTime()` + null 守卫）；区块广播 `@Redirect(require=0)` 静默失败时的
+集合泄漏（增加生效标志守卫）。
+
+## [1.0.54] — ClientModGuard v22：autoQuarantine 升级为真·总开关
+
+- `autoQuarantine=false`（默认）时整套客户端自检**完全关闭**：不扫描、不报告、不隔离、不自愈。
+- `true` 时完整启用预检 + 运行时崩溃隔离 + 新 JVM 自愈重启。
+
+---
+
 ## [1.0.31] — NearbyPlayerIndex（最近玩家空间索引）
 
 **新增优化**：空间索引加速"最近玩家 / 附近存活玩家"查询，接管两处原版全玩家线性扫描热点：

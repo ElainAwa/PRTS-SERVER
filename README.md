@@ -25,24 +25,39 @@
 | Minecraft | 1.20.1 |
 | 加载器 | Forge 47.4.16 |
 | 基座 | Luminara（Arclight Hybrid fork）|
-| JDK | 21（构建 & 运行）|
-| 当前版号 | 见 [`build.gradle`](build.gradle) 的 `version` |
+| JDK | 21（构建）/ 17（源码级别，服务端运行）|
+| 当前版号 | **v1.0.55**（Latest，见 [`CHANGELOG.md`](CHANGELOG.md) 与 GitHub Releases）|
 
 ## 定制优化（本 fork）
 
-各项优化均由 `prts.yml` 配置开关控制，设计目标为行为与原版一致、资源开销更低。
-启动时以 `[PRTS-*]` 日志标签打印运行状态。
+配置入口有两处：
+- `prts.yml`（服务端根目录）—— 既有优化（NPI、tracking 等）与日志开关，启动时以 `[PRTS-*]` 标签打印运行状态。
+- `config/servercore.yml`（服务端根目录）—— **ServerCore 完整移植（Phase A–F）** 的统一配置，
+  启动时自动写出缺失段（含默认值注释），改后需重启生效。
 
 | 优化项 | 日志标签 | 说明 |
 |---|---|---|
 | **routeB 空间化实体追踪** | `[PRTS-EntityTrack]` | 空间化 `AreaMap` 追踪器（源自 HariPlayer）|
 | **ticketpropagator** | `[PRTS-TP]` | Paper 式延迟 8 向区块 ticket 距离传播 |
-| **ServerCore（12 项）** | — | 服务器 tick 的一组微优化 |
+| **ServerCore 完整移植（Phase A–F）** | — | 见下方「ServerCore 配置段」；对齐 Wesley1808/ServerCore，YAML 可开关 |
 | **move-zero-velocity** | — | 零速度实体跳过冗余 `move()` |
 | **async-logging** | — | log4j2 AsyncAppender 包裹根日志 |
 | **NearbyPlayerIndex (NPI)** | `[PRTS-NPI]` | 空间索引加速最近玩家查找 `getNearestPlayer` / `hasNearbyAlivePlayer`（默认 `enabled=false`）|
 | **核心原生调优** | — | chunk-load-rate-limit、并行世界初始化 + 异步数据加载、异步世界保存 |
 | **崩溃修复（始终开启）** | `[PRTS-ChampionsFix]` | ChampionsConfig 惰性 bake；RevelationFix `inWhitelist` null 守卫 |
+| **ClientModGuard** | `[PRTS-Guard]` | 客户端模组预检与运行时崩溃自愈（`autoQuarantine=false` 时整套关闭）|
+
+### ServerCore 配置段（`config/servercore.yml`）
+
+| 段 | 内容 |
+|---|---|
+| `breeding-cap` | 动物/村民繁殖上限（同类型 36 只 / 64 格内）|
+| `dynamic` | 按 MSPT 动态调节 `VIEW_DISTANCE` / `SIMULATION_DISTANCE` / `CHUNK_TICK_DISTANCE`（默认关闭）|
+| `features` | 物品/经验球合并、防走进未加载区块、自动保存间隔、spawn-chunks 加载开关 |
+| `commands` | `/servercore status\|reload\|settings`、`/mobcaps`（`enabled:false` 时不注册全部命令）|
+| `optimizations` | 地图物品 tick 优化、区块广播增量、雷击/冰霜随机刻优化、`/statistics` 统计命令 |
+
+`/statistics` 提供 TPS / MSPT / 区块 / 实体 / 方块实体总览，以及 `entities`、`block-entities` 的 `byType` / `byPlayer` 分页。详细移植取舍见 [`docs/servercore-1201-port.md`](docs/servercore-1201-port.md)。
 
 ### NearbyPlayerIndex 安全模型
 

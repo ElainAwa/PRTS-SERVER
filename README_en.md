@@ -25,24 +25,40 @@ Bukkit/Spigot plugins). Custom changes follow a single principle:
 | Minecraft | 1.20.1 |
 | Loader | Forge 47.4.16 |
 | Base | Luminara (Arclight Hybrid fork) |
-| JDK | 21 (build & runtime) |
-| Current version | see `version` in [`build.gradle`](build.gradle) |
+| JDK | 21 (build) / 17 (source level, server runtime) |
+| Current version | **v1.0.55** (Latest; see [`CHANGELOG.md`](CHANGELOG.md) and GitHub Releases) |
 
 ## Custom Optimizations (this fork)
 
-Each optimization is gated behind a config switch in `prts.yml`, and is designed to be behaviorally
-identical to vanilla at a lower resource cost. Runtime status is printed with `[PRTS-*]` log tags on boot.
+There are two config entry points:
+- `prts.yml` (server root) — legacy optimizations (NPI, tracking, etc.) and log toggles; runtime status is printed with `[PRTS-*]` log tags on boot.
+- `config/servercore.yml` (server root) — unified config for the **full ServerCore port (Phase A–F)**;
+  missing sections are auto-written on boot (with default-value comments), changes require a restart.
 
 | Optimization | Log tag | Notes |
 |---|---|---|
 | **routeB spatial entity tracking** | `[PRTS-EntityTrack]` | Spatialized `AreaMap` tracker (HariPlayer-derived) |
 | **ticketpropagator** | `[PRTS-TP]` | Paper-style delayed 8-way ticket distance propagation |
-| **ServerCore (12 items)** | — | Assorted server-tick micro-optimizations |
+| **ServerCore full port (Phase A–F)** | — | See "ServerCore config sections" below; aligned with Wesley1808/ServerCore, YAML-gated |
 | **move-zero-velocity** | — | Skip redundant `move()` for zero-velocity entities |
 | **async-logging** | — | log4j2 AsyncAppender wrapping the root logger |
 | **NearbyPlayerIndex (NPI)** | `[PRTS-NPI]` | Spatial index accelerating `getNearestPlayer` / `hasNearbyAlivePlayer` (default `enabled=false`) |
 | **Native chunk tuning** | — | chunk-load-rate-limit, parallel world init + async data load, async world saving |
 | **Crash fixes (always on)** | `[PRTS-ChampionsFix]` | ChampionsConfig lazy bake; RevelationFix `inWhitelist` null guard |
+| **ClientModGuard** | `[PRTS-Guard]` | Client-mod pre-check and runtime crash self-healing (`autoQuarantine=false` disables the whole set) |
+
+### ServerCore config sections (`config/servercore.yml`)
+
+| Section | Contents |
+|---|---|
+| `breeding-cap` | Breeding caps for animals/villagers (36 of same type within 64 blocks) |
+| `dynamic` | Dynamically adjusts `VIEW_DISTANCE` / `SIMULATION_DISTANCE` / `CHUNK_TICK_DISTANCE` by MSPT (off by default) |
+| `features` | Item/XP-orb merging, prevent moving into unloaded chunks, autosave interval, spawn-chunks loading toggle |
+| `commands` | `/servercore status\|reload\|settings`, `/mobcaps` (`enabled:false` unregisters all of them) |
+| `optimizations` | Map-item tick optimization, chunk-broadcast delta set, lightning/ice-snow random-tick optimization, `/statistics` command |
+
+`/statistics` reports TPS / MSPT / chunks / entities / block-entities, plus `entities` and `block-entities` views with
+`byType` / `byPlayer` pagination. Porting decisions are documented in [`docs/servercore-1201-port.md`](docs/servercore-1201-port.md).
 
 ### NearbyPlayerIndex safety model
 
