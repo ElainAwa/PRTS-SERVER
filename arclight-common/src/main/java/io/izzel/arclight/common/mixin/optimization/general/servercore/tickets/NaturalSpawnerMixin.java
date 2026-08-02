@@ -1,6 +1,8 @@
 package io.izzel.arclight.common.mixin.optimization.general.servercore.tickets;
 
 import io.izzel.arclight.common.optimization.general.servercore.ChunkManager;
+import io.izzel.arclight.common.optimization.general.servercore.ServerCoreConfig;
+import io.izzel.arclight.common.optimization.general.servercore.ServerCoreConfig.Feature;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.NaturalSpawner;
@@ -22,6 +24,7 @@ public class NaturalSpawnerMixin {
             )
     )
     private static BlockState servercore$preventAddingTickets(ServerLevel level, BlockPos pos) {
+        if (!ServerCoreConfig.isEnabled(Feature.CHUNK_TICKETS)) return level.getBlockState(pos);
         return ChunkManager.getBlockState(level, pos);
     }
 }

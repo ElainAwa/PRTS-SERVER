@@ -1,0 +1,24 @@
+package io.izzel.arclight.common.mixin.optimization.general.servercore.activation_range.entity;
+
+import io.izzel.arclight.common.mixin.optimization.general.servercore.activation_range.EntityMixin_ActivationRange;
+import net.minecraft.world.entity.AreaEffectCloud;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+
+@Mixin(AreaEffectCloud.class)
+public abstract class AreaEffectCloudMixin_ActivationRange extends EntityMixin_ActivationRange {
+
+    // @formatter:off
+    @Shadow private int waitTime;
+    @Shadow private int duration;
+    // @formatter:on
+
+    // 药水云到期照常消失
+    @Override
+    public void inactiveTick() {
+        super.inactiveTick();
+        if (++this.tickCount >= this.waitTime + this.duration) {
+            this.discard();
+        }
+    }
+}

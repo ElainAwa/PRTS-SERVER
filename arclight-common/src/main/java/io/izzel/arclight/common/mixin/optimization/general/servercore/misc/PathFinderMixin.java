@@ -1,5 +1,8 @@
 package io.izzel.arclight.common.mixin.optimization.general.servercore.misc;
 
+import com.google.common.collect.Sets;
+import io.izzel.arclight.common.optimization.general.servercore.ServerCoreConfig;
+import io.izzel.arclight.common.optimization.general.servercore.ServerCoreConfig.Feature;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectArraySet;
 import net.minecraft.core.BlockPos;
@@ -23,6 +26,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collector;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 // Ported from Wesley1808/ServerCore (Mojmap / 1.21.1).
@@ -40,6 +44,7 @@ public class PathFinderMixin {
             )
     )
     private Stream<?> servercore$reduceStreams(Set<?> set) {
+        if (!ServerCoreConfig.isEnabled(Feature.PATHFINDING)) return set.stream();
         return null;
     }
 
@@ -51,6 +56,7 @@ public class PathFinderMixin {
             )
     )
     private Collector<?, ?, ?> servercore$reduceStreams(Function<?, ?> keyMapper, Function<?, ?> valueMapper) {
+        if (!ServerCoreConfig.isEnabled(Feature.PATHFINDING)) return (Collector) Collectors.toMap((Function) keyMapper, (Function) valueMapper);
         return null;
     }
 
@@ -62,6 +68,7 @@ public class PathFinderMixin {
             )
     )
     private Object servercore$reduceStreams(Stream<?> stream, Collector<?, ?, ?> collector) {
+        if (!ServerCoreConfig.isEnabled(Feature.PATHFINDING)) return ((Stream) stream).collect((Collector) collector);
         return null;
     }
 
@@ -75,6 +82,7 @@ public class PathFinderMixin {
             )
     )
     private Map<Target, BlockPos> servercore$replaceMap(Map<Target, BlockPos> nullMap, PathNavigationRegion region, Mob mob, Set<BlockPos> positions, float maxRange, int accuracy, float searchDepthMultiplier) {
+        if (!ServerCoreConfig.isEnabled(Feature.PATHFINDING)) return nullMap;
         Object2ObjectOpenHashMap<Target, BlockPos> map = new Object2ObjectOpenHashMap<>(positions.size());
         for (BlockPos pos : positions) {
             map.put(this.nodeEvaluator.getTarget(pos.getX(), pos.getY(), pos.getZ()), pos);
@@ -93,6 +101,7 @@ public class PathFinderMixin {
             )
     )
     private HashSet<?> servercore$noHashSet(int expectedSize) {
+        if (!ServerCoreConfig.isEnabled(Feature.PATHFINDING)) return Sets.newHashSetWithExpectedSize(expectedSize);
         return null;
     }
 
@@ -107,6 +116,7 @@ public class PathFinderMixin {
             )
     )
     private Set<Target> servercore$replaceSet(Set<Target> nullSet, ProfilerFiller profiler, Node node, Map<Target, BlockPos> positions, float maxRange, int accuracy, float searchDepthMultiplier) {
+        if (!ServerCoreConfig.isEnabled(Feature.PATHFINDING)) return nullSet;
         return new ObjectArraySet<>();
     }
 }

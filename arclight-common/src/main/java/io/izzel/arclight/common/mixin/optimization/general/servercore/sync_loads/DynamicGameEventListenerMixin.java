@@ -1,6 +1,8 @@
 package io.izzel.arclight.common.mixin.optimization.general.servercore.sync_loads;
 
 import io.izzel.arclight.common.optimization.general.servercore.ChunkManager;
+import io.izzel.arclight.common.optimization.general.servercore.ServerCoreConfig;
+import io.izzel.arclight.common.optimization.general.servercore.ServerCoreConfig.Feature;
 import net.minecraft.world.level.LevelReader;
 import net.minecraft.world.level.chunk.ChunkAccess;
 import net.minecraft.world.level.chunk.status.ChunkStatus;
@@ -22,6 +24,7 @@ public class DynamicGameEventListenerMixin {
             )
     )
     private static ChunkAccess servercore$onlyUpdateIfLoaded(LevelReader level, int x, int z, ChunkStatus status, boolean bl) {
+        if (!ServerCoreConfig.isEnabled(Feature.SYNC_LOADS)) return level.getChunk(x, z, status, bl);
         return ChunkManager.getChunkNow(level, x, z);
     }
 }

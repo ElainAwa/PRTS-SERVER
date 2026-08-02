@@ -1,6 +1,8 @@
 package io.izzel.arclight.common.mixin.optimization.general.servercore.sync_loads;
 
 import io.izzel.arclight.common.optimization.general.servercore.ChunkManager;
+import io.izzel.arclight.common.optimization.general.servercore.ServerCoreConfig;
+import io.izzel.arclight.common.optimization.general.servercore.ServerCoreConfig.Feature;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.Holder;
@@ -29,6 +31,7 @@ public abstract class ServerLevelMixin extends Level {
     // Don't load chunks for raytracing.
     @Override
     public BlockHitResult clip(ClipContext context) {
+        if (!ServerCoreConfig.isEnabled(Feature.SYNC_LOADS)) return super.clip(context);
         Vec3 to = context.getTo();
         if (ChunkManager.hasChunk(this, Mth.floor(to.x) >> 4, Mth.floor(to.z) >> 4)) {
             return super.clip(context);

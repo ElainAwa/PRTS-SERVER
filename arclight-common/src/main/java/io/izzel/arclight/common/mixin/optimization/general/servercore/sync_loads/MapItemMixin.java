@@ -1,6 +1,8 @@
 package io.izzel.arclight.common.mixin.optimization.general.servercore.sync_loads;
 
 import io.izzel.arclight.common.optimization.general.servercore.ChunkManager;
+import io.izzel.arclight.common.optimization.general.servercore.ServerCoreConfig;
+import io.izzel.arclight.common.optimization.general.servercore.ServerCoreConfig.Feature;
 import net.minecraft.world.item.MapItem;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.chunk.LevelChunk;
@@ -21,6 +23,7 @@ public class MapItemMixin {
             )
     )
     private LevelChunk servercore$onlyUpdateIfLoaded(Level level, int chunkX, int chunkZ) {
+        if (!ServerCoreConfig.isEnabled(Feature.SYNC_LOADS)) return level.getChunk(chunkX, chunkZ);
         return (LevelChunk) ChunkManager.getChunkNow(level, chunkX, chunkZ);
     }
 
@@ -32,6 +35,7 @@ public class MapItemMixin {
             )
     )
     private boolean servercore$validateNotNull(LevelChunk chunk) {
+        if (!ServerCoreConfig.isEnabled(Feature.SYNC_LOADS)) return chunk.isEmpty();
         return chunk == null || chunk.isEmpty();
     }
 }

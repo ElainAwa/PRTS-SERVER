@@ -51,6 +51,7 @@ public class ChunkManager {
     }
 
     public static boolean hasChunk(Level level, BlockPos pos) {
+        if (pos == null) return false; // v29: 防御性守卫，蜂巢未分配(hivePos=null)时不崩
         return hasChunk(level, pos.getX() >> 4, pos.getZ() >> 4);
     }
 

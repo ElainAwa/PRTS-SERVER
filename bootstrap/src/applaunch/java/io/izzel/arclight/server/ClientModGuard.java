@@ -219,6 +219,8 @@ public final class ClientModGuard {
         b.append("pruneHarmlessClientMods: false\n\n");
         b.append("# 严格模式：移除一切引用客户端类的模组，追求纯净服务端；默认 false（可能误删双端模组）\n");
         b.append("strictMode: false\n\n");
+        b.append("# 纯客户端模组清理(Goal B)：开启时把『mixin 仅 client 段』的纯客户端模组移出服务端；默认 false(与崩溃隔离器解耦，避免误删双端模组)\n");
+        b.append("quarantineClientOnly: false\n\n");
         b.append("# 权威参考清单（每行一个 modId/文件名或路径），否决启发式隔离（不否决硬证据）\n");
         b.append("trustedModList: []\n\n");
         b.append("# 外部指纹增量文件（只增不覆盖内置），格式 {\"fingerprints\":{\"包/类.class\":\"原因\"}}\n");
@@ -266,6 +268,7 @@ public final class ClientModGuard {
         b.append("- `autoQuarantine: false` 总开关默认关闭：整套客户端模组自检（启动预检+隔离+运行时自愈）完全不启用，不扫描不隔离；设 `true` 才完整启用预检隔离与崩溃自愈。\n");
         b.append("- `allowlist: []` 双端/服务端模组写这里放行。\n");
         b.append("- `maxRestarts: 5` 自愈重启上限。\n");
+        b.append("- `quarantineClientOnly: false` 纯客户端模组清理(可选)：开启把『mixin 仅 client 段』的纯客户端模组移出服务端，默认关(与崩溃隔离解耦)。\n");
         try {
             Files.createDirectories(CLIENTCHECK_DIR);
             Files.write(p, b.toString().getBytes(StandardCharsets.UTF_8), StandardOpenOption.CREATE_NEW);
@@ -901,6 +904,13 @@ public final class ClientModGuard {
             }
             for (String s : d.amber) note("  AMBER " + s);
         }
+        if (!d.clientOnlyReported.isEmpty()) {
+            System.out.println("[PRTS] 纯客户端模组(NeoForge mixin 段判定): " + d.clientOnlyReported.size() + " 个"
+                + (cfg.quarantineClientOnly ? "，已按 Goal B 移出服务端" : "，仅报告不隔离"));
+            if (!cfg.quarantineClientOnly) {
+                System.out.println("[PRTS]       如需将其移出服务端，请在 _clientcheck/guard.yml 设 \"quarantineClientOnly\": true");
+            }
+        }
         if (!cfg.autoQuarantine && !d.reported.isEmpty()) {
             System.out.println("[PRTS] autoQuarantine=false，以下仅报告未隔离: " + String.join(", ", d.reported));
         }
@@ -917,6 +927,7 @@ public final class ClientModGuard {
             + " clientTargetMixin=" + d.byClientTargetMixin.size()
             + " chained=" + d.chained.size()
             + " reported=" + d.reported.size() + " amber=" + d.amber.size()
+            + " clientOnly=" + d.clientOnlyReported.size()
             + " trustedConflict=" + d.trustedConflict.size()
             + (moved ? " (moved)" : (d.toQuarantine.isEmpty() && d.reported.isEmpty() ? " (none)" : " (report-only)")));
         for (String s : d.byFingerprint) note("  FINGERPRINT " + s);
@@ -1035,6 +1046,18 @@ public final class ClientModGuard {
             // L3 价值信号：data 内容（实测保留集 52% vs 隔离集 1%，高精度）/ KubeJS 插件 / 运行期 dist 分支
             boolean hasValue = r.hasContent || r.hasKjsPlugin || r.hasDistGuard;
             boolean trusted = cfg.isTrusted(id, fn);
+            boolean clientOnly = (r != null && r.clientOnlyMixin); // v27: NeoForge 纯客户端模组
+            // v27 Goal B：纯客户端清理（默认关），开启时直接隔离纯客户端模组（与崩溃隔离器解耦，避免误删双端）
+            boolean goalBMove = cfg.quarantineClientOnly && clientOnly && !r.hasContent && !inWhite
+                && !BUILTIN_SAFE.contains(id) && !CORE_MODIDS.contains(id) && !trusted;
+
+            // v27 Goal B：纯客户端模组清理（默认关）。开启时直接隔离纯客户端模组，与崩溃隔离器解耦，避免误删双端。
+            if (goalBMove) {
+                d.toQuarantine.add(jar);
+                note("  GOAL_B_MOVE " + fn);
+                sig(fn, id, m, r, trusted, "QUARANTINE", "GOAL_B/clientOnly");
+                continue;
+            }
 
             String fpReason = matchFingerprint(jar);
             if (fpReason != null && !inWhite) {
@@ -1115,6 +1138,10 @@ public final class ClientModGuard {
             } else {
                 v = Verdict.KEEP;
                 src = "L3/no-harm";
+            }
+            if (clientOnly && !inWhite) {
+                d.clientOnlyReported.add(fn + " [纯客户端模组: mixin 仅 client 段]");
+                note("  GOAL_B_CLIENTONLY " + fn);
             }
             sig(fn, id, m, r, trusted, v.name(), src);
 
@@ -1206,6 +1233,8 @@ public final class ClientModGuard {
         final List<String> byPoisonMixin = new ArrayList<String>();
         // v16: 客户端目标 mixin 隔离集（@Mixin 目标本身是客户端类的模组，专用服必 InvalidMixinException 崩）
         final List<String> byClientTargetMixin = new ArrayList<String>();
+        // v27: 纯客户端模组（NeoForge mixin 段判定）观察名单，默认仅报告不隔离；Goal B 开启时移出服务端
+        final List<String> clientOnlyReported = new ArrayList<String>();
         final List<String> chained = new ArrayList<String>();
         final List<String> restored = new ArrayList<String>(); // v10: 用户加回、本次跳过预隔离的模组
         // v12: AMBER = 含客户端代码但无确证危害证据，默认保留 + 列入观察名单
@@ -1231,6 +1260,8 @@ public final class ClientModGuard {
             + " dist=" + bit(r != null && r.hasDistGuard)
             + " broad=" + bit(r != null && r.hasBroadGuard)
             + " kjs=" + bit(r != null && r.hasKjsPlugin)
+            + " clientOnly=" + bit(r != null && r.clientOnlyMixin)
+            + " declSide=" + bit(r != null && r.declaredClientSide)
             + " poison=" + bit(r != null && r.poisonMixin != null)
             + " clientTarget=" + bit(r != null && r.clientTargetMixin != null)
             + " trusted=" + bit(trusted)
@@ -1367,8 +1398,8 @@ public final class ClientModGuard {
 
     static ScanResult scanJarFull(Path jar) {
         ScanResult r = new ScanResult();
-        List<String> commonMixinClasses = new ArrayList<String>();
         try (JarFile jf = new JarFile(jar.toFile())) {
+            List<String> commonMixinClasses = prescanSideSignals(jf, r); // v28: 轻量预扫两个纯客户端信号
             Enumeration<JarEntry> en = jf.entries();
             while (en.hasMoreElements()) {
                 JarEntry e = en.nextElement();
@@ -1392,10 +1423,6 @@ public final class ClientModGuard {
                 try (InputStream is = jf.getInputStream(e)) {
                     byte[] b = readAll(is);
                     checkBytes(b, r, skipClientSignal);
-                    if (name.endsWith(".json") && name.contains("mixin")) {
-                        String s = new String(b, StandardCharsets.ISO_8859_1);
-                        collectCommonMixinClasses(s, commonMixinClasses);
-                    }
                 } catch (IOException ex) { note("SCAN_ENTRY_FAIL " + e.getName() + " " + ex); }
                 if (r.hasClient && r.hasServer && r.hasContent) break;
             }
@@ -1412,14 +1439,102 @@ public final class ClientModGuard {
                 } catch (IOException ignored) {}
             }
             if (anyClean && !anyPoison) r.hasCommonMixin = true;
-            r.poisonMixin = detectPoisonMixin(jf, jar);
+            r.clientOnlyMixin = r.declaredClientSide || r.mixinClientOnly; // v28: 信号 A 或 信号 B
+            r.poisonMixin = detectPoisonMixin(jf, jar, r.clientOnlyMixin);
         } catch (IOException ignored) {}
         return r;
     }
 
+    // ==================== v28：轻量预扫——纯客户端两信号（信号 A 依赖 side / 信号 B 根级 mixin 段） ====================
+    // 只读 mods.toml 与根级 json（体量极小），在 scanJarFull 主循环前完成，绕开 early-break 性能取舍；不递归 JiJ（避免 fabric-api 通用段污染）。
+    static List<String> prescanSideSignals(JarFile jf, ScanResult r) {
+        List<String> commonMixinClasses = new ArrayList<String>();
+        try {
+            // 信号 A: 对 minecraft/neoforge/forge 的 required 依赖 side 全 CLIENT -> 声明式纯客户端模组
+            for (String tn : new String[]{"META-INF/neoforge.mods.toml", "META-INF/mods.toml"}) {
+                JarEntry je = jf.getJarEntry(tn);
+                if (je == null) continue;
+                boolean anyCoreDep = false;
+                boolean allCoreClient = true;
+                boolean inDeps = false;
+                String depId = null;
+                boolean depMandatory = true;
+                boolean depClientSide = false;
+                try (BufferedReader br = new BufferedReader(new InputStreamReader(jf.getInputStream(je), StandardCharsets.UTF_8))) {
+                    String line;
+                    while ((line = br.readLine()) != null) {
+                        String t = line.trim();
+                        if (t.startsWith("[")) {
+                            if (inDeps && depId != null && depMandatory
+                                && (depId.equals("minecraft") || depId.equals("neoforge") || depId.equals("forge"))) {
+                                anyCoreDep = true;
+                                if (!depClientSide) allCoreClient = false;
+                            }
+                            depId = null; depMandatory = true; depClientSide = false;
+                            inDeps = t.startsWith("[[dependencies.");
+                            continue;
+                        }
+                        if (t.contains("modId") && t.contains("=")) {
+                            int eq = t.indexOf('=');
+                            String raw = t.substring(eq + 1);
+                            int h = raw.indexOf('#'); if (h >= 0) raw = raw.substring(0, h);
+                            String id = raw.trim().replace("\"", "").trim().toLowerCase();
+                            if (!id.isEmpty() && !id.startsWith("[") && inDeps) depId = id;
+                        }
+                        if (inDeps) {
+                            String v = tomlValue(t, "mandatory");
+                            if (v != null) depMandatory = "true".equalsIgnoreCase(v);
+                            String sv = tomlValue(t, "side");
+                            if (sv != null) depClientSide = "CLIENT".equalsIgnoreCase(sv);
+                        }
+                    }
+                }
+                if (inDeps && depId != null && depMandatory
+                    && (depId.equals("minecraft") || depId.equals("neoforge") || depId.equals("forge"))) {
+                    anyCoreDep = true;
+                    if (!depClientSide) allCoreClient = false;
+                }
+                if (anyCoreDep && allCoreClient) r.declaredClientSide = true;
+            }
+            // 信号 B: 根级 mixin 配置仅 client 段（跳过三段全空占位配置，不递归 JiJ）
+            boolean anyMixinCfg = false;
+            boolean allClientOnly = true;
+            boolean anyServerOrCommon = false;
+            Enumeration<JarEntry> en = jf.entries();
+            while (en.hasMoreElements()) {
+                JarEntry e = en.nextElement();
+                if (e.isDirectory()) continue;
+                String rawName = e.getName();
+                String name = rawName.toLowerCase();
+                if (!(name.endsWith(".json") && name.contains("mixin") && rawName.indexOf('/') < 0)) continue;
+                if (e.getSize() > 2L * 1024 * 1024) continue;
+                try (InputStream is = jf.getInputStream(e)) {
+                    String s = new String(readAll(is), StandardCharsets.ISO_8859_1);
+                    collectCommonMixinClasses(s, commonMixinClasses);
+                    String env = jsonString(s, "environment");
+                    boolean cfgClientOnly = env != null && env.equalsIgnoreCase("CLIENT");
+                    List<String> ce = new ArrayList<String>();
+                    List<String> co = new ArrayList<String>();
+                    collectJsonStringArray(s, "client", ce);
+                    collectJsonStringArray(s, "mixins", co);
+                    collectJsonStringArray(s, "server", co);
+                    if (ce.isEmpty() && co.isEmpty()) continue; // 空配置占位跳过（修复 v27 空配置否决）
+                    if (!ce.isEmpty() && co.isEmpty()) cfgClientOnly = true;
+                    if (!co.isEmpty()) anyServerOrCommon = true;
+                    anyMixinCfg = true;
+                    if (!cfgClientOnly) allClientOnly = false;
+                } catch (IOException ex) { note("PRESCAN_ENTRY_FAIL " + e.getName() + " " + ex); }
+            }
+            r.mixinClientOnly = anyMixinCfg && allClientOnly;
+            r.hasAnyServerMixin = anyServerOrCommon;
+        } catch (IOException ignored) {}
+        return commonMixinClasses;
+    }
+
     // ==================== v15：中毒 mixin 静态检测（L1 硬证据，启动前） ====================
     // 注入原版必加载服务端类且体内调用客户端类的 mixin 专用服加载即 MixinTransformerError 且不写崩溃报告，须启动前拦截；五条判据同时满足才隔离（环境非CLIENT、无CLIENT注解/@Pseudo、常量池真调用客户端类、@Mixin目标为原版非客户端类）。
-    private static String detectPoisonMixin(JarFile jf, Path jar) {
+    private static String detectPoisonMixin(JarFile jf, Path jar, boolean clientOnlyMod) {
+        if (clientOnlyMod) return null; // v27: 纯客户端模组的服务端 mixin 不执行，无中毒风险
         List<String> cfgs = collectMixinConfigs(jf);
         int budget = MIXIN_SCAN_BUDGET;
         for (String cfgName : cfgs) {
@@ -1834,6 +1949,11 @@ public final class ClientModGuard {
         String poisonMixin;
         // 非空表示该类模组必崩（betterlockon 等 @Mixin 目标在 net/minecraft/client/** 下）。
         String clientTargetMixin;
+        // v27: NeoForge 适配——mixin 配置全为 client 段、无通用 mixins/server 段 = 纯客户端模组
+        boolean clientOnlyMixin;       // 终判：declaredClientSide || mixinClientOnly
+        boolean hasAnyServerMixin;
+        boolean declaredClientSide;    // v28: 信号 A——mods.toml 核心依赖 side 全 CLIENT（壳/ JiJ 硬证据）
+        boolean mixinClientOnly;       // v28: 信号 B——根级 mixin 仅 client 段（跳过空配置、不递归 JiJ）
     }
 
     private static String tomlValue(String trimmedLine, String key) {
@@ -2327,6 +2447,9 @@ public final class ClientModGuard {
          */
         boolean strictMode = false;
 
+        /** v27 Goal B：纯客户端模组清理（默认关）。开启时把『mixin 仅 client 段』的纯客户端模组移出服务端；与崩溃隔离器解耦，避免误删双端模组。 */
+        boolean quarantineClientOnly = false;
+
         /** v12 P0-4：权威参考清单（目录或文本文件，每行一个 modId/文件名）。语义=否决启发式隔离但不跳过判定，且不否决黑名单/类名指纹/mods.toml CLIENT 三类硬证据（参考集自身混有客户端模组，会打 TRUSTED_CONFLICT）。 */
         final Set<String> trustedIds = new HashSet<String>();
         final Set<String> trustedNames = new HashSet<String>();
@@ -2408,6 +2531,7 @@ public final class ClientModGuard {
                 try { c.maxRestarts = Integer.parseInt(val.trim()); } catch (Exception ignored) {}
             } else if (key.equals("pruneHarmlessClientMods")) c.pruneHarmlessClientMods = Boolean.parseBoolean(val.trim());
             else if (key.equals("strictMode")) c.strictMode = Boolean.parseBoolean(val.trim());
+            else if (key.equals("quarantineClientOnly")) c.quarantineClientOnly = Boolean.parseBoolean(val.trim());
             else if (key.equals("customFingerprintsFile")) {
                 Path fp = Paths.get(val.trim());
                 if (!fp.isAbsolute()) fp = Paths.get("").toAbsolutePath().resolve(fp);
@@ -2502,7 +2626,7 @@ public final class ClientModGuard {
                 if (scBlock != null) {
                     // v15：正则末尾强制要求 "poisonMixin" 字段。旧版(v12 及以前)缓存没有该字段，
                     // 匹配不上即整条失效 -> 自动重扫，不会拿旧缓存漏掉中毒 mixin 判定。
-                    Matcher m = Pattern.compile("\"((?:[^\"\\\\]|\\\\.)*)\"\\s*:\\s*\\{\\s*\"hasClient\"\\s*:\\s*(true|false),\\s*\"hasServer\"\\s*:\\s*(true|false),\\s*\"hasContent\"\\s*:\\s*(true|false),\\s*\"hasCommonMixin\"\\s*:\\s*(true|false),\\s*\"hasDistGuard\"\\s*:\\s*(true|false),\\s*\"hasKjsPlugin\"\\s*:\\s*(true|false),\\s*\"hasBroadGuard\"\\s*:\\s*(true|false),\\s*\"poisonMixin\"\\s*:\\s*(?:null|\"((?:[^\"\\\\]|\\\\.)*)\"),\\s*\"clientTargetMixin\"\\s*:\\s*(?:null|\"((?:[^\"\\\\]|\\\\.)*)\")")
+                    Matcher m = Pattern.compile("\"((?:[^\"\\\\]|\\\\.)*)\"\\s*:\\s*\\{\\s*\"hasClient\"\\s*:\\s*(true|false),\\s*\"hasServer\"\\s*:\\s*(true|false),\\s*\"hasContent\"\\s*:\\s*(true|false),\\s*\"hasCommonMixin\"\\s*:\\s*(true|false),\\s*\"hasDistGuard\"\\s*:\\s*(true|false),\\s*\"hasKjsPlugin\"\\s*:\\s*(true|false),\\s*\"hasBroadGuard\"\\s*:\\s*(true|false),\\s*\"poisonMixin\"\\s*:\\s*(?:null|\"((?:[^\"\\\\]|\\\\.)*)\"),\\s*\"clientTargetMixin\"\\s*:\\s*(?:null|\"((?:[^\"\\\\]|\\\\.)*)\"),\\s*\"clientOnlyMixin\"\\s*:\\s*(true|false),\\s*\"hasAnyServerMixin\"\\s*:\\s*(true|false)")
                         .matcher(scBlock);
                     while (m.find()) {
                         ScanResult sr = new ScanResult();
@@ -2515,6 +2639,8 @@ public final class ClientModGuard {
                         sr.hasBroadGuard = Boolean.parseBoolean(m.group(8));
                         sr.poisonMixin = m.group(9) == null ? null : unquote(m.group(9));
                 sr.clientTargetMixin = m.group(10) == null ? null : unquote(m.group(10));
+                        sr.clientOnlyMixin = Boolean.parseBoolean(m.group(11));
+                        sr.hasAnyServerMixin = Boolean.parseBoolean(m.group(12));
                         s.scanCache.put(m.group(1), sr);
                     }
                 }
@@ -2561,6 +2687,8 @@ public final class ClientModGuard {
                         .append(", \"hasBroadGuard\": ").append(r.hasBroadGuard)
                         .append(", \"poisonMixin\": ").append(r.poisonMixin == null ? "null" : quote(r.poisonMixin))
                         .append(", \"clientTargetMixin\": ").append(r.clientTargetMixin == null ? "null" : quote(r.clientTargetMixin))
+                        .append(", \"clientOnlyMixin\": ").append(r.clientOnlyMixin)
+                        .append(", \"hasAnyServerMixin\": ").append(r.hasAnyServerMixin)
                         .append(" }");
                 }
                 sb.append("\n  }\n}\n");

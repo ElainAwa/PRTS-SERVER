@@ -1,6 +1,8 @@
 package io.izzel.arclight.common.mixin.optimization.general.servercore.tickets;
 
 import io.izzel.arclight.common.optimization.general.servercore.ChunkManager;
+import io.izzel.arclight.common.optimization.general.servercore.ServerCoreConfig;
+import io.izzel.arclight.common.optimization.general.servercore.ServerCoreConfig.Feature;
 import it.unimi.dsi.fastutil.longs.LongSet;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.StructureManager;
@@ -25,6 +27,7 @@ public class ChunkGeneratorMixin {
             )
     )
     private Map<Structure, LongSet> servercore$preventAddingTickets(StructureManager structureManager, BlockPos pos) {
+        if (!ServerCoreConfig.isEnabled(Feature.CHUNK_TICKETS)) return structureManager.getAllStructuresAt(pos);
         ChunkAccess chunk = ChunkManager.getChunkNow(structureManager.level, pos);
         return chunk != null ? chunk.getAllReferences() : structureManager.getAllStructuresAt(pos);
     }

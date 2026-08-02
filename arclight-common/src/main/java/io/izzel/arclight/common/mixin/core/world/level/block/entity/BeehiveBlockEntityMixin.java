@@ -95,7 +95,8 @@ public abstract class BeehiveBlockEntityMixin extends BlockEntityMixin {
 
     private static transient boolean arclight$force;
 
-    @Redirect(method = "releaseOccupant", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/Level;isNight()Z"))
+    // 允许被更高优先级模组(如 neobeefix)接管此注入点，冲突时静默让出而非崩服
+    @Redirect(method = "releaseOccupant", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/Level;isNight()Z"), expect = 0, require = 0)
     private static boolean arclight$bypassNightCheck(Level world) {
         return !arclight$force && world.isNight();
     }

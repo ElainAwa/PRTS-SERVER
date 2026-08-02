@@ -1,6 +1,8 @@
 package io.izzel.arclight.common.mixin.optimization.general.servercore.sync_loads;
 
 import io.izzel.arclight.common.optimization.general.servercore.ChunkManager;
+import io.izzel.arclight.common.optimization.general.servercore.ServerCoreConfig;
+import io.izzel.arclight.common.optimization.general.servercore.ServerCoreConfig.Feature;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.ai.navigation.GroundPathNavigation;
@@ -22,6 +24,7 @@ public abstract class GroundPathNavigationMixin extends PathNavigation {
     // Do not load chunks for pathfinding.
     @Inject(method = "createPath(Lnet/minecraft/core/BlockPos;I)Lnet/minecraft/world/level/pathfinder/Path;", at = @At("HEAD"), cancellable = true)
     private void servercore$onlyPathfindIfLoaded(BlockPos target, int distance, CallbackInfoReturnable<Path> cir) {
+        if (!ServerCoreConfig.isEnabled(Feature.SYNC_LOADS)) return;
         if (!ChunkManager.hasChunk(this.level, target)) {
             cir.setReturnValue(null);
         }

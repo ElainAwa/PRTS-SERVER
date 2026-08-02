@@ -1,6 +1,8 @@
 package io.izzel.arclight.common.mixin.optimization.general.servercore.sync_loads;
 
 import io.izzel.arclight.common.optimization.general.servercore.ChunkManager;
+import io.izzel.arclight.common.optimization.general.servercore.ServerCoreConfig;
+import io.izzel.arclight.common.optimization.general.servercore.ServerCoreConfig.Feature;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.animal.Animal;
@@ -27,6 +29,7 @@ public abstract class BeeMixin extends Animal {
     // Entity.level is a private field in 1.21.1 Mojmap and cannot be @Shadow'd from a
     @Inject(method = "isHiveValid", at = @At("HEAD"), cancellable = true)
     private void servercore$onlyValidateIfLoaded(CallbackInfoReturnable<Boolean> cir) {
+        if (!ServerCoreConfig.isEnabled(Feature.SYNC_LOADS)) return;
         if (!ChunkManager.hasChunk(this.level(), this.hivePos)) {
             cir.setReturnValue(false);
         }

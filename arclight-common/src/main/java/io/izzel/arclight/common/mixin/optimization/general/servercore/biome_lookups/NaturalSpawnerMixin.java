@@ -1,6 +1,8 @@
 package io.izzel.arclight.common.mixin.optimization.general.servercore.biome_lookups;
 
 import io.izzel.arclight.common.optimization.general.servercore.ChunkManager;
+import io.izzel.arclight.common.optimization.general.servercore.ServerCoreConfig;
+import io.izzel.arclight.common.optimization.general.servercore.ServerCoreConfig.Feature;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
 import net.minecraft.server.level.ServerLevel;
@@ -23,6 +25,7 @@ public class NaturalSpawnerMixin {
             )
     )
     private static Holder<Biome> servercore$fastBiomeLookup(ServerLevel level, BlockPos pos) {
+        if (!ServerCoreConfig.isEnabled(Feature.BIOME_LOOKUPS)) return level.getBiome(pos);
         return ChunkManager.getRoughBiome(level, pos);
     }
 }

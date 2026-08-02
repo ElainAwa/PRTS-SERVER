@@ -59,6 +59,11 @@ class ArclightGradlePlugin implements Plugin<Project> {
     private static def setupSpigot(Project project, Path arclightRepo) {
         def arclight = project.extensions.getByName('arclight') as ArclightExtension
 
+        // [local-patch] skip Spigot fetch: hub.spigotmc.org returns 522 in this env; neoforgeJar needs no Spigot mappings
+        if (Boolean.getBoolean('arclight.skipSpigot')) {
+            project.logger.lifecycle(":spigot skipped via -Darclight.skipSpigot (local build only, not committed)")
+            return
+        }
 
         def mappingsDir = arclight.cacheDir.resolve('arclight_cache/mappings')
 

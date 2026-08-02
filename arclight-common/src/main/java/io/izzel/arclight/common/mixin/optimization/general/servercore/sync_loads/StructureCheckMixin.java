@@ -1,5 +1,7 @@
 package io.izzel.arclight.common.mixin.optimization.general.servercore.sync_loads;
 
+import io.izzel.arclight.common.optimization.general.servercore.ServerCoreConfig;
+import io.izzel.arclight.common.optimization.general.servercore.ServerCoreConfig.Feature;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.chunk.ChunkGenerator;
@@ -38,6 +40,7 @@ public class StructureCheckMixin {
             )
     )
     private void servercore$skipInvalidBiomes(ChunkPos chunkPos, Structure structure, StructurePlacement structurePlacement, boolean skipKnownStructures, CallbackInfoReturnable<StructureCheckResult> cir) {
+        if (!ServerCoreConfig.isEnabled(Feature.SYNC_LOADS)) return;
         // Quick checks to validate the biome for certain structures without performing expensive noise calculations.
         BlockPos pos = this.servercore$getRoughStructurePosition(structure, chunkPos);
         if (pos != null && !this.servercore$isBiomeValid(structure, pos)) {

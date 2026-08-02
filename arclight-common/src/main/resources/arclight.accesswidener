@@ -568,6 +568,10 @@ accessible class net/minecraft/network/protocol/game/ClientboundBossEventPacket$
 accessible method net/minecraft/network/protocol/game/ClientboundBossEventPacket$UpdatePropertiesOperation <init> (ZZZ)V
 accessible class net/minecraft/world/entity/animal/Bee$BeePollinateGoal
 accessible method net/minecraft/world/entity/animal/Bee$BeePollinateGoal stopPollinating ()V
+# ServerCore activation_range 免疫检查所需
+accessible method net/minecraft/world/entity/animal/Bee$BeePollinateGoal isPollinating ()Z
+accessible field net/minecraft/world/entity/animal/Bee beePollinateGoal Lnet/minecraft/world/entity/animal/Bee$BeePollinateGoal;
+accessible field net/minecraft/world/entity/LivingEntity jumping Z
 accessible field net/minecraft/server/MinecraftServer fixerUpper Lcom/mojang/datafixers/DataFixer;
 # TODO field net/minecraft/server/MinecraftServer f_129746_
 accessible field net/minecraft/server/MinecraftServer progressListenerFactory Lnet/minecraft/server/level/progress/ChunkProgressListenerFactory;
@@ -769,3 +773,11 @@ accessible field net/minecraft/world/item/enchantment/ItemEnchantments showInToo
 accessible method net/minecraft/world/entity/projectile/AbstractHurtingProjectile assignDirectionalMovement (Lnet/minecraft/world/phys/Vec3;D)V
 accessible field net/minecraft/world/level/block/entity/DecoratedPotBlockEntity decorations Lnet/minecraft/world/level/block/entity/PotDecorations;
 accessible field net/minecraft/world/entity/vehicle/AbstractMinecartContainer lootTable Lnet/minecraft/resources/ResourceKey;
+# PRTS ServerCore mob-spawning: 本地 mobcap 计数器需在 Mobcaps 中直接读取
+accessible class net/minecraft/world/level/LocalMobCapCalculator$MobCounts
+accessible field net/minecraft/world/level/LocalMobCapCalculator$MobCounts counts Lit/unimi/dsi/fastutil/objects/Object2IntMap;
+accessible field net/minecraft/world/level/LocalMobCapCalculator playerMobCounts Ljava/util/Map;
+accessible method net/minecraft/world/level/LocalMobCapCalculator getPlayersNear (Lnet/minecraft/world/level/ChunkPos;)Ljava/util/List;
+accessible field net/minecraft/world/level/NaturalSpawner$SpawnState localMobCapCalculator Lnet/minecraft/world/level/LocalMobCapCalculator;
+# PRTS ServerCore features: 村民降频需判定方块是否有碰撞箱
+accessible field net/minecraft/world/level/block/state/BlockBehaviour hasCollision Z
