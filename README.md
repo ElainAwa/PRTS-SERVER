@@ -1,101 +1,63 @@
-# PRTS-stable-Trials
-
-一个私有的、面向生产环境加固的 [PRTS](https://github.com/QianMo0721/PRTS) 下游 fork
-（PRTS 本身是 [Luminara](https://github.com/QianMo0721/Luminara) 的 fork，
-而 Luminara 是 [Arclight](https://github.com/IzzelAliz/Arclight) 的 Hybrid fork），
-目标平台 **Minecraft 1.21.1 / NeoForge**。
-
-本 fork 面向多模组、多人的重载生产环境（NeoForge 模组与 Bukkit/Spigot 插件混合运行）。
-定制改动遵循单一原则：
-
-> **仅进行零感知的底层优化。**
-> 不改变玩法：视距、生物量、刷怪规则、作物生长、区块刻均保持原版。
-> 仅降低相同逻辑的资源开销，或修复崩溃。
+# PRTS-stable-Trials — Minecraft 1.21.1 / NeoForge
 
 > [!NOTE]
-> 这是一个私有下游 fork。上游 PRTS 已停止更新，以下优化与崩溃修复均在此独立维护。
-> 与 1.20.1 版本（同仓库 `master` / `develop` 分支）通过分支区分，本分支为 `1.21.1`。
+> 本文档由 AI 创作并维护，供快速上手与功能溯源；源码与移植细节见仓库 `docs/` 目录。
 
-## 环境
+## 项目渊源
 
-| 项目 | 值 |
-|---|---|
-| Minecraft | 1.21.1 |
-| 加载器 | NeoForge 21.1.x |
-| 基座 | Luminara（Arclight Hybrid fork，NeoForge 分支）|
-| JDK | 21（构建 & 运行）|
-| 当前版号 | 见 [`build.gradle`](build.gradle) 的 `version` |
+[Arclight](https://github.com/IzzelAliz/Arclight)（Hybrid 混合端）→ [Luminara](https://github.com/QianMo0721/Luminara) → [PRTS](https://github.com/QianMo0721/PRTS) → **本 fork**（[ElainAwa](https://github.com/ElainAwa) 维护，私有生产加固）
 
-## 定制优化（本 fork）
+## 定位
 
-各项优化均由 `prts.yml` 配置开关控制，设计目标为行为与原版一致、资源开销更低。
-启动时以 `[PRTS-*]` 日志标签打印运行状态。
+多模组、多人重载生产环境专用：**NeoForge 模组与 Bukkit/Spigot 插件同服运行**。
+只做零感知的底层优化与崩溃修复 —— 不改玩法，仅降低同类逻辑的资源开销。
 
-| 优化项 | 日志标签 | 说明 |
+## 功能与来源
+
+> 原模组无法兼容 Luminara (arclight) 基座，为避免装模组引发的冲突与事故，已将对应代码并入核心（去模组化重写），并入核心主要是图省事，修改核心来兼容这两个模组同时运行需要动很多东西，不太划算。
+
+| 功能 | 来源 | 仓库 |
 |---|---|---|
-| **routeB 空间化实体追踪** | `[PRTS-EntityTrack]` | 空间化 `AreaMap` 追踪器（源自 HariPlayer）|
-| **ticketpropagator** | `[PRTS-TP]` | Paper 式延迟 8 向区块 ticket 距离传播 |
-| **ServerCore（12 项）** | — | 服务器 tick 的一组微优化 |
-| **move-zero-velocity** | — | 零速度实体跳过冗余 `move()` |
-| **async-logging** | `[PRTS-AsyncLog]` | log4j2 AsyncAppender 包裹根日志 |
-| **核心原生调优** | — | chunk-load-rate-limit、并行世界初始化 + 异步数据加载、异步世界保存 |
-| **NearbyPlayerIndex (NPI)** | `[PRTS-NPI]` | 空间化最近玩家索引（源自 HariPlayer/routeB），供优化逻辑查询附近玩家 |
-| **动力铁轨优化** | `[PRTS-PoweredRails]` | 限定传播深度的铁轨供电路径搜索（`PoweredRailsOptimized`）；开关 `optimize-powered-rails`，默认开启 |
-| **sync_loads（ServerCore 子集）** | — | `clip` 光线追踪不强制同步加载未加载区块（`ServerLevelMixin`）|
-| **崩溃修复（构建期，始终开启）** | — | 修复 boot jar 打包旧 Guava 21.0 遮蔽平台 Guava 32.1.2，导致依赖新版 Guava 的模组 `NoSuchMethodError` 崩溃 |
+| ServerCore 完整移植六段（activation-range / breeding-cap / mob-spawning / features / dynamic / commands） | 移植自 ServerCore 模组 | https://github.com/Wesley1808/ServerCore |
+| routeB 空间化实体追踪 | 移植自 VMP 模组（AreaMap 算法） | https://github.com/RelativityMC/Very-Many-Players |
+| ticketpropagator（延迟 8 向区块 ticket 传播） | 移植自 VMP（源自 Paper 算法） | https://github.com/RelativityMC/Very-Many-Players |
+| move-zero-velocity / async-logging | 移植自 VMP 模组 | https://github.com/RelativityMC/Very-Many-Players |
+| 动力铁轨优化（供电传播限定深度） | 移植自 Fluorite 服务端（PoweredRailsOptimized） | https://github.com/FluoritePowered/Fluorite-1.19.2 |
+| 线程 CPU 耗时剖析（PRTSThreadCost） | 移植自 Youer 服务端（YouerThreadCost） | https://github.com/MohistMC/Youer |
+| 主线程卡顿看门狗（WatchMohist） | 移植自 Youer 服务端（WatchMohist） | https://github.com/MohistMC/Youer |
+| 控制台日志格式修复（FML 覆盖 log4j） | 参考 Youer 思路自研 | https://github.com/MohistMC/Youer |
+| NearbyPlayerIndex（NPI）最近玩家空间索引 | 本 fork 自研（基于 Paper AreaMap 数据结构） | https://github.com/PaperMC/Paper |
+| ClientModGuard 客户端模组预检 / 崩溃自愈（v27/v28） | 本 fork 自研 | — |
+| Guava 遮蔽崩溃修复（boot jar 不打包 com.google.common） | 本 fork | — |
+
+## 版本
+
+- 当前：**v1.21.1-1.0.16**（GitHub Releases 获取；Latest 跟随最新发布）
+- 演进记录：GitHub Releases 各版本说明
 
 ## 构建
 
-> [!IMPORTANT]
-> 本 fork 的构建与部署有若干必须遵守的约束，构建前请先阅读。
-
-**构建命令**（需 JDK 21）：
-
-```bash
-gradle --no-daemon collect
-```
-
-产物位于 `build/libs/prts-neoforge-1.21.1-<版号>.jar`。
-
-**构建约束：**
-
-- ✅ 版号（`build.gradle` 的 `version`）仅在同步至仓库的终版时更新；本地迭代构建不更改版号。
-- ❌ **不要** `collect -x :bootstrap:generateInstallerInfo`——该任务生成 `META-INF/installer.json`，缺失会导致启动 `InputStreamReader(null)` NPE。必须完整 `collect`。
-- ⚠️ 非 `@Mixin` 的辅助类不应放在 `mixin/...` 包下（会触发 `IllegalClassLoadError`），
-  应置于 `io.izzel.arclight.common.optimization.general.<功能>` 下。
-- ✅ boot jar 不得打包 `com.google.common`（旧 Guava 21.0 会遮蔽平台 Guava 32.1.2）；
-  已在 `bootstrap/build.gradle` 的 embed 解包阶段 `exclude 'com/google/common/**'`，运行期统一走平台 Guava。
+- 环境：JDK 21
+- 命令：`./gradlew --no-daemon :bootstrap:neoforgeJar`（完整构建，**勿**跳过 `generateInstallerInfo`——缺失会启动 NPE）
+- 产物：`bootstrap/build/libs/PRTS-neoforge-1.21.1-<版号>.jar`
+- 约束：boot jar 不得打包 `com.google.common`（旧 Guava 遮蔽平台 Guava，已在 embed 阶段 exclude）；版号仅在同步仓库的终版更新
 
 ## 部署
 
-1. 将新 jar 复制到服务端根目录，并让启动脚本指向它（推荐用 `.run.bat` 的 `java -jar prts-neoforge-1.21.1-<版号>.jar -nogui` 启动）。
-2. **强制重解包**——外层 jar 为启动器，实际类位于内部 `common.jar`。
-   须同时清空两个缓存目录，否则将复用旧的 `common.jar`，导致修复不生效：
+1. 复制新 jar 到服务端根目录，启动脚本指向它（`_start.bat` 的 `java -jar PRTS-neoforge-1.21.1-<版号>.jar -nogui`）
+2. **强制重解包**：外层 jar 是启动器，实际类在内部 `common.jar` —— 必须清空 `.arclight/mod_file/*`，否则复用旧 common 不生效
+3. 启动：`java -jar PRTS-neoforge-1.21.1-<版号>.jar nogui`
 
-   ```bash
-   rm -rf .arclight/mod_file/*
-   rm -rf .arclight/class_cache/*
-   ```
+## 配置
 
-3. 启动服务器：
-
-   ```bash
-   java -jar prts-neoforge-1.21.1-<版号>.jar nogui
-   ```
-
-> [!NOTE]
-> log4j2 配置文件在首次启动时提取到 `.arclight/arclight-log4j2.xml`，不会污染服务端根目录；
-> 同时已抑制 `package scanning` 废弃 WARN。
+- `prts.yml`（服务端根目录）：既有优化（NPI、routeB、tracking 等）开关
+- `config/servercore.yml`：ServerCore 六段开关（activation-range / breeding-cap / mob-spawning / features / dynamic / commands），缺失段启动时自动补写并生效
 
 ## 兼容性
 
-- 支持 NeoForge 模组与 Bukkit/Spigot 插件同时运行。
-- 可能与部分优化模组不兼容；与优化类 Bukkit 插件不兼容。
+- NeoForge 模组 + Bukkit/Spigot 插件同服运行
+- 可能与部分优化模组不兼容；与优化类 Bukkit 插件不兼容
 
-## 致谢与协议
-
-- 基于 IzzelAliz 的 [Arclight](https://github.com/IzzelAliz/Arclight) 构建。
-- Fork 自 QianMo0721 的 [Luminara](https://github.com/QianMo0721/Luminara)（Arclight Hybrid fork）。
-- 再 fork 为 PRTS（本仓库），定制优化与崩溃修复由 [ElainAwa](https://github.com/ElainAwa) 维护。
+## 许可
 
 基于 [GPL v3](LICENSE) 开源，与上游一致。

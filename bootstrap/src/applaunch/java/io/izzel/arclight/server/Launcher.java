@@ -16,6 +16,7 @@ public class Launcher {
 
     public static void main(String[] args) throws Throwable {
         ClientModGuard.run(args);
+        ServerModConflictGuard.run(); // 恒开：冲突模组硬检测（独立于 autoQuarantine）
         int javaVersion = (int) Float.parseFloat(System.getProperty("java.class.version"));
         if (javaVersion < MIN_CLASS_VERSION) {
             System.err.println("Arclight requires Java " + MIN_JAVA_VERSION);
