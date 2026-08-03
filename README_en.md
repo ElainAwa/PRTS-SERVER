@@ -5,7 +5,7 @@
 
 ## Project Origins
 
-[Arclight](https://github.com/IzzelAliz/Arclight) (hybrid server) → [Luminara](https://github.com/QianMo0721/Luminara) → [PRTS](https://github.com/QianMo0721/PRTS) → **this fork** (maintained by [ElainAwa](https://github.com/ElainAwa), private production hardening)
+[Arclight](https://github.com/IzzelAliz/Arclight) (hybrid server) → [Luminara](https://github.com/CraftAmethyst/Luminara) → **this fork: PRTS** (maintained by [ElainAwa](https://github.com/ElainAwa), private production hardening)
 
 ## What This Is
 

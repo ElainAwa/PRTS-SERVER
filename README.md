@@ -5,7 +5,7 @@
 
 ## 项目渊源
 
-[Arclight](https://github.com/IzzelAliz/Arclight)（Hybrid 混合端）→ [Luminara](https://github.com/QianMo0721/Luminara) → [PRTS](https://github.com/QianMo0721/PRTS) → **本 fork**（[ElainAwa](https://github.com/ElainAwa) 维护，私有生产加固）
+[Arclight](https://github.com/IzzelAliz/Arclight)（Hybrid 混合端）→ [Luminara](https://github.com/CraftAmethyst/Luminara) → **本 fork：PRTS**（[ElainAwa](https://github.com/ElainAwa) 维护，私有生产加固）
 
 ## 定位
 
