@@ -1,123 +1,60 @@
-# PRTS-stable-Trials
-
-[English](README_en.md)
-
-一个私有的、面向生产环境加固的 [PRTS](https://github.com/QianMo0721/PRTS) 下游 fork
-（PRTS 本身是 [Luminara](https://github.com/QianMo0721/Luminara) 的 fork，
-而 Luminara 是 [Arclight](https://github.com/IzzelAliz/Arclight) 的 Hybrid fork），
-目标平台 **Minecraft 1.20.1 / Forge 47.4.16**。
-
-本 fork 面向多模组、多人的重载生产环境（Forge 模组与 Bukkit/Spigot 插件混合运行）。
-定制改动遵循单一原则：
-
-> **仅进行零感知的底层优化。**
-> 不改变玩法：视距、生物量、刷怪规则、作物生长、区块刻均保持原版。
-> 仅降低相同逻辑的资源开销，或修复崩溃。
+# PRTS-stable-Trials — Minecraft 1.20.1 / Forge
 
 > [!NOTE]
-> 这是一个私有下游 fork。上游 PRTS 已停止更新，以下优化与崩溃修复均在此独立维护。
-> 完整版本演进见 [CHANGELOG.md](CHANGELOG.md)。
+> 本文档由 AI 创作并维护，供快速上手与功能溯源；源码与移植细节见仓库 `docs/` 目录。
 
-## 环境
+## 项目渊源
 
-| 项目 | 值 |
-|---|---|
-| Minecraft | 1.20.1 |
-| 加载器 | Forge 47.4.16 |
-| 基座 | Luminara（Arclight Hybrid fork）|
-| JDK | 21（构建）/ 17（源码级别，服务端运行）|
-| 当前版号 | **v1.0.55**（Latest，见 [`CHANGELOG.md`](CHANGELOG.md) 与 GitHub Releases）|
+[Arclight](https://github.com/IzzelAliz/Arclight)（Hybrid 混合端）→ [Luminara](https://github.com/QianMo0721/Luminara) → [PRTS](https://github.com/QianMo0721/PRTS) → **本 fork**（[ElainAwa](https://github.com/ElainAwa) 维护，私有生产加固）
 
-## 定制优化（本 fork）
+## 定位
 
-配置入口有两处：
-- `prts.yml`（服务端根目录）—— 既有优化（NPI、tracking 等）与日志开关，启动时以 `[PRTS-*]` 标签打印运行状态。
-- `config/servercore.yml`（服务端根目录）—— **ServerCore 完整移植（Phase A–F）** 的统一配置，
-  启动时自动写出缺失段（含默认值注释），改后需重启生效。
+多模组、多人重载生产环境专用：**Forge 模组与 Bukkit/Spigot 插件同服运行**。
+只做零感知的底层优化与崩溃修复 —— 不改玩法，仅降低同类逻辑的资源开销。
 
-| 优化项 | 日志标签 | 说明 |
+## 功能与来源
+
+> 原模组无法兼容 Luminara (arclight) 基座，为避免装模组引发的冲突与事故，已将对应代码并入核心（去模组化重写），并入核心主要是图省事，修改核心来兼容这两个模组同时运行需要动很多东西，不太划算。
+
+| 功能 | 来源 | 仓库 |
 |---|---|---|
-| **routeB 空间化实体追踪** | `[PRTS-EntityTrack]` | 空间化 `AreaMap` 追踪器（源自 HariPlayer）|
-| **ticketpropagator** | `[PRTS-TP]` | Paper 式延迟 8 向区块 ticket 距离传播 |
-| **ServerCore 完整移植（Phase A–F）** | — | 见下方「ServerCore 配置段」；对齐 Wesley1808/ServerCore，YAML 可开关 |
-| **move-zero-velocity** | — | 零速度实体跳过冗余 `move()` |
-| **async-logging** | — | log4j2 AsyncAppender 包裹根日志 |
-| **NearbyPlayerIndex (NPI)** | `[PRTS-NPI]` | 空间索引加速最近玩家查找 `getNearestPlayer` / `hasNearbyAlivePlayer`（默认 `enabled=false`）|
-| **核心原生调优** | — | chunk-load-rate-limit、并行世界初始化 + 异步数据加载、异步世界保存 |
-| **崩溃修复（始终开启）** | `[PRTS-ChampionsFix]` | ChampionsConfig 惰性 bake；RevelationFix `inWhitelist` null 守卫 |
-| **ClientModGuard** | `[PRTS-Guard]` | 客户端模组预检与运行时崩溃自愈（`autoQuarantine=false` 时整套关闭）|
+| ServerCore 完整移植（breeding-cap / dynamic / features / commands / optimizations + /statistics） | 移植自 ServerCore 模组 | https://github.com/Wesley1808/ServerCore |
+| routeB 空间化实体追踪 | 移植自 VMP 模组（AreaMap 算法） | https://github.com/RelativityMC/Very-Many-Players |
+| ticketpropagator（延迟 8 向区块 ticket 传播） | 移植自 VMP（源自 Paper 算法） | https://github.com/RelativityMC/Very-Many-Players |
+| move-zero-velocity / async-logging | 移植自 VMP 模组 | https://github.com/RelativityMC/Very-Many-Players |
+| 村民脑切（minecrafttweaks） | 移植自 Mohist 服务端 OptVillager | https://github.com/MohistMC/Mohist |
+| NearbyPlayerIndex（NPI）最近玩家空间索引 | 本 fork 自研（基于 Paper AreaMap 数据结构） | https://github.com/PaperMC/Paper |
+| ClientModGuard 客户端模组预检 / 崩溃自愈 | 本 fork 自研 | — |
+| 崩溃修复（ChampionsFix / RevelationFix 等） | 本 fork | — |
 
-### ServerCore 配置段（`config/servercore.yml`）
+## 版本
 
-| 段 | 内容 |
-|---|---|
-| `breeding-cap` | 动物/村民繁殖上限（同类型 36 只 / 64 格内）|
-| `dynamic` | 按 MSPT 动态调节 `VIEW_DISTANCE` / `SIMULATION_DISTANCE` / `CHUNK_TICK_DISTANCE`（默认关闭）|
-| `features` | 物品/经验球合并、防走进未加载区块、自动保存间隔、spawn-chunks 加载开关 |
-| `commands` | `/servercore status\|reload\|settings`、`/mobcaps`（`enabled:false` 时不注册全部命令）|
-| `optimizations` | 地图物品 tick 优化、区块广播增量、雷击/冰霜随机刻优化、`/statistics` 统计命令 |
-
-`/statistics` 提供 TPS / MSPT / 区块 / 实体 / 方块实体总览，以及 `entities`、`block-entities` 的 `byType` / `byPlayer` 分页。详细移植取舍见 [`docs/servercore-1201-port.md`](docs/servercore-1201-port.md)。
-
-### NearbyPlayerIndex 安全模型
-
-NPI 不介入区块发包路径，仅加速查询，并设有三重保障：
-
-1. **原版记账为权威**——索引仅旁路加速，不覆盖发包逻辑。
-2. **verify 双跑**（默认开启）——每次索引结果与原版对照，不一致时打 `WARN` 并采用原版结果。
-3. **144 格数学守卫 + 异常自毒**——最坏情况为无加速，不会产生静默的错误结果。
+- 当前：**v1.0.56**（GitHub Releases 获取；Latest 跟随最新发布）
+- 演进记录：[CHANGELOG.md](CHANGELOG.md)
 
 ## 构建
 
-> [!IMPORTANT]
-> 本 fork 的构建与部署有若干必须遵守的约束，构建前请先阅读。
-
-**构建命令**（需 JDK 21）：
-
-```bash
-# 使用干净环境 + 锁定的 Gradle 8.14.5 + 隔离的临时目录
-gradle --no-daemon collect --rerun-tasks
-```
-
-产物位于 `arclight-forge/build/libs/PRTS-1.20.1-<版号>.jar`。
-
-**构建约束：**
-
-- ✅ 版号（`build.gradle` 的 `version`）仅在同步至仓库的终版时更新；本地迭代构建不更改版号。
-- ❌ 不要执行 `:arclight-forge:clean`——它会删除 reobf SRG 缓存，导致 refmap 损坏。
-- ⚠️ 非 `@Mixin` 的辅助类不应放在 `mixin/...` 包下（会触发 `IllegalClassLoadError`），
-  应置于 `io.izzel.arclight.common.optimization.general.<功能>` 下。
-- ⚠️ 编写 mixin 前，先用 `javap` 对照编译后的 mojmap 类核对类名、字段与 INVOKE 属主，
-  不要沿用更新 MC 版本的符号。
+- 环境：JDK 21（构建）+ 锁定的 Gradle 8.14.5（分发 jar，非 `./gradlew`）
+- 命令：`gradle --no-daemon :arclight-common:createSrgToMcp --rerun-tasks` → `gradle --no-daemon :collect --offline`
+- 产物：`build/libs/PRTS-1.20.1-<版号>.jar`
+- 约束：勿执行 `:arclight-forge:clean`（会删 reobf SRG 缓存导致 refmap 损坏）；版号仅在同步仓库的终版更新
 
 ## 部署
 
-1. 将新 jar 复制到服务端根目录，并让启动脚本指向它。
-2. **强制重解包**——外层 jar 为启动器，实际类位于内部 `common.jar`。
-   须同时清空两个缓存目录，否则将复用旧的 `common.jar`，导致修复不生效：
+1. 复制新 jar 到服务端根目录，启动脚本指向它
+2. **强制重解包**：外层 jar 是启动器，实际类在内部 `common.jar` —— 必须清空 `.arclight/mod_file/*` 与 `.arclight/class_cache/*`，否则复用旧 common 不生效
+3. 启动：`java -jar PRTS-1.20.1-<版号>.jar nogui`
 
-   ```bash
-   rm -rf .arclight/mod_file/*
-   rm -rf .arclight/class_cache/*
-   ```
+## 配置
 
-3. 启动服务器：
-
-   ```bash
-   java -jar PRTS-1.20.1-<版号>.jar nogui
-   ```
+- `prts.yml`（服务端根目录）：既有优化（NPI、routeB、tracking 等）开关
+- `config/servercore.yml`：ServerCore 五段开关（breeding-cap / dynamic / features / commands / optimizations），缺失段启动时自动补写并生效
 
 ## 兼容性
 
-- 支持 Forge 模组与 Bukkit/Spigot 插件同时运行。
-- 可能与部分优化模组不兼容；与优化类 Bukkit 插件不兼容。
-- 本服已验证可共存的优化模组：ModernFix、FerriteCore、Canary、Saturn、KryptonReforged、
-  Noisium、Radium (Lithium)、Immersive Optimization、MemoryLeakFix、PacketFixer、Spark。
+- Forge 模组 + Bukkit/Spigot 插件同服运行
+- 已验证可共存优化模组：ModernFix、FerriteCore、Canary、Saturn、KryptonReforged、Noisium、Radium、MemoryLeakFix、PacketFixer、Spark 等
 
-## 致谢与协议
-
-- 基于 IzzelAliz 的 [Arclight](https://github.com/IzzelAliz/Arclight) 构建。
-- Fork 自 QianMo0721 的 [Luminara](https://github.com/QianMo0721/Luminara)（Arclight Hybrid fork）。
-- 再 fork 为 PRTS（本仓库），定制优化与崩溃修复由 [ElainAwa](https://github.com/ElainAwa) 维护。
+## 许可
 
 基于 [GPL v3](LICENSE) 开源，与上游一致。
