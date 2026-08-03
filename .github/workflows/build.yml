@@ -1,0 +1,44 @@
+name: Build
+
+# 纯手动触发 (workflow_dispatch)，不随 push 自动运行。
+# 本项目的发布流程完全本地化 (本地构建 + 测服冒烟 + gh release)，CI 无自动需求。
+# 需要时在 GitHub Actions 页面点 Run workflow。
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: build-manual
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+          submodules: recursive
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Cache Gradle User Files
+        uses: actions/cache@v4
+        with:
+          path: ~/.gradle
+          key: ${{ runner.os }}-gradle-user-home-${{ hashFiles('**/*.gradle*') }}
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Build 1.20.1
+        if: startsWith(github.ref, 'refs/heads/1.20.1')
+        run: ./gradlew :collect --no-daemon -x cleanBuild -x idea
+
+      - name: Build 1.21.1
+        if: startsWith(github.ref, 'refs/heads/1.21.1')
+        run: ./gradlew :bootstrap:neoforgeJar -x :bootstrap:generateInstallerInfo -x :arclight-neoforge:remapSourcesJar -Darclight.skipSpigot=true --no-daemon
