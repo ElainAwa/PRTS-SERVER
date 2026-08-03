@@ -1,1 +1,0 @@
-Please read this [wiki section](https://github.com/IzzelAliz/Arclight/wiki/Contributing).
