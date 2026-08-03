@@ -1,11 +1,11 @@
-# PRTS-stable-Trials — Minecraft 1.21.1 / NeoForge
+# PRTS-FeudalKings — Minecraft 1.21.1 / NeoForge
 
 > [!NOTE]
 > 本文档由 AI 创作并维护，供快速上手与功能溯源；源码与移植细节见仓库 `docs/` 目录。
 
 ## 项目渊源
 
-[Arclight](https://github.com/IzzelAliz/Arclight)（Hybrid 混合端）→ [Luminara](https://github.com/QianMo0721/Luminara) → [PRTS](https://github.com/QianMo0721/PRTS) → **本 fork**（[ElainAwa](https://github.com/ElainAwa) 维护，私有生产加固）
+[Arclight](https://github.com/IzzelAliz/Arclight)（Hybrid 混合端）→ [Luminara](https://github.com/CraftAmethyst/Luminara) → **本 fork：PRTS**（[ElainAwa](https://github.com/ElainAwa) 维护，私有生产加固）
 
 ## 定位
 
