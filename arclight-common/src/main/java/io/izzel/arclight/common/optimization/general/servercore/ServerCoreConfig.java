@@ -146,7 +146,15 @@ public final class ServerCoreConfig {
             + "  # Only broadcasts block changes for chunks that actually changed this tick.\n"
             + "  chunk-broadcasts: true\n"
             + "  # Asynchronous chunk IO: region file reads are offloaded to a dedicated thread pool.\n"
-            + "  async-chunk-io: true\n";
+            + "  async-chunk-io: true\n"
+            + "  # Reliable chunk saving (journal mode): serializes dirty chunks to a journal file every\n"
+            + "  # journal-interval-seconds and replays it on startup after a crash / power loss.\n"
+            + "  # True costs some IO but greatly reduces rollback damage on unexpected shutdown.\n"
+            + "  reliable-chunk-save: false\n"
+            + "  # Journal flush interval in seconds (only used when reliable-chunk-save is true).\n"
+            + "  journal-interval-seconds: 30\n"
+            + "  # Max dirty chunks serialized per tick while flushing (spreads the cost across ticks).\n"
+            + "  journal-chunks-per-tick: 50\n";
 
     private static final String BREEDING_CAP_BODY = ""
             + "# A special mobcap that only affects the breeding of animals and villagers.\n"
@@ -564,7 +572,10 @@ public final class ServerCoreConfig {
                 lobo != null ? asInt(lobo.get("tick-interval"), 20) : 20,
                 asBool(m.get("chunk-random-ticks"), true),
                 asBool(m.get("chunk-broadcasts"), true),
-                asBool(m.get("async-chunk-io"), true)
+                asBool(m.get("async-chunk-io"), true),
+                asBool(m.get("reliable-chunk-save"), false),
+                asInt(m.get("journal-interval-seconds"), 30),
+                asInt(m.get("journal-chunks-per-tick"), 50)
         );
     }
 

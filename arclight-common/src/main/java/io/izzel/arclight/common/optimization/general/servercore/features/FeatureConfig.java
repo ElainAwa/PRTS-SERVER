@@ -19,12 +19,16 @@ public class FeatureConfig {
     private final boolean optimizeChunkRandomTicks;
     private final boolean optimizeChunkBroadcasts;
     private final boolean asyncChunkIoEnabled;
+    private final boolean reliableChunkSave;
+    private final int journalIntervalSeconds;
+    private final int journalChunksPerTick;
 
     public FeatureConfig(boolean preventMovingIntoUnloadedChunks, int autosaveIntervalSeconds,
                          int xpMergeFraction, double xpMergeRadius, double itemMergeRadius,
                          boolean lobotomizeVillagers, int lobotomizedTickInterval,
                          boolean optimizeChunkRandomTicks, boolean optimizeChunkBroadcasts,
-                         boolean asyncChunkIoEnabled) {
+                         boolean asyncChunkIoEnabled, boolean reliableChunkSave, int journalIntervalSeconds,
+                         int journalChunksPerTick) {
         this.preventMovingIntoUnloadedChunks = preventMovingIntoUnloadedChunks;
         this.autosaveIntervalSeconds = autosaveIntervalSeconds;
         this.xpMergeFraction = xpMergeFraction;
@@ -35,6 +39,9 @@ public class FeatureConfig {
         this.optimizeChunkRandomTicks = optimizeChunkRandomTicks;
         this.optimizeChunkBroadcasts = optimizeChunkBroadcasts;
         this.asyncChunkIoEnabled = asyncChunkIoEnabled;
+        this.reliableChunkSave = reliableChunkSave;
+        this.journalIntervalSeconds = journalIntervalSeconds;
+        this.journalChunksPerTick = journalChunksPerTick;
     }
 
     public boolean preventMovingIntoUnloadedChunks() {
@@ -78,7 +85,22 @@ public class FeatureConfig {
         return asyncChunkIoEnabled;
     }
 
-    /** 各值为原版默认：合并基数 40、半径 0.5、自动保存 300 秒、不回弹、不降频。 */
+    /** 可靠区块保存（journal 模式）：true=脏区块写 journal + 启动回放；false=现状。 */
+    public boolean reliableChunkSave() {
+        return reliableChunkSave;
+    }
+
+    /** journal 写盘周期（秒），最小 5，避免过频刷盘。 */
+    public int journalIntervalSeconds() {
+        return Math.max(5, journalIntervalSeconds);
+    }
+
+    /** journal 分片：每 tick 最多序列化多少个脏区块（分摊主线程卡顿）。 */
+    public int journalChunksPerTick() {
+        return Math.max(1, journalChunksPerTick);
+    }
+
+    /** 各值为原版默认：合并基数 40、半径 0.5、自动保存 300 秒、不回弹、不降频、不 journal。 */
     public static final FeatureConfig DISABLED =
-            new FeatureConfig(false, 300, 40, 0.5D, 0.5D, false, 20, false, false, false);
+            new FeatureConfig(false, 300, 40, 0.5D, 0.5D, false, 20, false, false, false, false, 30, 50);
 }

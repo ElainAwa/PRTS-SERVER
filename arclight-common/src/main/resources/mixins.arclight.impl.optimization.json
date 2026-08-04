@@ -33,6 +33,7 @@
     "servercore.sync_loads.RemoveBlockGoalMixin",
     "servercore.sync_loads.ServerLevelMixin",
     "servercore.sync_loads.StructureCheckMixin",
+    "servercore.journal.ChunkJournalMixin_Recovery",
     "servercore.activation_range.EntityMixin_ActivationRange",
     "servercore.activation_range.GoalSelectorMixin_ActivationRange",
     "servercore.activation_range.ServerLevelMixin_ActivationRange",
