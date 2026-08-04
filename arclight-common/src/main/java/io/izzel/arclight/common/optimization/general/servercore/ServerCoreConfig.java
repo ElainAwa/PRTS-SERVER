@@ -127,7 +127,15 @@ public final class ServerCoreConfig {
             + "  xp-merge-chance: 8\n"
             + "  # merging: Merge radius in blocks for items / xp (>=0.5). Vanilla = 0.5.\n"
             + "  item-merge-radius: 2.0\n"
-            + "  xp-merge-radius: 3.0\n";
+            + "  xp-merge-radius: 3.0\n"
+            + "  # Reliable chunk saving (journal mode): serializes dirty chunks to a journal file every\n"
+            + "  # journal-interval-seconds and replays it on startup after a crash / power loss.\n"
+            + "  # True costs some IO but greatly reduces rollback damage on unexpected shutdown.\n"
+            + "  reliable-chunk-save: false\n"
+            + "  # Journal flush interval in seconds (only used when reliable-chunk-save is true).\n"
+            + "  journal-interval-seconds: 30\n"
+            + "  # Max dirty chunks serialized per tick while flushing (spreads the cost across ticks).\n"
+            + "  journal-chunks-per-tick: 50\n";
 
     private static final String COMMANDS_BODY = ""
             + "# ServerCore commands (/servercore, /sc, /mobcaps).\n"
@@ -584,7 +592,10 @@ public final class ServerCoreConfig {
         double xpMergeRadius = asDouble(m.get("xp-merge-radius"), 3.0D);
         if (xpMergeRadius < 0.5D) xpMergeRadius = 0.5D;
         return new FeatureConfig(enabled, disableSpawnChunks, preventMoving,
-                autosaveInterval, xpMergeChance, itemMergeRadius, xpMergeRadius);
+                autosaveInterval, xpMergeChance, itemMergeRadius, xpMergeRadius,
+                asBool(m.get("reliable-chunk-save"), false),
+                asInt(m.get("journal-interval-seconds"), 30),
+                asInt(m.get("journal-chunks-per-tick"), 50));
     }
 
     private static CommandConfig parseCommands(Map<?, ?> m) {

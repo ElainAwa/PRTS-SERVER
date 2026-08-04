@@ -34,6 +34,7 @@
     "servercore.sync_loads.SleepInBedMixin",
     "servercore.sync_loads.GroundPathNavigationMixin",
     "servercore.sync_loads.BeeMixin",
+    "servercore.journal.ChunkJournalMixin_Recovery",
     "servercore.sync_loads.BeeAccessor",
     "servercore.sync_loads.MapItemMixin",
     "servercore.sync_loads.RemoveBlockGoalMixin",

@@ -6,6 +6,13 @@
 
 ---
 
+## [1.0.60] — 可靠区块保存（journal 模式）+ 分片 flush
+
+- **journal 模式**（`features.reliable-chunk-save`，默认 false）：每周期把脏区块序列化写入 `journal/<维度>.jrn` 并 `force` 落盘；非正常退出（崩溃/断电）后启动回放写回 region，玩家在线时崩溃回档窗口从"数小时"压到 ≤30 秒；正常关服自动清理 journal
+- **分片 flush**（`features.journal-chunks-per-tick`，默认 50）：脏区块收集与序列化跨 tick 摊平，超大地图多玩家下不再单 tick 卡死；序列化前重查 `isUnsaved()` 防旧快照回放覆盖新数据
+- 配套 `features.journal-interval-seconds`（默认 30）控制写盘周期
+- 实现：`ChunkJournal` + `ChunkJournalMixin_Recovery`（tick 周期 flush / createLevels 回放 / stopServer 清理），API 适配 Mojmap 差异（`NbtIo.write` / `ChunkStorage.write`）
+
 ## [1.0.59] — 富版激活范围 + mobcap 移植 + 碰撞禁用 + NBT 崩溃防御
 
 - **P2-1 富版激活范围反移植**：ServerCore 激活范围（activation-range）完整落地 1.20.1（17 mixin + 5 支持类 + 2 桥接类），静态版移出 mixin 注册由富版接管，默认开启
