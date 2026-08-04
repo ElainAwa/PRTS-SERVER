@@ -571,8 +571,11 @@ public final class ClientModGuard {
             boolean hasValue = r.hasContent || r.hasKjsPlugin || r.hasDistGuard;
             boolean trusted = cfg.isTrusted(id, fn);
             boolean clientOnly = (r != null && r.clientOnlyMixin); // v27: NeoForge 纯客户端模组
-            // v27 Goal B：纯客户端清理（默认关），开启时直接隔离纯客户端模组（与崩溃隔离器解耦，避免误删双端）
-            boolean goalBMove = cfg.quarantineClientOnly && clientOnly && !r.hasContent && !inWhite
+            // v29 rootcause: 纯客户端且零服务端信号（hasServer/hasContent/hasDistGuard/hasKjsPlugin 全 false）
+            // → 默认隔离，不再等用户开 quarantineClientOnly。此类模组服务端 100% 无用且可能极早期崩（sodium 即典型）。
+            boolean zeroServerSignal = !r.hasServer && !r.hasContent && !r.hasDistGuard && !r.hasKjsPlugin;
+            // v27 Goal B：纯客户端清理。quarantineClientOnly（用户显式）覆盖「有服务端信号」更激进；zeroServerSignal 默认安全隔离。
+            boolean goalBMove = (cfg.quarantineClientOnly || zeroServerSignal) && clientOnly && !inWhite
                 && !GuardMarkers.BUILTIN_SAFE.contains(id) && !GuardMarkers.CORE_MODIDS.contains(id) && !trusted;
 
             // v27 Goal B：纯客户端模组清理（默认关）。开启时直接隔离纯客户端模组，与崩溃隔离器解耦，避免误删双端。

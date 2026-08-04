@@ -394,9 +394,12 @@ public final class ModJarParser {
                 if (!contains(b, "net/minecraft/client/") && !contains(b, "com/mojang/blaze3d/")) continue;
                 MixinClassInfo ci = readMixinClass(b);
                 if (ci == null || !ci.callsClient || ci.classEnvClient || ci.pseudo) continue;
+                // v29 rootcause fix: 仅「仅客户端类」目标才标毒；双端类目标（Player/Level/Entity/Block…）
+                // 降级为观察，不标毒。原逻辑（任意 net/minecraft/ 非 client 目标即标毒）误杀 create_hypertube
+                // 等双端模组——其 PlayerMixin 有运行时 isClientSide 双保护，服务端不崩，静态扫描看不到该保护。
                 String target = null;
                 for (String t : ci.targets) {
-                    if (t.startsWith("net/minecraft/") && !t.startsWith("net/minecraft/client/")) { target = t; break; }
+                    if (isClientOnlyClass(t)) { target = t; break; }
                 }
                 if (target == null) continue;
                 String desc = cfgName + ":" + cls + " -> " + target;
@@ -409,6 +412,16 @@ public final class ModJarParser {
             }
         }
         return null;
+    }
+
+    // v29 rootcause: 仅客户端包清单——只有目标是这些包下的类才视为「中毒 mixin」目标。
+    // 双端类（net/minecraft/world/entity/player/Player 等）即使体内调用客户端类，也有运行时
+    // isClientSide 双保护，服务端不崩，不应标毒（避免误删 create_hypertube 等双端模组）。
+    private static boolean isClientOnlyClass(String t) {
+        return t.startsWith("net/minecraft/client/")
+            || t.startsWith("com/mojang/blaze3d/")
+            || t.startsWith("net/minecraft/realms/")
+            || t.startsWith("com/mojang/realms/");
     }
 
     /** v16 与 detectPoisonMixin 对称：@Mixin 目标本身是 net/minecraft/client/** 类，专用服必 InvalidMixinException 崩，须提前隔离。 */
