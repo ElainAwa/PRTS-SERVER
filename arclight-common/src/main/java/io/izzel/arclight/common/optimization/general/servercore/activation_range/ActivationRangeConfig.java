@@ -22,7 +22,7 @@ public final class ActivationRangeConfig {
 
     public static final String EXCLUDE_TAG = "exclude_ear";
 
-    private boolean enabled = false;
+    private boolean enabled = true;
     private boolean tickNewEntities = true;
     private boolean useVerticalRange = false;
     private boolean skipNonImmune = false;

@@ -78,6 +78,13 @@
     "move_zero_velocity.MixinEntity",
     "async_logging.MixinMinecraftServer",
     "MinecraftServerMixin_MemoryCleanup",
-    "network.ServerConnectionListenerMixin_NetworkOpt"
+    "network.ServerConnectionListenerMixin_NetworkOpt",
+    "servercore.ticking.random.LevelChunkMixin_Random",
+    "servercore.ticking.random.ServerLevelMixin_Random",
+    "servercore.ticking.random.ServerChunkCacheMixin_Random",
+    "servercore.ticking.random.LiquidBlockMixin_Random",
+    "servercore.ticking.broadcast.ChunkHolderMixin_Broadcast",
+    "servercore.ticking.broadcast.ServerChunkCacheMixin_Broadcast",
+    "servercore.RegionFileStorageMixin_AsyncIO"
   ]
 }

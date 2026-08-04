@@ -997,4 +997,11 @@ public abstract class EntityMixin implements InternalEntityBridge, EntityBridge,
         this.arclight$addedEventCalled = true;
     }
 
+    @Inject(method = "canCollideWith", at = @At("HEAD"), cancellable = true)
+    private void arclight$disableCollisions(Entity entity, CallbackInfoReturnable<Boolean> cir) {
+        if (io.izzel.arclight.i18n.ArclightConfig.spec().getOptimization().isDisableEntityCollisions()) {
+            cir.setReturnValue(false);
+        }
+    }
+
 }

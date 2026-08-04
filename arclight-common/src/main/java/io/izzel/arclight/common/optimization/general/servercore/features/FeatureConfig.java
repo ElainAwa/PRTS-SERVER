@@ -16,10 +16,15 @@ public class FeatureConfig {
     private final double itemMergeRadius;
     private final boolean lobotomizeVillagers;
     private final int lobotomizedTickInterval;
+    private final boolean optimizeChunkRandomTicks;
+    private final boolean optimizeChunkBroadcasts;
+    private final boolean asyncChunkIoEnabled;
 
     public FeatureConfig(boolean preventMovingIntoUnloadedChunks, int autosaveIntervalSeconds,
                          int xpMergeFraction, double xpMergeRadius, double itemMergeRadius,
-                         boolean lobotomizeVillagers, int lobotomizedTickInterval) {
+                         boolean lobotomizeVillagers, int lobotomizedTickInterval,
+                         boolean optimizeChunkRandomTicks, boolean optimizeChunkBroadcasts,
+                         boolean asyncChunkIoEnabled) {
         this.preventMovingIntoUnloadedChunks = preventMovingIntoUnloadedChunks;
         this.autosaveIntervalSeconds = autosaveIntervalSeconds;
         this.xpMergeFraction = xpMergeFraction;
@@ -27,6 +32,9 @@ public class FeatureConfig {
         this.itemMergeRadius = itemMergeRadius;
         this.lobotomizeVillagers = lobotomizeVillagers;
         this.lobotomizedTickInterval = lobotomizedTickInterval;
+        this.optimizeChunkRandomTicks = optimizeChunkRandomTicks;
+        this.optimizeChunkBroadcasts = optimizeChunkBroadcasts;
+        this.asyncChunkIoEnabled = asyncChunkIoEnabled;
     }
 
     public boolean preventMovingIntoUnloadedChunks() {
@@ -58,7 +66,19 @@ public class FeatureConfig {
         return Math.max(2, lobotomizedTickInterval);
     }
 
+    public boolean optimizeChunkRandomTicks() {
+        return optimizeChunkRandomTicks;
+    }
+
+    public boolean optimizeChunkBroadcasts() {
+        return optimizeChunkBroadcasts;
+    }
+
+    public boolean asyncChunkIoEnabled() {
+        return asyncChunkIoEnabled;
+    }
+
     /** 各值为原版默认：合并基数 40、半径 0.5、自动保存 300 秒、不回弹、不降频。 */
     public static final FeatureConfig DISABLED =
-            new FeatureConfig(false, 300, 40, 0.5D, 0.5D, false, 20);
+            new FeatureConfig(false, 300, 40, 0.5D, 0.5D, false, 20, false, false, false);
 }

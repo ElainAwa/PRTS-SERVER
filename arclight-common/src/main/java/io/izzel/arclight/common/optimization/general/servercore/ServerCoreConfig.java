@@ -139,7 +139,14 @@ public final class ServerCoreConfig {
             + "    # Makes villagers tick less often if they are stuck in a 1x1 space.\n"
             + "    enabled: true\n"
             + "    # Decides the interval in between villager ticks when lobotomized.\n"
-            + "    tick-interval: 20\n";
+            + "    tick-interval: 20\n"
+            + "  # Replaces the per-chunk lightning / ice-and-snow random rolls with cheap counters,\n"
+            + "  # and skips the duplicate fluid random ticking already handled by ServerLevel.tickChunk.\n"
+            + "  chunk-random-ticks: true\n"
+            + "  # Only broadcasts block changes for chunks that actually changed this tick.\n"
+            + "  chunk-broadcasts: true\n"
+            + "  # Asynchronous chunk IO: region file reads are offloaded to a dedicated thread pool.\n"
+            + "  async-chunk-io: true\n";
 
     private static final String BREEDING_CAP_BODY = ""
             + "# A special mobcap that only affects the breeding of animals and villagers.\n"
@@ -268,7 +275,7 @@ public final class ServerCoreConfig {
             + "# Note: while this is a very powerful feature, it can still slow down mobfarms and break very specific technical contraptions.\n"
             + "activation-range:\n"
             + "  # Enables activation range.\n"
-            + "  enabled: false\n"
+            + "  enabled: true\n"
             + "  # Briefly ticks entities newly added to the world for 10 seconds (includes both spawning and loading).\n"
             + "  # This gives them a chance to properly immunize when they are spawned if they should be. Can be helpful for mobfarms.\n"
             + "  tick-new-entities: true\n"
@@ -554,7 +561,10 @@ public final class ServerCoreConfig {
                 asDouble(m.get("xp-merge-radius"), 3.0D),
                 asDouble(m.get("item-merge-radius"), 2.0D),
                 lobo != null && asBool(lobo.get("enabled"), false),
-                lobo != null ? asInt(lobo.get("tick-interval"), 20) : 20
+                lobo != null ? asInt(lobo.get("tick-interval"), 20) : 20,
+                asBool(m.get("chunk-random-ticks"), true),
+                asBool(m.get("chunk-broadcasts"), true),
+                asBool(m.get("async-chunk-io"), true)
         );
     }
 

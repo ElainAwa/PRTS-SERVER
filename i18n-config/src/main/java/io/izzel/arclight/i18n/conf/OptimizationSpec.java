@@ -22,7 +22,7 @@ public class OptimizationSpec {
     private boolean nearbyPlayerIndexEnabled = false;
 
     @Setting("nearby-player-index-verify")
-    private boolean nearbyPlayerIndexVerify = true;
+    private boolean nearbyPlayerIndexVerify = false;
 
     @Setting("optimize-powered-rails")
     private boolean optimizePoweredRails = true;
@@ -44,6 +44,10 @@ public class OptimizationSpec {
     @Setting("network-optimization-netty-threads")
     private int networkOptimizationNettyThreads = 0;
 
+    // --- 实体优化：禁用实体互推（默认关闭，行为不变）---
+    @Setting("disable-entity-collisions")
+    private boolean disableEntityCollisions = false;
+
     public boolean isOptimizePoweredRails() {
         return optimizePoweredRails;
     }
@@ -62,6 +66,10 @@ public class OptimizationSpec {
 
     public boolean isNetworkOptimizationEnabled() {
         return networkOptimizationEnabled;
+    }
+
+    public boolean isDisableEntityCollisions() {
+        return disableEntityCollisions;
     }
 
     public int getNetworkOptimizationNettyThreads() {
