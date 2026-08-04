@@ -10,9 +10,9 @@ public class NearbyPlayerIndexSpec {
     @Setting("enabled")
     private boolean enabled = false;
 
-    // 双跑校验模式：每次索引查询同时跑原版对照，不一致时告警并采用原版结果（观察期建议开启）
+    // 双跑校验模式：每次索引查询同时跑原版对照，不一致时告警并采用原版结果（已稳定，默认关闭以省双跑开销）
     @Setting("verify")
-    private boolean verify = true;
+    private boolean verify = false;
 
     public boolean isEnabled() {
         return enabled;

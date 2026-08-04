@@ -103,6 +103,16 @@ public abstract class BaseSpawnerMixin {
                             return;
                         }
 
+                        if (io.izzel.arclight.common.optimization.general.servercore.ServerCoreConfig.mobSpawningActive()
+                                && !io.izzel.arclight.common.optimization.general.servercore.mob_spawning.Mobcaps.canSpawnForCategory(
+                                level,
+                                entity.chunkPosition(),
+                                entity.getType().getCategory(),
+                                io.izzel.arclight.common.optimization.general.servercore.ServerCoreConfig.mobSpawning().monsterSpawner())) {
+                            this.delay(level, pos);
+                            return;
+                        }
+
                         int k = level.getEntitiesOfClass(entity.getClass(), (new AABB(pos.getX(), pos.getY(), pos.getZ(), pos.getX() + 1, pos.getY() + 1, pos.getZ() + 1)).inflate(this.spawnRange)).size();
                         if (k >= this.maxNearbyEntities) {
                             this.delay(level, pos);

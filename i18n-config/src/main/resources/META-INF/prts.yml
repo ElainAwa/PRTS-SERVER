@@ -32,10 +32,10 @@ optimization:
     enabled: true
   # 空间最近玩家索引（AreaMap 桶索引加速 checkDespawn/刷怪笼的全玩家线性扫描；vanilla 记账不动，仅加速查询）
   nearby-player-index:
-    # 是否启用；默认关闭（观察期后手动开启）。关闭则完全走原版全玩家扫描
-    enabled: false
-    # 双跑校验：索引查询同时跑原版对照，不一致告警并采用原版结果（观察期建议 true，稳定后可关以省开销）
-    verify: true
+    # 是否启用；默认开启（索引加速查询，ownerThread+poison 自愈兜底）。关闭则完全走原版全玩家扫描
+    enabled: true
+    # 双跑校验：索引查询同时跑原版对照，不一致告警并采用原版结果（已稳定，默认关闭以省双跑开销）
+    verify: false
   # ===== 源自 Mohist 1.20.1 的下游移植（去 Mohist 化；各自独立开关，重启生效） =====
   minecraft-optimizations:
     # 村民脑切：卡住（无法寻路）的村民跳过 brain tick，零感知；铁农场床方块放行。关闭则回退原版每 tick 脑更新
@@ -59,11 +59,14 @@ optimization:
     aggressive-chunk-unloading: true
     chunk-unload-delay: 200
     optimize-chunk-loading: true
+    # 异步区块 IO：区块加载/自动保存由线程池隔离，主线程 get() 等待；降低卡顿尖峰（源自 HariPlayer async_chunk_io）
+    async-chunk-io-enabled: true
     # (废弃) 原 ServerLevelMixin_Optimize 注入 tickChunk 实改 randomTickSpeed 且默认不生效，
-    # 已于 2026-08-02 删除；该键不再有任何效果。区块 IO 异步由核心原生 async 处理。
+    # 已于 2026-08-02 删除；该键不再有任何效果。区块 IO 异步见上方 async-chunk-io-enabled。
     chunk-load-rate-limit: 8
   memory-optimization:
-    cache-cleanup-enabled: true
+    # 反射清缓存无稳定收益且有反射风险，默认关闭
+    cache-cleanup-enabled: false
     cache-cleanup-interval: 300
   async-system:
     enabled: true

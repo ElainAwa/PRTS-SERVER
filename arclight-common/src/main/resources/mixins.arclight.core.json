@@ -501,6 +501,7 @@
     "world.storage.LevelStorageSource_LevelStorageAccessMixin",
     "world.storage.LevelStorageSourceMixin",
     "world.storage.PlayerDataMixin",
-    "world.storage.PrimaryLevelDataMixin"
+    "world.storage.PrimaryLevelDataMixin",
+    "nbt.StringTagVisitorMixin"
   ]
 }

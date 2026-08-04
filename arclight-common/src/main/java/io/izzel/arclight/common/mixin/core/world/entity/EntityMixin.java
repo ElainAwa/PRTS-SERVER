@@ -635,6 +635,9 @@ public abstract class EntityMixin implements InternalEntityBridge, EntityBridge,
     }
 
     public boolean canCollideWith(Entity entity) {
+        if (io.izzel.arclight.i18n.ArclightConfig.spec().getOptimization().getEntityOptimization().isDisableEntityCollisions()) {
+            return false;
+        }
         return this.isPushable();
     }
 

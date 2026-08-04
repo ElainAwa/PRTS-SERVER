@@ -7,19 +7,19 @@ import ninja.leaping.configurate.objectmapping.serialize.ConfigSerializable;
 public class EntityOptimizationSpec {
 
     @Setting("disable-entity-collisions")
-    private final boolean disableEntityCollisions = false;
+    private boolean disableEntityCollisions = false;
 
     @Setting("reduce-entity-updates")
-    private final boolean reduceEntityUpdates = true;
+    private boolean reduceEntityUpdates = true;
 
     @Setting("entity-update-distance")
-    private final double entityUpdateDistance = 64.0;
+    private double entityUpdateDistance = 64.0;
 
     @Setting("max-entities-per-chunk")
-    private final int maxEntitiesPerChunk = 100;
+    private int maxEntitiesPerChunk = 100;
 
     @Setting("max-entities-per-type")
-    private final int maxEntitiesPerType = 150;
+    private int maxEntitiesPerType = 150;
 
     public boolean isDisableEntityCollisions() {
         return disableEntityCollisions;

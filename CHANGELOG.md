@@ -6,6 +6,20 @@
 
 ---
 
+## [1.0.59] — 富版激活范围 + mobcap 移植 + 碰撞禁用 + NBT 崩溃防御
+
+- **P2-1 富版激活范围反移植**：ServerCore 激活范围（activation-range）完整落地 1.20.1（17 mixin + 5 支持类 + 2 桥接类），静态版移出 mixin 注册由富版接管，默认开启
+- **mob_spawning 移植**：mob-spawning 段（enforce-mobcap 默认 false），支持类 EnforcedMobcap/MobSpawnConfig 等 + 4 mixin，服务端强制繁殖上限可选
+- **P2-3 实体碰撞禁用**：`disable-entity-collisions` 开关（默认关），实体碰撞判定前置短路
+- **P1-5 NPI verify 默认 false**：NearbyPlayerIndexSpec 验证降噪
+- **StringTagVisitorMixin NBT 崩溃防御**：`CompoundTag.toString()` 排序遇 null key 崩溃（carryon 扛方块实测触发）防御，纯过滤零兼容风险
+- 清理 fork 上游剩余无用 .github 文件
+
+## [1.0.58] — ClientModGuard 重构与误判修复
+
+- ClientModGuard 单文件拆分为 6 类（GuardPaths / GuardMarkers / ModJarParser / GuardConfig / CrashSelfHeal），行为不变，后续维护定位更快
+- 修复 create_hypertube 误隔离：该模组客户端逻辑有运行时 dist 保护，静态判毒属误判，已加入内置安全集豁免
+
 ## [1.0.56] — 代码审查 P1/P2 缺陷修复
 
 对 1.20.1 全树定制代码审查后的问题修复（报告 `docs/code-review-1201-2026-08-02.md`，未入库）：

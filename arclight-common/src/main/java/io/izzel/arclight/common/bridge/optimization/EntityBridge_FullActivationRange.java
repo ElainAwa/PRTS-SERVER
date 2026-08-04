@@ -3,15 +3,10 @@ package io.izzel.arclight.common.bridge.optimization;
 import io.izzel.arclight.common.optimization.general.servercore.activation_range.ActivationType;
 
 /**
- * 激活范围实体桥。
- * 静态版（org.spigotmc.ActivationRange 改造）仅实现 bridge$inactiveTick/bridge$updateActivation；
- * 富版（ServerCore 移植）实现全部方法。两套共用本接口，靠 @Mixin priority 决定 tick 路径接管。
+ * 富版激活范围实体桥（ServerCore 移植专用）。
+ * 与静态版共用 Entity 类，但接口独立命名，避免与 org.spigotmc 改造的旧桥冲突。
  */
-public interface EntityBridge_ActivationRange {
-
-    void bridge$inactiveTick();
-
-    void bridge$updateActivation();
+public interface EntityBridge_FullActivationRange {
 
     ActivationType bridge$getActivationType();
 
@@ -32,4 +27,6 @@ public interface EntityBridge_ActivationRange {
     void bridge$incFullTickCount();
 
     int bridge$getFullTickCount();
+
+    void bridge$inactiveTick();
 }

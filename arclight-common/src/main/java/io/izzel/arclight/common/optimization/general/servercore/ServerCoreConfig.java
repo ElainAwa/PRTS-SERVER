@@ -8,6 +8,12 @@ import io.izzel.arclight.common.optimization.general.servercore.dynamic.DynamicC
 import io.izzel.arclight.common.optimization.general.servercore.dynamic.DynamicManager;
 import io.izzel.arclight.common.optimization.general.servercore.dynamic.DynamicSetting;
 import io.izzel.arclight.common.optimization.general.servercore.dynamic.Setting;
+import io.izzel.arclight.common.optimization.general.servercore.mob_spawning.EnforcedMobcap;
+import io.izzel.arclight.common.optimization.general.servercore.mob_spawning.IMobCategory;
+import io.izzel.arclight.common.optimization.general.servercore.mob_spawning.MobSpawnConfig;
+import io.izzel.arclight.common.optimization.general.servercore.mob_spawning.MobSpawnEntry;
+import io.izzel.arclight.common.optimization.general.servercore.activation_range.ActivationRangeConfig;
+import net.minecraft.world.entity.MobCategory;
 import org.yaml.snakeyaml.Yaml;
 import org.yaml.snakeyaml.error.YAMLException;
 
@@ -36,6 +42,9 @@ public final class ServerCoreConfig {
     private static FeatureConfig featureConfig = FeatureConfig.DISABLED;
     private static CommandConfig commandConfig = CommandConfig.DISABLED;
     private static OptimizationConfig optimizationConfig = OptimizationConfig.DISABLED;
+    private static MobSpawnConfig mobSpawningConfig = MobSpawnConfig.DISABLED;
+    private static boolean mobSpawningActive = false;
+    private static ActivationRangeConfig activationRangeConfig = new ActivationRangeConfig();
     private static boolean master = true;
     private static boolean loaded = false;
     private static boolean loadFailed = false;
@@ -115,10 +124,10 @@ public final class ServerCoreConfig {
             + "  autosave-interval: 6000\n"
             + "\n"
             + "  # merging: 1-in-X chance for XP orbs to merge (>=1). Vanilla = 40.\n"
-            + "  xp-merge-chance: 40\n"
+            + "  xp-merge-chance: 8\n"
             + "  # merging: Merge radius in blocks for items / xp (>=0.5). Vanilla = 0.5.\n"
-            + "  item-merge-radius: 0.5\n"
-            + "  xp-merge-radius: 0.5\n";
+            + "  item-merge-radius: 2.0\n"
+            + "  xp-merge-radius: 3.0\n";
 
     private static final String COMMANDS_BODY = ""
             + "# ServerCore commands (/servercore, /sc, /mobcaps).\n"
@@ -154,6 +163,197 @@ public final class ServerCoreConfig {
             + "  # /statistics - entity and block-entity counters (needs commands.enabled as well).\n"
             + "  statistics-command: true\n";
 
+    private static final String MOB_SPAWNING_BODY = ""
+            + "# Gives more control over mob spawning.\n"
+            + "mob-spawning:\n"
+            + "  # Mobcap settings for zombie reinforcements.\n"
+            + "  # \u25ba enforce-mobcaps = Whether to enforce mobcaps for this type of mobspawning.\n"
+            + "  # \u25ba additional-capacity = Additional capacity for this specific mobcap. Decides how much it can spawn over the regular mobcap.\n"
+            + "  # It is recommended to allow them to spawn a bit over the regular mobcap as they would otherwise never get a chance to spawn.\n"
+            + "  zombie-reinforcements:\n"
+            + "    enforce-mobcap: false\n"
+            + "    additional-capacity: 40\n"
+            + "\n"
+            + "  # Mobcap settings for zombified piglin spawning from nether portal random ticks.\n"
+            + "  nether-portal-randomticks:\n"
+            + "    enforce-mobcap: false\n"
+            + "    additional-capacity: 40\n"
+            + "\n"
+            + "  # Mobcap settings for mobs spawned from monster spawners.\n"
+            + "  monster-spawners:\n"
+            + "    enforce-mobcap: false\n"
+            + "    additional-capacity: 40\n"
+            + "\n"
+            + "  # A list of mob categories with their respective mobcap and spawn interval.\n"
+            + "  # \u25ba category = The vanilla spawn category.\n"
+            + "  # \u25ba mobcap = The maximum amount of entities in the same category that can spawn near a player.\n"
+            + "  # \u25ba spawn-interval = The interval between spawn attempts in ticks. Higher values mean less frequent spawn attempts.\n"
+            + "  categories:\n"
+            + "    - category: 'MONSTER'\n"
+            + "      mobcap: 80\n"
+            + "      spawn-interval: 1\n"
+            + "\n"
+            + "    - category: 'CREATURE'\n"
+            + "      mobcap: 80\n"
+            + "      spawn-interval: 1\n"
+            + "\n"
+            + "    - category: 'AMBIENT'\n"
+            + "      mobcap: 15\n"
+            + "      spawn-interval: 1\n"
+            + "\n"
+            + "    - category: 'AXOLOTLS'\n"
+            + "      mobcap: 5\n"
+            + "      spawn-interval: 1\n"
+            + "\n"
+            + "    - category: 'UNDERGROUND_WATER_CREATURE'\n"
+            + "      mobcap: 5\n"
+            + "      spawn-interval: 1\n"
+            + "\n"
+            + "    - category: 'WATER_CREATURE'\n"
+            + "      mobcap: 5\n"
+            + "      spawn-interval: 1\n"
+            + "\n"
+            + "    - category: 'WATER_AMBIENT'\n"
+            + "      mobcap: 20\n"
+            + "      spawn-interval: 1\n";
+
+    private static final String DEFAULT_ACTIVATION_RANGE = ""
+            + "\n"
+            + "# Activation range can drastically reduce the amount of lag caused by ticking entities.\n"
+            + "# It does this by cleverly skipping certain entity ticks based on the distance to players and other factors, like immunity checks.\n"
+            + "# Immunity checks determine whether an entity should be ticked even when it's outside the activation range, like for example when it is falling or takes damage.\n"
+            + "# Note: while this is a very powerful feature, it can still slow down mobfarms and break very specific technical contraptions.\n"
+            + "activation-range:\n"
+            + "  # Enables activation range.\n"
+            + "  enabled: true\n"
+            + "  # Briefly ticks entities newly added to the world for 10 seconds (includes both spawning and loading).\n"
+            + "  # This gives them a chance to properly immunize when they are spawned if they should be. Can be helpful for mobfarms.\n"
+            + "  tick-new-entities: true\n"
+            + "  # Enables vertical range checks. By default, activation ranges only work horizontally.\n"
+            + "  # This can greatly improve performance on taller worlds, but might break a few very specific ai-based mobfarms.\n"
+            + "  use-vertical-range: false\n"
+            + "  # Skips 1/4th of entity ticks whilst not immune.\n"
+            + "  # This affects entities that are within the activation range, but not immune (for example by falling or being in water).\n"
+            + "  skip-non-immune: false\n"
+            + "  # Allows villagers to tick regardless of the activation range when panicking.\n"
+            + "  villager-tick-panic: true\n"
+            + "  # The time in seconds that a villager needs to be inactive for before obtaining work immunity (if it has work tasks).\n"
+            + "  villager-work-immunity-after: 20\n"
+            + "  # The amount of ticks an inactive villager will wake up for when it has work immunity.\n"
+            + "  villager-work-immunity-for: 20\n"
+            + "  # A list of entity types that should be excluded from activation range checks.\n"
+            + "  excluded-entity-types:\n"
+            + "    - 'minecraft:ghast'\n"
+            + "    - 'minecraft:hopper_minecart'\n"
+            + "    - 'minecraft:warden'\n"
+            + "  # The activation type that will get assigned to any entity that doesn't have a custom activation type.\n"
+            + "  # > activation-range = The range an entity is required to be in from a player to be activated.\n"
+            + "  # > tick-interval = The interval between 'active' ticks whilst the entity is inactive. Negative values will disable these active ticks.\n"
+            + "  # > wakeup-interval = The interval between inactive entity wakeups in seconds.\n"
+            + "  # > extra-height-up = Allows entities to be ticked when far above the player when vertical range is in use.\n"
+            + "  # > extra-height-down = Allows entities to be ticked when far below the player when vertical range is in use.\n"
+            + "  default-activation-type:\n"
+            + "    activation-range: 16\n"
+            + "    tick-interval: 20\n"
+            + "    wakeup-interval: -1\n"
+            + "    extra-height-up: false\n"
+            + "    extra-height-down: false\n"
+            + "\n"
+            + "  # A list of custom activation types.\n"
+            + "  # > name = The name of the activation type.\n"
+            + "  # > entity-matcher = A list of conditions to filter entities. Only one of these conditions needs to be met for an entity to match.\n"
+            + "  # > If an entity matches multiple activation types, the one highest in the list will be used. The conditions accept the following formats:\n"
+            + "  #   - Entity type matching    |   Uses the entity type's identifier.  |  'minecraft:zombie' matches zombies, but for example not husks or drowned.\n"
+            + "  #   - Typeof class matching   |   Uses the 'typeof:' prefix.          |  'typeof:monster' matches all monsters.\n"
+            + "  # > Available typeof classes: mob, monster, raider, neutral, ambient, animal, water_animal, flying_animal, flying_monster, villager, projectile.\n"
+            + "  custom-activation-types:\n"
+            + "    - name: 'raider'\n"
+            + "      activation-range: 48\n"
+            + "      tick-interval: 20\n"
+            + "      wakeup-interval: 20\n"
+            + "      extra-height-up: true\n"
+            + "      extra-height-down: false\n"
+            + "      entity-matcher:\n"
+            + "        - 'typeof:raider'\n"
+            + "\n"
+            + "    - name: 'water'\n"
+            + "      activation-range: 16\n"
+            + "      tick-interval: 20\n"
+            + "      wakeup-interval: 60\n"
+            + "      extra-height-up: false\n"
+            + "      extra-height-down: false\n"
+            + "      entity-matcher:\n"
+            + "        - 'typeof:water_animal'\n"
+            + "\n"
+            + "    - name: 'villager'\n"
+            + "      activation-range: 16\n"
+            + "      tick-interval: 20\n"
+            + "      wakeup-interval: 30\n"
+            + "      extra-height-up: false\n"
+            + "      extra-height-down: false\n"
+            + "      entity-matcher:\n"
+            + "        - 'typeof:villager'\n"
+            + "\n"
+            + "    - name: 'zombie'\n"
+            + "      activation-range: 16\n"
+            + "      tick-interval: 20\n"
+            + "      wakeup-interval: 20\n"
+            + "      extra-height-up: true\n"
+            + "      extra-height-down: false\n"
+            + "      entity-matcher:\n"
+            + "        - 'minecraft:zombie'\n"
+            + "        - 'minecraft:husk'\n"
+            + "\n"
+            + "    - name: 'monster-below'\n"
+            + "      activation-range: 32\n"
+            + "      tick-interval: 20\n"
+            + "      wakeup-interval: 20\n"
+            + "      extra-height-up: true\n"
+            + "      extra-height-down: true\n"
+            + "      entity-matcher:\n"
+            + "        - 'minecraft:creeper'\n"
+            + "        - 'minecraft:slime'\n"
+            + "        - 'minecraft:magma_cube'\n"
+            + "        - 'minecraft:hoglin'\n"
+            + "\n"
+            + "    - name: 'flying-monster'\n"
+            + "      activation-range: 48\n"
+            + "      tick-interval: 20\n"
+            + "      wakeup-interval: 20\n"
+            + "      extra-height-up: true\n"
+            + "      extra-height-down: false\n"
+            + "      entity-matcher:\n"
+            + "        - 'minecraft:ghast'\n"
+            + "        - 'minecraft:phantom'\n"
+            + "\n"
+            + "    - name: 'monster'\n"
+            + "      activation-range: 32\n"
+            + "      tick-interval: 20\n"
+            + "      wakeup-interval: 20\n"
+            + "      extra-height-up: true\n"
+            + "      extra-height-down: false\n"
+            + "      entity-matcher:\n"
+            + "        - 'typeof:monster'\n"
+            + "\n"
+            + "    - name: 'animal'\n"
+            + "      activation-range: 16\n"
+            + "      tick-interval: 20\n"
+            + "      wakeup-interval: 60\n"
+            + "      extra-height-up: false\n"
+            + "      extra-height-down: false\n"
+            + "      entity-matcher:\n"
+            + "        - 'typeof:animal'\n"
+            + "        - 'typeof:ambient'\n"
+            + "\n"
+            + "    - name: 'creature'\n"
+            + "      activation-range: 24\n"
+            + "      tick-interval: 20\n"
+            + "      wakeup-interval: 30\n"
+            + "      extra-height-up: false\n"
+            + "      extra-height-down: false\n"
+            + "      entity-matcher:\n"
+            + "        - 'typeof:mob'\n";
+
     private static final String DEFAULT = ""
             + "# PRTS ServerCore optimization toggles (ported from Wesley1808/ServerCore, Mojmap/Forge 1.20.1)\n"
             + "# These optimizations are built into the PRTS core; this file lets you disable any of them.\n"
@@ -172,13 +372,18 @@ public final class ServerCoreConfig {
             + "\n"
             + COMMANDS_BODY
             + "\n"
-            + OPTIMIZATIONS_BODY;
+            + OPTIMIZATIONS_BODY
+            + "\n"
+            + MOB_SPAWNING_BODY
+            + "\n"
+            + DEFAULT_ACTIVATION_RANGE;
 
     private static final String DEFAULT_BREEDING_CAP = "\n" + BREEDING_CAP_BODY;
     private static final String DEFAULT_DYNAMIC = "\n" + DYNAMIC_BODY;
     private static final String DEFAULT_FEATURES = "\n" + FEATURES_BODY;
     private static final String DEFAULT_COMMANDS = "\n" + COMMANDS_BODY;
     private static final String DEFAULT_OPTIMIZATIONS = "\n" + OPTIMIZATIONS_BODY;
+    private static final String DEFAULT_MOB_SPAWNING = "\n" + MOB_SPAWNING_BODY;
 
     public static void load() {
         if (loaded || loadFailed) return;
@@ -230,6 +435,22 @@ public final class ServerCoreConfig {
                         appendSection(cfg, DEFAULT_OPTIMIZATIONS); // 旧配置补写新段
                         optimizationConfig = parseOptimizations(defaultSection(DEFAULT_OPTIMIZATIONS, "optimizations"));
                     }
+                    Object ms = m.get("mob-spawning");
+                    if (ms instanceof Map) {
+                        mobSpawningConfig = parseMobSpawning((Map<?, ?>) ms);
+                        mobSpawningActive = true;
+                    } else {
+                        appendSection(cfg, DEFAULT_MOB_SPAWNING); // 旧配置补写新段
+                        mobSpawningConfig = parseMobSpawning(defaultSection(DEFAULT_MOB_SPAWNING, "mob-spawning"));
+                        mobSpawningActive = true;
+                    }
+                    Object ar = m.get("activation-range");
+                    if (ar instanceof Map) {
+                        activationRangeConfig = ActivationRangeConfig.parse((Map<?, ?>) ar);
+                    } else {
+                        appendSection(cfg, DEFAULT_ACTIVATION_RANGE); // 旧配置补写新段
+                        activationRangeConfig = ActivationRangeConfig.parse(defaultSection(DEFAULT_ACTIVATION_RANGE, "activation-range"));
+                    }
                 }
             } catch (IOException | YAMLException e) {
                 loadFailed = true; // 读取失败则回退为关闭，保持原版行为
@@ -268,9 +489,32 @@ public final class ServerCoreConfig {
         return master ? optimizationConfig : OptimizationConfig.DISABLED;
     }
 
+    public static MobSpawnConfig mobSpawning() {
+        load();
+        return master ? mobSpawningConfig : MobSpawnConfig.DISABLED;
+    }
+
+    public static boolean mobSpawningActive() {
+        load();
+        return mobSpawningActive;
+    }
+
+    public static ActivationRangeConfig activationRange() {
+        load();
+        if (!master) {
+            activationRangeConfig.forceDisable();
+        }
+        return activationRangeConfig;
+    }
+
+    public static boolean isActivationRangeEnabled() {
+        return activationRange().enabled();
+    }
+
     public static boolean reload() {
         loaded = false;
         loadFailed = false;
+        IMobCategory.restoreAll(); // 先还原旧配置对 MobCategory 的修改
         load();
         if (dynamicActive()) DynamicManager.reload();
         return !loadFailed;
@@ -333,11 +577,11 @@ public final class ServerCoreConfig {
         boolean preventMoving = asBool(m.get("prevent-moving-into-unloaded-chunks"), false);
         int autosaveInterval = asInt(m.get("autosave-interval"), 6000);
         if (autosaveInterval < 1) autosaveInterval = 1;
-        int xpMergeChance = asInt(m.get("xp-merge-chance"), 40);
+        int xpMergeChance = asInt(m.get("xp-merge-chance"), 8);
         if (xpMergeChance < 1) xpMergeChance = 1;
-        double itemMergeRadius = asDouble(m.get("item-merge-radius"), 0.5D);
+        double itemMergeRadius = asDouble(m.get("item-merge-radius"), 2.0D);
         if (itemMergeRadius < 0.5D) itemMergeRadius = 0.5D;
-        double xpMergeRadius = asDouble(m.get("xp-merge-radius"), 0.5D);
+        double xpMergeRadius = asDouble(m.get("xp-merge-radius"), 3.0D);
         if (xpMergeRadius < 0.5D) xpMergeRadius = 0.5D;
         return new FeatureConfig(enabled, disableSpawnChunks, preventMoving,
                 autosaveInterval, xpMergeChance, itemMergeRadius, xpMergeRadius);
@@ -360,6 +604,47 @@ public final class ServerCoreConfig {
         boolean randomTicks = asBool(m.get("chunk-random-ticks"), true);
         boolean statistics = asBool(m.get("statistics-command"), true);
         return new OptimizationConfig(true, mapTicking, broadcasts, randomTicks, statistics);
+    }
+
+    private static MobSpawnConfig parseMobSpawning(Map<?, ?> m) {
+        EnforcedMobcap zombie = parseEnforced(asMap(m.get("zombie-reinforcements")));
+        EnforcedMobcap portal = parseEnforced(asMap(m.get("nether-portal-randomticks")));
+        EnforcedMobcap spawner = parseEnforced(asMap(m.get("monster-spawners")));
+        List<MobSpawnEntry> categories = new ArrayList<>();
+        Object list = m.get("categories");
+        if (list instanceof List) {
+            for (Object item : (List<?>) list) {
+                Map<?, ?> cm = asMap(item);
+                if (cm == null) continue;
+                String catName = asStr(cm.get("category"));
+                MobCategory mc = safeMobCategory(catName);
+                if (mc == null) continue;
+                int capacity = asInt(cm.get("mobcap"), mc.getMaxInstancesPerChunk());
+                int interval = asInt(cm.get("spawn-interval"), 1);
+                int despawn = asInt(cm.get("despawn-distance"), mc.getDespawnDistance());
+                categories.add(new MobSpawnEntry(mc, capacity, interval, despawn));
+            }
+        }
+        MobSpawnConfig config = new MobSpawnConfig(zombie, portal, spawner, EnforcedMobcap.DISABLED, categories);
+        // 应用配置到 MobCategory 实例（改 max / spawnInterval 等）
+        IMobCategory.apply(config.categories());
+        return config;
+    }
+
+    private static EnforcedMobcap parseEnforced(Map<?, ?> m) {
+        if (m == null) return EnforcedMobcap.DISABLED;
+        boolean enforce = asBool(m.get("enforce-mobcap"), false);
+        int capacity = asInt(m.get("additional-capacity"), 0);
+        return enforce ? new EnforcedMobcap(true, capacity) : EnforcedMobcap.DISABLED;
+    }
+
+    private static MobCategory safeMobCategory(String name) {
+        if (name == null) return null;
+        try {
+            return MobCategory.valueOf(name.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
     }
 
     // 补写新段后回填内存值，避免升级首启整段不生效
