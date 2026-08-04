@@ -32,7 +32,7 @@
 
 ## 版本
 
-- 当前：**v1.21.1-1.0.16**（GitHub Releases 获取；Latest 跟随最新发布）
+- 当前：**v1.21.1-1.0.20**（GitHub Releases 获取；Latest 跟随最新发布）
 - 演进记录：GitHub Releases 各版本说明
 
 ## 构建
@@ -51,7 +51,7 @@
 ## 配置
 
 - `prts.yml`（服务端根目录）：既有优化（NPI、routeB、tracking 等）开关
-- `config/servercore.yml`：ServerCore 六段开关（activation-range / breeding-cap / mob-spawning / features / dynamic / commands），缺失段启动时自动补写并生效
+- `config/servercore.yml`：ServerCore 六段开关（activation-range / breeding-cap / mob-spawning / features / dynamic / commands）；features 段内含可靠区块保存 journal 三键（reliable-chunk-save / journal-interval-seconds / journal-chunks-per-tick，默认关），缺失段启动时自动补写并生效
 
 ## 兼容性
 
