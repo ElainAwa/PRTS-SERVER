@@ -29,7 +29,7 @@
 
 ## 版本
 
-- 当前：**v1.0.56**（GitHub Releases 获取；Latest 跟随最新发布）
+- 当前：**v1.0.60**（GitHub Releases 获取；Latest 跟随最新发布）
 - 演进记录：[CHANGELOG.md](CHANGELOG.md)
 
 ## 构建
@@ -48,7 +48,7 @@
 ## 配置
 
 - `prts.yml`（服务端根目录）：既有优化（NPI、routeB、tracking 等）开关
-- `config/servercore.yml`：ServerCore 五段开关（breeding-cap / dynamic / features / commands / optimizations），缺失段启动时自动补写并生效
+- `config/servercore.yml`：ServerCore 五段开关（breeding-cap / dynamic / features / commands / optimizations）；features 段内含可靠区块保存 journal 三键（reliable-chunk-save / journal-interval-seconds / journal-chunks-per-tick，默认关，由 features.enabled 母开关控制），缺失段启动时自动补写并生效
 
 ## 兼容性
 
