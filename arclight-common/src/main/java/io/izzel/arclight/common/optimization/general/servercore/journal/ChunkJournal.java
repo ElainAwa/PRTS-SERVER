@@ -24,6 +24,7 @@ import java.io.EOFException;
 import java.io.IOException;
 import java.nio.channels.Channels;
 import java.nio.channels.FileChannel;
+import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -35,6 +36,8 @@ import java.util.List;
  * 可靠区块保存（journal 模式，features.reliable-chunk-save）。
  * 每周期把脏区块序列化写入 journal/&lt;world&gt;.jrn 并 force 落盘；非正常退出后启动回放。
  * 分片 flush：脏区块收集与序列化跨 tick 摊平，避免超大地图单 tick 卡死。
+ * 回放安全：① WAL 权威比较——按 LastUpdate 仅当 journal 比 region 更新才写回，防旧快照覆盖新数据；
+ * ② 两阶段删除——回放后 rename .jrn→.jrn.applied 保留证据，验证窗口(writeAll 周期)后 cleanupApplied 删除。
  */
 public final class ChunkJournal {
 
@@ -139,6 +142,7 @@ public final class ChunkJournal {
                 Files.move(tmp, target, StandardCopyOption.REPLACE_EXISTING);
                 LOGGER.info("[PRTS-Journal] flushed {} chunks -> {}", pl.done.size(), target);
             }
+            cleanupApplied();
         } catch (IOException e) {
             LOGGER.warn("[PRTS-Journal] flush failed: {}", e.toString());
         }
@@ -150,19 +154,29 @@ public final class ChunkJournal {
         return bos.toByteArray();
     }
 
-    /** 启动回放：journal 残留（上次非正常退出）→ 写回 region → 删 journal。 */
+    /** 启动回放：journal 残留（上次非正常退出）→ 按 LastUpdate 权威比较写回 region → rename 为 .applied 保留证据。 */
     public static void recover(ServerLevel level) {
         Path jrn = DIR.resolve(name(level));
-        if (!Files.exists(jrn)) {
+        Path applied = DIR.resolve(name(level) + ".applied");
+        Path source;
+        boolean wasJournal;
+        if (Files.exists(jrn)) {
+            source = jrn;
+            wasJournal = true;
+        } else if (Files.exists(applied)) {
+            // 上次已回放但未过验证窗口又崩：.applied 等同 .jrn，幂等重放，保留不删
+            source = applied;
+            wasJournal = false;
+        } else {
             return;
         }
         int n = 0;
         try {
             ChunkStorage storage = (ChunkStorage) ((ServerChunkCache) level.getChunkSource()).chunkMap;
-            try (DataInputStream in = new DataInputStream(new BufferedInputStream(Files.newInputStream(jrn)))) {
+            try (DataInputStream in = new DataInputStream(new BufferedInputStream(Files.newInputStream(source)))) {
                 if (!MAGIC.equals(in.readUTF()) || in.readInt() != VERSION) {
-                    LOGGER.warn("[PRTS-Journal] {}: bad header, dropped", jrn);
-                    Files.delete(jrn);
+                    LOGGER.warn("[PRTS-Journal] {}: bad header, dropped", source);
+                    Files.delete(source);
                     return;
                 }
                 while (true) {
@@ -177,29 +191,76 @@ public final class ChunkJournal {
                         break;
                     }
                     if (len < 0 || len > 64 * 1024 * 1024) {
-                        LOGGER.warn("[PRTS-Journal] {}: corrupt entry at x={} z={}, rest dropped", jrn, x, z);
+                        LOGGER.warn("[PRTS-Journal] {}: corrupt entry at x={} z={}, rest dropped", source, x, z);
                         break;
                     }
                     byte[] bytes = new byte[len];
                     in.readFully(bytes);
                     CompoundTag tag = NbtIo.read(new DataInputStream(new ByteArrayInputStream(bytes)));
-                    if (tag != null) {
+                    if (tag != null && shouldReplay(storage, new ChunkPos(x, z), tag)) {
                         storage.write(new ChunkPos(x, z), tag).join();
                         n++;
                     }
                 }
             }
-            Files.delete(jrn);
+            if (wasJournal) {
+                // 两阶段删除：先原子 rename 保留证据，验证窗口(writeAll 周期)后再清
+                try {
+                    Files.deleteIfExists(applied);
+                    Files.move(source, applied, StandardCopyOption.ATOMIC_MOVE);
+                } catch (IOException e) {
+                    LOGGER.warn("[PRTS-Journal] rename {} failed, deleting: {}", source, e.toString());
+                    try {
+                        Files.delete(source);
+                    } catch (IOException ignored) {
+                    }
+                }
+            }
             LOGGER.info("[PRTS-Journal] recovered {} chunks -> {}", n, level.dimension().location());
         } catch (IOException e) {
             LOGGER.warn("[PRTS-Journal] recover failed ({}): {}", level.dimension().location(), e.toString());
         }
     }
 
-    /** 正常关服：删除 journal（= 干净标记）。 */
+    /** WAL 权威比较：仅当 journal 快照比 region 现有数据更新时才回放，避免旧快照覆盖新数据。 */
+    private static boolean shouldReplay(ChunkStorage storage, ChunkPos pos, CompoundTag journalTag) {
+        try {
+            CompoundTag existing = storage.read(pos).join().orElse(null);
+            if (existing == null) {
+                return true; // region 缺失 → 应用 journal
+            }
+            long journalLU = getLastUpdate(journalTag);
+            long regionLU = getLastUpdate(existing);
+            return journalLU > regionLU; // 仅当 journal 更新才覆盖
+        } catch (Exception e) {
+            LOGGER.warn("[PRTS-Journal] read region for compare failed, conservative replay: {}", e.toString());
+            return true;
+        }
+    }
+
+    /** LastUpdate = ChunkSerializer 序列化时刻的全局 gameTime，天然单调新鲜度标尺。 */
+    private static long getLastUpdate(CompoundTag tag) {
+        return tag.getLong("LastUpdate");
+    }
+
+    /** 验证窗口后清理上轮 .applied：此时新一轮 journal 已 force 落盘、region 持久化安全。 */
+    private static void cleanupApplied() {
+        try (DirectoryStream<Path> ds = Files.newDirectoryStream(DIR, "*.jrn.applied")) {
+            for (Path p : ds) {
+                try {
+                    Files.delete(p);
+                } catch (IOException ignored) {
+                }
+            }
+        } catch (IOException ignored) {
+        }
+    }
+
+    /** 正常关服：删除 journal 与 .applied（双保险）。 */
     public static void markClean(ServerLevel level) {
         try {
             Files.deleteIfExists(DIR.resolve(name(level)));
+            Files.deleteIfExists(DIR.resolve(name(level) + ".applied"));
         } catch (IOException ignored) {
         }
     }
