@@ -46,7 +46,7 @@ import java.util.function.Predicate;
 
 /**
  * 实体激活范围（移植自 ServerCore，源出 Paper/Spigot Entity-Activation-Range，作者 Aikar，GPL-3.0）。
- * 接口注入改为 EntityBridge_ActivationRange 桥强转，配置改由 ServerCoreConfig 提供。
+ * 接口注入改为 EntityBridge_FullActivationRange 桥强转，配置改由 ServerCoreConfig 提供。
  */
 public final class ActivationRange {
 

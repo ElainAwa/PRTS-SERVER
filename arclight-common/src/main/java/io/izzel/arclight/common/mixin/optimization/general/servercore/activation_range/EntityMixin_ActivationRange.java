@@ -41,6 +41,12 @@ public abstract class EntityMixin_ActivationRange implements EntityBridge_FullAc
     public boolean activationRange$inactive;
     public int activationRange$fullTickCount;
 
+    // Spigot 兼容字段：tracking-range 集成层 (ChunkManagerMixin_TrackingRange) 仍调
+    // org.spigotmc.TrackingRange.getEntityTrackingRange(entity) 读取此字段。ServerCore 移植时
+    // 把激活逻辑字段改名为 activationRange$type，漏掉此 Spigot 字段导致 NoSuchFieldError。
+    // 此处按原 Spigot 类型/值补注入，与 ServerCore 的 activationRange$type 并存、互不影响。
+    public org.spigotmc.ActivationRange.ActivationType activationType;
+
     @Inject(method = "<init>", at = @At("RETURN"))
     private void activationRange$init(EntityType<?> entityType, Level level, CallbackInfo ci) {
         final Entity entity = (Entity) (Object) this;
@@ -48,6 +54,8 @@ public abstract class EntityMixin_ActivationRange implements EntityBridge_FullAc
         this.activationRange$excluded = level == null
                 || !ServerCoreConfig.isActivationRangeEnabled()
                 || ActivationRange.isExcluded(entity);
+        // Spigot 兼容：供 TrackingRange 读取（见上方字段注释）。
+        this.activationType = org.spigotmc.ActivationRange.initializeEntityActivationType(entity);
     }
 
     // 被活塞推动时唤醒实体，避免卡在活塞里
