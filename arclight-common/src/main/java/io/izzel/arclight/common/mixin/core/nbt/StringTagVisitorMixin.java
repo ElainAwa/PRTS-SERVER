@@ -19,7 +19,7 @@ public class StringTagVisitorMixin {
 
     @Redirect(method = "visitCompound",
             at = @At(value = "INVOKE", target = "Ljava/util/Collections;sort(Ljava/util/List;)V"))
-    private static void arclight$sortKeys(List<String> list) {
+    private void arclight$sortKeys(List<String> list) {
         list.removeIf(Objects::isNull);
         Collections.sort(list);
     }
