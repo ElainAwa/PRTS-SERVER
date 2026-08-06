@@ -33,7 +33,6 @@ Only zero-perception low-level optimizations and crash fixes — gameplay is unc
 ## Versions
 
 - Current: **v1.21.1-1.0.23** (get from GitHub Releases; Latest follows the newest release)
-- Changelog: see per-release notes on GitHub Releases
 
 ## Build
 
