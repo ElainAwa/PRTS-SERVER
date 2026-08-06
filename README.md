@@ -29,8 +29,8 @@ Only zero-perception low-level optimizations and crash fixes — gameplay is unc
 
 ## Versions
 
-- Current: **v1.0.56** (get from GitHub Releases; Latest follows the newest release)
-- Changelog: [CHANGELOG.md](CHANGELOG.md)
+- Current: **v1.0.63** (get from GitHub Releases; Latest follows the newest release)
+- Changelog: see per-release notes on GitHub Releases
 
 ## Build
 
