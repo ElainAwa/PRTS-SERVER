@@ -14,6 +14,8 @@ import io.izzel.arclight.common.optimization.general.servercore.mob_spawning.Mob
 import io.izzel.arclight.common.optimization.general.servercore.mob_spawning.MobSpawnEntry;
 import io.izzel.arclight.common.optimization.general.servercore.activation_range.ActivationRangeConfig;
 import net.minecraft.world.entity.MobCategory;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.yaml.snakeyaml.Yaml;
 import org.yaml.snakeyaml.error.YAMLException;
 
@@ -48,6 +50,7 @@ public final class ServerCoreConfig {
     private static boolean master = true;
     private static boolean loaded = false;
     private static boolean loadFailed = false;
+    private static final Logger LOGGER = LogManager.getLogger("PRTS-ServerCore");
 
     private static final String BREEDING_CAP_BODY = ""
             + "# A special mobcap that only affects the breeding of animals and villagers.\n"
@@ -398,6 +401,7 @@ public final class ServerCoreConfig {
         synchronized (ServerCoreConfig.class) {
             if (loaded || loadFailed) return;
             File cfg = new File("config", FILE_NAME);
+            LOGGER.info("Loading ServerCore config from {}", cfg.getAbsolutePath());
             if (!cfg.exists()) {
                 writeDefault(cfg);
             }
@@ -408,60 +412,96 @@ public final class ServerCoreConfig {
                     Map<?, ?> m = (Map<?, ?>) root;
                     Object en = m.get("enabled");
                     if (en instanceof Boolean) master = (Boolean) en;
+                    // 各段：存在且为 Map → 解析；缺段(null) → 补写默认（升级路径）；存在但非 Map → 用默认且不追加（避免重复 key 覆盖）
                     Object bc = m.get("breeding-cap");
                     if (bc instanceof Map) {
                         breedingCapConfig = parseBreedingCap((Map<?, ?>) bc);
+                    } else if (bc == null) {
+                        LOGGER.info("servercore.yml missing 'breeding-cap', appending defaults");
+                        appendSection(cfg, DEFAULT_BREEDING_CAP);
+                        breedingCapConfig = parseBreedingCap(defaultSection(DEFAULT_BREEDING_CAP, "breeding-cap"));
                     } else {
-                        appendSection(cfg, DEFAULT_BREEDING_CAP); // 旧配置补写新段
+                        LOGGER.warn("servercore.yml 'breeding-cap' is malformed (not a mapping); using defaults");
                         breedingCapConfig = parseBreedingCap(defaultSection(DEFAULT_BREEDING_CAP, "breeding-cap"));
                     }
                     Object dy = m.get("dynamic");
                     if (dy instanceof Map) {
                         dynamicConfig = parseDynamic((Map<?, ?>) dy);
+                    } else if (dy == null) {
+                        LOGGER.info("servercore.yml missing 'dynamic', appending defaults");
+                        appendSection(cfg, DEFAULT_DYNAMIC);
+                        dynamicConfig = parseDynamic(defaultSection(DEFAULT_DYNAMIC, "dynamic"));
                     } else {
-                        appendSection(cfg, DEFAULT_DYNAMIC); // 旧配置补写新段
+                        LOGGER.warn("servercore.yml 'dynamic' is malformed (not a mapping); using defaults");
                         dynamicConfig = parseDynamic(defaultSection(DEFAULT_DYNAMIC, "dynamic"));
                     }
                     Object ft = m.get("features");
                     if (ft instanceof Map) {
                         featureConfig = parseFeatures((Map<?, ?>) ft);
+                    } else if (ft == null) {
+                        LOGGER.info("servercore.yml missing 'features', appending defaults");
+                        appendSection(cfg, DEFAULT_FEATURES);
+                        featureConfig = parseFeatures(defaultSection(DEFAULT_FEATURES, "features"));
                     } else {
-                        appendSection(cfg, DEFAULT_FEATURES); // 旧配置补写新段
+                        LOGGER.warn("servercore.yml 'features' is malformed (not a mapping); using defaults");
                         featureConfig = parseFeatures(defaultSection(DEFAULT_FEATURES, "features"));
                     }
                     Object cm = m.get("commands");
                     if (cm instanceof Map) {
                         commandConfig = parseCommands((Map<?, ?>) cm);
+                    } else if (cm == null) {
+                        LOGGER.info("servercore.yml missing 'commands', appending defaults");
+                        appendSection(cfg, DEFAULT_COMMANDS);
+                        commandConfig = parseCommands(defaultSection(DEFAULT_COMMANDS, "commands"));
                     } else {
-                        appendSection(cfg, DEFAULT_COMMANDS); // 旧配置补写新段
+                        LOGGER.warn("servercore.yml 'commands' is malformed (not a mapping); using defaults");
                         commandConfig = parseCommands(defaultSection(DEFAULT_COMMANDS, "commands"));
                     }
                     Object op = m.get("optimizations");
                     if (op instanceof Map) {
                         optimizationConfig = parseOptimizations((Map<?, ?>) op);
+                    } else if (op == null) {
+                        LOGGER.info("servercore.yml missing 'optimizations', appending defaults");
+                        appendSection(cfg, DEFAULT_OPTIMIZATIONS);
+                        optimizationConfig = parseOptimizations(defaultSection(DEFAULT_OPTIMIZATIONS, "optimizations"));
                     } else {
-                        appendSection(cfg, DEFAULT_OPTIMIZATIONS); // 旧配置补写新段
+                        LOGGER.warn("servercore.yml 'optimizations' is malformed (not a mapping); using defaults");
                         optimizationConfig = parseOptimizations(defaultSection(DEFAULT_OPTIMIZATIONS, "optimizations"));
                     }
                     Object ms = m.get("mob-spawning");
                     if (ms instanceof Map) {
                         mobSpawningConfig = parseMobSpawning((Map<?, ?>) ms);
                         mobSpawningActive = true;
+                    } else if (ms == null) {
+                        LOGGER.info("servercore.yml missing 'mob-spawning', appending defaults");
+                        appendSection(cfg, DEFAULT_MOB_SPAWNING);
+                        mobSpawningConfig = parseMobSpawning(defaultSection(DEFAULT_MOB_SPAWNING, "mob-spawning"));
+                        mobSpawningActive = true;
                     } else {
-                        appendSection(cfg, DEFAULT_MOB_SPAWNING); // 旧配置补写新段
+                        LOGGER.warn("servercore.yml 'mob-spawning' is malformed (not a mapping); using defaults");
                         mobSpawningConfig = parseMobSpawning(defaultSection(DEFAULT_MOB_SPAWNING, "mob-spawning"));
                         mobSpawningActive = true;
                     }
                     Object ar = m.get("activation-range");
                     if (ar instanceof Map) {
                         activationRangeConfig = ActivationRangeConfig.parse((Map<?, ?>) ar);
+                    } else if (ar == null) {
+                        LOGGER.info("servercore.yml missing 'activation-range', appending defaults");
+                        appendSection(cfg, DEFAULT_ACTIVATION_RANGE);
+                        activationRangeConfig = ActivationRangeConfig.parse(defaultSection(DEFAULT_ACTIVATION_RANGE, "activation-range"));
                     } else {
-                        appendSection(cfg, DEFAULT_ACTIVATION_RANGE); // 旧配置补写新段
+                        LOGGER.warn("servercore.yml 'activation-range' is malformed (not a mapping); using defaults");
                         activationRangeConfig = ActivationRangeConfig.parse(defaultSection(DEFAULT_ACTIVATION_RANGE, "activation-range"));
                     }
+                    LOGGER.info("ServerCore config loaded: master={}, dynamic.enabled={}", master, dynamicConfig.enabled());
+                } else {
+                    loadFailed = true;
+                    LOGGER.error("ServerCore config at {} is not a valid YAML mapping (root={}); using built-in defaults. dynamic/breeding-cap/mob-spawning/commands/optimizations are DISABLED until the file is fixed.",
+                            cfg.getAbsolutePath(), root == null ? "null/empty" : root.getClass().getSimpleName());
                 }
             } catch (IOException | YAMLException e) {
-                loadFailed = true; // 读取失败则回退为关闭，保持原版行为
+                loadFailed = true;
+                LOGGER.error("Failed to load ServerCore config at {}: {}", cfg.getAbsolutePath(), e.getMessage(), e);
             }
             loaded = true;
         }
