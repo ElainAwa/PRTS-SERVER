@@ -1,4 +1,13 @@
 /*
+ * PRTS - Arclight/Luminara fork
+ * Copyright (c) 2024-2026 ElainAwa
+ *
+ * This file adapts code from Paper by PaperMC/Spottedleaf
+ * (https://github.com/PaperMC/Paper), licensed under GPL-3.0.
+ * Original code Copyright (c) PaperMC.
+ */
+
+/*
  * Licensed under https://github.com/PaperMC/Paper/blob/master/licenses/MIT.md
  */
 

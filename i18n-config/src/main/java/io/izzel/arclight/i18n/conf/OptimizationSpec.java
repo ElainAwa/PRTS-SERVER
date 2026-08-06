@@ -1,3 +1,12 @@
+/*
+ * PRTS - Arclight/Luminara fork
+ * Copyright (c) 2024-2026 ElainAwa
+ *
+ * This file adapts code from Mohist by MohistMC
+ * (https://github.com/MohistMC/Mohist), licensed under GPL-3.0.
+ * Original code Copyright (c) MohistMC.
+ */
+
 package io.izzel.arclight.i18n.conf;
 
 import io.izzel.arclight.i18n.conf.MinecraftOptimizationSpec;

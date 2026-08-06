@@ -1,3 +1,12 @@
+/*
+ * PRTS - Arclight/Luminara fork
+ * Copyright (c) 2024-2026 ElainAwa
+ *
+ * This file adapts code from HariPlayer by JustHari01
+ * (https://modrinth.com/mod/hp-hariplayer), licensed under MIT.
+ * Original code Copyright (c) JustHari01.
+ */
+
 package io.izzel.arclight.common.optimization.general.util;
 
 /** Local re-implementation of the coordinate-packing helpers that HariPlayer's */
