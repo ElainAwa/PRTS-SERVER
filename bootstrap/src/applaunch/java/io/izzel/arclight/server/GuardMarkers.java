@@ -153,10 +153,11 @@ public final class GuardMarkers {
     ));
 
     // 已核实为双端（含服务端逻辑）的模组，引用分析无法区分，故内置保护，避免误删导致缺核心模组
-    // v29 rootcause: create_hypertube 已从 detectPoisonMixin 治本（双端类目标不再误标毒），此处冗余项移除
+    // create_hypertube 必须保留：v29 曾因「detectPoisonMixin 治本」将其移除，但 Goal B（quarantineClientOnly）
+    // 的 clientOnly 判定仍依赖本集豁免；其含 client 段 mixin 会被判 clientOnly，漏在本集即被 Goal B 误隔离。
     public static final Set<String> BUILTIN_SAFE = new HashSet<String>(Arrays.asList(
         "zenith", "cloth_config", "cloth-config", "resourcefulconfig", "resourceful-config",
-        "ae2ct", "ae2", "create"
+        "ae2ct", "ae2", "create", "create_hypertube"
     ));
 
     private GuardMarkers() {}
