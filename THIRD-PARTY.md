@@ -46,7 +46,6 @@ PRTS 服务端是 Arclight（代码层内部 rebrand 名 Luminara，原作者 Iz
   完整 MIT 许可文本见各自上游仓库（本仓库仅借鉴源码并保留声明，不重新分发其二进制）。
 - **GPL-3.0 上游（ServerCore、Mohist、Youer、Paper）**：保留原作者署名与 GPL-3.0 声明，
   整体延续本仓库 GPL-3.0 发布。
-- 文件头署名块豁免常规"注释 ≤ 2 行"约束（属许可证强制要求）。
 
 ## 许可证全文
 
