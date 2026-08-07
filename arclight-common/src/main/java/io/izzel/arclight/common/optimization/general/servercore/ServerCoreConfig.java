@@ -260,16 +260,21 @@ public final class ServerCoreConfig {
             + "# PathFinder Map/Set allocation reductions.\n"
             + "pathfinding: true\n"
             + "\n"
-            + "# EXPERIMENTAL: offload PathFinder A* computation to worker threads (read-only copy computation).\n"
+            + "# Offload PathFinder A* computation to worker threads (read-only copy computation, P1).\n"
             + "# The path is computed off the main thread and applied on the next tick boundary (0-1 tick delay).\n"
-            + "# Disabled by default; enable only for controlled testing.\n"
-            + "pathfinding-async: false\n"
+            + "# Enabled by default on the parallel branch; set false to disable.\n"
+            + "pathfinding-async: true\n"
             + "\n"
-            + "# EXPERIMENTAL: tick each dimension on its own worker thread (dimension-level parallelism, P2).\n"
+            + "# Tick each dimension on its own worker thread (dimension-level parallelism, P2).\n"
             + "# All dimension ticks are batched behind a per-tick barrier on the main thread; NeoForge\n"
             + "# level tick events stay on the main thread, cross-dimension teleports are deferred to the barrier.\n"
-            + "# Disabled by default; enable only for controlled testing.\n"
-            + "dimension-parallel: false\n"
+            + "# Enabled by default on the parallel branch; set false to disable.\n"
+            + "dimension-parallel: true\n"
+            + "\n"
+            + "# Tick block/entity/block-entity phases on per-region worker threads (region-level parallelism, P3).\n"
+            + "# Cross-region writes go through the update-set protocol (1-tick window); entity management\n"
+            + "# is guarded by two-level locks. Enabled by default on the parallel branch; set false to disable.\n"
+            + "region-parallel: true\n"
             + "\n"
             + FEATURES_BODY
             + "\n"
@@ -433,10 +438,8 @@ public final class ServerCoreConfig {
         synchronized (ServerCoreConfig.class) {
             if (loaded || loadFailed) return;
             for (Feature f : Feature.values()) FEATURES.put(f, Boolean.TRUE);
-            // 实验性功能默认关: 旧配置无该键时保持 false, 仅当 yml 显式 true 才开启。
-            FEATURES.put(Feature.DIMENSION_PARALLEL, Boolean.FALSE);
-            FEATURES.put(Feature.PATHFINDING_ASYNC, Boolean.FALSE);
-            FEATURES.put(Feature.REGION_PARALLEL, Boolean.FALSE);
+            // 多线程 feature 默认全开（p3-parallel 分支交付态）：旧配置无该键时保持 true。
+            // 需要显式关闭时在 servercore.yml 写 false 即可覆盖。
             File cfg = new File("config", FILE_NAME);
             if (!cfg.exists()) {
                 writeDefault(cfg);
