@@ -20,11 +20,12 @@ PRTS 服务端是 Arclight（代码层内部 rebrand 名 Luminara，原作者 Iz
 | **Youer** | YouerMC (MohistMC) | github.com/MohistMC/Youer | GPL-3.0 | `compat/prts/feature/WatchMohist.java`、`compat/prts/feature/PRTSThreadCost.java`；控制台 log4j 格式修复（inspired by Youer） |
 | **Paper / Spottedleaf** | PaperMC | github.com/PaperMC/Paper | GPL-3.0（部分 patch 为 MIT） | `paper/chunk/SingleThreadChunkRegionManager.java`（Spottedleaf region manager）、`paper/util/MCUtil.java` 等底层算法 |
 | **Aikar** (Daniel Ennis) | Daniel Ennis | – | MIT | `com/destroystokyo/paper/event/server/AsyncTabCompleteEvent.java`（已自带 MIT 头） |
+| **ae2lt** (AE2 Lightning Tech) | MOAKIEE 等 | github.com/MOAKIEE/AE2-Lightning-Tech | **LGPL-3.0** | `arclight-common/.../mixin/optimization/general/neighbor/TeslaCoilBlockEntityMixin_SetWorkingThrottle.java`（仅运行时 mixin 节流 ae2lt 2.0.0 的 `TeslaCoilBlockEntity.setWorking`，非源码借鉴；ae2lt 内嵌 MixinSquared(MIT) 与 ExtendedAE Plus(LGPL-3.0) 改编代码） |
 
 ## 版本分布
 
 - **1.20.1 (Luminara-stable-Trials)**：ServerCore、HariPlayer（含 VMP 间接）、Mohist。
-- **1.21.1 (Luminara-FeudalKings)**：ServerCore、VMP、Youer；HariPlayer 经 VMP fork 进入的 ticketpropagator 代码同样适用。
+- **1.21.1 (Luminara-FeudalKings)**：ServerCore、VMP、Youer；HariPlayer 经 VMP fork 进入的 ticketpropagator 代码同样适用。ae2lt（LGPL-3.0，仅运行时 mixin 节流，非源码借鉴）。
 - `Luminara-Parallel` 树与 FeudalKings 同源，适用相同署名规则。
 
 ## 文件头署名规范
