@@ -47,6 +47,20 @@ public final class AsyncPathfindingManager {
     private static final AtomicLong LAST_TICK_DRAINED = new AtomicLong(-1);
     private static final ConcurrentLinkedQueue<Result> RESULTS = new ConcurrentLinkedQueue<>();
 
+    // P3 slice 4 (v08): results submitted by region workers are bucketed per
+    // region and drained by that region's worker (same-thread application).
+    private static final int REGION_COUNT = RegionLevel.DEFAULT_REGION_COUNT;
+    @SuppressWarnings("unchecked")
+    private static final ConcurrentLinkedQueue<Result>[] RESULTS_REGION = new ConcurrentLinkedQueue[REGION_COUNT];
+    private static final AtomicLong[] LAST_REGION_DRAINED = new AtomicLong[REGION_COUNT];
+
+    static {
+        for (int i = 0; i < REGION_COUNT; i++) {
+            RESULTS_REGION[i] = new ConcurrentLinkedQueue<>();
+            LAST_REGION_DRAINED[i] = new AtomicLong(-1);
+        }
+    }
+
     // 取消/结果统计埋点 (共享 AsyncTaskStats, P2/P3 同步协议复用同一可观测面)。
     private static final AsyncTaskStats STATS = AsyncTaskStats.builder("[async-pathfinding]")
             .intervalTicks(600)
@@ -73,13 +87,19 @@ public final class AsyncPathfindingManager {
         return PENDING.get() < MAX_PENDING_TASKS;
     }
 
+    /**
+     * Submits an async pathfinding task. {@code regionId} is the owning region
+     * of the submitting thread ({@code -1} for server/dimension workers → main
+     * queue; {@code >= 0} for region workers → that region's queue, drained by
+     * the region worker at the next session start).
+     */
     public static boolean submit(PathFinder pathFinder, ImmutablePathNavigationRegion snapshot, Mob mob,
                                  Set<BlockPos> targets, float maxRange, int accuracy, float depthMultiplier,
-                                 PathNavigation navigation, long serverTick) {
+                                 PathNavigation navigation, long serverTick, int regionId) {
         if (!canSubmit()) return false;
         PENDING.incrementAndGet();
         STATS.setGauge("pending", PENDING.get());
-        // 提交时(主线程)捕获实体存活快照: 工作线程的预检只读这个标记,
+        // 提交时(主线程/区域 worker)捕获实体存活快照: 工作线程的预检只读这个标记,
         // 绝不直接触碰可能已被主线程修改/回收的原实体字段(内存可见性隔离)。
         java.util.concurrent.atomic.AtomicBoolean aliveSnapshot = new java.util.concurrent.atomic.AtomicBoolean(mob.isAlive());
         EXECUTOR.execute(() -> {
@@ -94,7 +114,11 @@ public final class AsyncPathfindingManager {
                     return;
                 }
                 Path path = pathFinder.findPath(snapshot, mob, targets, maxRange, accuracy, depthMultiplier);
-                RESULTS.add(new Result(navigation, path, serverTick));
+                if (regionId >= 0 && regionId < REGION_COUNT) {
+                    RESULTS_REGION[regionId].add(new Result(navigation, path, serverTick));
+                } else {
+                    RESULTS.add(new Result(navigation, path, serverTick));
+                }
             } catch (Throwable t) {
                 if (LOGGER.isDebugEnabled()) {
                     LOGGER.debug("Async pathfinding failed for {}: {}", mob, t.toString());
@@ -116,14 +140,30 @@ public final class AsyncPathfindingManager {
         if (last == serverTick) return;
         if (RESULTS.isEmpty()) return;
         LAST_TICK_DRAINED.set(serverTick);
-        drain(serverTick);
+        drain(RESULTS, serverTick);
         STATS.tick(serverTick);
     }
 
-    private static void drain(long serverTick) {
+    /**
+     * P3 slice 4 (v08): drains the given region's result queue on the region
+     * worker (called at the start of the entity-tick session). Applying the
+     * navigation result on the owning region thread keeps it same-thread with
+     * the entity ticks, avoiding cross-thread PathNavigation writes.
+     */
+    public static void drainRegion(int regionId, long serverTick) {
+        if (regionId < 0 || regionId >= REGION_COUNT) return;
+        long last = LAST_REGION_DRAINED[regionId].get();
+        if (last == serverTick) return;
+        if (RESULTS_REGION[regionId].isEmpty()) return;
+        LAST_REGION_DRAINED[regionId].set(serverTick);
+        drain(RESULTS_REGION[regionId], serverTick);
+        STATS.tick(serverTick);
+    }
+
+    private static void drain(ConcurrentLinkedQueue<Result> queue, long serverTick) {
         List<Result> drained = new ObjectArrayList<>();
         Result r;
-        while ((r = RESULTS.poll()) != null) drained.add(r);
+        while ((r = queue.poll()) != null) drained.add(r);
         for (Result result : drained) {
             if (serverTick - result.requestTick > MAX_RESULT_AGE_TICKS) {
                 STATS.increment("discarded.timeout");

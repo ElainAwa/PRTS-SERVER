@@ -27,6 +27,7 @@
     "servercore.async_pathfinding.PathFinderMixin_Async",
     "servercore.async_pathfinding.PathNavigationRegionMixin",
     "servercore.async_pathfinding.MinecraftServerMixin_AsyncDrain",
+    "servercore.LivingEntityMixin_ServerAiStep",
     "servercore.dimension_parallel.MinecraftServerMixin_DimParallel",
     "servercore.dimension_parallel.EntityMixin_DimTransfer",
     "servercore.dimension_parallel.ServerChunkCacheMixin_DimParallel",

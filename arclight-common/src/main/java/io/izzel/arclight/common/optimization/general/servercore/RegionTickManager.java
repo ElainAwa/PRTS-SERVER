@@ -6,6 +6,7 @@ import net.minecraft.Util;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
@@ -322,6 +323,9 @@ public final class RegionTickManager {
                     if (applyNow) {
                         applyCrossUpdates(level, region);
                     }
+                    // P3 slice 4 (v08): apply this region's async pathfinding results
+                    // on the region worker before ticking, same-thread with entity ticks.
+                    AsyncPathfindingManager.drainRegion(region, level.getGameTime());
                     work.accept(region);
                     STATS.record("region" + region, Util.getNanos() - start);
                 } catch (Throwable t) {
@@ -358,6 +362,13 @@ public final class RegionTickManager {
         Entity[] parts = ((EntityBridge) entity).bridge$forge$getParts();
         if (!entity.isRemoved() && (parts == null || parts.length == 0)) {
             level.tickNonPassenger(entity);
+            // NeoForge 1.21.1 moved AI scheduling (goalSelector/targetSelector/
+            // brain) out of Entity.tick (now just baseTick) into serverAiStep(),
+            // invoked only by the main-thread tick consumer. The region worker
+            // path must run it explicitly or mobs freeze (same-thread with tick).
+            if (entity instanceof LivingEntity living) {
+                ((LivingEntityServerAiStepAccess) living).arclight$invokerServerAiStep();
+            }
         }
     }
 

@@ -5,6 +5,7 @@ import io.izzel.arclight.common.optimization.general.servercore.DimensionTickMan
 import io.izzel.arclight.common.optimization.general.servercore.ImmutablePathNavigationRegion;
 import io.izzel.arclight.common.optimization.general.servercore.PathNavigationAccess;
 import io.izzel.arclight.common.optimization.general.servercore.PathNavigationRegionAccess;
+import io.izzel.arclight.common.optimization.general.servercore.RegionTickManager;
 import io.izzel.arclight.common.optimization.general.servercore.ServerCoreConfig;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.MinecraftServer;
@@ -69,7 +70,8 @@ public abstract class PathFinderMixin_Async {
         }
         boolean serverThread = server.isSameThread();
         boolean dimensionWorker = DimensionTickManager.isDimensionTickThread();
-        if (!serverThread && !dimensionWorker) {
+        boolean regionWorker = RegionTickManager.isRegionTickThread();
+        if (!serverThread && !dimensionWorker && !regionWorker) {
             LOGGER.info("[pf-async] not server thread: {}", Thread.currentThread().getName());
             return;
         }
@@ -79,9 +81,9 @@ public abstract class PathFinderMixin_Async {
         if (access.arclight$isAsyncPending()) return;
 
         long tick = server.getTickCount();
-        // Result draining must stay on the server thread (applies navigation state).
-        // P2 dimension workers only submit; MinecraftServerMixin_AsyncDrain drains
-        // on every server tick, so results are still consumed within the same tick.
+        // Result draining must stay on the thread that owns the entity's region:
+        // server thread drains the main queue, region workers drain their own
+        // bucket at the next session start (AsyncPathfindingManager.drainRegion).
         if (serverThread) {
             AsyncPathfindingManager.drainIfNeeded(tick);
         }
@@ -90,16 +92,17 @@ public abstract class PathFinderMixin_Async {
             return;
         }
 
-        // 快照捕获线程 = 拥有该区域状态的线程(主线程 P1 或维度 worker P2):
+        // 快照捕获线程 = 拥有该区域状态的线程(主线程 P1 / 维度 worker P2 / 区域 worker P3):
         // BlockState 是不可变单例, 引用数组拷贝后工作线程完全脱离可变状态。
         int radius = (int) (maxRange + accuracy);
         ImmutablePathNavigationRegion snapshot = ((PathNavigationRegionAccess) region).arclight$snapshot(mob.getBlockY(), radius);
         PathFinder taskFinder = access.arclight$createPathFinder(radius);
+        int regionId = regionWorker ? RegionTickManager.currentRegion() : -1;
         if (AsyncPathfindingManager.submit(taskFinder, snapshot, mob, targets,
-                maxRange, accuracy, depthMultiplier, navigation, tick)) {
+                maxRange, accuracy, depthMultiplier, navigation, tick, regionId)) {
             access.arclight$markAsyncPending();
             cir.setReturnValue(null);
-            LOGGER.info("[pf-async] submitted nav={} mob={} targets={}", navigation, mob.getType(), targets.size());
+            LOGGER.info("[pf-async] submitted nav={} mob={} targets={} region={}", navigation, mob.getType(), targets.size(), regionId);
         }
     }
 }
