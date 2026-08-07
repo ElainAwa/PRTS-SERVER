@@ -97,6 +97,8 @@
     "servercore.ticking.broadcast.ChunkHolderMixin_Broadcast",
     "servercore.ticking.broadcast.ServerChunkCacheMixin_Broadcast",
     "servercore.RegionFileStorageMixin_AsyncIO",
+    "neighbor.LevelMixin_NeighborUpdateCircuitBreaker",
+    "neighbor.TeslaCoilBlockEntityMixin_SetWorkingThrottle",
     "servercore.region_parallel.ServerLevelMixin_RegionTick",
     "servercore.region_parallel.ServerLevelMixin_RegionBlockTick",
     "servercore.region_parallel.LevelTicksMixin_RegionBlockTick",

@@ -27,6 +27,14 @@ public class PRTSFeaturesConfig {
     public static long watchdogThresholdMs;
     public static long watchdogWarnCooldownMs;
 
+    // Neighbor-update circuit breaker - 邻居更新风暴熔断（防看门狗强杀）
+    public static boolean neighborUpdateBreakerEnabled;
+    public static long neighborUpdateBreakerMaxPerTick;
+
+    // ae2lt TeslaCoil setWorking 节流（缓解每 tick 翻转触发的邻居风暴）
+    public static boolean ae2ltSetWorkingThrottleEnabled;
+    public static int ae2ltSetWorkingThrottleMinTicks;
+
     public static void init() {
         File file = new File("prts-features.yml");
         config = YamlConfiguration.loadConfiguration(file);
@@ -41,5 +49,9 @@ public class PRTSFeaturesConfig {
         watchdogEnabled = config.getBoolean("watchdog.enabled", false);
         watchdogThresholdMs = config.getLong("watchdog.threshold-ms", 2000);
         watchdogWarnCooldownMs = config.getLong("watchdog.warn-cooldown-ms", 60000);
+        neighborUpdateBreakerEnabled = config.getBoolean("neighbor-update-breaker.enabled", true);
+        neighborUpdateBreakerMaxPerTick = config.getLong("neighbor-update-breaker.max-per-tick", 200000);
+        ae2ltSetWorkingThrottleEnabled = config.getBoolean("ae2lt-setworking-throttle.enabled", true);
+        ae2ltSetWorkingThrottleMinTicks = config.getInt("ae2lt-setworking-throttle.min-ticks", 4);
     }
 }
