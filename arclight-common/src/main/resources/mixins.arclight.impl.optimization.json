@@ -86,6 +86,8 @@
     "servercore.ticking.random.LiquidBlockMixin_Random",
     "servercore.ticking.broadcast.ChunkHolderMixin_Broadcast",
     "servercore.ticking.broadcast.ServerChunkCacheMixin_Broadcast",
-    "servercore.RegionFileStorageMixin_AsyncIO"
+    "servercore.RegionFileStorageMixin_AsyncIO",
+    "neighbor.LevelMixin_NeighborUpdateCircuitBreaker",
+    "neighbor.TeslaCoilBlockEntityMixin_SetWorkingThrottle"
   ]
 }
