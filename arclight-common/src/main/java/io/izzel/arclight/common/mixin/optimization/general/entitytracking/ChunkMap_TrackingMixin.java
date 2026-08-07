@@ -28,6 +28,9 @@ public class ChunkMap_TrackingMixin {
     @Unique
     private static final Logger LOGGER = LogManager.getLogger("PRTS-EntityTrack");
 
+    // P3 v05：AreaMap 内部加锁（NearbyEntityTracking.lock），区域 worker 直接执行
+    // add/remove 追踪更新（实时，无 1 tick 延迟）；不再需要延迟队列止血。
+
     // 仅首次成功 tick 时打印一次启用通告（INFO），避免每次重启重复刷屏。
     @Unique
     private static boolean prts$announced = false;
@@ -122,18 +125,18 @@ public class ChunkMap_TrackingMixin {
     @Inject(method = "addEntity", at = @At("RETURN"))
     private void prts$onAddEntity(Entity entity, CallbackInfo ci) {
         if (!prts$experimentalOn() || prts$routeBFailed) return;
-        final long start = System.nanoTime();
-        ChunkMap.TrackedEntity trackedEntity = this.entityMap.get(entity.getId());
+        final ChunkMap.TrackedEntity trackedEntity = this.entityMap.get(entity.getId());
         if (trackedEntity != null) {
+            final long start = System.nanoTime();
             this.nearbyEntityTracking.addEntityTracker(trackedEntity);
-        }
-        final long elapsedMs = (System.nanoTime() - start) / 1_000_000L;
-        // addEntity 钩子在 tick 看门狗保护范围之外，单独看门狗：spread 爆炸会冻结主线程导致客户端超时
-        if (elapsedMs > prts$watchdogHardMs()) {
-            prts$routeBFailed = true;
-            LOGGER.error("[PRTS-EntityTrack] addEntity took {}ms for {} -> disabling this session, falling back to vanilla. detail: {}",
-                    elapsedMs, entity, this.nearbyEntityTracking.debugInfo());
-            LOGGER.error("[PRTS-EntityTrack] addEntity stall stacktrace", new RuntimeException("[PRTS-EntityTrack] addEntity stall"));
+            final long elapsedMs = (System.nanoTime() - start) / 1_000_000L;
+            // addEntity 钩子在 tick 看门狗保护范围之外，单独看门狗：spread 爆炸会冻结主线程导致客户端超时
+            if (elapsedMs > prts$watchdogHardMs()) {
+                prts$routeBFailed = true;
+                LOGGER.error("[PRTS-EntityTrack] addEntity took {}ms for {} -> disabling this session, falling back to vanilla. detail: {}",
+                        elapsedMs, entity, this.nearbyEntityTracking.debugInfo());
+                LOGGER.error("[PRTS-EntityTrack] addEntity stall stacktrace", new RuntimeException("[PRTS-EntityTrack] addEntity stall"));
+            }
         }
     }
 
@@ -144,7 +147,7 @@ public class ChunkMap_TrackingMixin {
     @Inject(method = "removeEntity", at = @At("HEAD"))
     private void prts$onRemoveEntity(Entity entity, CallbackInfo ci) {
         if (!prts$experimentalOn() || prts$routeBFailed) return;
-        ChunkMap.TrackedEntity trackedEntity = this.entityMap.get(entity.getId());
+        final ChunkMap.TrackedEntity trackedEntity = this.entityMap.get(entity.getId());
         if (trackedEntity != null) {
             this.nearbyEntityTracking.removeEntityTracker(trackedEntity);
         }

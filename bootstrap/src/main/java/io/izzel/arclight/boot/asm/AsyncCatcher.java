@@ -50,6 +50,7 @@ public class AsyncCatcher implements Implementer {
     private static final Marker MARKER = MarkerManager.getMarker("ASYNC_CATCHER");
     private static final CallbackInfoReturnable<?> NOOP = new CallbackInfoReturnable<>("noop", false);
     private static final AtomicInteger COUNTER = new AtomicInteger(0);
+    private static final ThreadLocal<Boolean> DIMENSION_TICK_EXEMPT = ThreadLocal.withInitial(() -> Boolean.FALSE);
 
     private static final String LAMBDA_METAFACTORY_METHOD = Type.getMethodDescriptor(Type.getType(CallSite.class), Type.getType(MethodHandles.Lookup.class), Type.getType(String.class), Type.getType(MethodType.class), Type.getType(MethodType.class), getType(MethodHandle.class), Type.getType(MethodType.class));
     private static final Handle LAMBDA_BOOTSTRAP_HANDLE = new Handle(Opcodes.H_INVOKESTATIC, Type.getInternalName(LambdaMetafactory.class), "metafactory", LAMBDA_METAFACTORY_METHOD, false);
@@ -92,6 +93,15 @@ public class AsyncCatcher implements Implementer {
     }
 
     private void injectCheck(ClassNode node, MethodNode methodNode, String reason) {
+        // PRTS dimension parallelism (P2): void-returning methods cannot be wrapped as a
+        // Supplier (get() -> Object) — the injected invokedynamic fails to link on
+        // non-main threads with LambdaConversionException "void is not convertible to
+        // Object". Skip them; non-main-thread calls then execute the method body directly
+        // (correct for dimension tick workers). Main-thread callers are unaffected.
+        if (Type.getMethodType(methodNode.desc).getReturnType().getSort() == Type.VOID) {
+            Implementer.LOGGER.debug(MARKER, "Skipping void method {}/{}{} for reason {}", node.name, methodNode.name, methodNode.desc, reason);
+            return;
+        }
         Implementer.LOGGER.debug(MARKER, "Injecting {}/{}{} for reason {}", node.name, methodNode.name, methodNode.desc, reason);
         AsyncCatcherSpec.Operation operation = ArclightConfig.spec().getAsyncCatcher().getOverrides().getOrDefault(reason, defaultOp);
         InsnList insnList = new InsnList();
@@ -195,6 +205,29 @@ public class AsyncCatcher implements Implementer {
 
     @SuppressWarnings("unchecked")
     public static <T> CallbackInfoReturnable<T> checkOp(Supplier<T> method, AsyncCatcherSpec.Operation operation, String reason, Executor executor) throws Throwable {
+        // PRTS parallel tick (P2 dimension + P3 region): worker threads run the vanilla
+        // level.tick / entity tick, whose Bukkit-bridge calls (e.g. ServerLevel.getEntities)
+        // must NOT be routed back to the main thread — the main thread waits at the tick
+        // barrier (CountDownLatch), so routing would deadlock until the 5s AsyncCatcher timeout.
+        // Execute directly on the worker: same code, vanilla single-thread semantics.
+        // Nested bridge calls during the direct execution fall through to the original
+        // method body via NOOP (the injected wrapper skips checkOp when not cancelled),
+        // which is exactly the main-thread path — no recursion.
+        String threadName = Thread.currentThread().getName();
+        if (operation != AsyncCatcherSpec.Operation.NONE
+                && (threadName.startsWith("PRTS-DimensionTick-")
+                || threadName.startsWith("PRTS-RegionTick-")
+                || DIMENSION_TICK_EXEMPT.get())) {
+            if (DIMENSION_TICK_EXEMPT.get()) {
+                return (CallbackInfoReturnable<T>) NOOP;
+            }
+            DIMENSION_TICK_EXEMPT.set(true);
+            try {
+                return new CallbackInfoReturnable<>(reason, true, method.get());
+            } finally {
+                DIMENSION_TICK_EXEMPT.set(false);
+            }
+        }
         if (INSTANCE.warn) {
             Implementer.LOGGER.warn(MARKER, "Async " + reason);
         }

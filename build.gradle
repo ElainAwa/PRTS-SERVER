@@ -11,15 +11,19 @@ allprojects {
     apply plugin: 'java'
 
     group 'io.izzel.arclight'
-    version '1.0.25'
+    version '1.0.23'
 
     def getGitHash = { ->
         def stdout = new ByteArrayOutputStream()
-        exec {
-            commandLine 'git', 'rev-parse', '--short', 'HEAD'
-            standardOutput = stdout
+        try {
+            exec {
+                commandLine 'git', 'rev-parse', '--short', 'HEAD'
+                standardOutput = stdout
+            }
+            return stdout.toString().trim()
+        } catch (Exception ignored) {
+            return 'unknown'
         }
-        return stdout.toString().trim()
     }
 
     ext {
@@ -155,11 +159,15 @@ tasks.register('collect', Copy) {
 
 def gitBranch() {
     def stdout = new ByteArrayOutputStream()
-    exec {
-        commandLine 'git', 'rev-parse', '--abbrev-ref', 'HEAD'
-        standardOutput = stdout
+    try {
+        exec {
+            commandLine 'git', 'rev-parse', '--abbrev-ref', 'HEAD'
+            standardOutput = stdout
+        }
+        return stdout.toString().trim()
+    } catch (Exception ignored) {
+        return 'unknown'
     }
-    return stdout.toString().trim()
 }
 
 tasks.register('uploadFiles', UploadFilesTask) {

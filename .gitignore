@@ -8,3 +8,5 @@ bin/
 run_*/
 run
 .gradle-spigot-prebuilt/
+.gradle-tmp/
+test/build-logs/

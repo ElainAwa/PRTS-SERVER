@@ -1,14 +1,3 @@
-/*
- * PRTS - Arclight/Luminara fork
- * Copyright (c) 2024-2026 ElainAwa
- *
- * This file adapts code from:
- *  - HariPlayer by JustHari01 (https://modrinth.com/mod/hp-hariplayer), MIT.
- *  - VMP (Very Many Players) by ishland (https://github.com/RelativityMC/VMP-fabric), MIT.
- *  - Paper by PaperMC/Spottedleaf (https://github.com/PaperMC/Paper), GPL-3.0.
- * Original code Copyright (c) respective authors.
- */
-
 /* Ported from HariPlayer (VMP fork) -> Paper's Delayed8WayDistancePropagator2D. */
 
 package io.izzel.arclight.common.optimization.general.ticketpropagator;

@@ -1,12 +1,3 @@
-/*
- * PRTS - Arclight/Luminara fork
- * Copyright (c) 2024-2026 ElainAwa
- *
- * This file adapts code from Youer by YouerMC
- * (https://github.com/MohistMC/Youer), licensed under GPL-3.0.
- * Original code Copyright (c) YouerMC.
- */
-
 package io.izzel.arclight.common.compat.prts.feature;
 
 import java.io.FileWriter;

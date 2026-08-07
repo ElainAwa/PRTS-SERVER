@@ -1,9 +1,11 @@
 package io.izzel.arclight.common.mixin.core.world.level.entity;
 
 import io.izzel.arclight.common.bridge.core.entity.EntityBridge;
+import io.izzel.arclight.common.optimization.general.servercore.DimensionTickManager;
 import io.izzel.arclight.mixin.Decorate;
 import io.izzel.arclight.mixin.Local;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.chunk.storage.EntityStorage;
@@ -63,8 +65,15 @@ public abstract class PersistentEntitySectionManagerMixin<T extends EntityAccess
         at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/entity/EntityPersistentStorage;storeEntities(Lnet/minecraft/world/level/entity/ChunkEntities;)V"))
     private void arclight$fireUnload(long pos, @Local(ordinal = -1) List<T> list) {
         if (arclight$fireEvent) {
-            CraftEventFactory.callEntitiesUnloadEvent(((EntityStorage) permanentStorage).level, new ChunkPos(pos),
-                list.stream().map(entity -> (Entity) entity).collect(Collectors.toList()));
+            ServerLevel level = ((EntityStorage) permanentStorage).level;
+            List<Entity> entities = list.stream().map(entity -> (Entity) entity).collect(Collectors.toList());
+            // PRTS dimension parallelism (P2): Bukkit events must fire on the main thread;
+            // defer when the entity unload happens inside a dimension tick worker.
+            if (DimensionTickManager.inDimensionTick()) {
+                DimensionTickManager.enqueueEntitiesEvent(level, new ChunkPos(pos), entities, true);
+                return;
+            }
+            CraftEventFactory.callEntitiesUnloadEvent(level, new ChunkPos(pos), entities);
         }
     }
 
@@ -81,7 +90,14 @@ public abstract class PersistentEntitySectionManagerMixin<T extends EntityAccess
     @Inject(method = "processPendingLoads", locals = LocalCapture.CAPTURE_FAILHARD, at = @At(value = "INVOKE", shift = At.Shift.AFTER, remap = false, target = "Lit/unimi/dsi/fastutil/longs/Long2ObjectMap;put(JLjava/lang/Object;)Ljava/lang/Object;"))
     private void arclight$fireLoad(CallbackInfo ci, ChunkEntities<T> chunkEntities) {
         List<Entity> entities = getEntities(chunkEntities.getPos());
-        CraftEventFactory.callEntitiesLoadEvent(((EntityStorage) permanentStorage).level, chunkEntities.getPos(), entities);
+        ServerLevel level = ((EntityStorage) permanentStorage).level;
+        // PRTS dimension parallelism (P2): Bukkit events must fire on the main thread;
+        // defer when the entity load happens inside a dimension tick worker.
+        if (DimensionTickManager.inDimensionTick()) {
+            DimensionTickManager.enqueueEntitiesEvent(level, chunkEntities.getPos(), entities, false);
+            return;
+        }
+        CraftEventFactory.callEntitiesLoadEvent(level, chunkEntities.getPos(), entities);
     }
 
     @Inject(method = "unloadEntity", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/entity/EntityAccess;setRemoved(Lnet/minecraft/world/entity/Entity$RemovalReason;)V"))

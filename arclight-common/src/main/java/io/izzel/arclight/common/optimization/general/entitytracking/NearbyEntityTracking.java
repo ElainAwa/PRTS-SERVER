@@ -21,9 +21,14 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.ReentrantLock;
 
 /** 原 VMP com.ishland.vmp.common.playerwatching.NearbyEntityTracking 的 mojmap 移植。 */
 public class NearbyEntityTracking {
+
+    // P3 v05：AreaMap 内部互斥锁——区域 worker 的 add/remove 追踪更新与主线程 tick 广播并发安全；
+    // 取代 v02 的延迟队列止血（实时追踪，无 1 tick 延迟）。ReentrantLock 可重入（addEntityTracker→addPlayer 嵌套）。
+    private final ReentrantLock lock = new ReentrantLock();
 
     // 默认关闭 staging area，降低风险；改为 true 即启用原版短命实体暂存优化
     private static final boolean USE_STAGING_AREA = false;
@@ -70,65 +75,100 @@ public class NearbyEntityTracking {
     }
 
     public void addEntityTracker(ChunkMap.TrackedEntity tracker) {
-        if (((ChunkMap_TrackedEntityBridge) tracker).bridge$getEntity() instanceof ServerPlayer player) {
-            this.addPlayer(player);
-        }
-        if (USE_STAGING_AREA) {
-            stagingTrackers.addAndMoveToLast(new StagedTracker(tracker, ticks.get()));
-            for (ServerPlayer player : this.playerTrackers.keySet()) {
-                tracker.updatePlayer(player);
+        this.lock.lock();
+        try {
+            if (((ChunkMap_TrackedEntityBridge) tracker).bridge$getEntity() instanceof ServerPlayer player) {
+                this.addPlayer(player);
             }
-        } else {
-            this.addEntityTrackerAreaMap(tracker);
+            if (USE_STAGING_AREA) {
+                stagingTrackers.addAndMoveToLast(new StagedTracker(tracker, ticks.get()));
+                for (ServerPlayer player : this.playerTrackers.keySet()) {
+                    tracker.updatePlayer(player);
+                }
+            } else {
+                this.addEntityTrackerAreaMap(tracker);
+            }
+        } finally {
+            this.lock.unlock();
         }
     }
 
     public void removeEntityTracker(ChunkMap.TrackedEntity tracker) {
-        if (((ChunkMap_TrackedEntityBridge) tracker).bridge$getEntity() instanceof ServerPlayer player) {
-            this.removePlayer(player);
-        }
+        this.lock.lock();
+        try {
+            if (((ChunkMap_TrackedEntityBridge) tracker).bridge$getEntity() instanceof ServerPlayer player) {
+                this.removePlayer(player);
+            }
 
-        // remove from staging
-        if (this.stagingTrackers.remove(new StagedTracker(tracker, 0L))) {
-            tracker.broadcastRemoved();
-        }
+            // remove from staging
+            if (this.stagingTrackers.remove(new StagedTracker(tracker, 0L))) {
+                tracker.broadcastRemoved();
+            }
 
-        // remove from AreaMap
-        this.areaMap.remove(tracker);
-        this.tracker2ChunkPos.removeLong(tracker);
+            // remove from AreaMap
+            this.areaMap.remove(tracker);
+            this.tracker2ChunkPos.removeLong(tracker);
+        } finally {
+            this.lock.unlock();
+        }
     }
 
     public void addPlayer(ServerPlayer player) {
-        this.playerTrackers.put(player, (ReferenceLinkedOpenHashSet<ChunkMap.TrackedEntity>) this.pooledHashSets.alloc());
+        this.lock.lock();
+        try {
+            this.playerTrackers.put(player, (ReferenceLinkedOpenHashSet<ChunkMap.TrackedEntity>) this.pooledHashSets.alloc());
+        } finally {
+            this.lock.unlock();
+        }
     }
 
     public void removePlayer(ServerPlayer player) {
-        // remove player in staging
-        for (StagedTracker stagingTracker : this.stagingTrackers) {
-            stagingTracker.tracker().removePlayer(player);
-        }
-
-        // remove player in AreaMap
-        final ReferenceLinkedOpenHashSet<ChunkMap.TrackedEntity> originalTrackers = this.playerTrackers.remove(player);
-        if (originalTrackers != null) {
-            for (ChunkMap.TrackedEntity tracker : originalTrackers) {
-                tracker.removePlayer(player);
+        this.lock.lock();
+        try {
+            // remove player in staging
+            for (StagedTracker stagingTracker : this.stagingTrackers) {
+                stagingTracker.tracker().removePlayer(player);
             }
-            this.pooledHashSets.release(originalTrackers);
+
+            // remove player in AreaMap
+            final ReferenceLinkedOpenHashSet<ChunkMap.TrackedEntity> originalTrackers = this.playerTrackers.remove(player);
+            if (originalTrackers != null) {
+                for (ChunkMap.TrackedEntity tracker : originalTrackers) {
+                    tracker.removePlayer(player);
+                }
+                this.pooledHashSets.release(originalTrackers);
+            }
+        } finally {
+            this.lock.unlock();
         }
     }
 
     // 供 ChunkMap_TrackingMixin 兜底判断与诊断使用
     public boolean isEmpty() {
-        return this.playerTrackers.isEmpty() && this.tracker2ChunkPos.isEmpty();
+        this.lock.lock();
+        try {
+            return this.playerTrackers.isEmpty() && this.tracker2ChunkPos.isEmpty();
+        } finally {
+            this.lock.unlock();
+        }
     }
 
     public int playerCount() {
-        return this.playerTrackers.size();
+        this.lock.lock();
+        try {
+            return this.playerTrackers.size();
+        } finally {
+            this.lock.unlock();
+        }
     }
 
     public int trackedCount() {
-        return this.tracker2ChunkPos.size();
+        this.lock.lock();
+        try {
+            return this.tracker2ChunkPos.size();
+        } finally {
+            this.lock.unlock();
+        }
     }
 
     // 由 ChunkMap_TrackingMixin 在打印周期日志后调用，重置 churn 计数
@@ -140,21 +180,26 @@ public class NearbyEntityTracking {
 
     // 诊断用：返回每个玩家的"附近实体数 / 已追踪数"以及 AreaMap 占用，便于排查 tick 卡顿或视野异常
     public String debugInfo() {
-        StringBuilder sb = new StringBuilder();
-        sb.append("players=").append(this.playerTrackers.size())
-          .append(" tracked=").append(this.tracker2ChunkPos.size())
-          .append(" areaCells=").append(this.areaMap.cellCount())
-          .append(" churn=+").append(this.churnAdds).append("/-").append(this.churnRemoves)
-          .append(" tpSkip=").append(this.teleportSkips);
-        for (var entry : this.playerTrackers.entrySet()) {
-            final Set<ChunkMap.TrackedEntity> cur = this.areaMap.getObjectsInRange(
-                    ChunkPos.asLong(getEntityChunkPos(entry.getKey()).x, getEntityChunkPos(entry.getKey()).z));
-            sb.append(" | p[")
-              .append(((ServerPlayer) entry.getKey()).getName().getString())
-              .append("] near=").append(cur.size())
-              .append(" tracked=").append(entry.getValue().size());
+        this.lock.lock();
+        try {
+            StringBuilder sb = new StringBuilder();
+            sb.append("players=").append(this.playerTrackers.size())
+              .append(" tracked=").append(this.tracker2ChunkPos.size())
+              .append(" areaCells=").append(this.areaMap.cellCount())
+              .append(" churn=+").append(this.churnAdds).append("/-").append(this.churnRemoves)
+              .append(" tpSkip=").append(this.teleportSkips);
+            for (var entry : this.playerTrackers.entrySet()) {
+                final Set<ChunkMap.TrackedEntity> cur = this.areaMap.getObjectsInRange(
+                        ChunkPos.asLong(getEntityChunkPos(entry.getKey()).x, getEntityChunkPos(entry.getKey()).z));
+                sb.append(" | p[")
+                  .append(((ServerPlayer) entry.getKey()).getName().getString())
+                  .append("] near=").append(cur.size())
+                  .append(" tracked=").append(entry.getValue().size());
+            }
+            return sb.toString();
+        } finally {
+            this.lock.unlock();
         }
-        return sb.toString();
     }
 
     private final ReferenceLinkedOpenHashSet<ChunkMap.TrackedEntity> trackerTickList = new ReferenceLinkedOpenHashSet<>() {
@@ -172,74 +217,79 @@ public class NearbyEntityTracking {
     }
 
     public void tick() {
-        tickStaging();
+        this.lock.lock();
+        try {
+            tickStaging();
 
-        for (Reference2LongMap.Entry<ChunkMap.TrackedEntity> entry : this.tracker2ChunkPos.reference2LongEntrySet()) {
-            final ChunkPos pos = getEntityChunkPos(((ChunkMap_TrackedEntityBridge) entry.getKey()).bridge$getEntity());
-            if (ChunkPos.asLong(pos.x, pos.z) != entry.getLongValue()) {
-                this.areaMap.update(entry.getKey(), pos.x, pos.z, getChunkViewDistance(entry.getKey()));
-                entry.setValue(ChunkPos.asLong(pos.x, pos.z));
-            }
-        }
-
-        trackerTickList.clear();
-
-        for (var entry : this.playerTrackers.entrySet()) {
-            final Set<ChunkMap.TrackedEntity> currentTrackers = this.areaMap.getObjectsInRange(ChunkPos.asLong(getEntityChunkPos(entry.getKey()).x, getEntityChunkPos(entry.getKey()).z));
-
-            boolean isPlayerPositionUpdated = ((ServerPlayerEntityExtension) entry.getKey()).vmpTracking$isPositionUpdated();
-            boolean isTeleport = ((ServerPlayerEntityExtension) entry.getKey()).vmpTracking$isTeleport();
-            ((ServerPlayerEntityExtension) entry.getKey()).vmpTracking$updatePosition();
-
-            final ReferenceLinkedOpenHashSet<ChunkMap.TrackedEntity> trackers = entry.getValue();
-
-            // 瞬移 / 大距离跳变（/tp、waystones、tpmaster、传送门）：本 tick 完全交给原版 ChunkMap.move() 接管
-            if (isTeleport) {
-                // 瞬移 / 大距离跳变（/tp、waystones、tpmaster、传送门）：本 tick 完全交给原版
-                final ReferenceLinkedOpenHashSet<ChunkMap.TrackedEntity> fresh =
-                        (ReferenceLinkedOpenHashSet<ChunkMap.TrackedEntity>) this.pooledHashSets.alloc();
-                this.playerTrackers.put(entry.getKey(), fresh);
-                this.pooledHashSets.release(trackers);
-                this.teleportSkips++;
-                continue;
-            }
-
-            // update original trackers — remove entities no longer in range
-            for (ObjectListIterator<ChunkMap.TrackedEntity> iterator = trackers.iterator(); iterator.hasNext(); ) {
-                ChunkMap.TrackedEntity entityTracker = iterator.next();
-                if (currentTrackers.contains(entityTracker)) {
-                    // Entity still in range — tick + optional position-update
-                    if (trackerTickList.add(entityTracker)) {
-                        tryTickTracker(entityTracker);
-                    }
-                    if (isPlayerPositionUpdated || ((EntityTrackerExtension) entityTracker).isPositionUpdated()) {
-                        tryUpdateTracker(entityTracker, entry.getKey());
-                    }
-                } else {
-                    // Entity out of range — remove
-                    entityTracker.removePlayer(entry.getKey());
-                    iterator.remove();
-                    this.churnRemoves++;
+            for (Reference2LongMap.Entry<ChunkMap.TrackedEntity> entry : this.tracker2ChunkPos.reference2LongEntrySet()) {
+                final ChunkPos pos = getEntityChunkPos(((ChunkMap_TrackedEntityBridge) entry.getKey()).bridge$getEntity());
+                if (ChunkPos.asLong(pos.x, pos.z) != entry.getLongValue()) {
+                    this.areaMap.update(entry.getKey(), pos.x, pos.z, getChunkViewDistance(entry.getKey()));
+                    entry.setValue(ChunkPos.asLong(pos.x, pos.z));
                 }
             }
 
-            // add new trackers now in range
-            for (ChunkMap.TrackedEntity entityTracker : currentTrackers) {
-                if (!trackers.contains(entityTracker)) {
-                    trackers.add(entityTracker);
-                    this.churnAdds++;
-                    if (trackerTickList.add(entityTracker)) {
-                        tryTickTracker(entityTracker);
+            trackerTickList.clear();
+
+            for (var entry : this.playerTrackers.entrySet()) {
+                final Set<ChunkMap.TrackedEntity> currentTrackers = this.areaMap.getObjectsInRange(ChunkPos.asLong(getEntityChunkPos(entry.getKey()).x, getEntityChunkPos(entry.getKey()).z));
+
+                boolean isPlayerPositionUpdated = ((ServerPlayerEntityExtension) entry.getKey()).vmpTracking$isPositionUpdated();
+                boolean isTeleport = ((ServerPlayerEntityExtension) entry.getKey()).vmpTracking$isTeleport();
+                ((ServerPlayerEntityExtension) entry.getKey()).vmpTracking$updatePosition();
+
+                final ReferenceLinkedOpenHashSet<ChunkMap.TrackedEntity> trackers = entry.getValue();
+
+                // 瞬移 / 大距离跳变（/tp、waystones、tpmaster、传送门）：本 tick 完全交给原版 ChunkMap.move() 接管
+                if (isTeleport) {
+                    // 瞬移 / 大距离跳变（/tp、waystones、tpmaster、传送门）：本 tick 完全交给原版
+                    final ReferenceLinkedOpenHashSet<ChunkMap.TrackedEntity> fresh =
+                            (ReferenceLinkedOpenHashSet<ChunkMap.TrackedEntity>) this.pooledHashSets.alloc();
+                    this.playerTrackers.put(entry.getKey(), fresh);
+                    this.pooledHashSets.release(trackers);
+                    this.teleportSkips++;
+                    continue;
+                }
+
+                // update original trackers — remove entities no longer in range
+                for (ObjectListIterator<ChunkMap.TrackedEntity> iterator = trackers.iterator(); iterator.hasNext(); ) {
+                    ChunkMap.TrackedEntity entityTracker = iterator.next();
+                    if (currentTrackers.contains(entityTracker)) {
+                        // Entity still in range — tick + optional position-update
+                        if (trackerTickList.add(entityTracker)) {
+                            tryTickTracker(entityTracker);
+                        }
+                        if (isPlayerPositionUpdated || ((EntityTrackerExtension) entityTracker).isPositionUpdated()) {
+                            tryUpdateTracker(entityTracker, entry.getKey());
+                        }
+                    } else {
+                        // Entity out of range — remove
+                        entityTracker.removePlayer(entry.getKey());
+                        iterator.remove();
+                        this.churnRemoves++;
                     }
-                    if (isPlayerPositionUpdated || ((EntityTrackerExtension) entityTracker).isPositionUpdated()) {
-                        tryUpdateTracker(entityTracker, entry.getKey());
+                }
+
+                // add new trackers now in range
+                for (ChunkMap.TrackedEntity entityTracker : currentTrackers) {
+                    if (!trackers.contains(entityTracker)) {
+                        trackers.add(entityTracker);
+                        this.churnAdds++;
+                        if (trackerTickList.add(entityTracker)) {
+                            tryTickTracker(entityTracker);
+                        }
+                        if (isPlayerPositionUpdated || ((EntityTrackerExtension) entityTracker).isPositionUpdated()) {
+                            tryUpdateTracker(entityTracker, entry.getKey());
+                        }
                     }
                 }
             }
-        }
 
-        for (ChunkMap.TrackedEntity entityTracker : trackerTickList) {
-            ((EntityTrackerExtension) entityTracker).updatePosition();
+            for (ChunkMap.TrackedEntity entityTracker : trackerTickList) {
+                ((EntityTrackerExtension) entityTracker).updatePosition();
+            }
+        } finally {
+            this.lock.unlock();
         }
     }
 

@@ -2,9 +2,11 @@ package io.izzel.arclight.neoforge;
 
 import io.izzel.arclight.api.Arclight;
 import io.izzel.arclight.common.mod.server.ArclightServer;
+import io.izzel.arclight.common.optimization.general.servercore.DimensionTickManager;
 import io.izzel.arclight.neoforge.mod.NeoForgeArclightServer;
 import io.izzel.arclight.neoforge.mod.event.ArclightEventDispatcherRegistry;
 import net.neoforged.fml.common.Mod;
+import net.neoforged.neoforge.event.EventHooks;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -23,6 +25,12 @@ public class ArclightMod {
         System.setOut(new LoggingPrintStream("STDOUT", System.out, Level.INFO));
         System.setErr(new LoggingPrintStream("STDERR", System.err, Level.ERROR));
         ArclightEventDispatcherRegistry.registerAllEventDispatchers();
+        // P2 dimension parallelism: bridge the common module's level-tick event
+        // callbacks to the real NeoForge EventHooks dispatchers.
+        DimensionTickManager.setLevelTickCallbacks(
+                EventHooks::fireLevelTickPre,
+                EventHooks::fireLevelTickPost
+        );
     }
 
     private static class LoggingPrintStream extends PrintStream {
