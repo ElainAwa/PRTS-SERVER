@@ -99,7 +99,7 @@ public final class RegionTickManager {
             .intervalTicks(600)
             .counter("ticks")
             .group("entities", "region0", "region1")
-            .group("cross", "block", "redstone", "transfer", "read")
+            .group("cross", "block", "redstone", "redstoneBoundary", "transfer", "read")
             .group("update", "blockTicks", "teTicks", "applied")
             .timer("region0").timer("region1")
             .build();
@@ -159,7 +159,24 @@ public final class RegionTickManager {
         STATS.increment("cross.block");
         if (isRedstone(state.getBlock())) {
             STATS.increment("cross.redstone");
+            if (isBoundaryColumn(pos)) {
+                STATS.increment("cross.redstoneBoundary");
+            }
         }
+    }
+
+    /**
+     * True if the column is inside a region's 1-chunk boundary band (P3 Phase 4,
+     * v09 §3.2). The stripe boundary between regions lies every STRIPE_WIDTH
+     * columns; the two columns adjacent to the boundary (chunkX % 8 == 7 and
+     * the next stripe's chunkX % 8 == 0, i.e. group edge) form the band. Used to
+     * verify the v01 §5 threshold: cross-region redstone traffic concentrated in
+     * the boundary band supports the "no redstone graph solver" decision.
+     */
+    private static boolean isBoundaryColumn(BlockPos pos) {
+        int chunkX = pos.getX() >> 4;
+        int group = Math.floorMod(chunkX, RegionLevel.STRIPE_WIDTH);
+        return group == RegionLevel.STRIPE_WIDTH - 1 || group == 0;
     }
 
     /** Collects a due scheduled block tick into the owning region's queue. */
