@@ -1,77 +1,86 @@
-# PRTS-Multithreading — Minecraft 1.21.1 / NeoForge（多线程工程验证分支）
+# PRTS-Multithreading — Minecraft 1.21.1 / NeoForge (multi-thread engineering-validation branch)
+
+**[中文文档](./README_zh.md) · [English](./README.md)**
 
 > [!WARNING]
-> ⚠️ **此版本为工程验证构建，请谨慎使用，勿用于生产环境**。
-> 本分支做了多线程并行的实验性改造，默认全开；如需回退到稳定行为，
-> 在 `prts-features.yml` 中关闭对应开关（见下文「本分支独有配置」）。
+> ⚠️ **This is an engineering-validation build — use with caution, do not use in production.**
+> This branch carries experimental multi-thread parallelism, enabled by default.
+> To fall back to stable single-thread behavior, disable the toggles in `prts-features.yml`
+> (see "Branch-specific config" below).
 
 > [!NOTE]
-> 本文档由 AI 创作并维护，供快速上手与功能溯源。
-> 本分支与主分支（`1.21.1`）**除多线程并行引擎外功能一致**——其余功能与完整功能溯源表
-> **详见主分支 README**，此处不再赘述。
+> This README is AI-authored and maintained, for a quick overview and feature provenance.
+> Except for the multi-thread parallel tick engine, this branch is identical to the main `1.21.1`
+> branch — the full feature table and provenance live in **the main branch README**, not repeated here.
 
-## 项目渊源
+## Project Origins
 
-[Arclight](https://github.com/IzzelAliz/Arclight)（Hybrid 混合端）→ [Luminara](https://github.com/CraftAmethyst/Luminara) → **本 fork：PRTS**（[ElainAwa](https://github.com/ElainAwa) 维护）
-→ **本分支：`1.21.1-Multithreading`**（在 PRTS 基础上叠加多线程并行引擎的实验分支）
+[Arclight](https://github.com/IzzelAliz/Arclight) (hybrid server) → [Luminara](https://github.com/CraftAmethyst/Luminara) → **this fork: PRTS** (maintained by [ElainAwa](https://github.com/ElainAwa))
+→ **this branch: `1.21.1-Multithreading`** (PRTS + multi-thread parallel tick engine)
 
-## 本分支独有：多线程并行引擎
+## Branch-specific: Multi-thread Parallel Tick Engine
 
-本分支将原本单线程的世界 tick 拆分为多个工作线程并行执行，以降低高负载下的卡顿。并行引擎由三部分组成，均可通过 `prts-features.yml` 独立开关（默认全开）：
+This branch splits the single-threaded world tick across multiple worker threads to reduce lag
+under heavy load. The parallel engine consists of three parts, each independently toggleable
+via `prts-features.yml` (all on by default):
 
-- **异步寻路**（`pathfinding-async`）：将怪物寻路计算移至工作线程，避免占用主线程；
-- **维度并行**（`dimension-parallel`）：各维度在独立线程上执行 tick，互不阻塞；
-- **区域并行**（`region-parallel`）：主世界按区块条带划分为多个区域并行 tick，区域数可通过 `region-count` 配置（2/4/8，默认 4），并可由 `region-auto-scale` 根据负载自动增减。
+- **Async pathfinding** (`pathfinding-async`): mob pathfinding is computed on worker threads, off the main thread;
+- **Dimension parallelism** (`dimension-parallel`): each dimension ticks on its own thread without blocking the others;
+- **Region parallelism** (`region-parallel`): the overworld is split into multiple regions by chunk stripes, ticked in parallel. The region count is configurable via `region-count` (2/4/8, default 4), and `region-auto-scale` adjusts it automatically based on load.
 
-**本分支独有的稳定性修复**（主分支没有）：
-- **怪物 AI 卡顿修复**：NeoForge 1.21.1 的怪物 AI 调度只在主线程生效，区域并行曾导致怪物呆立不动——已修复
-- **批量杀怪不再崩服**：`/kill` 清理大量实体时与并行 tick 冲突曾导致崩溃（ConcurrentModificationException）——已修复
-- **实体管理线程安全化**：实体增删改查加锁，保证并行 tick 下数据一致
-- **跨区红石统计**：实测跨区红石流量 <1%，红石机器跨区域的影响可忽略
+**Stability fixes unique to this branch** (not in main):
+- **Mob AI freeze fix**: in NeoForge 1.21.1 mob AI only runs on the main thread; region parallelism once left mobs standing still — now fixed
+- **Bulk-kill crash fix**: `/kill`-ing large numbers of entities used to crash the server (ConcurrentModificationException) while parallel region ticking ran — now fixed
+- **Entity management thread-safety**: entity add/remove/query locked to keep data consistent under parallel ticking
+- **Cross-region redstone stats**: measured cross-region redstone traffic <1% — redstone machines spanning regions have negligible impact
 
-## 本分支独有配置（`prts-features.yml`，服务端根目录）
+## Branch-specific config (`prts-features.yml`, server root)
 
 ```yaml
-# 多线程并行引擎（默认全开；false 关闭对应能力，回退单线程行为）
+# Multi-thread parallel tick engine (all on by default; false falls back to vanilla single-thread)
 parallel:
-  pathfinding-async: true        # 异步寻路
-  dimension-parallel: true       # 维度并行
-  region-parallel: true          # 区域并行
-  region-count: 4                # 区域数（2/4/8，默认 4；非 2 的幂自动回落 4）
-  region-auto-scale: true        # 按负载自动增减区域数
-  region-scale-interval-seconds: 300   # 评估周期（秒）
-  region-scale-high-mspt: 60           # 超过此负载则增加区域
-  region-scale-low-mspt: 15            # 低于此负载则减少区域
-  region-scale-stable-periods: 2       # 连续确认周期数（防抖）
-  region-scale-min: 2                  # 区域数下限
-  region-scale-max: 8                  # 区域数上限
-  region-scale-cross-read-ratio: 0.05  # 跨区读取占比上限（超过则不增加区域）
-# 可靠区块保存（WAL 预写日志，默认关）
+  pathfinding-async: true        # async pathfinding
+  dimension-parallel: true       # dimension parallelism
+  region-parallel: true          # region parallelism
+  region-count: 4                # region count (2/4/8, default 4; non-power-of-2 falls back to 4)
+  region-auto-scale: true        # auto-scale region count by load
+  region-scale-interval-seconds: 300   # evaluation interval (seconds)
+  region-scale-high-mspt: 60           # scale up above this load
+  region-scale-low-mspt: 15            # scale down below this load
+  region-scale-stable-periods: 2       # consecutive periods required (debounce)
+  region-scale-min: 2                  # scale-down floor
+  region-scale-max: 8                  # scale-up ceiling
+  region-scale-cross-read-ratio: 0.05  # cross-region read budget (blocks scale-up above)
+# Reliable chunk save (WAL journal, off by default)
 reliable-chunk-save:
   enabled: false
   interval-seconds: 30
   chunks-per-tick: 50
 ```
 
-> 配置归属说明：并行引擎与 WAL 属 **PRTS 原创功能**，归 `prts-features.yml`；
-> `config/servercore.yml` 仅保留 ServerCore（Spigot/Paper 移植）功能，两者职责分离。
+> Config ownership: the parallel engine and WAL are **PRTS-original features** and live in
+> `prts-features.yml`; `config/servercore.yml` keeps only the ServerCore (Spigot/Paper port)
+> features — the two files are strictly separated.
 
-## 版本与产物
+## Version & Artifact
 
-- 当前版本：**v1.21.1-1.0.25**（与主分支同步的版本号）
-- 构建产物：**`PRTS-neoforge-1.21.1-<版号>-Multithreading.jar`**（后缀 `-Multithreading` 标识工程验证构建）
+- Current version: **v1.21.1-1.0.25** (version number synced with main)
+- Build artifact: **`PRTS-neoforge-1.21.1-<version>-Multithreading.jar`** (the `-Multithreading`
+  suffix marks the engineering-validation build)
 
-## 构建与部署
+## Build & Deploy
 
-- 环境：JDK 21；命令：`./gradlew --no-daemon :bootstrap:neoforgeJar`
-- 部署：复制 jar 到服务端根目录 → **清空 `.arclight/mod_file/*`**（强制重解包内嵌 common.jar）→ 启动
-- 完整说明与主分支一致，**详见主分支 README**
+- JDK 21; command: `./gradlew --no-daemon :bootstrap:neoforgeJar`
+- Deploy: copy the jar to the server root → **clear `.arclight/mod_file/*`** (forces re-extraction
+  of the embedded common.jar) → start
+- Full instructions match the main branch — **see the main branch README**
 
-## 其余功能
+## Everything else
 
-与主分支（`1.21.1`）一致（ServerCore 移植、实体追踪、区块保存、异步日志、动力铁轨优化、
-客户端模组防护、红石/寻路优化等）——**完整功能表与溯源详见主分支 README**。
+Identical to the main `1.21.1` branch (ServerCore port, entity tracking, chunk saving, async
+logging, powered-rail optimization, client-mod guard, redstone/pathfinding optimizations, etc.) —
+**see the main branch README for the full feature table and provenance**.
 
-## 许可
+## License
 
-基于 [GPL v3](LICENSE) 开源，与上游一致；第三方功能版权与署名见 `THIRD-PARTY.md`。
+[GPL v3](LICENSE), same as upstream; third-party copyrights and attributions in `THIRD-PARTY.md`.
