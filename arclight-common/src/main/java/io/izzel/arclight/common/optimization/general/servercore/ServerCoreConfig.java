@@ -40,10 +40,7 @@ public final class ServerCoreConfig {
         SYNC_LOADS("sync-loads"),
         CHUNK_TICKETS("chunk-tickets"),
         BIOME_LOOKUPS("biome-lookups"),
-        PATHFINDING("pathfinding"),
-        PATHFINDING_ASYNC("pathfinding-async"),
-        DIMENSION_PARALLEL("dimension-parallel"),
-        REGION_PARALLEL("region-parallel");
+        PATHFINDING("pathfinding");
 
         final String key;
 
@@ -149,15 +146,7 @@ public final class ServerCoreConfig {
             + "  # Only broadcasts block changes for chunks that actually changed this tick.\n"
             + "  chunk-broadcasts: true\n"
             + "  # Asynchronous chunk IO: region file reads are offloaded to a dedicated thread pool.\n"
-            + "  async-chunk-io: true\n"
-            + "  # Reliable chunk saving (journal mode): serializes dirty chunks to a journal file every\n"
-            + "  # journal-interval-seconds and replays it on startup after a crash / power loss.\n"
-            + "  # True costs some IO but greatly reduces rollback damage on unexpected shutdown.\n"
-            + "  reliable-chunk-save: false\n"
-            + "  # Journal flush interval in seconds (only used when reliable-chunk-save is true).\n"
-            + "  journal-interval-seconds: 30\n"
-            + "  # Max dirty chunks serialized per tick while flushing (spreads the cost across ticks).\n"
-            + "  journal-chunks-per-tick: 50\n";
+            + "  async-chunk-io: true\n";
 
     private static final String BREEDING_CAP_BODY = ""
             + "# A special mobcap that only affects the breeding of animals and villagers.\n"
@@ -259,22 +248,6 @@ public final class ServerCoreConfig {
             + "\n"
             + "# PathFinder Map/Set allocation reductions.\n"
             + "pathfinding: true\n"
-            + "\n"
-            + "# Offload PathFinder A* computation to worker threads (read-only copy computation, P1).\n"
-            + "# The path is computed off the main thread and applied on the next tick boundary (0-1 tick delay).\n"
-            + "# Enabled by default on the parallel branch; set false to disable.\n"
-            + "pathfinding-async: true\n"
-            + "\n"
-            + "# Tick each dimension on its own worker thread (dimension-level parallelism, P2).\n"
-            + "# All dimension ticks are batched behind a per-tick barrier on the main thread; NeoForge\n"
-            + "# level tick events stay on the main thread, cross-dimension teleports are deferred to the barrier.\n"
-            + "# Enabled by default on the parallel branch; set false to disable.\n"
-            + "dimension-parallel: true\n"
-            + "\n"
-            + "# Tick block/entity/block-entity phases on per-region worker threads (region-level parallelism, P3).\n"
-            + "# Cross-region writes go through the update-set protocol (1-tick window); entity management\n"
-            + "# is guarded by two-level locks. Enabled by default on the parallel branch; set false to disable.\n"
-            + "region-parallel: true\n"
             + "\n"
             + FEATURES_BODY
             + "\n"
@@ -438,8 +411,6 @@ public final class ServerCoreConfig {
         synchronized (ServerCoreConfig.class) {
             if (loaded || loadFailed) return;
             for (Feature f : Feature.values()) FEATURES.put(f, Boolean.TRUE);
-            // 多线程 feature 默认全开（p3-parallel 分支交付态）：旧配置无该键时保持 true。
-            // 需要显式关闭时在 servercore.yml 写 false 即可覆盖。
             File cfg = new File("config", FILE_NAME);
             if (!cfg.exists()) {
                 writeDefault(cfg);
@@ -593,10 +564,7 @@ public final class ServerCoreConfig {
                 lobo != null ? asInt(lobo.get("tick-interval"), 20) : 20,
                 asBool(m.get("chunk-random-ticks"), true),
                 asBool(m.get("chunk-broadcasts"), true),
-                asBool(m.get("async-chunk-io"), true),
-                asBool(m.get("reliable-chunk-save"), false),
-                asInt(m.get("journal-interval-seconds"), 30),
-                asInt(m.get("journal-chunks-per-tick"), 50)
+                asBool(m.get("async-chunk-io"), true)
         );
     }
 

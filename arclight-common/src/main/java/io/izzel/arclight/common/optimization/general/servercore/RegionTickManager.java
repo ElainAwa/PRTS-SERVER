@@ -1,6 +1,7 @@
 package io.izzel.arclight.common.optimization.general.servercore;
 
 import io.izzel.arclight.common.bridge.core.entity.EntityBridge;
+import io.izzel.arclight.common.compat.prts.PRTSFeaturesConfig;
 import io.izzel.arclight.common.optimization.general.AsyncTaskStats;
 import net.minecraft.Util;
 import net.minecraft.core.BlockPos;
@@ -123,9 +124,9 @@ public final class RegionTickManager {
         return r == null ? -1 : r;
     }
 
-    /** True when the region-parallel feature is enabled. */
+    /** True when the region-parallel feature is enabled (PRTS prts-features.yml). */
     public static boolean regionEnabled() {
-        return ServerCoreConfig.isEnabled(ServerCoreConfig.Feature.REGION_PARALLEL);
+        return PRTSFeaturesConfig.parallelRegion;
     }
 
     /** True when a region worker is about to write a block outside its own region. */

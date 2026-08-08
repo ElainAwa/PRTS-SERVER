@@ -1,9 +1,9 @@
 package io.izzel.arclight.common.mixin.optimization.general.servercore.dimension_parallel;
 
+import io.izzel.arclight.common.compat.prts.PRTSFeaturesConfig;
 import io.izzel.arclight.common.optimization.general.servercore.DimensionTickManager;
 import io.izzel.arclight.common.optimization.general.servercore.DimensionTickUnit;
 import io.izzel.arclight.common.optimization.general.servercore.ParallelTickUnit;
-import io.izzel.arclight.common.optimization.general.servercore.ServerCoreConfig;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
@@ -50,7 +50,7 @@ public abstract class MinecraftServerMixin_DimParallel {
         at = @At(value = "INVOKE", target = "Lnet/minecraft/server/MinecraftServer;getWorldArray()[Lnet/minecraft/server/level/ServerLevel;"))
     private ServerLevel[] arclight$dimParallel(MinecraftServer server, BooleanSupplier shouldKeepTicking) {
         ServerLevel[] worldArray = this.levels.values().toArray(new ServerLevel[0]);
-        if (!ServerCoreConfig.isEnabled(ServerCoreConfig.Feature.DIMENSION_PARALLEL) || worldArray.length <= 1) {
+        if (!PRTSFeaturesConfig.parallelDimension || worldArray.length <= 1) {
             return worldArray;
         }
         ParallelTickUnit[] units = new ParallelTickUnit[worldArray.length];

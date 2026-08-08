@@ -1,12 +1,12 @@
 package io.izzel.arclight.common.mixin.optimization.general.servercore.async_pathfinding;
 
+import io.izzel.arclight.common.compat.prts.PRTSFeaturesConfig;
 import io.izzel.arclight.common.optimization.general.servercore.AsyncPathfindingManager;
 import io.izzel.arclight.common.optimization.general.servercore.DimensionTickManager;
 import io.izzel.arclight.common.optimization.general.servercore.ImmutablePathNavigationRegion;
 import io.izzel.arclight.common.optimization.general.servercore.PathNavigationAccess;
 import io.izzel.arclight.common.optimization.general.servercore.PathNavigationRegionAccess;
 import io.izzel.arclight.common.optimization.general.servercore.RegionTickManager;
-import io.izzel.arclight.common.optimization.general.servercore.ServerCoreConfig;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.entity.Mob;
@@ -25,7 +25,8 @@ import java.util.Set;
 
 /**
  * PRTS async pathfinding entry point (P1 experiment, AI-created).
- * When {@link ServerCoreConfig.Feature#PATHFINDING_ASYNC} is enabled and the call
+ * When {@link PRTSFeaturesConfig#parallelPathfindingAsync}
+ * is enabled and the call
  * happens on the server thread (or on a P2 dimension worker thread), the A*
  * computation of
  * {@link PathFinder#findPath(PathNavigationRegion, Mob, Set, float, int, float)}
@@ -59,8 +60,8 @@ public abstract class PathFinderMixin_Async {
                                         CallbackInfoReturnable<Path> cir) {
         LOGGER.info("[pf-async] entered thread={} mob={} feature={}", Thread.currentThread().getName(),
                 mob != null ? mob.getType() : "null",
-                ServerCoreConfig.isEnabled(ServerCoreConfig.Feature.PATHFINDING_ASYNC));
-        if (!ServerCoreConfig.isEnabled(ServerCoreConfig.Feature.PATHFINDING_ASYNC)) {
+                PRTSFeaturesConfig.parallelPathfindingAsync);
+        if (!PRTSFeaturesConfig.parallelPathfindingAsync) {
             LOGGER.info("[pf-async] feature disabled");
             return;
         }

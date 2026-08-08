@@ -1,6 +1,6 @@
 package io.izzel.arclight.common.mixin.optimization.general.servercore.journal;
 
-import io.izzel.arclight.common.optimization.general.servercore.ServerCoreConfig;
+import io.izzel.arclight.common.compat.prts.PRTSFeaturesConfig;
 import io.izzel.arclight.common.optimization.general.servercore.journal.ChunkJournal;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
@@ -15,7 +15,7 @@ import java.util.function.BooleanSupplier;
 
 /**
  * journal 模式钩子：tick 周期 flush / 启动回放 / 正常关服清 journal。
- * 由 features.reliable-chunk-save 门控，默认关闭零开销。
+ * 由 prts-features.yml 的 reliable-chunk-save 门控，默认关闭零开销。
  */
 @Mixin(MinecraftServer.class)
 public abstract class ChunkJournalMixin_Recovery {
@@ -28,15 +28,15 @@ public abstract class ChunkJournalMixin_Recovery {
 
     @Inject(method = "tickServer", at = @At("RETURN"))
     private void prts$journalTick(BooleanSupplier hasTimeLeft, CallbackInfo ci) {
-        if (!ServerCoreConfig.features().reliableChunkSave()) {
+        if (!PRTSFeaturesConfig.reliableChunkSave) {
             return;
         }
-        int perTick = ServerCoreConfig.features().journalChunksPerTick();
+        int perTick = PRTSFeaturesConfig.journalChunksPerTick;
         if (ChunkJournal.isFlushing()) {
             ChunkJournal.flushTick(perTick);
             return;
         }
-        int interval = Math.max(5, ServerCoreConfig.features().journalIntervalSeconds()) * 20;
+        int interval = Math.max(5, (int) PRTSFeaturesConfig.journalIntervalSeconds) * 20;
         if (++prts$journalTick % interval != 0) {
             return;
         }
@@ -46,7 +46,7 @@ public abstract class ChunkJournalMixin_Recovery {
 
     @Inject(method = "createLevels", at = @At("RETURN"))
     private void prts$journalRecover(CallbackInfo ci) {
-        if (!ServerCoreConfig.features().reliableChunkSave()) {
+        if (!PRTSFeaturesConfig.reliableChunkSave) {
             return;
         }
         for (ServerLevel level : this.getAllLevels()) {
@@ -56,7 +56,7 @@ public abstract class ChunkJournalMixin_Recovery {
 
     @Inject(method = "stopServer", at = @At("HEAD"))
     private void prts$journalClean(CallbackInfo ci) {
-        if (!ServerCoreConfig.features().reliableChunkSave()) {
+        if (!PRTSFeaturesConfig.reliableChunkSave) {
             return;
         }
         for (ServerLevel level : this.getAllLevels()) {

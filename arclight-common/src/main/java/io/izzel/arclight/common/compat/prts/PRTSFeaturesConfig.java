@@ -35,6 +35,16 @@ public class PRTSFeaturesConfig {
     public static boolean ae2ltSetWorkingThrottleEnabled;
     public static int ae2ltSetWorkingThrottleMinTicks;
 
+    // Parallel tick engine - P1 async pathfinding / P2 dimension / P3 region（PRTS 自研多线程引擎，默认全开）
+    public static boolean parallelPathfindingAsync;
+    public static boolean parallelDimension;
+    public static boolean parallelRegion;
+
+    // Reliable chunk save - WAL 预写日志（PRTS 自研可靠区块保存，默认关）
+    public static boolean reliableChunkSave;
+    public static long journalIntervalSeconds;
+    public static int journalChunksPerTick;
+
     public static void init() {
         File file = new File("prts-features.yml");
         config = YamlConfiguration.loadConfiguration(file);
@@ -53,5 +63,11 @@ public class PRTSFeaturesConfig {
         neighborUpdateBreakerMaxPerTick = config.getLong("neighbor-update-breaker.max-per-tick", 200000);
         ae2ltSetWorkingThrottleEnabled = config.getBoolean("ae2lt-setworking-throttle.enabled", true);
         ae2ltSetWorkingThrottleMinTicks = config.getInt("ae2lt-setworking-throttle.min-ticks", 4);
+        parallelPathfindingAsync = config.getBoolean("parallel.pathfinding-async", true);
+        parallelDimension = config.getBoolean("parallel.dimension-parallel", true);
+        parallelRegion = config.getBoolean("parallel.region-parallel", true);
+        reliableChunkSave = config.getBoolean("reliable-chunk-save.enabled", false);
+        journalIntervalSeconds = config.getLong("reliable-chunk-save.interval-seconds", 30);
+        journalChunksPerTick = config.getInt("reliable-chunk-save.chunks-per-tick", 50);
     }
 }

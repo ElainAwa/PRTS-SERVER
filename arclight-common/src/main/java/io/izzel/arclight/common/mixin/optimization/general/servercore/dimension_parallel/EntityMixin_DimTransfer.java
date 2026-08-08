@@ -1,7 +1,7 @@
 package io.izzel.arclight.common.mixin.optimization.general.servercore.dimension_parallel;
 
+import io.izzel.arclight.common.compat.prts.PRTSFeaturesConfig;
 import io.izzel.arclight.common.optimization.general.servercore.DimensionTickManager;
-import io.izzel.arclight.common.optimization.general.servercore.ServerCoreConfig;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.portal.DimensionTransition;
@@ -36,7 +36,7 @@ public abstract class EntityMixin_DimTransfer {
     @Inject(method = "changeDimension(Lnet/minecraft/world/level/portal/DimensionTransition;)Lnet/minecraft/world/entity/Entity;",
         at = @At("HEAD"), cancellable = true)
     private void arclight$deferTransfer(DimensionTransition transition, CallbackInfoReturnable<Entity> cir) {
-        if (!ServerCoreConfig.isEnabled(ServerCoreConfig.Feature.DIMENSION_PARALLEL)) return;
+        if (!PRTSFeaturesConfig.parallelDimension) return;
         if (!DimensionTickManager.inDimensionTick()) return;
         Entity self = (Entity) (Object) this;
         if (transition.newLevel() == self.level()) return;

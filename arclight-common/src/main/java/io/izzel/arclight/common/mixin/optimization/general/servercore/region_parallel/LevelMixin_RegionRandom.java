@@ -1,6 +1,6 @@
 package io.izzel.arclight.common.mixin.optimization.general.servercore.region_parallel;
 
-import io.izzel.arclight.common.optimization.general.servercore.ServerCoreConfig;
+import io.izzel.arclight.common.compat.prts.PRTSFeaturesConfig;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.Level;
 import org.spongepowered.asm.mixin.Mixin;
@@ -28,7 +28,7 @@ public abstract class LevelMixin_RegionRandom {
     @Redirect(method = "<init>",
         at = @At(value = "INVOKE", target = "Lnet/minecraft/util/RandomSource;create()Lnet/minecraft/util/RandomSource;"))
     private static RandomSource arclight$regionRandom() {
-        if (ServerCoreConfig.isEnabled(ServerCoreConfig.Feature.REGION_PARALLEL)) {
+        if (PRTSFeaturesConfig.parallelRegion) {
             return RandomSource.createThreadSafe();
         }
         return RandomSource.create();

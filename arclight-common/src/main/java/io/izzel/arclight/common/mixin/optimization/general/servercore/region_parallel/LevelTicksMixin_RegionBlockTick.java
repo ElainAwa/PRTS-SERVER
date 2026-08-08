@@ -1,7 +1,7 @@
 package io.izzel.arclight.common.mixin.optimization.general.servercore.region_parallel;
 
+import io.izzel.arclight.common.compat.prts.PRTSFeaturesConfig;
 import io.izzel.arclight.common.optimization.general.servercore.RegionTickManager;
-import io.izzel.arclight.common.optimization.general.servercore.ServerCoreConfig;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.ticks.LevelTicks;
@@ -36,7 +36,7 @@ public abstract class LevelTicksMixin_RegionBlockTick {
     @Redirect(method = "runCollectedTicks(Ljava/util/function/BiConsumer;)V",
         at = @At(value = "INVOKE", target = "Ljava/util/function/BiConsumer;accept(Ljava/lang/Object;Ljava/lang/Object;)V"))
     private static void arclight$regionScheduledTick(BiConsumer<Object, Object> consumer, Object pos, Object type) {
-        if (type instanceof Block && ServerCoreConfig.isEnabled(ServerCoreConfig.Feature.REGION_PARALLEL)) {
+        if (type instanceof Block && PRTSFeaturesConfig.parallelRegion) {
             RegionTickManager.collectBlockTick((BlockPos) pos, (Block) type);
         } else {
             consumer.accept(pos, type);
