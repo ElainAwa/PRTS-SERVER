@@ -6,12 +6,14 @@ import net.minecraft.world.level.ChunkPos;
 /**
  * PRTS region view of a dimension level (P3 slice 1, AI-created).
  *
- * <p>Slice 1 uses a static stripe partition: chunk columns are grouped in
- * stripes of {@value #STRIPE_WIDTH} chunks and each stripe is halved between
- * the two regions. The authoritative set is implicit and immutable for the
- * whole run (the "fixed region definition" review requirement), so an entity
- * belongs to exactly one region at all times. Region boundaries are sparse
- * (one boundary line every {@value #STRIPE_WIDTH} columns) to keep cross-region
+ * <p>The overworld is partitioned into a configurable number of regions
+ * (docs/parallel-phase3-region-parallelism-v11.md). Chunk columns are grouped
+ * in stripes of {@value #STRIPE_WIDTH} chunks and each stripe is split evenly
+ * between {@code regionCount()} regions (2/4/8). The authoritative set is
+ * implicit and immutable for the whole run (the "fixed region definition"
+ * review requirement), so an entity belongs to exactly one region at all
+ * times. Region boundaries are sparse (one boundary line every
+ * {@value #STRIPE_WIDTH} / regionCount columns) to keep cross-region
  * interaction low.</p>
  *
  * <p>Discipline helpers (review §4.1): {@link #isAuthoritative} gates every
@@ -34,7 +36,7 @@ public final class RegionLevel {
     /** Region id for a chunk column under the static stripe partition. */
     public static int regionId(int chunkX) {
         int group = Math.floorMod(chunkX, STRIPE_WIDTH);
-        return group >= STRIPE_WIDTH / DEFAULT_REGION_COUNT ? 1 : 0;
+        return Math.min(regionCount() - 1, group / (STRIPE_WIDTH / regionCount()));
     }
 
     /** Region id for a block position. */
@@ -53,6 +55,11 @@ public final class RegionLevel {
 
     public static boolean isAuthoritative(BlockPos pos, int regionId) {
         return regionId(pos) == regionId;
+    }
+
+    /** Number of regions for the current configuration. */
+    public static int regionCount() {
+        return RegionTickManager.regionCount();
     }
 
     public int regionId() {

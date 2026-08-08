@@ -102,6 +102,41 @@ public final class AsyncTaskStats {
         if (t != null) t.record(durationNanos);
     }
 
+    /** Average duration of a timer in milliseconds (0 if absent; read-only, main thread). */
+    public double avgMillis(String name) {
+        Timer t = timers.get(name);
+        return t == null ? 0.0 : t.avgMillis();
+    }
+
+    /** Sum of a counter (0 if absent; read-only, main thread). */
+    public long counterSum(String name) {
+        LongAdder c = counters.get(name);
+        return c == null ? 0L : c.sum();
+    }
+
+    /**
+     * Registers a timer at runtime if absent (startup only, main thread;
+     * maps are not thread-safe). Used by the P3 region-count reconfigure.
+     */
+    public synchronized void ensureTimer(String name) {
+        if (!timers.containsKey(name)) {
+            timers.put(name, new Timer());
+            timerOrder.add(name);
+        }
+    }
+
+    /**
+     * Registers a group member at runtime if absent (startup only, main thread).
+     * Used by the P3 region-count reconfigure.
+     */
+    public synchronized void ensureGroupMember(String group, String member) {
+        String key = group + "." + member;
+        if (!counters.containsKey(key)) {
+            counters.put(key, new LongAdder());
+            groups.computeIfAbsent(group, k -> new ArrayList<>()).add(member);
+        }
+    }
+
     /**
      * Periodic summary driver. Call once per server tick from the main thread.
      * Logs a summary line every {@code intervalTicks} ticks.

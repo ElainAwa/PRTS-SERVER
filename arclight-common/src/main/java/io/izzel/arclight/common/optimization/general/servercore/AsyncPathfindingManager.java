@@ -49,16 +49,23 @@ public final class AsyncPathfindingManager {
 
     // P3 slice 4 (v08): results submitted by region workers are bucketed per
     // region and drained by that region's worker (same-thread application).
-    private static final int REGION_COUNT = RegionLevel.DEFAULT_REGION_COUNT;
-    @SuppressWarnings("unchecked")
-    private static final ConcurrentLinkedQueue<Result>[] RESULTS_REGION = new ConcurrentLinkedQueue[REGION_COUNT];
-    private static final AtomicLong[] LAST_REGION_DRAINED = new AtomicLong[REGION_COUNT];
+    private static volatile ConcurrentLinkedQueue<Result>[] RESULTS_REGION = new ConcurrentLinkedQueue[0];
+    private static volatile AtomicLong[] LAST_REGION_DRAINED = new AtomicLong[0];
 
-    static {
-        for (int i = 0; i < REGION_COUNT; i++) {
-            RESULTS_REGION[i] = new ConcurrentLinkedQueue<>();
-            LAST_REGION_DRAINED[i] = new AtomicLong(-1);
+    /**
+     * Rebuilds the per-region result buckets (startup only, main thread, called
+     * from RegionTickManager.ensureConfigured; docs v11).
+     */
+    public static synchronized void reconfigureRegions(int n) {
+        @SuppressWarnings("unchecked")
+        ConcurrentLinkedQueue<Result>[] buckets = new ConcurrentLinkedQueue[n];
+        AtomicLong[] drained = new AtomicLong[n];
+        for (int i = 0; i < n; i++) {
+            buckets[i] = new ConcurrentLinkedQueue<>();
+            drained[i] = new AtomicLong(-1);
         }
+        RESULTS_REGION = buckets;
+        LAST_REGION_DRAINED = drained;
     }
 
     // 取消/结果统计埋点 (共享 AsyncTaskStats, P2/P3 同步协议复用同一可观测面)。
@@ -114,8 +121,9 @@ public final class AsyncPathfindingManager {
                     return;
                 }
                 Path path = pathFinder.findPath(snapshot, mob, targets, maxRange, accuracy, depthMultiplier);
-                if (regionId >= 0 && regionId < REGION_COUNT) {
-                    RESULTS_REGION[regionId].add(new Result(navigation, path, serverTick));
+                ConcurrentLinkedQueue<Result>[] buckets = RESULTS_REGION;
+                if (regionId >= 0 && regionId < buckets.length) {
+                    buckets[regionId].add(new Result(navigation, path, serverTick));
                 } else {
                     RESULTS.add(new Result(navigation, path, serverTick));
                 }
@@ -151,12 +159,13 @@ public final class AsyncPathfindingManager {
      * the entity ticks, avoiding cross-thread PathNavigation writes.
      */
     public static void drainRegion(int regionId, long serverTick) {
-        if (regionId < 0 || regionId >= REGION_COUNT) return;
+        ConcurrentLinkedQueue<Result>[] buckets = RESULTS_REGION;
+        if (regionId < 0 || regionId >= buckets.length) return;
         long last = LAST_REGION_DRAINED[regionId].get();
         if (last == serverTick) return;
-        if (RESULTS_REGION[regionId].isEmpty()) return;
+        if (buckets[regionId].isEmpty()) return;
         LAST_REGION_DRAINED[regionId].set(serverTick);
-        drain(RESULTS_REGION[regionId], serverTick);
+        drain(buckets[regionId], serverTick);
         STATS.tick(serverTick);
     }
 
