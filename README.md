@@ -2,8 +2,8 @@
 
 > [!WARNING]
 > ⚠️ **此版本为工程验证构建，请谨慎使用，勿用于生产环境**。
-> 分支基于多线程并行引擎（P1/P2/P3）的实验性改造，默认全开；如需回退到稳定行为，
-> 在 `prts-features.yml` 中显式关闭对应开关（见下文「本分支独有配置」）。
+> 本分支做了多线程并行的实验性改造，默认全开；如需回退到稳定行为，
+> 在 `prts-features.yml` 中关闭对应开关（见下文「本分支独有配置」）。
 
 > [!NOTE]
 > 本文档由 AI 创作并维护，供快速上手与功能溯源。
@@ -13,31 +13,39 @@
 ## 项目渊源
 
 [Arclight](https://github.com/IzzelAliz/Arclight)（Hybrid 混合端）→ [Luminara](https://github.com/CraftAmethyst/Luminara) → **本 fork：PRTS**（[ElainAwa](https://github.com/ElainAwa) 维护）
-→ **本分支：`p3-parallel`**（在 PRTS 基础上叠加多线程并行引擎的实验分支）
+→ **本分支：`1.21.1-Multithreading`**（在 PRTS 基础上叠加多线程并行引擎的实验分支）
 
 ## 本分支独有：多线程并行引擎
 
-将单主线程 tick 拆分为多 worker 并行，三个层次可独立开关（`prts-features.yml`，默认全开）：
+本分支将原本单线程的世界 tick 拆分为多个工作线程并行执行，以降低高负载下的卡顿。并行引擎由三部分组成，均可通过 `prts-features.yml` 独立开关（默认全开）：
 
-| 层级 | 能力 | 说明 | 设计文档 |
-|---|---|---|---|
-| **P1** | 异步寻路（pathfinding-async） | PathFinder A* 提交工作线程计算，结果下一 tick 应用；区域 worker 内按 region 分桶提交、本区 drain | `docs/parallel-phase2-dimension-parallelism-v01.md` 等 |
-| **P2** | 维度并行（dimension-parallel） | 各维度独立 worker tick，主线程 tick 屏障同步，跨维度传送延迟到屏障 | `docs/parallel-phase2-dimension-parallelism-v01.md` |
-| **P3** | 区域并行（region-parallel） | 主世界按 chunk 条带分 2 区域，方块/实体/TE tick 分三会话在区域 worker 并行；跨区写走更新集协议（1 tick 窗口）、实体管理两级锁、跨区读写计数仪表盘 | `docs/parallel-phase3-region-parallelism-v01.md` ~ `v10` |
+- **异步寻路**（`pathfinding-async`）：将怪物寻路计算移至工作线程，避免占用主线程；
+- **维度并行**（`dimension-parallel`）：各维度在独立线程上执行 tick，互不阻塞；
+- **区域并行**（`region-parallel`）：主世界按区块条带划分为多个区域并行 tick，区域数可通过 `region-count` 配置（2/4/8，默认 4），并可由 `region-auto-scale` 根据负载自动增减。
 
-**已固化在本分支的关键修复**（主分支没有）：
-- **mob AI 冻结修复**：NeoForge 1.21.1 将 AI 调度移入 `serverAiStep()`（仅主线程 consumer 调用），区域 worker 曾静默丢 AI——已补调（commit `f63a294`）
-- **实体管理线程安全化**：EntityLookup/EntityTickList/EntitySectionStorage/EntitySection 两级锁（commit `5edd04a` 前置的 v05）
-- **跨区红石统计**：`cross.redstoneBoundary` 边界带计数，实测跨区红石 <1%，红石子求解永久免做（commit `7f24b2f`）
+**本分支独有的稳定性修复**（主分支没有）：
+- **怪物 AI 卡顿修复**：NeoForge 1.21.1 的怪物 AI 调度只在主线程生效，区域并行曾导致怪物呆立不动——已修复
+- **批量杀怪不再崩服**：`/kill` 清理大量实体时与并行 tick 冲突曾导致崩溃（ConcurrentModificationException）——已修复
+- **实体管理线程安全化**：实体增删改查加锁，保证并行 tick 下数据一致
+- **跨区红石统计**：实测跨区红石流量 <1%，红石机器跨区域的影响可忽略
 
 ## 本分支独有配置（`prts-features.yml`，服务端根目录）
 
 ```yaml
-# 多线程并行引擎（默认全开；false 关闭回退单线程原版行为）
+# 多线程并行引擎（默认全开；false 关闭对应能力，回退单线程行为）
 parallel:
-  pathfinding-async: true
-  dimension-parallel: true
-  region-parallel: true
+  pathfinding-async: true        # 异步寻路
+  dimension-parallel: true       # 维度并行
+  region-parallel: true          # 区域并行
+  region-count: 4                # 区域数（2/4/8，默认 4；非 2 的幂自动回落 4）
+  region-auto-scale: true        # 按负载自动增减区域数
+  region-scale-interval-seconds: 300   # 评估周期（秒）
+  region-scale-high-mspt: 60           # 超过此负载则增加区域
+  region-scale-low-mspt: 15            # 低于此负载则减少区域
+  region-scale-stable-periods: 2       # 连续确认周期数（防抖）
+  region-scale-min: 2                  # 区域数下限
+  region-scale-max: 8                  # 区域数上限
+  region-scale-cross-read-ratio: 0.05  # 跨区读取占比上限（超过则不增加区域）
 # 可靠区块保存（WAL 预写日志，默认关）
 reliable-chunk-save:
   enabled: false
@@ -52,7 +60,6 @@ reliable-chunk-save:
 
 - 当前版本：**v1.21.1-1.0.25**（与主分支同步的版本号）
 - 构建产物：**`PRTS-neoforge-1.21.1-<版号>-Multithreading.jar`**（后缀 `-Multithreading` 标识工程验证构建）
-- 演进记录：本分支 commits（见 git log）
 
 ## 构建与部署
 
@@ -62,10 +69,8 @@ reliable-chunk-save:
 
 ## 其余功能
 
-与主分支（`1.21.1`）一致：ServerCore 完整移植六段、routeB 空间化实体追踪、ticketpropagator、
-move-zero-velocity / async-logging、动力铁轨优化、PRTSThreadCost、WatchMohist、NPI、
-ClientModGuard、Guava 遮蔽修复、neighbor 更新熔断、ae2lt 节流等——
-**完整功能表与溯源详见主分支 README**。
+与主分支（`1.21.1`）一致（ServerCore 移植、实体追踪、区块保存、异步日志、动力铁轨优化、
+客户端模组防护、红石/寻路优化等）——**完整功能表与溯源详见主分支 README**。
 
 ## 许可
 
