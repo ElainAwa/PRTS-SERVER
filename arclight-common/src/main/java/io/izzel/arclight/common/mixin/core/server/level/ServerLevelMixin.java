@@ -266,6 +266,7 @@ public abstract class ServerLevelMixin extends LevelMixin implements ServerLevel
     @Inject(method = "gameEvent", cancellable = true, at = @At("HEAD"))
     private void arclight$gameEventEvent(Holder<GameEvent> holder, Vec3 pos, GameEvent.Context context, CallbackInfo ci) {
         if (!arclight$isActual()) {
+            ci.cancel();
             return;
         }
         var entity = context.sourceEntity();

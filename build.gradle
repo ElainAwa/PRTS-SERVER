@@ -11,7 +11,7 @@ allprojects {
     apply plugin: 'java'
 
     group 'io.izzel.arclight'
-    version '1.0.26'
+    version '1.0.27'
 
     def getGitHash = { ->
         def stdout = new ByteArrayOutputStream()
