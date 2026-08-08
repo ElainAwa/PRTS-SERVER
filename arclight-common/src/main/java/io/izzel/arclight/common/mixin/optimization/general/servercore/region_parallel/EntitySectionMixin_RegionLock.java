@@ -7,6 +7,9 @@ import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
 
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Iterator;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**
@@ -17,9 +20,10 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
  * uncontended. It only arbitrates rare cross-region writes (entity moving
  * across the stripe boundary) and main-thread spawns racing region workers.
  * The lock is a mixin-injected per-instance field (no global map to manage).
- * Read traversal (getEntities) stays lock-free: the main-thread spawn window
- * is separated from the worker phase by the region latch, and cross-region
- * traversal/write overlap is a documented low-risk edge (see v05 doc §2.2).</p>
+ * Read traversal (getEntities) snapshots under the read lock (v12 fix): the
+ * main thread / RCON thread can remove entities (e.g. a bulk {@code kill})
+ * while a region worker iterates the section for collision checks — the
+ * snapshot keeps the iterator off the live ArrayList so no CME.</p>
  */
 @Mixin(EntitySection.class)
 public abstract class EntitySectionMixin_RegionLock {
@@ -48,6 +52,30 @@ public abstract class EntitySectionMixin_RegionLock {
             return storage.remove(entity);
         } finally {
             this.arclight$sectionLock.writeLock().unlock();
+        }
+    }
+
+    @Redirect(method = "getEntities(Lnet/minecraft/world/phys/AABB;Lnet/minecraft/util/AbortableIterationConsumer;)Lnet/minecraft/util/AbortableIterationConsumer$Continuation;",
+        at = @At(value = "INVOKE", target = "Lnet/minecraft/util/ClassInstanceMultiMap;iterator()Ljava/util/Iterator;"))
+    @SuppressWarnings("rawtypes")
+    private Iterator arclight$sectionEntitiesSnapshot(ClassInstanceMultiMap storage) {
+        this.arclight$sectionLock.readLock().lock();
+        try {
+            return new ArrayList(storage).iterator();
+        } finally {
+            this.arclight$sectionLock.readLock().unlock();
+        }
+    }
+
+    @Redirect(method = "getEntities(Lnet/minecraft/world/level/entity/EntityTypeTest;Lnet/minecraft/world/phys/AABB;Lnet/minecraft/util/AbortableIterationConsumer;)Lnet/minecraft/util/AbortableIterationConsumer$Continuation;",
+        at = @At(value = "INVOKE", target = "Ljava/util/Collection;iterator()Ljava/util/Iterator;"))
+    @SuppressWarnings("rawtypes")
+    private Iterator arclight$sectionTypedEntitiesSnapshot(Collection entities) {
+        this.arclight$sectionLock.readLock().lock();
+        try {
+            return new ArrayList(entities).iterator();
+        } finally {
+            this.arclight$sectionLock.readLock().unlock();
         }
     }
 }
