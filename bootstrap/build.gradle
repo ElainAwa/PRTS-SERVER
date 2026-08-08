@@ -186,8 +186,8 @@ tasks.register('forgeJar', Jar) {
 
 tasks.register('neoforgeJar', Jar) {
     archiveBaseName.set "PRTS-neoforge-${libs.versions.minecraft.get()}"
-    // p3-parallel 分支：产物名标注 Multithreading 版本（工程验证构建）
-    archiveVersion.set "${project.version}-Multithreading"
+    // p3-parallel 分支：产物名标注 Multithreading 版本（工程验证构建，version 已含 -Multithreading 后缀）
+    archiveVersion.set "${project.version}"
     manifest.attributes 'Main-Class': 'io.izzel.arclight.server.Launcher'
     manifest.attributes 'Implementation-Title': 'PRTS'
     manifest.attributes 'Implementation-Version': "PRTS-${libs.versions.minecraft.get()}-${project.version}-$gitHash"
