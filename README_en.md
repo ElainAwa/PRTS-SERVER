@@ -1,63 +1,78 @@
-# PRTS-FeudalKings — Minecraft 1.21.1 / NeoForge
+# PRTS-Multithreading — Minecraft 1.21.1 / NeoForge (engineering-validation branch)
+
+> [!WARNING]
+> ⚠️ **This is an engineering-validation build — use with caution, do not use in production.**
+> This branch carries an experimental multi-thread parallel tick engine (P1/P2/P3),
+> enabled by default. To fall back to stable single-thread behavior, explicitly disable
+> the toggles in `prts-features.yml` (see "Branch-specific config" below).
 
 > [!NOTE]
-> This README is AI-authored and maintained, for a quick overview and feature provenance; see the `docs/` directory for technical details.
+> This README is AI-authored and maintained, for a quick overview and feature provenance.
+> Except for the parallel tick engine, this branch is identical to the main `1.21.1` branch —
+> the full feature table and provenance live in **the main branch README**, not repeated here.
 
 ## Project Origins
 
-[Arclight](https://github.com/IzzelAliz/Arclight) (hybrid server) → [Luminara](https://github.com/CraftAmethyst/Luminara) → **this fork: PRTS** (maintained by [ElainAwa](https://github.com/ElainAwa), private production hardening)
+[Arclight](https://github.com/IzzelAliz/Arclight) (hybrid server) → [Luminara](https://github.com/CraftAmethyst/Luminara) → **this fork: PRTS** (maintained by [ElainAwa](https://github.com/ElainAwa))
+→ **this branch: `p3-parallel`** (PRTS + experimental parallel tick engine)
 
-## What This Is
+## Branch-specific: Multi-thread Parallel Tick Engine
 
-Built for heavily-modded, multiplayer production servers: **NeoForge mods and Bukkit/Spigot plugins run side by side**.
-Only zero-perception low-level optimizations and crash fixes — gameplay is unchanged, only the resource cost of the same logic is reduced.
+Splits the single main-thread tick into parallel workers, three independent layers
+(toggle in `prts-features.yml`, all on by default):
 
-## Features & Sources
+| Layer | Capability | Notes | Design docs |
+|---|---|---|---|
+| **P1** | Async pathfinding (pathfinding-async) | PathFinder A* offloaded to worker threads, results applied next tick; region workers submit per-region buckets and drain locally | `docs/parallel-phase2-dimension-parallelism-v01.md` etc. |
+| **P2** | Dimension parallelism (dimension-parallel) | Each dimension ticks on its own worker behind a main-thread barrier; cross-dimension teleports deferred to the barrier | `docs/parallel-phase2-dimension-parallelism-v01.md` |
+| **P3** | Region parallelism (region-parallel) | Overworld split into 2 regions by chunk stripes; block/entity/block-entity phases run in three sessions on region workers; cross-region writes via update-set protocol (1-tick window), two-level entity locking, cross read/write counters | `docs/parallel-phase3-region-parallelism-v01.md` ~ `v10` |
 
-> The original mods are not compatible with the Luminara (Arclight) base. To avoid conflicts and incidents from installing them, their code has been folded into the core (de-modded rewrite). Folding them in is mainly for convenience — making the core compatible with both mods running side by side would require touching too much and is not worth it.
+**Key fixes baked into this branch** (not in main):
+- **Mob AI freeze fix**: NeoForge 1.21.1 moved AI scheduling into `serverAiStep()` (called only by the main-thread tick consumer); region workers silently lost AI — now re-invoked (commit `f63a294`)
+- **Entity management thread-safety**: two-level locking on EntityLookup/EntityTickList/EntitySectionStorage/EntitySection (v05, prior to `5edd04a`)
+- **Cross-region redstone stats**: `cross.redstoneBoundary` band counter; measured cross-region redstone <1%, so the NP-hard redstone graph solver is permanently dropped (commit `7f24b2f`)
 
-| Feature | Source | Repository |
-|---|---|---|
-| Full ServerCore port, six sections (activation-range / breeding-cap / mob-spawning / features / dynamic / commands) | ServerCore mod | https://github.com/Wesley1808/ServerCore |
-| routeB spatial entity tracking | VMP mod (AreaMap algorithm) | https://github.com/RelativityMC/Very-Many-Players |
-| ticketpropagator (delayed 8-way chunk-ticket propagation) | VMP (Paper-derived algorithm) | https://github.com/RelativityMC/Very-Many-Players |
-| move-zero-velocity / async-logging | VMP mod | https://github.com/RelativityMC/Very-Many-Players |
-| Powered-rail optimization (bounded power propagation depth) | Fluorite server (PoweredRailsOptimized) | https://github.com/FluoritePowered/Fluorite-1.19.2 |
-| Thread CPU-cost profiling (PRTSThreadCost) | Youer server (YouerThreadCost) | https://github.com/MohistMC/Youer |
-| Main-thread stall watchdog (WatchMohist) | Youer server (WatchMohist) | https://github.com/MohistMC/Youer |
-| Console log format fix (FML overriding log4j) | In-house, inspired by Youer | https://github.com/MohistMC/Youer |
-| NearbyPlayerIndex (NPI) spatial player index | In-house (built on Paper AreaMap) | https://github.com/PaperMC/Paper |
-| ClientModGuard client-mod precheck / crash self-healing (v27/v28) | In-house | — |
-| Guava shadowing crash fix (boot jar excludes com.google.common) | In-house | — |
+## Branch-specific config (`prts-features.yml`, server root)
 
-## Versions
+```yaml
+# Parallel tick engine (all on by default; false falls back to vanilla single-thread)
+parallel:
+  pathfinding-async: true
+  dimension-parallel: true
+  region-parallel: true
+# Reliable chunk save (WAL journal, off by default)
+reliable-chunk-save:
+  enabled: false
+  interval-seconds: 30
+  chunks-per-tick: 50
+```
 
-- Current: **v1.21.1-1.0.16** (get from GitHub Releases; Latest follows the newest release)
-- Changelog: see per-release notes on GitHub Releases
+> Config ownership: the parallel engine and WAL are **PRTS-original features** and live in
+> `prts-features.yml`; `config/servercore.yml` keeps only the ServerCore (Spigot/Paper port)
+> features — the two files are strictly separated.
 
-## Build
+## Version & Artifact
 
-- Requirements: JDK 21
-- Commands: `./gradlew --no-daemon :bootstrap:neoforgeJar` (full build; do **not** skip `generateInstallerInfo` — missing it causes an NPE on startup)
-- Artifact: `bootstrap/build/libs/PRTS-neoforge-1.21.1-<version>.jar`
-- Rules: the boot jar must not bundle `com.google.common` (old Guava shadows the platform Guava; already excluded in the embed phase); bump the version only for repo-synced final builds
+- Current version: **v1.21.1-1.0.25** (version number synced with main)
+- Build artifact: **`PRTS-neoforge-1.21.1-<version>-Multithreading.jar`** (the `-Multithreading`
+  suffix marks the engineering-validation build)
+- History: this branch's commits (see git log)
 
-## Deploy
+## Build & Deploy
 
-1. Copy the new jar to the server root and point your start script at it (`_start.bat` runs `java -jar PRTS-neoforge-1.21.1-<version>.jar -nogui`)
-2. **Force re-unpack**: the outer jar is a launcher; real classes live in the inner `common.jar` — you must clear `.arclight/mod_file/*`, otherwise the old common is reused
-3. Start: `java -jar PRTS-neoforge-1.21.1-<version>.jar nogui`
+- JDK 21; command: `./gradlew --no-daemon :bootstrap:neoforgeJar`
+- Deploy: copy the jar to the server root → **clear `.arclight/mod_file/*`** (forces re-extraction
+  of the embedded common.jar) → start
+- Full instructions match the main branch — **see the main branch README**
 
-## Config
+## Everything else
 
-- `prts.yml` (server root): legacy optimizations (NPI, routeB, tracking, etc.)
-- `config/servercore.yml`: six ServerCore sections (activation-range / breeding-cap / mob-spawning / features / dynamic / commands); missing sections are auto-appended and take effect on startup
-
-## Compatibility
-
-- NeoForge mods + Bukkit/Spigot plugins on the same server
-- May be incompatible with some optimization mods; incompatible with optimization Bukkit plugins
+Identical to the main `1.21.1` branch: full ServerCore six-section port, routeB spatial entity
+tracking, ticketpropagator, move-zero-velocity / async-logging, powered-rail optimization,
+PRTSThreadCost, WatchMohist, NPI, ClientModGuard, Guava shadowing fix, neighbor-update circuit
+breaker, ae2lt throttle, etc. — **see the main branch README for the full feature table and
+provenance**.
 
 ## License
 
-Open source under [GPL v3](LICENSE), same as upstream.
+[GPL v3](LICENSE), same as upstream; third-party copyrights and attributions in `THIRD-PARTY.md`.

@@ -1,63 +1,72 @@
-# PRTS-FeudalKings — Minecraft 1.21.1 / NeoForge
+# PRTS-Multithreading — Minecraft 1.21.1 / NeoForge（多线程工程验证分支）
+
+> [!WARNING]
+> ⚠️ **此版本为工程验证构建，请谨慎使用，勿用于生产环境**。
+> 分支基于多线程并行引擎（P1/P2/P3）的实验性改造，默认全开；如需回退到稳定行为，
+> 在 `prts-features.yml` 中显式关闭对应开关（见下文「本分支独有配置」）。
 
 > [!NOTE]
-> 本文档由 AI 创作并维护，供快速上手与功能溯源；源码与移植细节见仓库 `docs/` 目录。
+> 本文档由 AI 创作并维护，供快速上手与功能溯源。
+> 本分支与主分支（`1.21.1`）**除多线程并行引擎外功能一致**——其余功能与完整功能溯源表
+> **详见主分支 README**，此处不再赘述。
 
 ## 项目渊源
 
-[Arclight](https://github.com/IzzelAliz/Arclight)（Hybrid 混合端）→ [Luminara](https://github.com/CraftAmethyst/Luminara) → **本 fork：PRTS**（[ElainAwa](https://github.com/ElainAwa) 维护，私有生产加固）
+[Arclight](https://github.com/IzzelAliz/Arclight)（Hybrid 混合端）→ [Luminara](https://github.com/CraftAmethyst/Luminara) → **本 fork：PRTS**（[ElainAwa](https://github.com/ElainAwa) 维护）
+→ **本分支：`p3-parallel`**（在 PRTS 基础上叠加多线程并行引擎的实验分支）
 
-## 定位
+## 本分支独有：多线程并行引擎
 
-多模组、多人重载生产环境专用：**NeoForge 模组与 Bukkit/Spigot 插件同服运行**。
-只做零感知的底层优化与崩溃修复 —— 不改玩法，仅降低同类逻辑的资源开销。
+将单主线程 tick 拆分为多 worker 并行，三个层次可独立开关（`prts-features.yml`，默认全开）：
 
-## 功能与来源
+| 层级 | 能力 | 说明 | 设计文档 |
+|---|---|---|---|
+| **P1** | 异步寻路（pathfinding-async） | PathFinder A* 提交工作线程计算，结果下一 tick 应用；区域 worker 内按 region 分桶提交、本区 drain | `docs/parallel-phase2-dimension-parallelism-v01.md` 等 |
+| **P2** | 维度并行（dimension-parallel） | 各维度独立 worker tick，主线程 tick 屏障同步，跨维度传送延迟到屏障 | `docs/parallel-phase2-dimension-parallelism-v01.md` |
+| **P3** | 区域并行（region-parallel） | 主世界按 chunk 条带分 2 区域，方块/实体/TE tick 分三会话在区域 worker 并行；跨区写走更新集协议（1 tick 窗口）、实体管理两级锁、跨区读写计数仪表盘 | `docs/parallel-phase3-region-parallelism-v01.md` ~ `v10` |
 
-> 原模组无法兼容 Luminara (arclight) 基座，为避免装模组引发的冲突与事故，已将对应代码并入核心（去模组化重写），并入核心主要是图省事，修改核心来兼容这两个模组同时运行需要动很多东西，不太划算。
+**已固化在本分支的关键修复**（主分支没有）：
+- **mob AI 冻结修复**：NeoForge 1.21.1 将 AI 调度移入 `serverAiStep()`（仅主线程 consumer 调用），区域 worker 曾静默丢 AI——已补调（commit `f63a294`）
+- **实体管理线程安全化**：EntityLookup/EntityTickList/EntitySectionStorage/EntitySection 两级锁（commit `5edd04a` 前置的 v05）
+- **跨区红石统计**：`cross.redstoneBoundary` 边界带计数，实测跨区红石 <1%，红石子求解永久免做（commit `7f24b2f`）
 
-| 功能 | 来源 | 仓库 |
-|---|---|---|
-| ServerCore 完整移植六段（activation-range / breeding-cap / mob-spawning / features / dynamic / commands） | 移植自 ServerCore 模组 | https://github.com/Wesley1808/ServerCore |
-| routeB 空间化实体追踪 | 移植自 VMP 模组（AreaMap 算法） | https://github.com/RelativityMC/Very-Many-Players |
-| ticketpropagator（延迟 8 向区块 ticket 传播） | 移植自 VMP（源自 Paper 算法） | https://github.com/RelativityMC/Very-Many-Players |
-| move-zero-velocity / async-logging | 移植自 VMP 模组 | https://github.com/RelativityMC/Very-Many-Players |
-| 动力铁轨优化（供电传播限定深度） | 移植自 Fluorite 服务端（PoweredRailsOptimized） | https://github.com/FluoritePowered/Fluorite-1.19.2 |
-| 线程 CPU 耗时剖析（PRTSThreadCost） | 移植自 Youer 服务端（YouerThreadCost） | https://github.com/MohistMC/Youer |
-| 主线程卡顿看门狗（WatchMohist） | 移植自 Youer 服务端（WatchMohist） | https://github.com/MohistMC/Youer |
-| 控制台日志格式修复（FML 覆盖 log4j） | 参考 Youer 思路自研 | https://github.com/MohistMC/Youer |
-| NearbyPlayerIndex（NPI）最近玩家空间索引 | 本 fork 自研（基于 Paper AreaMap 数据结构） | https://github.com/PaperMC/Paper |
-| ClientModGuard 客户端模组预检 / 崩溃自愈（v27/v28） | 本 fork 自研 | — |
-| Guava 遮蔽崩溃修复（boot jar 不打包 com.google.common） | 本 fork | — |
+## 本分支独有配置（`prts-features.yml`，服务端根目录）
 
-## 版本
+```yaml
+# 多线程并行引擎（默认全开；false 关闭回退单线程原版行为）
+parallel:
+  pathfinding-async: true
+  dimension-parallel: true
+  region-parallel: true
+# 可靠区块保存（WAL 预写日志，默认关）
+reliable-chunk-save:
+  enabled: false
+  interval-seconds: 30
+  chunks-per-tick: 50
+```
 
-- 当前：**v1.21.1-1.0.20**（GitHub Releases 获取；Latest 跟随最新发布）
-- 演进记录：GitHub Releases 各版本说明
+> 配置归属说明：并行引擎与 WAL 属 **PRTS 原创功能**，归 `prts-features.yml`；
+> `config/servercore.yml` 仅保留 ServerCore（Spigot/Paper 移植）功能，两者职责分离。
 
-## 构建
+## 版本与产物
 
-- 环境：JDK 21
-- 命令：`./gradlew --no-daemon :bootstrap:neoforgeJar`（完整构建，**勿**跳过 `generateInstallerInfo`——缺失会启动 NPE）
-- 产物：`bootstrap/build/libs/PRTS-neoforge-1.21.1-<版号>.jar`
-- 约束：boot jar 不得打包 `com.google.common`（旧 Guava 遮蔽平台 Guava，已在 embed 阶段 exclude）；版号仅在同步仓库的终版更新
+- 当前版本：**v1.21.1-1.0.25**（与主分支同步的版本号）
+- 构建产物：**`PRTS-neoforge-1.21.1-<版号>-Multithreading.jar`**（后缀 `-Multithreading` 标识工程验证构建）
+- 演进记录：本分支 commits（见 git log）
 
-## 部署
+## 构建与部署
 
-1. 复制新 jar 到服务端根目录，启动脚本指向它（`_start.bat` 的 `java -jar PRTS-neoforge-1.21.1-<版号>.jar -nogui`）
-2. **强制重解包**：外层 jar 是启动器，实际类在内部 `common.jar` —— 必须清空 `.arclight/mod_file/*`，否则复用旧 common 不生效
-3. 启动：`java -jar PRTS-neoforge-1.21.1-<版号>.jar nogui`
+- 环境：JDK 21；命令：`./gradlew --no-daemon :bootstrap:neoforgeJar`
+- 部署：复制 jar 到服务端根目录 → **清空 `.arclight/mod_file/*`**（强制重解包内嵌 common.jar）→ 启动
+- 完整说明与主分支一致，**详见主分支 README**
 
-## 配置
+## 其余功能
 
-- `prts.yml`（服务端根目录）：既有优化（NPI、routeB、tracking 等）开关
-- `config/servercore.yml`：ServerCore 六段开关（activation-range / breeding-cap / mob-spawning / features / dynamic / commands）；features 段内含可靠区块保存 journal 三键（reliable-chunk-save / journal-interval-seconds / journal-chunks-per-tick，默认关），缺失段启动时自动补写并生效
-
-## 兼容性
-
-- NeoForge 模组 + Bukkit/Spigot 插件同服运行
-- 可能与部分优化模组不兼容；与优化类 Bukkit 插件不兼容
+与主分支（`1.21.1`）一致：ServerCore 完整移植六段、routeB 空间化实体追踪、ticketpropagator、
+move-zero-velocity / async-logging、动力铁轨优化、PRTSThreadCost、WatchMohist、NPI、
+ClientModGuard、Guava 遮蔽修复、neighbor 更新熔断、ae2lt 节流等——
+**完整功能表与溯源详见主分支 README**。
 
 ## 许可
 
-基于 [GPL v3](LICENSE) 开源，与上游一致。
+基于 [GPL v3](LICENSE) 开源，与上游一致；第三方功能版权与署名见 `THIRD-PARTY.md`。
