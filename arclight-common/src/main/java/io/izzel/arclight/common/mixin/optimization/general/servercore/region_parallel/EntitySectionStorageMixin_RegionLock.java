@@ -1,3 +1,8 @@
+/*
+ * PRTS - Arclight/Luminara fork
+ * Copyright (c) 2024-2026 ElainAwa
+ */
+
 package io.izzel.arclight.common.mixin.optimization.general.servercore.region_parallel;
 
 import io.izzel.arclight.common.optimization.general.servercore.EntityLockManager;
