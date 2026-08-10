@@ -7,11 +7,15 @@ package io.izzel.arclight.common.mixin.optimization.general.servercore.dimension
 
 import io.izzel.arclight.common.optimization.general.servercore.DimensionTickManager;
 import io.izzel.arclight.common.optimization.general.servercore.RegionTickManager;
+import net.minecraft.core.Holder;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.server.level.ChunkHolder;
 import net.minecraft.server.level.ChunkMap;
 import net.minecraft.server.level.ServerChunkCache;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.biome.Biome;
+import net.minecraft.world.level.biome.Biomes;
 import net.minecraft.world.level.chunk.ChunkAccess;
 import net.minecraft.world.level.chunk.EmptyLevelChunk;
 import net.minecraft.world.level.chunk.LevelChunk;
@@ -19,6 +23,7 @@ import net.minecraft.world.level.chunk.status.ChunkStatus;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
 
@@ -113,9 +118,31 @@ public abstract class ServerChunkCacheMixin_DimParallel {
             // 任何异常回退空气, 绝不让 worker 卡死/崩溃(watchdog 60s 防线)。
         }
         // Chunk genuinely missing and the main thread is at the barrier: return air
-        // instead of deadlocking. EmptyLevelChunk is a valid ChunkAccess (getBlockState → air);
-        // the biome holder comes from a noise sample that does not touch chunk loading.
-        return new EmptyLevelChunk(this.level, new ChunkPos(x, z),
-                this.level.getUncachedNoiseBiome(x * 4, 0, z * 4));
+        // instead of deadlocking. EmptyLevelChunk is a valid ChunkAccess (getBlockState → air).
+        // Biome is a cached THE_VOID holder: the previous getUncachedNoiseBiome call sampled
+        // 3D noise on every miss, and exploration-style AI (zombie RemoveBlockGoal) hammering
+        // missing chunks on region workers turned that into a PerlinNoise storm (watchdog hang,
+        // see docs/parallel-removeblockgoal-worker-evaluation.md).
+        return new EmptyLevelChunk(this.level, new ChunkPos(x, z), arclight$voidBiome(this.level));
+    }
+
+    @Unique
+    private static volatile Holder<Biome> arclight$voidBiome;
+
+    @Unique
+    private static Holder<Biome> arclight$voidBiome(ServerLevel level) {
+        Holder<Biome> cached = arclight$voidBiome;
+        if (cached == null) {
+            // 启动后 registry 已冻结，取一次缓存即可（双检锁避免竞态）。
+            synchronized (ServerChunkCacheMixin_DimParallel.class) {
+                cached = arclight$voidBiome;
+                if (cached == null) {
+                    cached = level.registryAccess().registryOrThrow(Registries.BIOME)
+                            .getHolderOrThrow(Biomes.THE_VOID);
+                    arclight$voidBiome = cached;
+                }
+            }
+        }
+        return cached;
     }
 }

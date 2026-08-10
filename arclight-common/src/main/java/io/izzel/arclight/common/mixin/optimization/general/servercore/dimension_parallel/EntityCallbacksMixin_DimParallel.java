@@ -70,7 +70,11 @@ public abstract class EntityCallbacksMixin_DimParallel {
                 Util.logAndPauseIfInIde("onTrackingStart called during navigation iteration",
                         new IllegalStateException("onTrackingStart called during navigation iteration"));
             }
-            acc.arclight$getNavigatingMobs().add(mob);
+            // navigatingMobs is a vanilla ObjectOpenHashSet (not thread-safe); region
+            // workers call onTrackingStart concurrently, so serialize on the set itself.
+            synchronized (acc.arclight$getNavigatingMobs()) {
+                acc.arclight$getNavigatingMobs().add(mob);
+            }
         }
         Entity[] parts = ((EntityBridge) entity).bridge$forge$getParts();
         if (parts != null && parts.length > 0) {
@@ -104,7 +108,9 @@ public abstract class EntityCallbacksMixin_DimParallel {
                 Util.logAndPauseIfInIde("onTrackingStart called during navigation iteration",
                         new IllegalStateException("onTrackingStart called during navigation iteration"));
             }
-            acc.arclight$getNavigatingMobs().remove(mob);
+            synchronized (acc.arclight$getNavigatingMobs()) {
+                acc.arclight$getNavigatingMobs().remove(mob);
+            }
         }
         Entity[] parts = ((EntityBridge) entity).bridge$forge$getParts();
         if (parts != null && parts.length > 0) {
