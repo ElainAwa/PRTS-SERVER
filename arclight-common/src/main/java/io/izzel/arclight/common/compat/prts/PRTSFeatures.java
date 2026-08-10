@@ -21,9 +21,9 @@ public class PRTSFeatures {
         EntityClear.start();
         WatchMohist.start();
         registerCommands();
-        LOGGER.info("[PRTS-Features] started | EntityClear(item={},monster={}) Watchdog={}",
+        LOGGER.info("[PRTS-Features] started | EntityClear(item={},monster={}) Watchdog={} genIntakePerTick={}",
                 PRTSFeaturesConfig.clearItemEnabled, PRTSFeaturesConfig.clearMonsterEnabled,
-                PRTSFeaturesConfig.watchdogEnabled);
+                PRTSFeaturesConfig.watchdogEnabled, PRTSFeaturesConfig.generationTasksPerTick);
     }
 
     public static void tick() {

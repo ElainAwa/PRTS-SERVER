@@ -56,6 +56,11 @@ public class PRTSFeaturesConfig {
     public static long journalIntervalSeconds;
     public static int journalChunksPerTick;
 
+    // Generation task intake budget (L2 Spike-A, docs parallel-l2-chunkgen-spike-v01.md §2):
+    // caps how many pending chunk-generation tasks the main thread hands to the worldgen
+    // mailbox per tick, spreading the intake storm; 0 = unlimited (vanilla behavior).
+    public static int generationTasksPerTick;
+
     public static void init() {
         File file = new File("prts-features.yml");
         config = YamlConfiguration.loadConfiguration(file);
@@ -94,6 +99,8 @@ public class PRTSFeaturesConfig {
         reliableChunkSave = config.getBoolean("reliable-chunk-save.enabled", false);
         journalIntervalSeconds = config.getLong("reliable-chunk-save.interval-seconds", 30);
         journalChunksPerTick = config.getInt("reliable-chunk-save.chunks-per-tick", 50);
+        generationTasksPerTick = config.getInt("generation-tasks-per-tick", 50);
+        if (generationTasksPerTick < 0) generationTasksPerTick = 0;
     }
 
     private static int clampPower(int v, int lo, int hi) {
