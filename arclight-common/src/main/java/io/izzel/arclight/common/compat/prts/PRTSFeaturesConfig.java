@@ -50,6 +50,8 @@ public class PRTSFeaturesConfig {
     public static int parallelRegionCount;
     /** 方块实体 tick 是否参与区域并行（默认关——BE 间交互复杂，并行有竞态风险）。 */
     public static boolean regionBlockEntityParallel;
+    /** 主线程每 tick 处理的 chunk 需求上限（统一需求调度，默认 50）。 */
+    public static int chunkDemandPerTick;
     /** 动态区域自动扩容：按负载周期性地调整区域数。 */
     public static boolean regionAutoScale;
     public static long regionScaleIntervalSeconds;
@@ -107,6 +109,8 @@ public class PRTSFeaturesConfig {
         parallelDimension = config.getBoolean("parallel.dimension-parallel", true);
         parallelRegion = config.getBoolean("parallel.region-parallel", true);
         regionBlockEntityParallel = config.getBoolean("parallel.region-block-entity-parallel", false);
+        chunkDemandPerTick = config.getInt("parallel.chunk-demand-per-tick", 50);
+        io.izzel.arclight.common.optimization.general.servercore.ChunkDemandQueue.maxPerTick = chunkDemandPerTick;
         int count = config.getInt("parallel.region-count", 4);
         if (count < 2) count = 2;
         if (count > 8) count = 8;
@@ -180,6 +184,7 @@ public class PRTSFeaturesConfig {
                   dimension-parallel: true           # 维度并行
                   region-parallel: true              # 主世界区域并行（实体 tick）
                   region-block-entity-parallel: false # 方块实体 tick 并行（默认关：BE 间交互复杂有竞态）
+                  chunk-demand-per-tick: 50           # 主线程每 tick 处理的 chunk 需求上限（统一需求调度）
                   region-count: 4                    # 区域数（2/4/8）
                   region-auto-scale: true            # 按负载自动调整区域数
                   region-scale-interval-seconds: 300

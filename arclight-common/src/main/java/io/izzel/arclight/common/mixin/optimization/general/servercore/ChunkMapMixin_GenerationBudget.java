@@ -8,8 +8,6 @@ package io.izzel.arclight.common.mixin.optimization.general.servercore;
 import io.izzel.arclight.common.compat.prts.PRTSFeaturesConfig;
 import net.minecraft.server.level.ChunkGenerationTask;
 import net.minecraft.server.level.ChunkMap;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -29,8 +27,6 @@ import java.util.List;
  */
 @Mixin(ChunkMap.class)
 public abstract class ChunkMapMixin_GenerationBudget {
-
-    private static final Logger LOGGER = LogManager.getLogger("PRTS-SpikeA");
 
     /** 滚动提交时间戳（纳秒）环形缓冲，仅记录提交不追踪完成，故永不卡死生成。 */
     @Unique
@@ -71,8 +67,6 @@ public abstract class ChunkMapMixin_GenerationBudget {
             prts$submitTimes[prts$submitIndex++ % prts$submitTimes.length] = System.nanoTime();
             submitted++;
         }
-        LOGGER.debug("[SpikeA] generation intake capped: pending={} submitted={} window={} (budget={} limit={})",
-                pending, submitted, prts$submittedInWindow(2_000_000_000L), budget, limit);
     }
 
     /** 统计最近 windowNanos（2s）内的提交次数。 */
