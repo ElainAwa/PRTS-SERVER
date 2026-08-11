@@ -9,6 +9,11 @@
 > (see "Branch-specific config" below).
 
 > [!NOTE]
+> **Maintenance status**: the parallel engine feature set is complete and this branch has
+> reached a **stable maintenance and long-term support (LTS) phase** — from here on only
+> bug fixes and maintenance updates ship; new features should go to the main-branch track.
+
+> [!NOTE]
 > This README is AI-authored and maintained, for a quick overview and feature provenance.
 > Except for the multi-thread parallel tick engine, this branch is identical to the main `1.21.1`
 > branch — the full feature table and provenance live in **the main branch README**, not repeated here.
