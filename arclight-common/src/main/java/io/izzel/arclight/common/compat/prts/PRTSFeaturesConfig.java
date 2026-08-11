@@ -113,7 +113,7 @@ public class PRTSFeaturesConfig {
         journalChunksPerTick = config.getInt("reliable-chunk-save.chunks-per-tick", 50);
         generationTasksPerTick = config.getInt("generation-tasks-per-tick", 50);
         if (generationTasksPerTick < 0) generationTasksPerTick = 0;
-        chunkgenInflightLimit = config.getInt("chunkgen-inflight-limit", 64);
+        chunkgenInflightLimit = config.getInt("chunkgen-inflight-limit", 128);
         if (chunkgenInflightLimit < 0) chunkgenInflightLimit = 0;
         barrierWatchdogAware = config.getBoolean("barrier-watchdog-aware", true);
         barrierTimeoutMs = config.getLong("barrier-timeout-ms", 120000L);
