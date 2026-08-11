@@ -19,17 +19,10 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
 
 /**
- * PRTS region parallelism: guard {@code EntitySectionStorage} index writes (P3 v05).
- *
- * <p>{@code getOrCreateSection} is rewritten from a single
- * {@code computeIfAbsent} into a lock-free fast path (section already exists —
- * the hot entity-move case) plus a write-locked create path with a
- * double-check, so two workers cannot concurrently create/resize the shared
- * {@code sections} map. {@code remove} (called by
- * {@code PersistentEntitySectionManager.removeSectionIfEmpty}) locks the
- * {@code LongSortedSet} mutation, which is not safe under concurrent remove.
- * The AABB read traversal keeps lock-free {@code get} calls (fastutil get
- * never mutates structure).</p>
+ * Guards {@code EntitySectionStorage} index writes: {@code getOrCreateSection} is a
+ * lock-free fast path (existing section) plus a write-locked create path with a
+ * double-check so workers cannot concurrently create/resize the shared {@code sections}
+ * map; {@code remove} locks the {@code LongSortedSet} mutation. Reads stay lock-free.
  */
 @Mixin(EntitySectionStorage.class)
 public abstract class EntitySectionStorageMixin_RegionLock {

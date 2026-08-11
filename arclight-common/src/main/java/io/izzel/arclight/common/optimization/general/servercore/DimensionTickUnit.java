@@ -9,10 +9,7 @@ import net.minecraft.server.level.ServerLevel;
 
 import java.util.function.BooleanSupplier;
 
-/**
- * Dimension-backed tick unit (P2 behavior, wrapped as a unit in P3 slice 0).
- * Runs the whole {@link ServerLevel#tick} on its worker thread.
- */
+/** Dimension-backed tick unit: runs the whole {@link ServerLevel#tick} on its worker thread. */
 public final class DimensionTickUnit implements ParallelTickUnit {
 
     private final ServerLevel level;

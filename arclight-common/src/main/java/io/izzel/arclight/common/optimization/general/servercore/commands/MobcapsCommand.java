@@ -25,7 +25,7 @@ import static net.minecraft.commands.Commands.literal;
 
 /**
  * /mobcaps 命令（移植自 ServerCore MobcapsCommand）。
- * 显示玩家附近的各类生物当前计数 / 上限，依赖 Phase 2 暴露的 LocalMobCapCalculator 字段。
+ * 显示玩家附近的各类生物当前计数 / 上限，依赖暴露的 LocalMobCapCalculator 字段。
  * 注：LocalMobCapCalculator.MobCounts 构造非公开，无法构造空实例；玩家无计数记录时跳过。
  */
 public class MobcapsCommand {

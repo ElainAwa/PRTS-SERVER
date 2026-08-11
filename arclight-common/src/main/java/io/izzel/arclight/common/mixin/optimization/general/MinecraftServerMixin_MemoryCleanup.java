@@ -9,7 +9,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.util.function.BooleanSupplier;
 
-/** 实验性内存缓存清理的驱动器（默认关闭）。 */
+/** 内存缓存清理的驱动器（默认关闭）。 */
 @Mixin(MinecraftServer.class)
 public class MinecraftServerMixin_MemoryCleanup {
 

@@ -9,11 +9,9 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.Block;
 
 /**
- * PRTS region block-tick bridge (P3 v04, AI-created).
- *
- * <p>Implemented by {@code ServerLevelMixin_RegionBlockTick} via an @Invoker to
- * expose the private {@code ServerLevel.tickBlock} so region workers can run
- * scheduled block ticks without a compile-time dependency on the mixin class.</p>
+ * Region block-tick bridge: exposes the private {@code ServerLevel.tickBlock} via
+ * an @Invoker so region workers can run scheduled block ticks without a dependency
+ * on the mixin class.
  */
 public interface ServerLevelRegionBlockTickAccess {
 

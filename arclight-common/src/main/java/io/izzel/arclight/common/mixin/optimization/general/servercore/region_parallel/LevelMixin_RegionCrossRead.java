@@ -15,14 +15,9 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
- * PRTS region parallelism cross-region read counter (P3 slice 3, AI-created).
- *
- * <p>Counts block reads a region worker performs outside its own region
- * (v01 §3.5: "cross-read is the measuring instrument"). The read itself stays
- * vanilla — {@code PalettedContainer} is designed lock-free-read/locked-write
- * for async chunk generation — so no routing/placeholder is needed; the
- * counter only exposes how often the stripe boundary is crossed by reads,
- * guiding stripe tuning if the number stays high.</p>
+ * Counts block reads a region worker performs outside its own region. The read is
+ * left vanilla (PalettedContainer is lock-free-read/locked-write), so the counter
+ * only exposes how often the stripe boundary is crossed, guiding stripe tuning.
  */
 @Mixin(Level.class)
 public abstract class LevelMixin_RegionCrossRead {

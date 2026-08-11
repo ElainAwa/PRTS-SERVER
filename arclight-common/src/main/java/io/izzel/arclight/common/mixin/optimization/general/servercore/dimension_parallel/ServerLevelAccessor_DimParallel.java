@@ -14,8 +14,7 @@ import org.spongepowered.asm.mixin.gen.Accessor;
 import java.util.Set;
 
 /**
- * PRTS dimension parallelism (P2 experiment, AI-created): field accessors for
- * {@link ServerLevel} used by the hand-written
+ * Field accessors for {@link ServerLevel} used by the hand-written
  * {@code EntityCallbacks.onTrackingStart} rewrite
  * (see {@link EntityCallbacksMixin_DimParallel}).
  */

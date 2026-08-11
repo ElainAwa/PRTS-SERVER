@@ -36,29 +36,10 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BooleanSupplier;
 
 /**
- * PRTS dimension-level parallelism (P2 experiment, AI-created).
- *
- * <p>Runs each dimension's {@link ServerLevel#tick(BooleanSupplier)} on its own
- * worker thread, batched behind a per-tick barrier on the main thread. The whole
- * dimension phase (pre events -> parallel ticks -> post events -> tick times ->
- * deferred transfers) replaces the vanilla sequential loop inside
- * {@code MinecraftServer.tickChildren} (see MinecraftServerMixin_DimParallel).</p>
- *
- * <p>Conservative compatibility decisions (see docs/parallel-phase2-dimension-parallelism-v01.md):</p>
- * <ul>
- *   <li>NeoForge {@code fireLevelTickPre/Post} stay on the main thread, in the
- *       vanilla per-dimension order (all pre events fire before the parallel ticks,
- *       all post events after the barrier).</li>
- *   <li>Cross-dimension teleports ({@link Entity#changeDimension}) executed from a
- *       dimension worker are deferred ({@link #enqueueTransfer}) and executed for
- *       real on the main thread after the barrier — never touch the target
- *       dimension's entity list concurrently.</li>
- *   <li>{@code perWorldTickTimes} keeps the vanilla format
- *       ({@code [dimension][tickCount % 100]}), written by the main thread.</li>
- * </ul>
- *
- * <p>Monitoring via the shared {@link AsyncTaskStats} instance
- * ({@code [dimension-tick]} prefix).</p>
+ * Dimension-level parallelism: runs each dimension's {@link ServerLevel#tick(BooleanSupplier)}
+ * on its own worker thread, batched behind a per-tick barrier on the main thread.
+ * NeoForge tick pre/post events stay on the main thread; cross-dimension teleports
+ * and Bukkit entity events from workers are deferred to the post-barrier main thread.
  */
 public final class DimensionTickManager {
 
@@ -91,10 +72,9 @@ public final class DimensionTickManager {
     }
 
     /**
-     * NeoForge level tick event bridge (fireLevelTickPre/Post). The common module
-     * has no NeoForge API on its compile classpath, so the platform layer
-     * (arclight-neoforge) registers the real EventHooks callbacks at mod load
-     * (see ArclightMod).
+     * NeoForge level tick event bridge (fireLevelTickPre/Post). The common module has
+     * no NeoForge API on its compile classpath, so the platform layer registers the
+     * real EventHooks callbacks at mod load.
      */
     @FunctionalInterface
     public interface LevelTickCallback {
@@ -120,24 +100,19 @@ public final class DimensionTickManager {
         return IN_DIMENSION_TICK.get();
     }
 
-    /** True on a dimension tick worker thread (P2). */
+    /** True on a dimension tick worker thread. */
     public static boolean isDimensionTickThread() {
         return Thread.currentThread().getName().startsWith(DIMENSION_THREAD_PREFIX);
     }
 
-    /**
-     * Called from a dimension worker thread (via EntityMixin_DimTransfer) for a
-     * cross-dimension teleport: defers the transfer to the post-barrier main thread.
-     */
+    /** Defers a cross-dimension teleport from a worker thread to the post-barrier main thread. */
     public static void enqueueTransfer(Entity entity, DimensionTransition transition) {
         TRANSFERS.add(new PendingTransfer(entity, transition));
     }
 
     /**
-     * Called from PersistentEntitySectionManagerMixin when an entity load/unload
-     * happens on a dimension worker thread: Bukkit events must fire on the main
-     * thread (SimplePluginManager.callEvent enforces it), so they are deferred to
-     * the post-barrier main thread. Notifications only — no cancellation semantics.
+     * Defers an entity load/unload event from a worker thread: Bukkit events must
+     * fire on the main thread (SimplePluginManager.callEvent enforces it).
      */
     public static void enqueueEntitiesEvent(ServerLevel level, ChunkPos chunkPos, List<Entity> entities, boolean unload) {
         PENDING_EVENTS.add(new PendingEvent(level, chunkPos, entities, unload));
@@ -145,11 +120,10 @@ public final class DimensionTickManager {
 
     /**
      * Executes the complete tick phase on the main thread, replacing the vanilla
-     * sequential loop. Called from MinecraftServerMixin_DimParallel when the
-     * {@code dimension-parallel} feature is enabled and more than one unit is loaded.
+     * sequential loop (called from MinecraftServerMixin_DimParallel when enabled).
      *
      * @param server              the server instance
-     * @param units               tick units (dimensions now, regions in P3)
+     * @param units               tick units (dimensions)
      * @param hasTimeLeft         the tickChildren BooleanSupplier
      * @param tickCount           current server tick count
      * @param perWorldTickTimes   the server's {@code perWorldTickTimes} map (vanilla format)

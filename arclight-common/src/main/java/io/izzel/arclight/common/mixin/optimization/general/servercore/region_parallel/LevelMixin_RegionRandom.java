@@ -13,19 +13,10 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
 
 /**
- * PRTS region parallelism (P3 slice 1 fix, AI-created): make the public
- * {@link Level#random} field thread-safe when {@code region-parallel} is enabled.
- *
- * <p>Vanilla initializes {@code random = RandomSource.create()} (a LegacyRandomSource
- * with a ThreadingDetector that throws on cross-thread access) and separately keeps
- * {@code threadSafeRandom = RandomSource.createThreadSafe()}. On a region worker the
- * entity AI reads {@code level.random} (e.g. Villager SetRaidStatus) concurrently with
- * the dimension worker's random tick phase → "Accessing LegacyRandomSource from multiple
- * threads" crash. Redirecting the constructor's {@code create()} call to
- * {@code createThreadSafe()} makes every {@code level.random} call site safe without
- * writing a final field (NeoForge rejects field writes at runtime). Random stream
- * semantics are equivalent (pseudo-random); determinism is not preserved (documented
- * P3 non-determinism, see docs/parallel-phase3-region-parallelism-v01.md §4.5).</p>
+ * Makes the public {@link Level#random} field thread-safe when {@code region-parallel}
+ * is enabled: the constructor's {@code RandomSource.create()} is redirected to
+ * {@code createThreadSafe()} because the vanilla LegacyRandomSource throws on
+ * cross-thread access. Semantics are equivalent; determinism is not preserved.
  */
 @Mixin(Level.class)
 public abstract class LevelMixin_RegionRandom {

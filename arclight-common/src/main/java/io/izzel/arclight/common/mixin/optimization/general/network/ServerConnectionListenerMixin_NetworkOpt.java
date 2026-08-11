@@ -14,7 +14,7 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
-/** 实验性网络优化（默认关闭）： */
+/** 网络优化：可配置 Netty 事件循环线程数（默认关闭）。 */
 @Mixin(ServerConnectionListener.class)
 public class ServerConnectionListenerMixin_NetworkOpt {
 

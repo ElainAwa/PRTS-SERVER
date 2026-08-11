@@ -38,24 +38,9 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.IntConsumer;
 
 /**
- * PRTS region-level tick parallelism (P3, AI-created).
- *
- * <p>Runs the overworld's block-tick / entity-tick / block-entity-tick phases on
- * {@link #REGION_COUNT} region worker threads instead of the dimension worker.
- * Each phase is a latch-synchronized session dispatched by chunk-column ownership
- * ({@link RegionLevel#regionId}); within a region the vanilla order is preserved
- * (block tick session, then entity session, then block-entity session — review
- * v03 plan A). Only one session is active at any time, so the dimension worker's
- * random-tick phase never overlaps a region session.</p>
- *
- * <p>Update-set protocol (design docs/parallel-phase3-region-parallelism-v03.md,
- * v04): a region worker writing a block outside its own region collects the write
- * into the target region's queue; the next tick that region's worker applies the
- * batch at the start of its first session (per-tick gate) with the original flags,
- * so neighbor updates re-trigger inline and any cross-region spill is collected
- * again for the following tick (batch-apply-then-trigger, at most one extra tick
- * per crossing). {@code cross.block/redstone} and {@code update.applied} counters
- * are the P3 instrumentation dashboard.</p>
+ * Region-level tick parallelism: runs the overworld's block-tick / entity-tick /
+ * block-entity-tick phases on per-region worker threads, preserving vanilla order
+ * within each region. Cross-region block writes are queued and applied next tick.
  */
 public final class RegionTickManager {
 
@@ -103,10 +88,10 @@ public final class RegionTickManager {
     /** Last-seen region per entity (authority-transfer counter). */
     private static final Map<Entity, Integer> LAST_REGION = java.util.Collections.synchronizedMap(new WeakHashMap<>());
 
-    /** Per-region entity dispatch snapshot (docs v12 auto-scale input; replaced atomically). */
+    /** Per-region entity dispatch snapshot (auto-scale input; replaced atomically). */
     private static volatile int[] LAST_ENTITY_DIST = new int[REGION_COUNT];
 
-    /** Auto-scale state (docs v12): consecutive low-load periods, last evaluation tick, last cross.read. */
+    /** Auto-scale state: consecutive low-load periods, last evaluation tick, last cross.read. */
     private static int LOW_PERIODS = 0;
     private static long LAST_EVAL_TICK = -1L;
     private static long LAST_CROSS_READ = 0L;
@@ -127,11 +112,7 @@ public final class RegionTickManager {
         return REGION_COUNT;
     }
 
-    /**
-     * Applies the configured region count (startup only, main thread, before
-     * any region worker tick). Rebuilds the per-region queues and registers
-     * the region timer/group members on the shared stats.
-     */
+    /** Applies the configured region count (startup only, main thread). */
     public static synchronized void ensureConfigured() {
         if (CONFIGURED.get()) return;
         reconfigure(PRTSFeaturesConfig.parallelRegionCount);
@@ -168,11 +149,8 @@ public final class RegionTickManager {
     }
 
     /**
-     * P3 dynamic auto-scale (docs v12): main-thread periodic evaluation of the
-     * region load, adjusting the region count between min and max (2/4/8) by
-     * the configured heuristic. Called from MinecraftServerMixin_RegionAutoScale
-     * at the RETURN of tickChildren, where all dimension/region workers have
-     * latched (no live worker touches the queues) — safe reconfiguration window.
+     * Periodically evaluates region load and adjusts the region count between the
+     * configured min and max. Called after tickChildren when all workers have latched.
      */
     public static void evaluateAutoScale(int serverTick) {
         if (!regionEnabled() || !PRTSFeaturesConfig.regionAutoScale) {
@@ -226,7 +204,7 @@ public final class RegionTickManager {
         }
     }
 
-    /** True on a region tick worker thread (P3). */
+    /** True on a region tick worker thread. */
     public static boolean isRegionTickThread() {
         return Thread.currentThread().getName().startsWith(REGION_THREAD_PREFIX);
     }
@@ -253,13 +231,7 @@ public final class RegionTickManager {
         return r >= 0 && !RegionLevel.isAuthoritative(pos, r);
     }
 
-    /**
-     * Cross-region block read counter (P3 slice 3, v01 §3.5 "cross-read is the
-     * measuring instrument"). A region worker reading a block outside its own
-     * region is counted — the read itself is safe (PalettedContainer is
-     * lock-free-read / locked-write), but the frequency exposes how well the
-     * stripe boundary matches real coupling.
-     */
+    /** Counts a cross-region block read by a region worker (read stays vanilla). */
     public static void countCrossRead(BlockPos pos) {
         int r = currentRegion();
         if (r >= 0 && !RegionLevel.isAuthoritative(pos, r)) {
@@ -267,11 +239,7 @@ public final class RegionTickManager {
         }
     }
 
-    /**
-     * Called from the Level.setBlock interception (LevelMixin_RegionCrossWrite)
-     * on a region worker for a cross-region write: collect into the target
-     * region's update queue, applied next tick by that region's worker.
-     */
+    /** Collects a cross-region write into the target region's queue (Level.setBlock interception). */
     public static void collectCrossWrite(ServerLevel level, BlockPos pos, BlockState state, int flags) {
         int target = RegionLevel.regionId(pos);
         CROSS_UPDATES[target].add(new CrossUpdate(pos, state, flags));
@@ -284,15 +252,7 @@ public final class RegionTickManager {
         }
     }
 
-    /**
-     * True if the column is inside a region's 1-chunk boundary band (P3 Phase 4,
-     * v09 §3.2). The stripe boundary between regions lies every
-     * STRIPE_WIDTH / regionCount columns; the columns adjacent to the boundary
-     * (group % perRegion == perRegion-1 and the next region's group % perRegion
-     * == 0) form the band. Used to verify the v01 §5 threshold: cross-region
-     * redstone traffic concentrated in the boundary band supports the "no
-     * redstone graph solver" decision.
-     */
+    /** True if the column is inside a region's 1-chunk boundary band. */
     private static boolean isBoundaryColumn(BlockPos pos) {
         int chunkX = pos.getX() >> 4;
         int group = Math.floorMod(chunkX, RegionLevel.STRIPE_WIDTH);
@@ -314,10 +274,7 @@ public final class RegionTickManager {
         STATS.increment("update.teTicks");
     }
 
-    /**
-     * Called from the LevelTicks.schedule interception on a region worker:
-     * defers the scheduling to the main thread (LevelTicks is not thread-safe).
-     */
+    /** Defers a LevelTicks.schedule call to the main thread (LevelTicks is not thread-safe). */
     public static void collectScheduleTick(ScheduledTick<?> tick) {
         SCHEDULE_TASKS.add(tick);
     }
@@ -334,12 +291,7 @@ public final class RegionTickManager {
         }
     }
 
-    /**
-     * Session 1: runs the collected scheduled block ticks on region workers.
-     * Called from the ServerChunkCache.tick redirect before the random-tick phase;
-     * also the first session of each game tick, so cross-region updates collected
-     * last tick are applied here (per-tick gate).
-     */
+    /** Session 1: runs collected scheduled block ticks on region workers (per-tick gate for cross-region updates). */
     public static boolean runBlockTickPhase(ServerLevel level) {
         if (!regionEnabled() || level.dimension() != Level.OVERWORLD) {
             return false;
@@ -365,10 +317,7 @@ public final class RegionTickManager {
         return true;
     }
 
-    /**
-     * Session 3: runs the collected block-entity ticks on region workers.
-     * Called at the RETURN of Level.tickBlockEntities.
-     */
+    /** Session 3: runs collected block-entity ticks on region workers. */
     public static boolean runBlockEntityTickPhase(ServerLevel level) {
         if (!regionEnabled() || level.dimension() != Level.OVERWORLD) {
             return false;
@@ -391,10 +340,7 @@ public final class RegionTickManager {
         return true;
     }
 
-    /**
-     * Session 2 (entity tick): dispatches the entity list by region and runs the
-     * ticks on region workers; returns true when the region path handled the phase.
-     */
+    /** Session 2 (entity tick): dispatches the entity list by region and ticks on region workers. */
     public static boolean dispatchAndTick(ServerLevel level, EntityTickList list) {
         if (!regionEnabled() || level.dimension() != Level.OVERWORLD) {
             return false;
@@ -465,8 +411,8 @@ public final class RegionTickManager {
                     if (applyNow) {
                         applyCrossUpdates(level, region);
                     }
-                    // P3 slice 4 (v08): apply this region's async pathfinding results
-                    // on the region worker before ticking, same-thread with entity ticks.
+                    // Apply this region's async pathfinding results on the region
+                    // worker before ticking, same-thread with entity ticks.
                     AsyncPathfindingManager.drainRegion(region, level.getGameTime());
                     work.accept(region);
                     STATS.record("region" + region, Util.getNanos() - start);
@@ -506,10 +452,9 @@ public final class RegionTickManager {
         Entity[] parts = ((EntityBridge) entity).bridge$forge$getParts();
         if (!entity.isRemoved() && (parts == null || parts.length == 0)) {
             level.tickNonPassenger(entity);
-            // NeoForge 1.21.1 moved AI scheduling (goalSelector/targetSelector/
-            // brain) out of Entity.tick (now just baseTick) into serverAiStep(),
-            // invoked only by the main-thread tick consumer. The region worker
-            // path must run it explicitly or mobs freeze (same-thread with tick).
+            // NeoForge moved AI scheduling (goalSelector/targetSelector/brain) out
+            // of Entity.tick into serverAiStep(), invoked only by the main-thread
+            // tick consumer. The region worker must run it explicitly or mobs freeze.
             if (entity instanceof LivingEntity living) {
                 ((LivingEntityServerAiStepAccess) living).arclight$invokerServerAiStep();
             }

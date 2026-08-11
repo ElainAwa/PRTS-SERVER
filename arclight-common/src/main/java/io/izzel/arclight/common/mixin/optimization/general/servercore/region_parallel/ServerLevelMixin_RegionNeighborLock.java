@@ -15,18 +15,11 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
 
 /**
- * PRTS region parallelism: serialize vanilla {@code NeighborUpdater} calls.
- *
- * <p>Region workers execute block ticks concurrently (e.g. LeavesBlock decay calling
- * {@code setBlock → updateNeighborsAt / neighborShapeChanged}); the underlying vanilla
- * {@code CollectingNeighborUpdater} is a stateful single-threaded object (stack /
- * addedThisLayer / count) and concurrent access corrupts it (NPE / NoSuchElement
- * in ArrayDeque, watchdog hang). All call sites that funnel into it from the region
- * block-tick session are wrapped in a synchronized block here: the two
- * {@code updateNeighborsAt} variants on {@code ServerLevel} plus the
- * {@code shapeUpdate} call inside {@code Level.neighborShapeChanged}. Redstone
- * neighbor updates were never a parallelism win (v01 §5 keeps the update-set
- * protocol for cross-region writes), so serializing them is the documented cost.</p>
+ * Serializes vanilla {@code NeighborUpdater} calls: the underlying
+ * {@code CollectingNeighborUpdater} is stateful and single-threaded, and concurrent
+ * region-worker block ticks corrupt it. All funnel call sites (the two
+ * {@code updateNeighborsAt} variants plus the {@code shapeUpdate} call) are wrapped
+ * in a synchronized block.
  */
 @Mixin(ServerLevel.class)
 public abstract class ServerLevelMixin_RegionNeighborLock {

@@ -19,16 +19,10 @@ import org.spongepowered.asm.mixin.injection.Redirect;
 import java.util.function.BooleanSupplier;
 
 /**
- * PRTS region-level scheduled block tick split (P3 v04, AI-created).
- *
- * <p>Two redirects inside {@code ServerLevel.tick}: (1) the private
- * {@code tickBlock} is exposed through {@link ServerLevelRegionBlockTickAccess}
- * so region workers can run scheduled ticks; (2) the {@code ServerChunkCache.tick}
- * call becomes the phase boundary where the collected scheduled block ticks are
- * executed in parallel on region workers (latch) before the random-tick phase
- * proceeds on the dimension worker. The collection itself happens in
- * {@code LevelTicksMixin_RegionBlockTick}; order of phases is preserved so a
- * region ticks blocks before entities (v03 review plan A).</p>
+ * Region-level scheduled block tick split: exposes the private {@code tickBlock}
+ * via {@link ServerLevelRegionBlockTickAccess}, and turns the
+ * {@code ServerChunkCache.tick} call into the phase boundary where collected
+ * scheduled block ticks run in parallel on region workers.
  */
 @Mixin(ServerLevel.class)
 public abstract class ServerLevelMixin_RegionBlockTick implements ServerLevelRegionBlockTickAccess {

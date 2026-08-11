@@ -19,16 +19,10 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
- * PRTS region parallelism chunk-level cross-region write guard (P3 v04 fix, AI-created).
- *
- * <p>In this environment redstone-wire power updates bypass {@code Level.setBlock}
- * and write {@code LevelChunk.setBlockState} directly (observed via diagnostic;
- * vanilla goes through Level.setBlock but a mod/NeoForge path writes the chunk
- * directly). That direct path is not covered by the Level.setBlock guard, so a
- * region worker recalculating a wire across the stripe boundary would touch the
- * neighbor chunk concurrently. This guard collects such writes into the target
- * region's update queue instead (1-tick window), mirroring
- * LevelMixin_RegionCrossWrite.</p>
+ * Chunk-level cross-region write guard: redstone-wire power updates write
+ * {@code LevelChunk.setBlockState} directly, bypassing the Level.setBlock guard.
+ * This collects such writes into the target region's update queue instead (1-tick
+ * window), mirroring LevelMixin_RegionCrossWrite.
  */
 @Mixin(LevelChunk.class)
 public abstract class LevelChunkMixin_RegionCrossWrite {

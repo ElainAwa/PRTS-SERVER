@@ -22,11 +22,9 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
 
 /**
- * Throttles TeslaCoilBlockEntity.setWorking Level.setBlock calls.
- *
- * ae2lt TeslaCoil already short-circuits when the block state is unchanged, but its
- * tickingRequest flips the working flag every tick, so setBlock still fires each tick and can
- * drive a neighbor-update storm. This limits actual setBlock to once per N ticks.
+ * Throttles TeslaCoilBlockEntity.setWorking Level.setBlock calls: ae2lt flips the
+ * working flag every tick so setBlock fires each tick and can drive a
+ * neighbor-update storm; this limits actual setBlock to once per N ticks.
  */
 @Pseudo
 @Mixin(targets = "com.moakiee.ae2lt.blockentity.TeslaCoilBlockEntity", remap = false)

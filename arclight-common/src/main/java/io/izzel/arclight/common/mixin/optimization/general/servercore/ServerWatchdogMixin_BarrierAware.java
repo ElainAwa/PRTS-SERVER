@@ -17,17 +17,9 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
 
 /**
- * PRTS barrier semantics P1 (AI-created, docs/parallel-barrier-semantics-v01.md §2.1):
- * make the vanilla watchdog barrier-aware.
- *
- * <p>When the main thread is waiting inside the dimension-parallel barrier
- * ({@link DimensionTickManager#inDimensionTick()}), it is doing designed parallel
- * work, not a stuck single-thread loop. The watchdog would otherwise kill the server
- * after max-tick-time (60s) because {@code nextTickTime} stops advancing. Redirecting
- * {@code getNextTickTime} to the current time while in the barrier both prevents the
- * false kill and resets the watchdog's time base (per technical review: no stale-base
- * kill right after leaving the barrier). Gate: prts-features.yml
- * {@code barrier-watchdog-aware} (default true; false = vanilla watchdog behavior).</p>
+ * 让原版 watchdog 感知并行 barrier：主线程在维度并行等待期间，watchdog
+ * 不再因 tick 时间停滞而误杀服务器（同时重置其时间基准，避免出 barrier 后误杀）。
+ * 配置见 prts-features.yml（barrier-watchdog-aware，默认开；false = 原版行为）。
  */
 @Mixin(ServerWatchdog.class)
 public abstract class ServerWatchdogMixin_BarrierAware {

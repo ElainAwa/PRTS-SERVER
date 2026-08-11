@@ -18,13 +18,10 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
- * Neighbor-update circuit breaker.
- *
- * Some mods (e.g. AE2 Lightning Tech TeslaCoil) flip a block state every tick and trigger a
- * chain of neighbor updates that recurses within a single server tick, eventually exceeding the
- * watchdog timeout and killing the server. This mixin caps neighbor updates dispatched per tick;
- * once the cap is exceeded the excess updates are dropped (not dispatched) and a warning is logged,
- * so the server survives the storm instead of being watchdog-killed.
+ * Neighbor-update circuit breaker: caps neighbor updates dispatched per tick so a
+ * mod neighbor-update loop (e.g. AE2 TeslaCoil flipping a block state every tick)
+ * cannot exceed the watchdog timeout and kill the server. Excess updates are dropped
+ * with a warning.
  */
 @Mixin(Level.class)
 public abstract class LevelMixin_NeighborUpdateCircuitBreaker {

@@ -42,11 +42,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 可靠区块保存（journal 模式，features.reliable-chunk-save）。
- * 每周期把脏区块序列化写入 journal/&lt;world&gt;.jrn 并 force 落盘；非正常退出后启动回放。
- * 分片 flush：脏区块收集与序列化跨 tick 摊平，避免超大地图单 tick 卡死。
- * 回放安全：① WAL 权威比较——按 LastUpdate 仅当 journal 比 region 更新才写回，防旧快照覆盖新数据；
- * ② 两阶段删除——回放后 rename .jrn→.jrn.applied 保留证据，验证窗口(writeAll 周期)后 cleanupApplied 删除。
+ * 可靠区块保存（journal 模式，features.reliable-chunk-save）。每周期把脏区块序列化
+ * 写入 journal/&lt;world&gt;.jrn 并 force 落盘；非正常退出后启动回放。分片 flush 把脏区块
+ * 收集与序列化跨 tick 摊平，避免超大地图单 tick 卡死。回放按 LastUpdate 权威比较，
+ * 仅当 journal 比 region 更新才写回；回放后 rename .jrn→.jrn.applied 保留证据。
  */
 public final class ChunkJournal {
 

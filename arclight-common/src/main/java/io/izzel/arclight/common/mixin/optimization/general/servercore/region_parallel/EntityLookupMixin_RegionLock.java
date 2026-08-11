@@ -15,14 +15,10 @@ import org.spongepowered.asm.mixin.injection.Redirect;
 import java.util.Map;
 
 /**
- * PRTS region parallelism: guard {@code EntityLookup} index writes (P3 v05).
- *
- * <p>{@code byUuid}/{@code byId} are written on add/remove from both region
- * workers (concurrent spawns/deaths) and the main thread; the fastutil
- * {@code Int2ObjectMap} may resize on put, so concurrent puts are unsafe.
- * Each put/remove is wrapped in a single non-nested {@link EntityLockManager#INDEX_LOCK}
- * write-lock critical section. Reads (getEntity) stay lock-free and tolerate a
- * transient stale view (fastutil resize keeps the old backing array intact).</p>
+ * Guards {@code EntityLookup} index writes: {@code byUuid}/{@code byId} are written
+ * from both region workers and the main thread, and the fastutil map may resize on
+ * put, so each put/remove is wrapped in an {@link EntityLockManager#INDEX_LOCK}
+ * write-lock section. Reads stay lock-free and tolerate a transient stale view.
  */
 @Mixin(EntityLookup.class)
 public abstract class EntityLookupMixin_RegionLock {

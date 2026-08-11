@@ -15,11 +15,9 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
 
 /**
- * PRTS region parallelism: serialize the {@code shapeUpdate} funnel of vanilla
- * {@code NeighborUpdater} from {@code Level.neighborShapeChanged} (see
- * {@link ServerLevelMixin_RegionNeighborLock} for the rationale; the underlying
- * {@code CollectingNeighborUpdater} is single-threaded state corrupted by
- * concurrent region-worker block ticks).
+ * Serializes the {@code shapeUpdate} funnel of vanilla {@code NeighborUpdater} from
+ * {@code Level.neighborShapeChanged} (see {@link ServerLevelMixin_RegionNeighborLock}
+ * for the rationale).
  */
 @Mixin(Level.class)
 public abstract class LevelMixin_RegionNeighborShapeLock {

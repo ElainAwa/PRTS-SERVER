@@ -13,12 +13,10 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
 
 /**
- * PRTS region parallelism: guard {@code EntityTickList} index writes (P3 v05).
- *
- * <p>{@code active} is written concurrently when region workers kill entities
- * while the main thread spawns new ones; the fastutil map may resize on put.
- * forEach runs on the owning tick thread before the worker phase (separated by
- * the region latch), so it needs no lock.</p>
+ * Guards {@code EntityTickList} index writes: {@code active} is written concurrently
+ * when region workers kill entities while the main thread spawns new ones, and the
+ * fastutil map may resize on put. forEach runs before the worker phase (separated by
+ * the region latch), so it needs no lock.
  */
 @Mixin(EntityTickList.class)
 public abstract class EntityTickListMixin_RegionLock {

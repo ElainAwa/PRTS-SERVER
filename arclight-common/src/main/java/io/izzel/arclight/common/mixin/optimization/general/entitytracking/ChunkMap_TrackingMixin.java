@@ -17,7 +17,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-/** 路线B 核心 mixin：HariPlayer 招牌的空间化实体追踪（AreaMap 方案，移植自 VMP 同名算法）的 mojmap 移植。 */
+/** 空间化实体追踪（AreaMap 方案，移植自 VMP 同名算法）的 mojmap 移植。 */
 @Mixin(ChunkMap.class)
 public class ChunkMap_TrackingMixin {
 
@@ -28,7 +28,7 @@ public class ChunkMap_TrackingMixin {
     @Unique
     private static final Logger LOGGER = LogManager.getLogger("PRTS-EntityTrack");
 
-    // P3 v05：AreaMap 内部加锁（NearbyEntityTracking.lock），区域 worker 直接执行
+    // AreaMap 内部加锁（NearbyEntityTracking.lock），区域 worker 直接执行
     // add/remove 追踪更新（实时，无 1 tick 延迟）；不再需要延迟队列止血。
 
     // 仅首次成功 tick 时打印一次启用通告（INFO），避免每次重启重复刷屏。

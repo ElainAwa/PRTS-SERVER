@@ -17,13 +17,10 @@ import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 
 /**
- * PRTS region-level entity tick entry (P3 slice 1, AI-created).
- *
- * <p>Redirects the {@code entityTickList.forEach} call inside
- * {@code ServerLevel.tick}: when the {@code region-parallel} feature is enabled
- * for the overworld, the entity tick phase is dispatched to region workers by
- * {@link RegionTickManager} (which replicates the vanilla forEach semantics);
- * otherwise the vanilla consumer runs untouched.</p>
+ * Region-level entity tick entry: redirects {@code entityTickList.forEach} in
+ * {@code ServerLevel.tick}. When {@code region-parallel} is enabled for the
+ * overworld, the entity tick phase is dispatched to region workers by
+ * {@link RegionTickManager} (vanilla forEach semantics); otherwise vanilla runs.
  */
 @Mixin(ServerLevel.class)
 public abstract class ServerLevelMixin_RegionTick {

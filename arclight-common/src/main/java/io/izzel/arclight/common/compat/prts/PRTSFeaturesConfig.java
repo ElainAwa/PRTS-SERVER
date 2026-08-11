@@ -35,13 +35,13 @@ public class PRTSFeaturesConfig {
     public static boolean ae2ltSetWorkingThrottleEnabled;
     public static int ae2ltSetWorkingThrottleMinTicks;
 
-    // Parallel tick engine - P1 async pathfinding / P2 dimension / P3 region（PRTS 自研多线程引擎，默认全开）
+    // Parallel tick engine - 异步寻路 / 维度并行 / 区域并行（PRTS 自研多线程引擎，默认全开）
     public static boolean parallelPathfindingAsync;
     public static boolean parallelDimension;
     public static boolean parallelRegion;
-    /** P3 overworld region count (2/4/8, default 4; see docs v11). */
+    /** 主世界区域数 (2/4/8, 默认 4)。 */
     public static int parallelRegionCount;
-    /** P3 dynamic auto-scale (docs v12): periodically rebalance region count by load. */
+    /** 动态区域自动扩容：按负载周期性地调整区域数。 */
     public static boolean regionAutoScale;
     public static long regionScaleIntervalSeconds;
     public static double regionScaleHighMspt;
@@ -56,19 +56,19 @@ public class PRTSFeaturesConfig {
     public static long journalIntervalSeconds;
     public static int journalChunksPerTick;
 
-    // Generation task intake budget (L2 Spike-A, docs parallel-l2-chunkgen-spike-v01.md §2):
-    // caps how many pending chunk-generation tasks the main thread hands to the worldgen
-    // mailbox per tick, spreading the intake storm; 0 = unlimited (vanilla behavior).
+    // Generation task intake budget: caps how many pending chunk-generation tasks the
+    // main thread hands to the worldgen mailbox per tick, spreading the intake storm;
+    // 0 = unlimited (vanilla behavior).
     public static int generationTasksPerTick;
 
-    // Chunkgen submission window (docs parallel-barrier-semantics-v01.md §2.3): caps how
-    // many generation tasks are submitted within a rolling 2s window so worldgen
-    // completions arrive at a steady rate instead of a storm; 0 = unlimited.
+    // Chunkgen submission window: caps how many generation tasks are submitted within a
+    // rolling 2s window so worldgen completions arrive at a steady rate instead of a
+    // storm; 0 = unlimited.
     public static int chunkgenInflightLimit;
 
-    // Barrier semantics (docs parallel-barrier-semantics-v01.md): make the vanilla
-    // watchdog barrier-aware so a main thread waiting in the dimension barrier is not
-    // falsely killed after max-tick-time; false = vanilla watchdog behavior.
+    // Barrier semantics: make the vanilla watchdog barrier-aware so a main thread waiting
+    // in the dimension barrier is not falsely killed after max-tick-time; false = vanilla
+    // watchdog behavior.
     public static boolean barrierWatchdogAware;
     /** Barrier await timeout ms; on expiry dump all threads and crash with a report. */
     public static long barrierTimeoutMs;

@@ -18,10 +18,10 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 
 /**
- * PRTS immutable pathfinding snapshot factory (P1 experiment, AI-created).
- * Exposes {@link PathNavigationRegionAccess#arclight$snapshot} which captures
- * the block states of this region into a flat immutable array on the main
- * thread, so the async worker never touches live world state.
+ * Immutable pathfinding snapshot factory. Exposes
+ * {@link PathNavigationRegionAccess#arclight$snapshot}, which captures the block
+ * states of this region into a flat immutable array on the main thread so the
+ * async worker never touches live world state.
  */
 @Mixin(PathNavigationRegion.class)
 public abstract class PathNavigationRegionMixin implements PathNavigationRegionAccess {

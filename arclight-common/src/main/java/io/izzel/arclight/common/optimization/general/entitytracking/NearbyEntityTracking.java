@@ -26,8 +26,8 @@ import java.util.concurrent.locks.ReentrantLock;
 /** 原 VMP com.ishland.vmp.common.playerwatching.NearbyEntityTracking 的 mojmap 移植。 */
 public class NearbyEntityTracking {
 
-    // P3 v05：AreaMap 内部互斥锁——区域 worker 的 add/remove 追踪更新与主线程 tick 广播并发安全；
-    // 取代 v02 的延迟队列止血（实时追踪，无 1 tick 延迟）。ReentrantLock 可重入（addEntityTracker→addPlayer 嵌套）。
+    // AreaMap 内部互斥锁——区域 worker 的 add/remove 追踪更新与主线程 tick 广播并发安全；
+    // 实时追踪，无延迟。ReentrantLock 可重入（addEntityTracker→addPlayer 嵌套）。
     private final ReentrantLock lock = new ReentrantLock();
 
     // 默认关闭 staging area，降低风险；改为 true 即启用原版短命实体暂存优化

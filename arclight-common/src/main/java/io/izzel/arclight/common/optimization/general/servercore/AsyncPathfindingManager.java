@@ -25,20 +25,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * PRTS async pathfinding manager (P1 experiment, AI-created).
- * Offloads PathFinder A* computation to a small daemon worker pool.
- *
- * Thread-safety contract:
- * - The task receives an {@link ImmutablePathNavigationRegion} (block-state
- *   reference snapshot captured on the main thread) and a task-private
- *   PathFinder; the worker never touches live Level/LevelChunk state.
- * - Cancellation is best-effort by design (A* has no preemption point):
- *   a pre-check runs before the computation (navigation no longer pending,
- *   mob dead) and the result is discarded at drain time when the navigation
- *   went away, is not pending anymore, or the result is too old.
- *
- * Monitoring: counters/groups/gauges are provided by the shared
- * {@link AsyncTaskStats} instance (same log format as the P1 smoke runs).
+ * Async pathfinding manager: offloads PathFinder A* computation to a small daemon
+ * worker pool. The task works on an {@link ImmutablePathNavigationRegion} snapshot
+ * and never touches live world state; results are discarded if the navigation went
+ * away, is no longer pending, or the result is too old.
  */
 public final class AsyncPathfindingManager {
 
@@ -52,16 +42,12 @@ public final class AsyncPathfindingManager {
     private static final AtomicLong LAST_TICK_DRAINED = new AtomicLong(-1);
     private static final ConcurrentLinkedQueue<Result> RESULTS = new ConcurrentLinkedQueue<>();
 
-    // P3 slice 4 (v08): results submitted by region workers are bucketed per
-    // region and drained by that region's worker (same-thread application).
+    // Results submitted by region workers are bucketed per region and drained
+    // by that region's worker (same-thread application).
     private static volatile ConcurrentLinkedQueue<Result>[] RESULTS_REGION = new ConcurrentLinkedQueue[0];
     private static volatile AtomicLong[] LAST_REGION_DRAINED = new AtomicLong[0];
 
-    /**
-     * Rebuilds the per-region result buckets (main thread; called on startup from
-     * RegionTickManager.ensureConfigured and on region reconfiguration from auto-scale;
-     * docs v11).
-     */
+    /** Rebuilds the per-region result buckets (startup / auto-scale reconfiguration). */
     public static synchronized void reconfigureRegions(int n) {
         @SuppressWarnings("unchecked")
         ConcurrentLinkedQueue<Result>[] buckets = new ConcurrentLinkedQueue[n];
@@ -74,7 +60,7 @@ public final class AsyncPathfindingManager {
         LAST_REGION_DRAINED = drained;
     }
 
-    // 取消/结果统计埋点 (共享 AsyncTaskStats, P2/P3 同步协议复用同一可观测面)。
+    // 取消/结果统计埋点 (共享 AsyncTaskStats)。
     private static final AsyncTaskStats STATS = AsyncTaskStats.builder("[async-pathfinding]")
             .intervalTicks(600)
             .counter("applied")
@@ -101,10 +87,8 @@ public final class AsyncPathfindingManager {
     }
 
     /**
-     * Submits an async pathfinding task. {@code regionId} is the owning region
-     * of the submitting thread ({@code -1} for server/dimension workers → main
-     * queue; {@code >= 0} for region workers → that region's queue, drained by
-     * the region worker at the next session start).
+     * Submits an async pathfinding task. {@code regionId} routes the result to the
+     * main queue ({@code -1}) or the owning region's queue ({@code >= 0}).
      */
     public static boolean submit(PathFinder pathFinder, ImmutablePathNavigationRegion snapshot, Mob mob,
                                  Set<BlockPos> targets, float maxRange, int accuracy, float depthMultiplier,
@@ -145,10 +129,7 @@ public final class AsyncPathfindingManager {
         return true;
     }
 
-    /**
-     * Called on the main thread whenever a pathfinding request happens and there
-     * are pending results; drains the result queue and applies fresh results.
-     */
+    /** Drains pending results on the main thread (once per tick). */
     public static void drainIfNeeded(long serverTick) {
         long last = LAST_TICK_DRAINED.get();
         if (last == serverTick) return;
@@ -158,12 +139,7 @@ public final class AsyncPathfindingManager {
         STATS.tick(serverTick);
     }
 
-    /**
-     * P3 slice 4 (v08): drains the given region's result queue on the region
-     * worker (called at the start of the entity-tick session). Applying the
-     * navigation result on the owning region thread keeps it same-thread with
-     * the entity ticks, avoiding cross-thread PathNavigation writes.
-     */
+    /** Drains the given region's result queue on the region worker (same-thread application). */
     public static void drainRegion(int regionId, long serverTick) {
         ConcurrentLinkedQueue<Result>[] buckets = RESULTS_REGION;
         if (regionId < 0 || regionId >= buckets.length) return;

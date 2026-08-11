@@ -16,14 +16,10 @@ import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
- * PRTS region-level block-entity tick split (P3 v04, AI-created).
- *
- * <p>Inside {@code Level.tickBlockEntities} the main loop's
+ * Region-level block-entity tick split: inside {@code Level.tickBlockEntities},
  * {@code TickingBlockEntity.tick} is redirected into the owning region's queue
- * (isRemoved / shouldTickBlocksAt checks stay on the calling thread), and the
- * collected ticks run in parallel on region workers at the method's RETURN.
- * The fresh-entity lambda only calls onLoad, so it is untouched; on client
- * levels and when the feature is off, ticks run inline as before.</p>
+ * (checks stay on the calling thread) and runs in parallel on region workers at
+ * the method's RETURN. Off / client levels keep the inline path.
  */
 @Mixin(Level.class)
 public abstract class LevelMixin_RegionBlockEntityTick {

@@ -29,7 +29,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 /**
- * 实验性异步区块 IO（features.async-chunk-io，默认开）。
+ * 异步区块 IO（features.async-chunk-io，默认开）。
  * RegionFileStorage.read 提交专用线程池，行为不变仅转移 IO/CPU 开销。池内重入同步执行防死锁。
  */
 @Mixin(RegionFileStorage.class)

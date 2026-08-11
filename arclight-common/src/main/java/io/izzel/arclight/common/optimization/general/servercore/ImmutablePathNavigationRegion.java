@@ -22,17 +22,10 @@ import net.minecraft.world.phys.shapes.VoxelShape;
 import java.util.List;
 
 /**
- * PRTS immutable pathfinding snapshot (P1 experiment, AI-created).
- *
- * A read-only copy of the block states a pathfinding task needs. The data is
- * captured on the server thread when the task is submitted (BlockState instances
- * are immutable singletons, so copying references is a safe deep-enough copy),
- * and every read performed by the worker thread goes through this snapshot —
- * the worker never touches live Level/LevelChunk state owned by the main thread.
- *
- * The super constructor (PathNavigationRegion) runs on the main thread during
- * snapshot creation; all readable methods are overridden so the worker cannot
- * accidentally reach the live chunks array it holds.
+ * Immutable pathfinding snapshot: a read-only copy of the block states a task
+ * needs, captured on the server thread when the task is submitted (BlockState
+ * instances are immutable singletons, so copying references is safe). All readable
+ * methods are overridden so the worker never touches live world state.
  */
 public final class ImmutablePathNavigationRegion extends PathNavigationRegion {
 

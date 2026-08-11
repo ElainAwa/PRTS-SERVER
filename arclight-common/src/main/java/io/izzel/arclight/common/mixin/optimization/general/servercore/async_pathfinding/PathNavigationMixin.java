@@ -15,10 +15,10 @@ import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.gen.Invoker;
 
 /**
- * PRTS async pathfinding state (P1 experiment, AI-created).
- * Injects async-pending state and a private PathFinder factory into PathNavigation,
- * implemented through {@link PathNavigationAccess} so the optimization package can
- * interact with it without a compile-time dependency on this mixin.
+ * Async pathfinding state: injects async-pending state and a private PathFinder
+ * factory into PathNavigation, implemented through {@link PathNavigationAccess} so
+ * the optimization package can interact with it without a compile-time dependency
+ * on this mixin.
  */
 @Mixin(PathNavigation.class)
 public abstract class PathNavigationMixin implements PathNavigationAccess {

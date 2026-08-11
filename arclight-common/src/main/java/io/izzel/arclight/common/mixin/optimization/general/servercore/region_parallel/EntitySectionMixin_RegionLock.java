@@ -18,17 +18,10 @@ import java.util.Iterator;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**
- * PRTS region parallelism: per-section element write lock (P3 v05).
- *
- * <p>An {@code EntitySection} belongs to exactly one chunk, hence one region:
- * within a region the single worker serializes element writes, so the lock is
- * uncontended. It only arbitrates rare cross-region writes (entity moving
- * across the stripe boundary) and main-thread spawns racing region workers.
- * The lock is a mixin-injected per-instance field (no global map to manage).
- * Read traversal (getEntities) snapshots under the read lock (v12 fix): the
- * main thread / RCON thread can remove entities (e.g. a bulk {@code kill})
- * while a region worker iterates the section for collision checks — the
- * snapshot keeps the iterator off the live ArrayList so no CME.</p>
+ * Per-section element write lock (mixin-injected per-instance field): uncontended
+ * within a region, arbitrates only cross-region writes and main-thread spawns.
+ * Read traversal snapshots under the read lock so a main-thread remove does not
+ * cause a CME on a region worker iterating the section.
  */
 @Mixin(EntitySection.class)
 public abstract class EntitySectionMixin_RegionLock {

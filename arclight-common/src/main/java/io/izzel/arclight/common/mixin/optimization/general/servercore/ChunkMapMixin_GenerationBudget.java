@@ -23,26 +23,16 @@ import java.util.Iterator;
 import java.util.List;
 
 /**
- * PRTS chunkgen spike control (AI-created, docs/parallel-barrier-semantics-v01.md §2.3):
- * two gates on chunk generation.
- *
- * <p>Gate 1 (intake budget, a2ce003): cap how many pending generation tasks the main
- * thread hands to the worldgen mailbox per tick (generation-tasks-per-tick, default 50).
- *
- * <p>Gate 2 (submission time-window, v01.2): cap how many tasks are submitted within a
- * rolling 2s window (chunkgen-inflight-limit, default 128). Worldgen workers then produce
- * completions at a steady rate instead of a storm, so the main thread can drain
- * completion callbacks without the multi-second spike (a burst of 1000+ forceload chunks
- * used to batch into a ~1.5-2.3s tick; measured down to ~430ms). The window is
- * submission-only — it never tracks completion, so it cannot wedge the intake gate.
- * Both gates are in prts-features.yml; 0 on either = that gate off.</p>
+ * 限制区块生成任务的提交速度，防止大量区块同时生成时主线程卡顿尖峰。
+ * 双闸门：每 tick 最多提交 N 个；滚动 2s 窗口内最多提交 M 个。
+ * 配置见 prts-features.yml（generation-tasks-per-tick / chunkgen-inflight-limit，0 = 关闭）。
  */
 @Mixin(ChunkMap.class)
 public abstract class ChunkMapMixin_GenerationBudget {
 
     private static final Logger LOGGER = LogManager.getLogger("PRTS-SpikeA");
 
-    /** Rolling submission timestamps (nanos), ring buffer; only tracks submissions. */
+    /** 滚动提交时间戳（纳秒）环形缓冲，仅记录提交不追踪完成，故永不卡死生成。 */
     @Unique
     private static final long[] prts$submitTimes = new long[256];
 
@@ -85,7 +75,7 @@ public abstract class ChunkMapMixin_GenerationBudget {
                 pending, submitted, prts$submittedInWindow(2_000_000_000L), budget, limit);
     }
 
-    /** Count submissions inside the last windowNanos (2s window). */
+    /** 统计最近 windowNanos（2s）内的提交次数。 */
     @Unique
     private static int prts$submittedInWindow(long windowNanos) {
         long now = System.nanoTime();

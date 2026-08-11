@@ -30,34 +30,12 @@ import org.spongepowered.asm.mixin.injection.Redirect;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * PRTS dimension parallelism (P2 experiment, AI-created): break the sync-chunk-load
- * deadlock for dimension tick workers.
- *
- * <p>Vanilla {@code ServerChunkCache.getChunk} routes non-main-thread callers through
- * {@code supplyAsync(..., mainThreadProcessor).join()}. On a dimension tick worker the
- * main thread is waiting at the dimension barrier, so that join never completes → the
- * watchdog kills the server after 60s.
- *
- * <p>Important subtlety (fixed in the P1 x P2 stacking round): that supplyAsync future
- * is created fresh on every call and is only completed when the main-thread executor
- * actually runs the task — which never happens while the main thread is at the barrier.
- * {@link CompletableFuture#getNow} therefore returns null even for chunks that ARE
- * already loaded, which made entities fall through the floor (summoned mobs sank into
- * the void on the worker while setblock on the main thread succeeded).
- * {@link ServerChunkCache#getChunkNow} is NOT usable either: it returns null on any
- * non-main thread. The working lookup first tries the vanilla {@code lastChunkPos/
- * lastChunkStatus/lastChunk} ring buffer (a plain array read, atomic under concurrent
- * main-thread writes; worst case: stale value or null), then reads the
- * {@code visibleChunkMap} — safe because it is a volatile reference replaced wholesale
- * on promoteChunkMap, so a worker reads an immutable old snapshot. Only a genuinely
- * missing chunk gets an {@link EmptyLevelChunk} (air) for one tick instead of
- * deadlocking (the documented P2 "unloaded chunk access" boundary, see
- * docs/parallel-phase2-dimension-parallelism-v01.md §5).
- * <p>priority=2000: Lithium (net.caffeinemc.mods.lithium) also mixins
- * {@code ServerChunkCache.getChunk} at priority 1000; same-priority injections into
- * an already-merged method are rejected by mixin ("cannot inject ... merged by ...").
- * A higher priority lets this injection run after Lithium's (which only prepends a
- * chunk cache check at HEAD and keeps the join call site).</p>
+ * Breaks the sync-chunk-load deadlock for dimension tick workers: vanilla
+ * {@code getChunk} joins a main-thread supplyAsync that can never complete while
+ * the main thread waits at the barrier. The worker-side lookup reads the vanilla
+ * {@code lastChunk} ring buffer and {@code visibleChunkMap}, returning an
+ * {@link EmptyLevelChunk} (air) only for genuinely missing chunks.
+ * priority=2000 so it runs after Lithium's same-method injection at 1000.
  */
 @Mixin(value = ServerChunkCache.class, priority = 2000)
 public abstract class ServerChunkCacheMixin_DimParallel {
@@ -116,14 +94,11 @@ public abstract class ServerChunkCacheMixin_DimParallel {
                 }
             }
         } catch (Throwable t) {
-            // 任何异常回退空气, 绝不让 worker 卡死/崩溃(watchdog 60s 防线)。
+            // 任何异常回退空气, 绝不让 worker 卡死/崩溃。
         }
-        // Chunk genuinely missing and the main thread is at the barrier: return air
-        // instead of deadlocking. EmptyLevelChunk is a valid ChunkAccess (getBlockState → air).
-        // Biome is a cached THE_VOID holder: the previous getUncachedNoiseBiome call sampled
-        // 3D noise on every miss, and exploration-style AI (zombie RemoveBlockGoal) hammering
-        // missing chunks on region workers turned that into a PerlinNoise storm (watchdog hang,
-        // see docs/parallel-removeblockgoal-worker-evaluation.md).
+        // Chunk 确实缺失且主线程在 barrier: 返回空气而非死锁。EmptyLevelChunk 是合法
+        // ChunkAccess(getBlockState → air)。Biome 缓存 THE_VOID holder: 之前每个 miss 都
+        // 采样 3D 噪声, 探索型 AI 在区域 worker 上反复查询缺失区块会形成噪声风暴。
         return new EmptyLevelChunk(this.level, new ChunkPos(x, z), arclight$voidBiome(this.level));
     }
 

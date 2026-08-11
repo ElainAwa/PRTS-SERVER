@@ -14,7 +14,6 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
- * PRTS async pathfinding tick drain (P1 experiment, AI-created).
  * Drains and applies async pathfinding results on the server thread at the end
  * of every server tick, so results are applied even when no new pathfinding
  * request happens in the meantime (low-frequency navigation would otherwise let

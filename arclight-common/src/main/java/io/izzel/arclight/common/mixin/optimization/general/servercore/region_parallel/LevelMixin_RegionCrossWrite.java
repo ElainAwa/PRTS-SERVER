@@ -16,16 +16,10 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
- * PRTS region parallelism cross-region write guard (P3 slice 2, AI-created).
- *
- * <p>When a region worker's entity tick writes a block outside its own region
- * (e.g. an Enderman or villager placing a block across the stripe boundary),
- * the write must not touch the neighbor region's data concurrently. The write
- * is collected into the target region's update queue and applied by that
- * region's worker next tick (1-tick eventual-consistency window, see
- * RegionTickManager.applyCrossUpdates). The caller sees {@code false} (blocked)
- * for that tick and naturally retries — the same degraded-call philosophy as
- * the P2 getChunk EmptyLevelChunk fallback.</p>
+ * Cross-region write guard: when a region worker's entity tick writes a block
+ * outside its own region, the write is collected into the target region's update
+ * queue and applied by that region's worker next tick (1-tick window). The caller
+ * sees {@code false} (blocked) for that tick and naturally retries.
  */
 @Mixin(Level.class)
 public abstract class LevelMixin_RegionCrossWrite {

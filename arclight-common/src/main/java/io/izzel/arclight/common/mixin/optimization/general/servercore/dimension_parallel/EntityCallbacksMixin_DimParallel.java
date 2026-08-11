@@ -31,23 +31,10 @@ import java.util.function.BiConsumer;
 import java.util.function.Predicate;
 
 /**
- * PRTS dimension parallelism (P2 experiment, AI-created): stabilize
- * {@code ServerLevel$EntityCallbacks.onTrackingStart/onTrackingEnd} on dimension
- * tick worker threads.
- *
- * <p>Both methods used to carry a vanilla {@code invokedynamic} (the
- * {@code BiConsumer} for {@code updateDynamicGameEventListener}) and, until the
- * AsyncCatcher void-method fix (P2 v22), an injected AsyncCatcher checkOp block
- * whose Supplier lambda failed to link on workers. The whole method is rewritten
- * here with a cancellable HEAD injection using hand-written anonymous classes
- * (no invokedynamic at all), mirroring the merged-jar bytecode 1:1 plus the Arclight
- * core mixin side effects (valid/in-world flags, map/InventoryHolder cleanup,
- * entity-remove broadcast).
- *
- * <p>priority stays at the default 1000 so Lithium's
- * {@code entity.inactive_navigations.ServerLevel$EntityCallbacksMixin} (also 1000)
- * can keep injecting {@code onTrackingStart} (a higher priority overwrite would
- * block it, "cannot inject ... merged by ...").</p>
+ * Stabilizes {@code ServerLevel$EntityCallbacks.onTrackingStart/onTrackingEnd} on
+ * dimension tick workers: rewrites both methods with a cancellable HEAD injection
+ * using anonymous classes (no invokedynamic, which failed to link on workers).
+ * Keeps priority 1000 so Lithium's onTrackingStart injection still merges.
  */
 @Mixin(targets = "net/minecraft/server/level/ServerLevel$EntityCallbacks")
 public abstract class EntityCallbacksMixin_DimParallel {

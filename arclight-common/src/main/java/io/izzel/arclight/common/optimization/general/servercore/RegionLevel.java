@@ -9,23 +9,10 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.ChunkPos;
 
 /**
- * PRTS region view of a dimension level (P3 slice 1, AI-created).
- *
- * <p>The overworld is partitioned into a configurable number of regions
- * (docs/parallel-phase3-region-parallelism-v11.md). Chunk columns are grouped
- * in stripes of {@value #STRIPE_WIDTH} chunks and each stripe is split evenly
- * between {@code regionCount()} regions (2/4/8). The authoritative set is
- * implicit and immutable for the whole run (the "fixed region definition"
- * review requirement), so an entity belongs to exactly one region at all
- * times. Region boundaries are sparse (one boundary line every
- * {@value #STRIPE_WIDTH} / regionCount columns) to keep cross-region
- * interaction low.</p>
- *
- * <p>Discipline helpers (review §4.1): {@link #isAuthoritative} gates every
- * region-local world access; callers assert it in debug builds before touching
- * shared chunk data. Cross-region access must go through the router layer
- * (slice 3); until then the entity tick path only reads blocks in its own
- * region's columns.</p>
+ * Region view of a dimension level. The overworld is partitioned into a fixed
+ * number of regions: chunk columns are grouped in stripes of {@value #STRIPE_WIDTH}
+ * chunks and each stripe is split evenly between {@code regionCount()} regions
+ * (2/4/8). {@link #isAuthoritative} gates region-local world access.
  */
 public final class RegionLevel {
 

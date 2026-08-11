@@ -16,24 +16,11 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
- * PRTS deferred cross-dimension transfer (P2 experiment, AI-created).
- *
- * <p>While the parallel dimension ticks are running on worker threads
- * ({@link DimensionTickManager#inDimensionTick()}), a cross-dimension
- * {@code changeDimension} would mutate the target dimension's entity list
- * concurrently with that dimension's own tick. Such transfers are deferred to
- * the post-barrier main thread ({@link DimensionTickManager#enqueueTransfer})
- * and the caller receives the entity itself as a placeholder.</p>
- *
- * <p>Both {@link Entity} and its override {@link ServerPlayer} are targeted
- * (ServerPlayer overrides changeDimension). The override typically calls
- * {@code super.changeDimension(...)}; the mixin on ServerPlayer fires first and
- * returns the player as-is, so the Entity-level handler never runs for players.
- * Entities bypassing the override (mods calling the base method directly) are
- * still caught by the Entity-level handler. Deferred transfers are counted per
- * type in the {@code [dimension-tick] pendingTransfer[player/entity/...]} stats,
- * which doubles as the non-player transfer frequency probe for the P2 smoke runs.
- * Same-dimension transitions (e.g. respawn-in-place) are not intercepted.</p>
+ * Defers cross-dimension transfers while parallel dimension ticks run: a
+ * {@code changeDimension} from a worker would mutate the target dimension's entity
+ * list concurrently, so it is queued ({@link DimensionTickManager#enqueueTransfer})
+ * and executed on the post-barrier main thread, returning the entity as-is. Targets
+ * both {@link Entity} and its override {@link ServerPlayer}.
  */
 @Mixin(value = {Entity.class, ServerPlayer.class})
 public abstract class EntityMixin_DimTransfer {

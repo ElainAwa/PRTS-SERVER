@@ -17,20 +17,13 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.LongAdder;
 
 /**
- * PRTS async task statistics (AI-created, shared monitoring infrastructure).
+ * Shared async task statistics: counter/group/gauge/timer metrics with a periodic
+ * summary log line, reused by the async pathfinding, dimension parallelism and
+ * region sync modules.
  *
- * <p>Pools the counter/group/gauge/timer + periodic summary-log pattern first
- * introduced by the P1 async pathfinding experiment, so that the P2 dimension
- * parallelism and P3 region sync protocols can reuse the same observable
- * (and the same log format) instead of re-implementing per module.</p>
- *
- * <p>Log format (kept compatible with the P1 output):</p>
- * <pre>
- * [module-prefix] counter1=v1 group1[m1=v1 m2=v2] gauge1=v1 timer1=avg=1.2ms max=3.4ms
- * </pre>
- *
- * <p>Thread-safety: all counters are {@link LongAdder}, gauges {@link AtomicLong};
- * the summary writer is called from a single thread ({@link #tick(long)}).</p>
+ * <p>Log format: {@code [module-prefix] counter1=v1 group1[m1=v1 m2=v2] gauge1=v1 timer1=avg=1.2ms max=3.4ms}.
+ * Counters are {@link LongAdder}, gauges {@link AtomicLong}; the summary writer is
+ * called from a single thread ({@link #tick(long)}).</p>
  */
 public final class AsyncTaskStats {
 
@@ -119,10 +112,7 @@ public final class AsyncTaskStats {
         return c == null ? 0L : c.sum();
     }
 
-    /**
-     * Registers a timer at runtime if absent (startup only, main thread;
-     * maps are not thread-safe). Used by the P3 region-count reconfigure.
-     */
+    /** Registers a timer at runtime if absent (startup only, main thread). */
     public synchronized void ensureTimer(String name) {
         if (!timers.containsKey(name)) {
             timers.put(name, new Timer());
@@ -130,10 +120,7 @@ public final class AsyncTaskStats {
         }
     }
 
-    /**
-     * Registers a group member at runtime if absent (startup only, main thread).
-     * Used by the P3 region-count reconfigure.
-     */
+    /** Registers a group member at runtime if absent (startup only, main thread). */
     public synchronized void ensureGroupMember(String group, String member) {
         String key = group + "." + member;
         if (!counters.containsKey(key)) {
@@ -142,10 +129,7 @@ public final class AsyncTaskStats {
         }
     }
 
-    /**
-     * Periodic summary driver. Call once per server tick from the main thread.
-     * Logs a summary line every {@code intervalTicks} ticks.
-     */
+    /** Periodic summary driver; call once per server tick from the main thread. */
     public void tick(long serverTick) {
         if (lastTick < 0) {
             lastTick = serverTick;

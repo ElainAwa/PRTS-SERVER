@@ -23,18 +23,10 @@ import java.util.Map;
 import java.util.function.BooleanSupplier;
 
 /**
- * PRTS dimension-level parallelism entry point (P2 experiment, AI-created).
- *
- * <p>Redirects the {@code getWorldArray()} call at the head of
- * {@code MinecraftServer.tickChildren} (the dimension tick loop): when the
- * {@code dimension-parallel} feature is enabled and more than one dimension is
- * loaded, the whole dimension phase is executed by {@link DimensionTickManager}
- * (pre events -> parallel ticks -> barrier -> post events -> tick times ->
- * deferred transfers) and an empty array is returned so the vanilla loop spins
- * zero times. When disabled, returns the real world array (vanilla behavior).</p>
- *
- * <p>The existing {@code @Inject tickChildren HEAD} handler (Bukkit scheduler
- * heartbeat / queued task drain) is not cancelled and keeps running.</p>
+ * Dimension-level parallelism entry point: redirects {@code getWorldArray()} at the
+ * head of {@code MinecraftServer.tickChildren}. When enabled with more than one
+ * dimension loaded, the dimension phase runs via {@link DimensionTickManager} and
+ * an empty array is returned so the vanilla loop spins zero times.
  */
 @Mixin(MinecraftServer.class)
 public abstract class MinecraftServerMixin_DimParallel {

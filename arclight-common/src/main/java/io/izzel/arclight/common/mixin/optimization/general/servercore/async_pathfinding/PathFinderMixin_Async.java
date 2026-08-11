@@ -29,27 +29,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import java.util.Set;
 
 /**
- * PRTS async pathfinding entry point (P1 experiment, AI-created).
- * When {@link PRTSFeaturesConfig#parallelPathfindingAsync}
- * is enabled and the call
- * happens on the server thread (or on a P2 dimension worker thread), the A*
- * computation of
- * {@link PathFinder#findPath(PathNavigationRegion, Mob, Set, float, int, float)}
- * is submitted to {@link AsyncPathfindingManager} and the caller receives null
- * (the navigation keeps moving along its previous path until the async result
- * is applied at the next tick boundary).
- *
- * A per-navigation pending flag prevents submission snowballing: while a result
- * is pending, subsequent calls fall through to the synchronous vanilla path.
- *
- * P1 x P2 stacking: when dimension parallelism (P2) is active, dimension tick
- * happens on {@code PRTS-DimensionTick-*} worker threads instead of the server
- * thread. Those workers own their dimension's state (same semantics as the
- * vanilla single-thread model, see docs/parallel-phase2-dimension-parallelism-v01.md),
- * so submission is also allowed there. Result draining applies on the owner thread:
- * the server thread (MinecraftServerMixin_AsyncDrain) or, under region parallelism
- * (P3), each region worker draining its own bucket (AsyncPathfindingManager.drainRegion),
- * so navigation state is always applied same-thread.
+ * Async pathfinding entry point: when enabled and called on a thread owning the
+ * entity's region state, submits {@link PathFinder#findPath} to
+ * {@link AsyncPathfindingManager} and returns null (the navigation keeps its
+ * previous path until the result is applied next tick).
  */
 @Mixin(PathFinder.class)
 public abstract class PathFinderMixin_Async {
@@ -99,7 +82,7 @@ public abstract class PathFinderMixin_Async {
             return;
         }
 
-        // 快照捕获线程 = 拥有该区域状态的线程(主线程 P1 / 维度 worker P2 / 区域 worker P3):
+        // 快照捕获线程 = 拥有该区域状态的线程(主线程 / 维度 worker / 区域 worker):
         // BlockState 是不可变单例, 引用数组拷贝后工作线程完全脱离可变状态。
         int radius = (int) (maxRange + accuracy);
         ImmutablePathNavigationRegion snapshot = ((PathNavigationRegionAccess) region).arclight$snapshot(mob.getBlockY(), radius);
