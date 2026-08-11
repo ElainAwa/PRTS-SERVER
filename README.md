@@ -34,6 +34,12 @@ via `prts-features.yml` (all on by default):
 - **Entity management thread-safety**: entity add/remove/query locked to keep data consistent under parallel ticking
 - **Cross-region redstone stats**: measured cross-region redstone traffic <1% — redstone machines spanning regions have negligible impact
 
+**Generation-storm spike control & barrier robustness (v1.0.29)**:
+- **Chunkgen intake budget** (`generation-tasks-per-tick`, default 50): caps how many pending generation tasks the main thread hands to the worldgen mailbox per tick — lowers average MSPT ~20% under load
+- **Chunkgen submission window** (`chunkgen-inflight-limit`, default 128): at most N generation submissions per rolling 2s window, so worldgen completions arrive at a steady rate — a forceload/teleport spike max MSPT drops from ~1.5-2.3s to ~430ms, while normal exploration never hits the window
+- **Watchdog barrier awareness** (`barrier-watchdog-aware`, default on): the vanilla watchdog no longer kills the server while the main thread is waiting inside the parallel dimension/region barrier during a generation storm
+- **Barrier timeout diagnostics** (`barrier-timeout-ms`, default 120000): a genuinely stalled barrier wait dumps all threads and crashes with full context instead of hanging forever
+
 ## Branch-specific config (`prts-features.yml`, server root)
 
 ```yaml
@@ -56,6 +62,12 @@ reliable-chunk-save:
   enabled: false
   interval-seconds: 30
   chunks-per-tick: 50
+# Chunkgen spike control (v1.0.29; 0 = off)
+generation-tasks-per-tick: 50      # intake budget: max generation submissions per tick
+chunkgen-inflight-limit: 128       # submission window: max per rolling 2s (>= worldgen throughput)
+# Barrier robustness (v1.0.29)
+barrier-watchdog-aware: true       # watchdog ignores parallel barrier waits (prevents false kills)
+barrier-timeout-ms: 120000         # barrier stall timeout (ms) before thread dump + crash
 ```
 
 > Config ownership: the parallel engine and WAL are **PRTS-original features** and live in
@@ -64,7 +76,7 @@ reliable-chunk-save:
 
 ## Version & Artifact
 
-- Current version: **v1.21.1-1.0.25** (version number synced with main)
+- Current version: **v1.21.1-1.0.29-Multithreading**
 - Build artifact: **`PRTS-neoforge-1.21.1-<version>-Multithreading.jar`** (the `-Multithreading`
   suffix marks the engineering-validation build)
 

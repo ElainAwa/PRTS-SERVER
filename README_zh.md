@@ -31,6 +31,12 @@
 - **实体管理线程安全化**：实体增删改查加锁，保证并行 tick 下数据一致
 - **跨区红石统计**：实测跨区红石流量 <1%，红石机器跨区域的影响可忽略
 
+**生成风暴削峰与 Barrier 健壮性（v1.0.29）**：
+- **区块生成提交预算**（`generation-tasks-per-tick`，默认 50）：主线程每 tick 最多提交 N 个生成任务给 worldgen——高负载下平均 MSPT 降 ~20%
+- **区块生成提交时间窗**（`chunkgen-inflight-limit`，默认 128）：滚动 2s 窗口内最多提交 N 个生成任务，worldgen 完成回调匀速到达——传送/forceload 风暴的 max 尖峰从 ~1.5-2.3s 降到 ~430ms（↓80%），正常探索永不触窗
+- **watchdog 感知 Barrier**（`barrier-watchdog-aware`，默认开）：主线程在并行 barrier 内等待时，原版 watchdog 不再误杀（生成风暴下曾 60s 杀服）
+- **Barrier 超时诊断**（`barrier-timeout-ms`，默认 120000）：barrier 真卡死时全线程 dump 后主动崩服（保留现场），不再无限挂起
+
 ## 本分支独有配置（`prts-features.yml`，服务端根目录）
 
 ```yaml
@@ -53,6 +59,12 @@ reliable-chunk-save:
   enabled: false
   interval-seconds: 30
   chunks-per-tick: 50
+# 区块生成削峰（v1.0.29；0 = 关闭）
+generation-tasks-per-tick: 50      # 提交预算：每 tick 最多提交的生成任务数
+chunkgen-inflight-limit: 128       # 提交时间窗：滚动 2s 内最多提交数（应 ≥ worldgen 生成能力）
+# Barrier 健壮性（v1.0.29）
+barrier-watchdog-aware: true       # watchdog 忽略并行 barrier 等待（防误杀）
+barrier-timeout-ms: 120000         # barrier 卡死超时（毫秒），超时后线程 dump + 主动崩服
 ```
 
 > 配置归属说明：并行引擎与 WAL 属 **PRTS 原创功能**，归 `prts-features.yml`；
@@ -60,7 +72,7 @@ reliable-chunk-save:
 
 ## 版本与产物
 
-- 当前版本：**v1.21.1-1.0.25**（与主分支同步的版本号）
+- 当前版本：**v1.21.1-1.0.29-Multithreading**
 - 构建产物：**`PRTS-neoforge-1.21.1-<版号>-Multithreading.jar`**（后缀 `-Multithreading` 标识工程验证构建）
 
 ## 构建与部署
