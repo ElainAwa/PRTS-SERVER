@@ -10,26 +10,22 @@ import io.izzel.arclight.common.mod.mixins.annotation.LoadIfMod;
 import io.izzel.arclight.common.optimization.general.servercore.RegionTickManager;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
- * Create 的方块实体首次 tick 在 region worker 上初始化机械网络时可能读到
- * 未就绪的 network 引用（Create 假设单线程时序）——首次 tick 排到主线程执行，
- * 之后 initialized 置位，后续 tick 仍由 region worker 并行处理。
+ * Create 的方块实体整个生命周期（机械网络初始化、网络验证、移除）都假设单线程
+ * 时序，在 region worker 上并行 tick 会产生竞态（network 引用未就绪/失效）——
+ * 全部排到主线程执行，不参与区域并行。
  */
 @LoadIfMod(modid = "create", condition = LoadIfMod.ModCondition.PRESENT)
 @Mixin(value = SmartBlockEntity.class, remap = false)
 public abstract class SmartBlockEntityMixin_MainThreadInit {
 
-    @Shadow(remap = false)
-    private boolean initialized;
-
     @Inject(method = "tick", at = @At("HEAD"), cancellable = true, remap = false)
-    private void arclight$firstTickOnMain(CallbackInfo ci) {
-        if (!this.initialized && RegionTickManager.isRegionWorker()) {
+    private void arclight$tickOnMain(CallbackInfo ci) {
+        if (RegionTickManager.isRegionWorker()) {
             RegionTickManager.queueMainThreadBlockEntity((BlockEntity) (Object) this);
             ci.cancel();
         }

@@ -10,3 +10,5 @@ run
 .gradle-spigot-prebuilt/
 .gradle-tmp/
 test/build-logs/
+# 编译期本地依赖（Create jar 等，不进仓库）
+arclight-common/libs/
