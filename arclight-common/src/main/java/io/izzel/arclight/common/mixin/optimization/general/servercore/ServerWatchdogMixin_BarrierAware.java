@@ -27,7 +27,7 @@ import org.spongepowered.asm.mixin.injection.Redirect;
  * {@code getNextTickTime} to the current time while in the barrier both prevents the
  * false kill and resets the watchdog's time base (per technical review: no stale-base
  * kill right after leaving the barrier). Gate: prts-features.yml
- * {@code barrier-watchdog-aware} (default true; 0 = vanilla behavior).</p>
+ * {@code barrier-watchdog-aware} (default true; false = vanilla watchdog behavior).</p>
  */
 @Mixin(ServerWatchdog.class)
 public abstract class ServerWatchdogMixin_BarrierAware {

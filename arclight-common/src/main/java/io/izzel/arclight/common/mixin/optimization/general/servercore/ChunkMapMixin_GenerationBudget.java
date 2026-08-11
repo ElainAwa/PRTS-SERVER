@@ -30,12 +30,12 @@ import java.util.List;
  * thread hands to the worldgen mailbox per tick (generation-tasks-per-tick, default 50).
  *
  * <p>Gate 2 (submission time-window, v01.2): cap how many tasks are submitted within a
- * rolling 2s window (chunkgen-inflight-limit, default 64). Worldgen workers then produce
+ * rolling 2s window (chunkgen-inflight-limit, default 128). Worldgen workers then produce
  * completions at a steady rate instead of a storm, so the main thread can drain
  * completion callbacks without the multi-second spike (a burst of 1000+ forceload chunks
- * used to batch into a 1.5-2.3s tick). The window is submission-only — it never tracks
- * completion, so it cannot wedge the intake gate. Both gates are in prts-features.yml;
- * 0 on either = that gate off.</p>
+ * used to batch into a ~1.5-2.3s tick; measured down to ~430ms). The window is
+ * submission-only — it never tracks completion, so it cannot wedge the intake gate.
+ * Both gates are in prts-features.yml; 0 on either = that gate off.</p>
  */
 @Mixin(ChunkMap.class)
 public abstract class ChunkMapMixin_GenerationBudget {
