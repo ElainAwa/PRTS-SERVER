@@ -45,6 +45,14 @@ via `prts-features.yml` (all on by default):
 - **Watchdog barrier awareness** (`barrier-watchdog-aware`, default on): the vanilla watchdog no longer kills the server while the main thread is waiting inside the parallel dimension/region barrier during a generation storm
 - **Barrier timeout diagnostics** (`barrier-timeout-ms`, default 120000): a genuinely stalled barrier wait dumps all threads and crashes with full context instead of hanging forever
 
+**Async chunk scheduling (v1.0.30)**:
+- **Unified chunk demand scheduling**: when parallelism is on, every `getChunk` (main thread included) bypasses the vanilla generation pipeline — ready chunks are served from a lock-free snapshot, missing ones queue a demand and register a future, and required calls wait up to 50ms before falling back to an air chunk. Generation completion wakes all waiters, leaving a single generation driver and eliminating the `completeFuture` race that could hang the server on heavy modpacks
+- **Block-entity ticks on the main thread** (`parallel.region-block-entity-parallel`, default off): BE interactions (hoppers, Create networks, pipes) are not thread-safe, so BE ticks stay on the main thread; entity ticks remain parallel
+- **Create block entities on the main thread**: Create's kinetic network assumes single-thread ordering; its block entities tick on the main thread (mod-gated mixin, no-op without Create)
+- **Totem effect-cure call kept**: the `checkTotemDeathProtection` overwrite preserves the vanilla `removeEffectsCuredBy` call so mods anchoring it (e.g. electroenergetics) still inject
+- **InvWrapper null guard**: hopper extraction no longer crashes when the target container is removed mid-pull (NeoForge-side gap, also fixed for vanilla servers)
+- **Config auto-generation**: a commented `prts-features.yml` template is written on first run (`parallel.chunk-demand-per-tick` default 50)
+
 ## Branch-specific config (`prts-features.yml`, server root)
 
 ```yaml
@@ -81,7 +89,7 @@ barrier-timeout-ms: 120000         # barrier stall timeout (ms) before thread du
 
 ## Version & Artifact
 
-- Current version: **v1.21.1-1.0.29-Multithreading**
+- Current version: **v1.21.1-1.0.30-Multithreading**
 - Build artifact: **`PRTS-neoforge-1.21.1-<version>-Multithreading.jar`** (the `-Multithreading`
   suffix marks the engineering-validation build)
 

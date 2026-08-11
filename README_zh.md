@@ -76,7 +76,7 @@ barrier-timeout-ms: 120000         # barrier 卡死超时（毫秒），超时�
 
 ## 版本与产物
 
-- 当前版本：**v1.21.1-1.0.29-Multithreading**
+- 当前版本：**v1.21.1-1.0.30-Multithreading**
 - 构建产物：**`PRTS-neoforge-1.21.1-<版号>-Multithreading.jar`**（后缀 `-Multithreading` 标识工程验证构建）
 
 ## 构建与部署
