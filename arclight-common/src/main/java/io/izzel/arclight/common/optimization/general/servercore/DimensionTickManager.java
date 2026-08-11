@@ -5,6 +5,7 @@
 
 package io.izzel.arclight.common.optimization.general.servercore;
 
+import io.izzel.arclight.common.compat.prts.PRTSFeaturesConfig;
 import io.izzel.arclight.common.optimization.general.AsyncTaskStats;
 import net.minecraft.Util;
 import net.minecraft.resources.ResourceKey;
@@ -19,6 +20,8 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.bukkit.craftbukkit.v.event.CraftEventFactory;
 
+import java.lang.management.ManagementFactory;
+import java.lang.management.ThreadInfo;
 import java.lang.ref.WeakReference;
 import java.util.List;
 import java.util.Map;
@@ -187,7 +190,9 @@ public final class DimensionTickManager {
             });
         }
         try {
-            latch.await();
+            if (!latch.await(PRTSFeaturesConfig.barrierTimeoutMs, TimeUnit.MILLISECONDS)) {
+                throw new RuntimeException(barrierTimeoutDump("dimension"));
+            }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new RuntimeException("Interrupted while waiting for parallel ticks", e);
@@ -216,6 +221,17 @@ public final class DimensionTickManager {
         drainEvents();
 
         STATS.tick(tickCount);
+    }
+
+    /** Barrier timeout diagnostic: dump all threads and return the crash message. */
+    static String barrierTimeoutDump(String where) {
+        StringBuilder sb = new StringBuilder("PRTS barrier timeout in ").append(where)
+                .append(" after ").append(PRTSFeaturesConfig.barrierTimeoutMs).append("ms");
+        LOGGER.error("[PRTS-Barrier] {}", sb);
+        for (ThreadInfo ti : ManagementFactory.getThreadMXBean().dumpAllThreads(true, true)) {
+            sb.append('\n').append(ti);
+        }
+        return sb.toString();
     }
 
     private static void drainTransfers() {

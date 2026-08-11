@@ -479,7 +479,9 @@ public final class RegionTickManager {
             });
         }
         try {
-            latch.await();
+            if (!latch.await(PRTSFeaturesConfig.barrierTimeoutMs, TimeUnit.MILLISECONDS)) {
+                throw new RuntimeException(DimensionTickManager.barrierTimeoutDump("region"));
+            }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new RuntimeException("Interrupted while waiting for region ticks", e);
