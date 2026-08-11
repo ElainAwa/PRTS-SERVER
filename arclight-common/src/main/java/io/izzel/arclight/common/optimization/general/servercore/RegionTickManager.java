@@ -61,7 +61,7 @@ public final class RegionTickManager {
 
     private static final Logger LOGGER = LogManager.getLogger("Arclight");
     public static final String REGION_THREAD_PREFIX = "PRTS-RegionTick-";
-    private static volatile int REGION_COUNT = RegionLevel.DEFAULT_REGION_COUNT;
+    private static volatile int REGION_COUNT = RegionLevel.INITIAL_REGION_COUNT;
 
     private static final AtomicInteger THREAD_SEQ = new AtomicInteger();
     private static final ThreadPoolExecutor REGION_POOL = new ThreadPoolExecutor(

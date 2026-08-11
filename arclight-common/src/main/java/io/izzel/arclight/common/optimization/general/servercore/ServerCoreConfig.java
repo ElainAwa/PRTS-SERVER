@@ -41,7 +41,7 @@ import java.util.Map;
 /**
  * PRTS ServerCore 优化开关（移植自 Wesley1808/ServerCore）。
  * 读取 config/servercore.yml，按 4 组优化分别门控；首次运行自动写出默认配置。
- * 默认全开，关闭某项会回退到原版行为。修改后需重启生效。
+ * 默认全开，关闭某项会回退到原版行为；支持 /servercore reload 热重载。
  */
 public final class ServerCoreConfig {
 

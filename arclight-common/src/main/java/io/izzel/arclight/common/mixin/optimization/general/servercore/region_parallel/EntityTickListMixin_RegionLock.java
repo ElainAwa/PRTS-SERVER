@@ -17,8 +17,8 @@ import org.spongepowered.asm.mixin.injection.Redirect;
  *
  * <p>{@code active} is written concurrently when region workers kill entities
  * while the main thread spawns new ones; the fastutil map may resize on put.
- * forEach runs on the main thread before the worker phase (separated by the
- * region latch), so it needs no lock.</p>
+ * forEach runs on the owning tick thread before the worker phase (separated by
+ * the region latch), so it needs no lock.</p>
  */
 @Mixin(EntityTickList.class)
 public abstract class EntityTickListMixin_RegionLock {

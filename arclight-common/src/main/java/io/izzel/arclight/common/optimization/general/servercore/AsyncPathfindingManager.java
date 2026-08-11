@@ -58,8 +58,9 @@ public final class AsyncPathfindingManager {
     private static volatile AtomicLong[] LAST_REGION_DRAINED = new AtomicLong[0];
 
     /**
-     * Rebuilds the per-region result buckets (startup only, main thread, called
-     * from RegionTickManager.ensureConfigured; docs v11).
+     * Rebuilds the per-region result buckets (main thread; called on startup from
+     * RegionTickManager.ensureConfigured and on region reconfiguration from auto-scale;
+     * docs v11).
      */
     public static synchronized void reconfigureRegions(int n) {
         @SuppressWarnings("unchecked")

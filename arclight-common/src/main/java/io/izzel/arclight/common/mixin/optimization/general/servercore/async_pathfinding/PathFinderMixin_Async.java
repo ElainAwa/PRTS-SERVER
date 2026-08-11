@@ -46,9 +46,10 @@ import java.util.Set;
  * happens on {@code PRTS-DimensionTick-*} worker threads instead of the server
  * thread. Those workers own their dimension's state (same semantics as the
  * vanilla single-thread model, see docs/parallel-phase2-dimension-parallelism-v01.md),
- * so submission is also allowed there. Result draining stays strictly on the
- * server thread (MinecraftServerMixin_AsyncDrain) to avoid cross-thread
- * application of navigation state.
+ * so submission is also allowed there. Result draining applies on the owner thread:
+ * the server thread (MinecraftServerMixin_AsyncDrain) or, under region parallelism
+ * (P3), each region worker draining its own bucket (AsyncPathfindingManager.drainRegion),
+ * so navigation state is always applied same-thread.
  */
 @Mixin(PathFinder.class)
 public abstract class PathFinderMixin_Async {

@@ -29,7 +29,8 @@ import net.minecraft.world.level.ChunkPos;
  */
 public final class RegionLevel {
 
-    public static final int DEFAULT_REGION_COUNT = 2;
+    /** Initial placeholder before ensureConfigured() applies the configured count. */
+    public static final int INITIAL_REGION_COUNT = 2;
     static final int STRIPE_WIDTH = 8;
 
     private final int regionId;

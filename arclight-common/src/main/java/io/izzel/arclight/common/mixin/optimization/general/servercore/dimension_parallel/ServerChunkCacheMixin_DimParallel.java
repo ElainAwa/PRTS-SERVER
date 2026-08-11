@@ -45,13 +45,14 @@ import java.util.concurrent.CompletableFuture;
  * already loaded, which made entities fall through the floor (summoned mobs sank into
  * the void on the worker while setblock on the main thread succeeded).
  * {@link ServerChunkCache#getChunkNow} is NOT usable either: it returns null on any
- * non-main thread. The working lookup is the vanilla {@code lastChunkPos/lastChunkStatus/
- * lastChunk} ring buffer that {@code getChunkNow} itself uses first: a plain array read
- * is atomic and safe under concurrent main-thread writes (worst case: stale value or
- * null), unlike a {@code visibleChunkMap} read (fastutil LinkedOpenHashMap is not
- * thread-safe and a concurrent get can hang). Only a genuinely missing chunk gets an
- * {@link EmptyLevelChunk} (air) for one tick instead of deadlocking (the documented P2
- * "unloaded chunk access" boundary, see docs/parallel-phase2-dimension-parallelism-v01.md §5).
+ * non-main thread. The working lookup first tries the vanilla {@code lastChunkPos/
+ * lastChunkStatus/lastChunk} ring buffer (a plain array read, atomic under concurrent
+ * main-thread writes; worst case: stale value or null), then reads the
+ * {@code visibleChunkMap} — safe because it is a volatile reference replaced wholesale
+ * on promoteChunkMap, so a worker reads an immutable old snapshot. Only a genuinely
+ * missing chunk gets an {@link EmptyLevelChunk} (air) for one tick instead of
+ * deadlocking (the documented P2 "unloaded chunk access" boundary, see
+ * docs/parallel-phase2-dimension-parallelism-v01.md §5).
  * <p>priority=2000: Lithium (net.caffeinemc.mods.lithium) also mixins
  * {@code ServerChunkCache.getChunk} at priority 1000; same-priority injections into
  * an already-merged method are rejected by mixin ("cannot inject ... merged by ...").
