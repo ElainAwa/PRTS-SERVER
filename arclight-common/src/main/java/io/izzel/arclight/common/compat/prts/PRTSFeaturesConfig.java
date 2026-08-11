@@ -1,12 +1,19 @@
 package io.izzel.arclight.common.compat.prts;
 
 import java.io.File;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.bukkit.configuration.file.YamlConfiguration;
 
 /** PRTS 轻量防卡功能的配置。 */
 public class PRTSFeaturesConfig {
+
+    private static final Logger LOGGER = LogManager.getLogger("PRTS-Features");
 
     public static YamlConfiguration config;
 
@@ -77,6 +84,9 @@ public class PRTSFeaturesConfig {
 
     public static void init() {
         File file = new File("prts-features.yml");
+        if (!file.exists()) {
+            writeDefaultConfig(file);
+        }
         config = YamlConfiguration.loadConfiguration(file);
         clearItemEnabled = config.getBoolean("entity-clear.item.enabled", false);
         clearItemInterval = config.getLong("entity-clear.item.interval-seconds", 300);
@@ -128,5 +138,76 @@ public class PRTSFeaturesConfig {
         int p = 1;
         while (p < v) p <<= 1;
         return Math.max(lo, Math.min(hi, p));
+    }
+
+    /** 首次运行写出默认配置模板（带说明注释），后续修改需重启生效。 */
+    private static void writeDefaultConfig(File file) {
+        String template = """
+                # PRTS 服务端功能配置（首次运行自动生成；修改后需重启生效）
+
+                # 物品/怪物清理（默认全关）
+                entity-clear:
+                  item:
+                    enabled: false
+                    interval-seconds: 300
+                    whitelist: []
+                    message: ''
+                  monster:
+                    enabled: false
+                    interval-seconds: 600
+                    whitelist: []
+                    message: ''
+
+                # 服务器 watchdog（默认关）
+                watchdog:
+                  enabled: false
+                  threshold-ms: 2000
+                  warn-cooldown-ms: 60000
+
+                # 邻居更新熔断（防百万级连锁更新风暴）
+                neighbor-update-breaker:
+                  enabled: true
+                  max-per-tick: 200000
+
+                # AE2LT SetWorking 节流
+                ae2lt-setworking-throttle:
+                  enabled: true
+                  min-ticks: 4
+
+                # 多线程并行引擎
+                parallel:
+                  pathfinding-async: true            # 异步寻路
+                  dimension-parallel: true           # 维度并行
+                  region-parallel: true              # 主世界区域并行（实体 tick）
+                  region-block-entity-parallel: false # 方块实体 tick 并行（默认关：BE 间交互复杂有竞态）
+                  region-count: 4                    # 区域数（2/4/8）
+                  region-auto-scale: true            # 按负载自动调整区域数
+                  region-scale-interval-seconds: 300
+                  region-scale-high-mspt: 60.0
+                  region-scale-low-mspt: 15.0
+                  region-scale-stable-periods: 2
+                  region-scale-min: 2
+                  region-scale-max: 8
+                  region-scale-cross-read-ratio: 0.05
+
+                # 可靠区块保存（WAL 预写日志，默认关）
+                reliable-chunk-save:
+                  enabled: false
+                  interval-seconds: 30
+                  chunks-per-tick: 50
+
+                # 区块生成削峰（0 = 关闭对应限制）
+                generation-tasks-per-tick: 50        # 每 tick 提交预算
+                chunkgen-inflight-limit: 128         # 滚动 2s 提交窗口（应 >= worldgen 能力）
+
+                # Barrier 健壮性
+                barrier-watchdog-aware: true         # watchdog 感知并行 barrier（防误杀）
+                barrier-timeout-ms: 120000           # barrier 卡死超时（毫秒）
+                """;
+        try {
+            Files.writeString(file.toPath(), template, StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            LOGGER.warn("Failed to write default prts-features.yml", e);
+        }
     }
 }
