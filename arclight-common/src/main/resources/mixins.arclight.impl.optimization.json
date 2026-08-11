@@ -103,6 +103,7 @@
     "servercore.RegionFileStorageMixin_AsyncIO",
     "neighbor.LevelMixin_NeighborUpdateCircuitBreaker",
     "neighbor.TeslaCoilBlockEntityMixin_SetWorkingThrottle",
+    "neoforgeitems.InvWrapperMixin_NoNull",
     "servercore.region_parallel.ServerLevelMixin_RegionTick",
     "servercore.region_parallel.ServerLevelMixin_RegionBlockTick",
     "servercore.region_parallel.LevelTicksMixin_RegionBlockTick",
