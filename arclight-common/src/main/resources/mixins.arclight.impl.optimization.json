@@ -33,6 +33,7 @@
     "servercore.SmartBlockEntityMixin_MainThreadInit",
     "servercore.ServerChunkCacheMixin_ChunkDemandDrain",
     "servercore.GenerationChunkHolderMixin_CompleteNotify",
+    "servercore.ChunkMapMixin_WorkerGenerationGuard",
     "servercore.dimension_parallel.MinecraftServerMixin_DimParallel",
     "servercore.dimension_parallel.EntityMixin_DimTransfer",
     "servercore.dimension_parallel.ServerChunkCacheMixin_DimParallel",
