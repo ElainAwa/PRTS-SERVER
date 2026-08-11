@@ -61,6 +61,11 @@ public class PRTSFeaturesConfig {
     // mailbox per tick, spreading the intake storm; 0 = unlimited (vanilla behavior).
     public static int generationTasksPerTick;
 
+    // Chunkgen submission window (docs parallel-barrier-semantics-v01.md §2.3): caps how
+    // many generation tasks are submitted within a rolling 2s window so worldgen
+    // completions arrive at a steady rate instead of a storm; 0 = unlimited.
+    public static int chunkgenInflightLimit;
+
     // Barrier semantics (docs parallel-barrier-semantics-v01.md): make the vanilla
     // watchdog barrier-aware so a main thread waiting in the dimension barrier is not
     // falsely killed after max-tick-time; false = vanilla watchdog behavior.
@@ -108,6 +113,8 @@ public class PRTSFeaturesConfig {
         journalChunksPerTick = config.getInt("reliable-chunk-save.chunks-per-tick", 50);
         generationTasksPerTick = config.getInt("generation-tasks-per-tick", 50);
         if (generationTasksPerTick < 0) generationTasksPerTick = 0;
+        chunkgenInflightLimit = config.getInt("chunkgen-inflight-limit", 64);
+        if (chunkgenInflightLimit < 0) chunkgenInflightLimit = 0;
         barrierWatchdogAware = config.getBoolean("barrier-watchdog-aware", true);
         barrierTimeoutMs = config.getLong("barrier-timeout-ms", 120000L);
         if (barrierTimeoutMs < 1000L) barrierTimeoutMs = 120000L;
