@@ -41,6 +41,8 @@ public class PRTSFeaturesConfig {
     public static boolean parallelRegion;
     /** 主世界区域数 (2/4/8, 默认 4)。 */
     public static int parallelRegionCount;
+    /** 方块实体 tick 是否参与区域并行（默认关——BE 间交互复杂，并行有竞态风险）。 */
+    public static boolean regionBlockEntityParallel;
     /** 动态区域自动扩容：按负载周期性地调整区域数。 */
     public static boolean regionAutoScale;
     public static long regionScaleIntervalSeconds;
@@ -94,6 +96,7 @@ public class PRTSFeaturesConfig {
         parallelPathfindingAsync = config.getBoolean("parallel.pathfinding-async", true);
         parallelDimension = config.getBoolean("parallel.dimension-parallel", true);
         parallelRegion = config.getBoolean("parallel.region-parallel", true);
+        regionBlockEntityParallel = config.getBoolean("parallel.region-block-entity-parallel", false);
         int count = config.getInt("parallel.region-count", 4);
         if (count < 2) count = 2;
         if (count > 8) count = 8;

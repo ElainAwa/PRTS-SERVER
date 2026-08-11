@@ -5,6 +5,7 @@
 
 package io.izzel.arclight.common.mixin.optimization.general.servercore.region_parallel;
 
+import io.izzel.arclight.common.compat.prts.PRTSFeaturesConfig;
 import io.izzel.arclight.common.optimization.general.servercore.RegionTickManager;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
@@ -16,10 +17,8 @@ import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
- * Region-level block-entity tick split: inside {@code Level.tickBlockEntities},
- * {@code TickingBlockEntity.tick} is redirected into the owning region's queue
- * (checks stay on the calling thread) and runs in parallel on region workers at
- * the method's RETURN. Off / client levels keep the inline path.
+ * 方块实体 tick 的区域并行入口。默认关闭并行（BE 间交互复杂，跨区访问有竞态，
+ * 见 parallel.region-block-entity-parallel 配置）：关闭时走原版主线程 tick。
  */
 @Mixin(Level.class)
 public abstract class LevelMixin_RegionBlockEntityTick {
@@ -27,7 +26,7 @@ public abstract class LevelMixin_RegionBlockEntityTick {
     @Redirect(method = "tickBlockEntities",
         at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/block/entity/TickingBlockEntity;tick()V"))
     private void arclight$regionBlockEntityTick(TickingBlockEntity ticker) {
-        if (RegionTickManager.regionEnabled()) {
+        if (RegionTickManager.regionEnabled() && PRTSFeaturesConfig.regionBlockEntityParallel) {
             RegionTickManager.collectBlockEntityTick(ticker);
         } else {
             ticker.tick();
