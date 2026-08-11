@@ -17,6 +17,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.TickingBlockEntity;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.entity.EntityTickList;
 import net.minecraft.world.level.material.Fluid;
@@ -27,6 +28,7 @@ import org.apache.logging.log4j.Logger;
 
 import java.util.Map;
 import java.util.WeakHashMap;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.SynchronousQueue;
@@ -49,6 +51,10 @@ public final class RegionTickManager {
     private static volatile int REGION_COUNT = RegionLevel.INITIAL_REGION_COUNT;
 
     private static final AtomicInteger THREAD_SEQ = new AtomicInteger();
+
+    /** 首次 tick 需在主线程执行的方块实体（如 Create 机械网络初始化），按维度分队列。 */
+    private static final Map<ServerLevel, ConcurrentLinkedQueue<BlockEntity>> MAIN_THREAD_BLOCK_ENTITIES = new WeakHashMap<>();
+
     private static final ThreadPoolExecutor REGION_POOL = new ThreadPoolExecutor(
             0, 16, 60L, TimeUnit.SECONDS, new SynchronousQueue<>(),
             r -> {
@@ -218,6 +224,36 @@ public final class RegionTickManager {
     public static int currentRegion() {
         Integer r = CURRENT_REGION.get();
         return r == null ? -1 : r;
+    }
+
+    /** True when the current thread is a region worker. */
+    public static boolean isRegionWorker() {
+        return currentRegion() >= 0;
+    }
+
+    /** 把一个方块实体排到主线程队列（下次主线程 PRE 阶段执行其 tick）。 */
+    public static void queueMainThreadBlockEntity(BlockEntity be) {
+        if (be.getLevel() instanceof ServerLevel level) {
+            MAIN_THREAD_BLOCK_ENTITIES.computeIfAbsent(level, k -> new ConcurrentLinkedQueue<>()).add(be);
+        }
+    }
+
+    /** 主线程 PRE 阶段调用：执行本维度排队的主线程方块实体 tick。 */
+    public static void drainMainThreadBlockEntities(ServerLevel level) {
+        ConcurrentLinkedQueue<BlockEntity> queue = MAIN_THREAD_BLOCK_ENTITIES.remove(level);
+        if (queue == null) {
+            return;
+        }
+        BlockEntity be;
+        while ((be = queue.poll()) != null) {
+            try {
+                // 方块实体子类各自定义 tick()（BlockEntity 基类无此方法），反射调用
+                be.getClass().getMethod("tick").invoke(be);
+            } catch (Throwable t) {
+                LOGGER.error("[region-tick] main-thread block entity tick failed at {}: {}",
+                        be.getBlockPos(), t.toString());
+            }
+        }
     }
 
     /** True when the region-parallel feature is enabled (PRTS prts-features.yml). */

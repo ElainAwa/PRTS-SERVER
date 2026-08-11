@@ -145,6 +145,7 @@ public final class DimensionTickManager {
             }
             startNanos[i] = Util.getNanos();
             PRE.fire(level, hasTimeLeft);
+            RegionTickManager.drainMainThreadBlockEntities(level);
         }
 
         // 2. Parallel ticks on worker threads, behind a per-tick barrier.
