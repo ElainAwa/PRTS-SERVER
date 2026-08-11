@@ -106,6 +106,7 @@ public abstract class LivingEntityMixin extends EntityMixin implements LivingEnt
     @Shadow public int deathTime;
     @Shadow public boolean effectsDirty;
     @Shadow public abstract boolean removeAllEffects();
+    @Shadow public abstract boolean removeEffectsCuredBy(net.neoforged.neoforge.common.EffectCure cure);
     @Shadow @Final public static EntityDataAccessor<Float> DATA_HEALTH_ID;
     @Shadow public abstract boolean isSleeping();
     @Shadow protected int noActionTime;
@@ -674,6 +675,8 @@ public abstract class LivingEntityMixin extends EntityMixin implements LivingEnt
                 }
 
                 this.setHealth(1.0F);
+                // 保留原版调用点，兼容锚定 removeEffectsCuredBy 的第三方 mixin
+                boolean removed = this.removeEffectsCuredBy(net.neoforged.neoforge.common.EffectCures.PROTECTED_BY_TOTEM);
                 this.removeAllEffects(EntityPotionEffectEvent.Cause.TOTEM);
                 this.addEffect(new MobEffectInstance(MobEffects.REGENERATION, 900, 1), EntityPotionEffectEvent.Cause.TOTEM);
                 bridge$pushEffectCause(EntityPotionEffectEvent.Cause.TOTEM);

@@ -15,6 +15,13 @@ dependencies {
 
     compileOnly rootProject.ext.generatedSpigot
 
+    // neoforge 平台专用：@Overwrite checkTotemDeathProtection 保留 removeEffectsCuredBy 调用点需引用 EffectCures
+    compileOnly "net.neoforged:neoforge:${libs.versions.neoforge.get()}:universal"
+
+    // 编译期引用 Create 的 SmartBlockEntity（首次 tick 主线程化 mixin 的 target 校验；
+    // 运行期不依赖，mixin 用 @LoadIfMod 条件加载）
+    compileOnly files('libs/create-1.21.1-6.0.10.jar')
+
     implementation libs.izzel.tools
     implementation libs.arclight.api
     implementation libs.mixin.tools
