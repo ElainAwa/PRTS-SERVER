@@ -1083,6 +1083,8 @@ public abstract class LivingEntityMixin extends EntityMixin implements LivingEnt
                 }
 
                 this.setHealth(1.0F);
+                // 保留原版调用点，兼容锚定 removeAllEffects 的第三方 mixin
+                boolean removed = this.removeAllEffects();
                 this.removeAllEffects(EntityPotionEffectEvent.Cause.TOTEM);
                 this.addEffect(new MobEffectInstance(MobEffects.REGENERATION, 900, 1), EntityPotionEffectEvent.Cause.TOTEM);
                 bridge$pushEffectCause(EntityPotionEffectEvent.Cause.TOTEM);
