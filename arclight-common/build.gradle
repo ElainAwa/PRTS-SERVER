@@ -13,6 +13,9 @@ loom {
 dependencies {
     modImplementation libs.fabric.loader
 
+    // neoforge 平台专用：@Overwrite checkTotemDeathProtection 保留 removeEffectsCuredBy 调用点需引用 EffectCures
+    compileOnly "net.neoforged:neoforge:${libs.versions.neoforge.get()}:universal"
+
     compileOnly rootProject.ext.generatedSpigot
 
     implementation libs.izzel.tools
