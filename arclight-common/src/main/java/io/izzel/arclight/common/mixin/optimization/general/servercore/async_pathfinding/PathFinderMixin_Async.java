@@ -47,11 +47,11 @@ public abstract class PathFinderMixin_Async {
     private void arclight$asyncPathfind(PathNavigationRegion region, Mob mob, Set<BlockPos> targets,
                                         float maxRange, int accuracy, float depthMultiplier,
                                         CallbackInfoReturnable<Path> cir) {
-        LOGGER.info("[pf-async] entered thread={} mob={} feature={}", Thread.currentThread().getName(),
+        LOGGER.debug("[pf-async] entered thread={} mob={} feature={}", Thread.currentThread().getName(),
                 mob != null ? mob.getType() : "null",
                 PRTSFeaturesConfig.parallelPathfindingAsync);
         if (!PRTSFeaturesConfig.parallelPathfindingAsync) {
-            LOGGER.info("[pf-async] feature disabled");
+            LOGGER.debug("[pf-async] feature disabled");
             return;
         }
         MinecraftServer server = mob.level().getServer();
@@ -62,7 +62,7 @@ public abstract class PathFinderMixin_Async {
         boolean dimensionWorker = DimensionTickManager.isDimensionTickThread();
         boolean regionWorker = RegionTickManager.isRegionTickThread();
         if (!serverThread && !dimensionWorker && !regionWorker) {
-            LOGGER.info("[pf-async] not server thread: {}", Thread.currentThread().getName());
+            LOGGER.debug("[pf-async] not server thread: {}", Thread.currentThread().getName());
             return;
         }
         PathNavigation navigation = mob.getNavigation();
@@ -78,7 +78,7 @@ public abstract class PathFinderMixin_Async {
             AsyncPathfindingManager.drainIfNeeded(tick);
         }
         if (!AsyncPathfindingManager.canSubmit()) {
-            LOGGER.info("[pf-async] queue full, fallback sync");
+            LOGGER.debug("[pf-async] queue full, fallback sync");
             return;
         }
 
@@ -92,7 +92,7 @@ public abstract class PathFinderMixin_Async {
                 maxRange, accuracy, depthMultiplier, navigation, tick, regionId)) {
             access.arclight$markAsyncPending();
             cir.setReturnValue(null);
-            LOGGER.info("[pf-async] submitted nav={} mob={} targets={} region={}", navigation, mob.getType(), targets.size(), regionId);
+            LOGGER.debug("[pf-async] submitted nav={} mob={} targets={} region={}", navigation, mob.getType(), targets.size(), regionId);
         }
     }
 }

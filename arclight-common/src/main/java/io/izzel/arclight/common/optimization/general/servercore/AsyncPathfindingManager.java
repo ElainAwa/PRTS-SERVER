@@ -161,7 +161,7 @@ public final class AsyncPathfindingManager {
                 PathNavigation nav = result.navigation.get();
                 // 结果作废: 必须清 pending, 否则该导航永久卡死不再提交异步任务。
                 if (nav != null) ((PathNavigationAccess) nav).arclight$clearAsyncPending();
-                LOGGER.info("[async-pathfinding] timeout discard: delta={} requestTick={} serverTick={}",
+                LOGGER.debug("[async-pathfinding] timeout discard: delta={} requestTick={} serverTick={}",
                         serverTick - result.requestTick, result.requestTick, serverTick);
                 continue;
             }
