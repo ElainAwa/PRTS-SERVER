@@ -40,7 +40,7 @@
 
 ### 统一异步区块调度（v1.0.30）
 
-并行开启下，区块生成此前存在跨线程竞态，重 modpack 时可能因 `GenerationChunkHolder.completeFuture` 自旋导致挂起。v1.0.30 从根上消除竞态：所有 `getChunk`（含主线程）均绕过原版生成管线——已就绪的 chunk 由无锁快照直接给出，未就绪的登记需求并注册 `CompletableFuture`，required 调用最多等待 50ms 后降级为空壳。生成完成统一唤醒所有等待者，全过程仅有一个生成驱动。
+防止并行引擎在重 modpack 上引发服务器挂起。效果：并行开启下，世界 tick 保持响应，区块生成不再因负载而死锁。
 
 ## 本分支独有配置（`prts-features.yml`，服务端根目录）
 

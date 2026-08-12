@@ -44,13 +44,8 @@ and two watchdog hooks keep the engine responsive:
 
 ### Unified async chunk scheduling (v1.0.30)
 
-With parallelism on, chunk generation was previously racy across threads and could hang on heavy
-modpacks (the `GenerationChunkHolder.completeFuture` self-spin when more than one thread advances
-the same chunk future). v1.0.30 removes the race at its root: every `getChunk` (main thread
-included) bypasses the vanilla generation pipeline — ready chunks are served from a lock-free
-snapshot, missing ones queue a demand and register a `CompletableFuture`, and required calls wait
-up to 50 ms before falling back to an air chunk. Generation completion wakes all waiters, leaving
-a single generation driver.
+Prevents the server hang that parallelism could trigger on heavy modpacks. Effect: with
+parallelism on, world tick stays responsive and chunk generation no longer deadlocks under load.
 
 ## Branch-specific config (`prts-features.yml`, server root)
 
