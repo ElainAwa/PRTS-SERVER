@@ -78,7 +78,7 @@ barrier-timeout-ms: 120000
 ## 构建与部署
 
 - 环境：JDK 21；命令：`./gradlew --no-daemon :bootstrap:neoforgeJar`
-- 部署：复制 jar 到服务端根目录 → **清空 `.arclight/mod_file/*`**（强制重解包内嵌 common.jar）→ 启动
+- 部署：复制 jar 到服务端根目录 → 启动。构建版本自动包含工作树指纹，内嵌 common.jar 每次构建自动重解包，无需手动清理 `.arclight`
 - 完整说明与主分支一致，**详见主分支 README**
 
 ## 其余功能
