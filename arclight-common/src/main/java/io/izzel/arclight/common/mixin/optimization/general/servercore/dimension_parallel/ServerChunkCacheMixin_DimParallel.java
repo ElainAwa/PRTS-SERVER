@@ -200,7 +200,8 @@ public abstract class ServerChunkCacheMixin_DimParallel implements io.izzel.arcl
             ChunkAccess chunk = this.level.getChunk(pos.x, pos.z, ChunkStatus.FULL, false);
             if (chunk instanceof LevelChunk lc) {
                 long key = ChunkPos.asLong(pos.x, pos.z);
-                int slot = (int) (key % this.lastChunkPos.length);
+                // floorMod 处理负 long key（x/z 大时 asLong 高位为负），避免负数槽位越界。
+                int slot = Math.floorMod(key, this.lastChunkPos.length);
                 this.lastChunkPos[slot] = key;
                 this.lastChunkStatus[slot] = ChunkStatus.FULL;
                 this.lastChunk[slot] = lc;
