@@ -37,8 +37,7 @@ Only zero-perception low-level optimizations and crash fixes — gameplay is unc
 ## Deploy
 
 1. Copy the new jar to the server root and point your start script at it
-2. **Force re-unpack**: the outer jar is a launcher; real classes live in the inner `common.jar` — you must clear `.arclight/mod_file/*` and `.arclight/class_cache/*`, otherwise the old common is reused
-3. Start: `java -jar PRTS-1.20.1-<version>.jar nogui`
+2. Start — the build version embeds a working-tree fingerprint, so the inner `common.jar` is re-extracted automatically on every build; no manual `.arclight` cleanup is ever needed
 
 ## Config
 
