@@ -30,11 +30,6 @@ Only zero-perception low-level optimizations and crash fixes — gameplay is unc
 | ClientModGuard client-mod precheck / crash self-healing (v27/v28) | In-house | — |
 | Guava shadowing crash fix (boot jar excludes com.google.common) | In-house | — |
 
-## Versions
-
-- Current: **v1.21.1-1.0.16** (get from GitHub Releases; Latest follows the newest release)
-- Changelog: see per-release notes on GitHub Releases
-
 ## Build
 
 - Requirements: JDK 21
