@@ -112,6 +112,7 @@
     "servercore.region_parallel.LevelTicksMixin_RegionBlockTick",
     "servercore.region_parallel.LevelMixin_RegionBlockEntityTick",
     "servercore.region_parallel.LevelMixin_RegionRandom",
+    "servercore.region_parallel.LegacyRandomSourceMixin_RegionSafe",
     "servercore.region_parallel.LevelMixin_RegionCrossWrite",
     "servercore.region_parallel.LevelMixin_RegionCrossRead",
     "servercore.region_parallel.LevelChunkMixin_RegionCrossWrite",
