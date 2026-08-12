@@ -75,11 +75,6 @@ barrier-timeout-ms: 120000
 > 配置归属说明：并行引擎与 WAL 属 **PRTS 原创功能**，归 `prts-features.yml`；
 > `config/servercore.yml` 仅保留 ServerCore（Spigot/Paper 移植）功能，两者职责分离。
 
-## 版本与产物
-
-- 当前版本：**v1.21.1-1.0.30-Multithreading**
-- 构建产物：**`PRTS-neoforge-1.21.1-<版号>-Multithreading.jar`**（后缀 `-Multithreading` 标识工程验证构建）
-
 ## 构建与部署
 
 - 环境：JDK 21；命令：`./gradlew --no-daemon :bootstrap:neoforgeJar`

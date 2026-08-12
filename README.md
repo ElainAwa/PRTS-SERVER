@@ -81,12 +81,6 @@ barrier-timeout-ms: 120000
 > `prts-features.yml`; `config/servercore.yml` keeps only the ServerCore (Spigot/Paper port)
 > features — the two files are strictly separated.
 
-## Version & Artifact
-
-- Current version: **v1.21.1-1.0.30-Multithreading**
-- Build artifact: **`PRTS-neoforge-1.21.1-<version>-Multithreading.jar`** (the `-Multithreading`
-  suffix marks the engineering-validation build)
-
 ## Build & Deploy
 
 - JDK 21; command: `./gradlew --no-daemon :bootstrap:neoforgeJar`
