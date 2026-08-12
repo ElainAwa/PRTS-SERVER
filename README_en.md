@@ -27,11 +27,6 @@ Only zero-perception low-level optimizations and crash fixes — gameplay is unc
 | ClientModGuard client-mod precheck / crash self-healing | In-house | — |
 | Crash fixes (ChampionsFix / RevelationFix, etc.) | In-house | — |
 
-## Versions
-
-- Current: **v1.0.56** (get from GitHub Releases; Latest follows the newest release)
-- Changelog: [CHANGELOG.md](CHANGELOG.md)
-
 ## Build
 
 - Requirements: JDK 21 (build) + pinned Gradle 8.14.5 (distribution jar, not `./gradlew`)
