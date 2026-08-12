@@ -30,6 +30,10 @@ public abstract class ChunkMap_TrackedEntityMixin implements ChunkMap_TrackedEnt
     @Shadow SectionPos lastSectionPos;
     // @formatter:on
 
+    // 声明 range 可变（去 final）：第三方 mod（如 SSRD）通过 @ModifyVariable 修改
+    // 追踪距离时，final 字段跨方法赋值会抛 IllegalAccessError；此处转 mutable 兼容。
+    @Shadow @org.spongepowered.asm.mixin.Mutable private int range;
+
     @Inject(method = "<init>", at = @At("RETURN"))
     private void arclight$setTrackedPlayers(ChunkMap outer, Entity entity, int range, int updateFrequency, boolean sendVelocityUpdates, CallbackInfo ci) {
         ((ServerEntityBridge) this.serverEntity).bridge$setTrackedPlayers(this.seenBy);
