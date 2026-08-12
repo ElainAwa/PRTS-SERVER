@@ -23,7 +23,9 @@ import io.izzel.arclight.common.optimization.general.servercore.mob_spawning.IMo
 import io.izzel.arclight.common.optimization.general.servercore.mob_spawning.MobSpawnConfig;
 import io.izzel.arclight.common.optimization.general.servercore.mob_spawning.MobSpawnEntry;
 import net.minecraft.world.entity.MobCategory;
+import org.yaml.snakeyaml.LoaderOptions;
 import org.yaml.snakeyaml.Yaml;
+import org.yaml.snakeyaml.constructor.SafeConstructor;
 import org.yaml.snakeyaml.error.YAMLException;
 
 import java.io.File;
@@ -59,6 +61,9 @@ public final class ServerCoreConfig {
     }
 
     private static final String FILE_NAME = "servercore.yml";
+    /** 配置输入安全上限：限制别名展开次数与整体码点大小，防配置炸弹。 */
+    private static final int MAX_ALIASES = 50;
+    private static final int MAX_CODEPOINTS = 1 << 20;
     private static final Map<Feature, Boolean> FEATURES = new HashMap<Feature, Boolean>();
     private static ActivationRangeConfig activationRange = new ActivationRangeConfig();
     private static BreedingCapConfig breedingCapConfig = BreedingCapConfig.DISABLED;
@@ -426,7 +431,7 @@ public final class ServerCoreConfig {
                 // 首运行写出默认配置后回落解析，确保所有段立即生效（无需重启）
             }
             try (InputStream in = new FileInputStream(cfg)) {
-                Yaml yaml = new Yaml();
+                Yaml yaml = safeYaml();
                 Object root = yaml.load(in);
                 if (root instanceof Map) {
                     Map<?, ?> m = (Map<?, ?>) root;
@@ -718,7 +723,7 @@ public final class ServerCoreConfig {
     // 补写新段后回填内存值，避免升级首启整段不生效
     private static Map<?, ?> defaultSection(String body, String key) {
         try {
-            Object root = new Yaml().load(body);
+            Object root = safeYaml().load(body);
             if (root instanceof Map) {
                 Object sec = ((Map<?, ?>) root).get(key);
                 if (sec instanceof Map) return (Map<?, ?>) sec;
@@ -726,6 +731,13 @@ public final class ServerCoreConfig {
         } catch (YAMLException ignored) {
         }
         return Collections.emptyMap();
+    }
+
+    private static Yaml safeYaml() {
+        LoaderOptions options = new LoaderOptions();
+        options.setMaxAliasesForCollections(MAX_ALIASES);
+        options.setCodePointLimit(MAX_CODEPOINTS);
+        return new Yaml(new SafeConstructor(options));
     }
 
     private static void appendSection(File cfg, String section) {

@@ -121,6 +121,7 @@
     "servercore.region_parallel.EntityTickListMixin_RegionLock",
     "servercore.region_parallel.EntitySectionStorageMixin_RegionLock",
     "servercore.region_parallel.EntitySectionMixin_RegionLock",
+    "servercore.region_parallel.ChunkMapMixin_EntityIndexLock",
     "servercore.region_parallel.MinecraftServerMixin_RegionAutoScale",
     "servercore.region_parallel.ServerLevelMixin_RegionNeighborLock",
     "servercore.region_parallel.LevelMixin_RegionNeighborShapeLock"

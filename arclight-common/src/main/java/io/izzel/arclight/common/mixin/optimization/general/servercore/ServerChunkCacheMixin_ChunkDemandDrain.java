@@ -22,7 +22,7 @@ public abstract class ServerChunkCacheMixin_ChunkDemandDrain {
 
     @Inject(method = "tickChunks", at = @At("RETURN"))
     private void arclight$drainChunkDemands(CallbackInfo ci) {
-        if (!DimensionTickManager.inDimensionTick() && !RegionTickManager.inRegionTick()) {
+        if (!DimensionTickManager.isDimensionTickThread() && !RegionTickManager.isRegionWorker()) {
             ((io.izzel.arclight.common.bridge.core.world.server.ServerChunkCacheDemandBridge) (Object) this).arclight$drainChunkDemands();
         }
     }

@@ -23,7 +23,7 @@ public abstract class ItemEntityMixin_RegionMerge {
 
     @Inject(method = "mergeWithNeighbours", at = @At("HEAD"), cancellable = true)
     private void arclight$regionSkipMerge(CallbackInfo ci) {
-        if (RegionTickManager.inRegionTick()) {
+        if (RegionTickManager.isRegionWorker()) {
             ci.cancel();
         }
     }

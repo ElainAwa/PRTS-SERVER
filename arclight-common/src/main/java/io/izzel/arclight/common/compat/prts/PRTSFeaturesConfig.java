@@ -110,6 +110,8 @@ public class PRTSFeaturesConfig {
         parallelRegion = config.getBoolean("parallel.region-parallel", true);
         regionBlockEntityParallel = config.getBoolean("parallel.region-block-entity-parallel", false);
         chunkDemandPerTick = config.getInt("parallel.chunk-demand-per-tick", 50);
+        // 非正数会使需求 drain 永久不执行（budget <= 0），退回默认值。
+        if (chunkDemandPerTick < 1) chunkDemandPerTick = 50;
         io.izzel.arclight.common.optimization.general.servercore.ChunkDemandQueue.maxPerTick = chunkDemandPerTick;
         int count = config.getInt("parallel.region-count", 4);
         if (count < 2) count = 2;

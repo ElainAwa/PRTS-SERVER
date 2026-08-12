@@ -33,6 +33,11 @@ import java.util.Optional;
 @Mixin(PlayerDataStorage.class)
 public class PlayerDataStorageMixin implements PlayerDataStorageBridge {
 
+    // 有界 NBT 预算：玩家数据恶意膨胀时阻止登录期堆压力/OOM。
+    // 压缩文件上限 32MB；解压后 NBT 预算 256MB（正常玩家数据远小于此）。
+    private static final long MAX_PLAYER_DATA_FILE_BYTES = 32L * 1024 * 1024;
+    private static final long MAX_PLAYER_DATA_NBT_BYTES = 256L * 1024 * 1024;
+
     // @formatter:off
     @Shadow @Final private File playerDir;
     @Shadow @Final private static Logger LOGGER;
@@ -62,7 +67,11 @@ public class PlayerDataStorageMixin implements PlayerDataStorageBridge {
         try {
             final File file1 = new File(this.playerDir, uuid + ".dat");
             if (file1.exists()) {
-                return NbtIo.readCompressed(new FileInputStream(file1), NbtAccounter.unlimitedHeap());
+                if (file1.length() > MAX_PLAYER_DATA_FILE_BYTES) {
+                    LOGGER.warn("Player data file too large to load safely: {} ({} bytes)", file1, file1.length());
+                    return null;
+                }
+                return NbtIo.readCompressed(new FileInputStream(file1), NbtAccounter.create(MAX_PLAYER_DATA_NBT_BYTES));
             }
         } catch (Exception exception) {
             LOGGER.warn("Failed to load player data for " + uuid);
@@ -108,7 +117,11 @@ public class PlayerDataStorageMixin implements PlayerDataStorageBridge {
         if (file1.exists() && file1.isFile()) {
             try {
                 // Spigot Start
-                Optional<CompoundTag> optional = Optional.of(NbtIo.readCompressed(file1.toPath(), NbtAccounter.unlimitedHeap()));
+                if (file1.length() > MAX_PLAYER_DATA_FILE_BYTES) {
+                    LOGGER.warn("Player data file too large to load safely: {} ({} bytes)", file1, file1.length());
+                    return Optional.empty();
+                }
+                Optional<CompoundTag> optional = Optional.of(NbtIo.readCompressed(file1.toPath(), NbtAccounter.create(MAX_PLAYER_DATA_NBT_BYTES)));
                 if (usingWrongFile) {
                     file1.renameTo(new File(file1.getPath() + ".offline-read"));
                 }

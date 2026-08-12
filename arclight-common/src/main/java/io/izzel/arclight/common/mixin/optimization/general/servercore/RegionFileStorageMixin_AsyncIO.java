@@ -25,6 +25,7 @@ import java.io.DataInputStream;
 import java.io.IOException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
@@ -38,20 +39,30 @@ public abstract class RegionFileStorageMixin_AsyncIO {
     @Shadow protected abstract RegionFile getRegionFile(ChunkPos pos) throws IOException;
 
     private static final ThreadLocal<Boolean> IN_POOL = ThreadLocal.withInitial(() -> false);
-    private static ExecutorService POOL;
+    /** 有界队列 + CallerRuns 拒绝策略：队列满时在调用线程同步读取（自然退化为同步 IO），不会无界堆积 OOM。 */
+    private static final int MAX_QUEUE = 256;
+    private static volatile ExecutorService POOL;
 
     private static ExecutorService pool() {
-        if (POOL == null) {
-            int n = Math.max(2, Runtime.getRuntime().availableProcessors() / 2);
-            POOL = new ThreadPoolExecutor(n, n, 60L, TimeUnit.SECONDS,
-                    new LinkedBlockingQueue<>(),
-                    r -> {
-                        Thread t = new Thread(r, "PRTS-ChunkIO");
-                        t.setDaemon(true);
-                        return t;
-                    });
+        ExecutorService pool = POOL;
+        if (pool == null) {
+            synchronized (RegionFileStorageMixin_AsyncIO.class) {
+                pool = POOL;
+                if (pool == null) {
+                    int n = Math.max(2, Runtime.getRuntime().availableProcessors() / 2);
+                    pool = new ThreadPoolExecutor(n, n, 60L, TimeUnit.SECONDS,
+                            new LinkedBlockingQueue<>(MAX_QUEUE),
+                            r -> {
+                                Thread t = new Thread(r, "PRTS-ChunkIO");
+                                t.setDaemon(true);
+                                return t;
+                            },
+                            new ThreadPoolExecutor.CallerRunsPolicy());
+                    POOL = pool;
+                }
+            }
         }
-        return POOL;
+        return pool;
     }
 
     @Inject(method = "read", at = @At("HEAD"), cancellable = true)
@@ -76,6 +87,8 @@ public abstract class RegionFileStorageMixin_AsyncIO {
             }).get();
             cir.setReturnValue(result);
             cir.cancel();
+        } catch (RejectedExecutionException e) {
+            // CallerRunsPolicy 下不应到达，但保留兜底：回退原始同步读取（不 cancel）。
         } catch (Exception e) {
             // 失败则回退到原始同步读取（不 cancel）
         }

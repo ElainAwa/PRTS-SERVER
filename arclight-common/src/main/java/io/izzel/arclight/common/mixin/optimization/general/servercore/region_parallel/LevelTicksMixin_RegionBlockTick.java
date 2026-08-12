@@ -41,8 +41,10 @@ public abstract class LevelTicksMixin_RegionBlockTick {
     @Inject(method = "schedule(Lnet/minecraft/world/ticks/ScheduledTick;)V",
         at = @At("HEAD"), cancellable = true)
     private void arclight$regionScheduleLock(ScheduledTick<?> tick, CallbackInfo ci) {
-        if (RegionTickManager.inRegionTick()) {
-            RegionTickManager.collectScheduleTick(tick);
+        // Only a real region worker defers; the owning LevelTicks is captured so the
+        // deferred task is re-scheduled into the correct dimension's tick list.
+        if (RegionTickManager.isRegionWorker()) {
+            RegionTickManager.collectScheduleTick((LevelTicks<?>) (Object) this, tick);
             ci.cancel();
         }
     }

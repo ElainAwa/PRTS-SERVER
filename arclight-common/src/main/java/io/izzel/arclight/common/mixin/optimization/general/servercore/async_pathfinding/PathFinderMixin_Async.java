@@ -47,9 +47,11 @@ public abstract class PathFinderMixin_Async {
     private void arclight$asyncPathfind(PathNavigationRegion region, Mob mob, Set<BlockPos> targets,
                                         float maxRange, int accuracy, float depthMultiplier,
                                         CallbackInfoReturnable<Path> cir) {
-        LOGGER.debug("[pf-async] entered thread={} mob={} feature={}", Thread.currentThread().getName(),
-                mob != null ? mob.getType() : "null",
-                PRTSFeaturesConfig.parallelPathfindingAsync);
+        if (LOGGER.isDebugEnabled()) {
+            LOGGER.debug("[pf-async] entered thread={} mob={} feature={}", Thread.currentThread().getName(),
+                    mob != null ? mob.getType() : "null",
+                    PRTSFeaturesConfig.parallelPathfindingAsync);
+        }
         if (!PRTSFeaturesConfig.parallelPathfindingAsync) {
             LOGGER.debug("[pf-async] feature disabled");
             return;
@@ -60,7 +62,7 @@ public abstract class PathFinderMixin_Async {
         }
         boolean serverThread = server.isSameThread();
         boolean dimensionWorker = DimensionTickManager.isDimensionTickThread();
-        boolean regionWorker = RegionTickManager.isRegionTickThread();
+        boolean regionWorker = RegionTickManager.isRegionWorker();
         if (!serverThread && !dimensionWorker && !regionWorker) {
             LOGGER.debug("[pf-async] not server thread: {}", Thread.currentThread().getName());
             return;
@@ -90,9 +92,10 @@ public abstract class PathFinderMixin_Async {
         int regionId = regionWorker ? RegionTickManager.currentRegion() : -1;
         if (AsyncPathfindingManager.submit(taskFinder, snapshot, mob, targets,
                 maxRange, accuracy, depthMultiplier, navigation, tick, regionId)) {
-            access.arclight$markAsyncPending();
             cir.setReturnValue(null);
-            LOGGER.debug("[pf-async] submitted nav={} mob={} targets={} region={}", navigation, mob.getType(), targets.size(), regionId);
+            if (LOGGER.isDebugEnabled()) {
+                LOGGER.debug("[pf-async] submitted nav={} mob={} targets={} region={}", navigation, mob.getType(), targets.size(), regionId);
+            }
         }
     }
 }

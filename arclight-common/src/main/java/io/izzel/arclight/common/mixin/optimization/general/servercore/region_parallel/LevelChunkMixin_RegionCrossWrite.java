@@ -34,7 +34,7 @@ public abstract class LevelChunkMixin_RegionCrossWrite {
     @Inject(method = "setBlockState(Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/state/BlockState;Z)Lnet/minecraft/world/level/block/state/BlockState;",
         at = @At("HEAD"), cancellable = true)
     private void arclight$chunkCrossWrite(BlockPos pos, BlockState state, boolean isMoving, CallbackInfoReturnable<BlockState> cir) {
-        if (!RegionTickManager.inRegionTick() || !RegionTickManager.isCrossWrite(pos)) {
+        if (!RegionTickManager.isRegionWorker() || !RegionTickManager.isCrossWrite(pos)) {
             return;
         }
         if (this.level instanceof ServerLevel) {

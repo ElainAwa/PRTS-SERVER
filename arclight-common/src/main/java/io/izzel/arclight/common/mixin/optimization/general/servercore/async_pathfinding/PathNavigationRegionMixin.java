@@ -69,6 +69,7 @@ public abstract class PathNavigationRegionMixin implements PathNavigationRegionA
         // 按 chunk 粒度遍历: 未加载/空 chunk 跳过(对应区域保持 null→空气),
         // 绝不在遍历中触发 EmptyLevelChunk 构造或 chunk 加载(registry 解析极重/可死循环)。
         BlockState[] states = new BlockState[xSize * ySize * zSize];
+        BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
         for (int czIdx = 0; czIdx < cz; czIdx++) {
             for (int cxIdx = 0; cxIdx < cx; cxIdx++) {
                 ChunkAccess c = this.chunks[cxIdx][czIdx];
@@ -82,7 +83,7 @@ public abstract class PathNavigationRegionMixin implements PathNavigationRegionA
                 for (int z = z0; z < z1; z++) {
                     for (int x = x0; x < x1; x++) {
                         for (int y = yMin; y < yMax; y++) {
-                            BlockPos pos = new BlockPos(x, y, z);
+                            pos.set(x, y, z);
                             int idx = ((z - minZ) * ySize + (y - yMin)) * xSize + (x - minX);
                             states[idx] = c.getBlockState(pos);
                         }

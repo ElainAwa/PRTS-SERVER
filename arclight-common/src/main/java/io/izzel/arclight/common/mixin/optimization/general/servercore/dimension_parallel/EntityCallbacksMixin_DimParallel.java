@@ -66,8 +66,12 @@ public abstract class EntityCallbacksMixin_DimParallel {
         Entity[] parts = ((EntityBridge) entity).bridge$forge$getParts();
         if (parts != null && parts.length > 0) {
             ServerLevelAccessor_DimParallel acc = (ServerLevelAccessor_DimParallel) outer;
-            for (Entity part : parts) {
-                acc.arclight$getDragonParts().put(part.getId(), part);
+            // dragonParts 是 fastutil Int2ObjectMap（非线程安全），region worker 可能
+            // 并发 tracking 多段实体，统一在 map 实例上加锁（与主线程访问一致）。
+            synchronized (acc.arclight$getDragonParts()) {
+                for (Entity part : parts) {
+                    acc.arclight$getDragonParts().put(part.getId(), part);
+                }
             }
         }
         entity.updateDynamicGameEventListener(new BiConsumer<>() {
@@ -102,8 +106,10 @@ public abstract class EntityCallbacksMixin_DimParallel {
         Entity[] parts = ((EntityBridge) entity).bridge$forge$getParts();
         if (parts != null && parts.length > 0) {
             ServerLevelAccessor_DimParallel acc = (ServerLevelAccessor_DimParallel) outer;
-            for (Entity part : parts) {
-                acc.arclight$getDragonParts().remove(part.getId());
+            synchronized (acc.arclight$getDragonParts()) {
+                for (Entity part : parts) {
+                    acc.arclight$getDragonParts().remove(part.getId());
+                }
             }
         }
         entity.updateDynamicGameEventListener(new BiConsumer<>() {

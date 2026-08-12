@@ -26,7 +26,9 @@ public abstract class SimplePluginManagerMixin_DimParallel {
     @Redirect(method = "callEvent",
         at = @At(value = "INVOKE", target = "Lorg/bukkit/Server;isPrimaryThread()Z", ordinal = 1))
     private boolean arclight$dimParallelPrimaryThread(Server server) {
-        if (!DimensionTickManager.inDimensionTick() && !RegionTickManager.inRegionTick()) {
+        // 只对真实并行 worker 放行；主线程在 barrier 窗口/任意其它线程一律走原判断，
+        // 避免全局标志误判导致任意线程绕过 Bukkit 主线程约束。
+        if (!DimensionTickManager.isDimensionTickThread() && !RegionTickManager.isRegionWorker()) {
             return server.isPrimaryThread();
         }
         return true;

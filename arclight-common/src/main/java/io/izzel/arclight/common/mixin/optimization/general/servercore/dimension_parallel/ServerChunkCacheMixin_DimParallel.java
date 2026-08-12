@@ -69,7 +69,7 @@ public abstract class ServerChunkCacheMixin_DimParallel implements io.izzel.arcl
     @Redirect(method = "getChunk(IILnet/minecraft/world/level/chunk/status/ChunkStatus;Z)Lnet/minecraft/world/level/chunk/ChunkAccess;",
         at = @At(value = "INVOKE", target = "Ljava/util/concurrent/CompletableFuture;join()Ljava/lang/Object;"))
     private Object arclight$dimParallelChunkGet(CompletableFuture<?> future, int x, int z, ChunkStatus status, boolean required) {
-        if (!DimensionTickManager.inDimensionTick() && !RegionTickManager.inRegionTick()) {
+        if (!DimensionTickManager.isDimensionTickThread() && !RegionTickManager.isRegionWorker()) {
             if (PRTSFeaturesConfig.parallelDimension || PRTSFeaturesConfig.parallelRegion) {
                 // 并行开启时主线程 chunk 加载依赖并行 tick 的调度推进；若调度因主线程
                 // 卡在 getChunk 而无法运行，future 永不完成会无限递归卡死。加超时兜底：
@@ -143,10 +143,10 @@ public abstract class ServerChunkCacheMixin_DimParallel implements io.izzel.arcl
             cir.setReturnValue(cached);
             return;
         }
-        boolean mainThread = !DimensionTickManager.inDimensionTick() && !RegionTickManager.inRegionTick();
+        boolean mainThread = !DimensionTickManager.isDimensionTickThread() && !RegionTickManager.isRegionWorker();
         CompletableFuture<ChunkAccess> future = ChunkDemandQueue.submitWait(this.level, this.chunkMap, x, z, mainThread);
         if (required) {
-            ChunkAccess c = ChunkDemandQueue.await(future, 50);
+            ChunkAccess c = ChunkDemandQueue.await(this.level, x, z, future, 50);
             if (c != null) {
                 cir.setReturnValue(c);
                 return;
@@ -190,13 +190,13 @@ public abstract class ServerChunkCacheMixin_DimParallel implements io.izzel.arcl
      */
     @Override
     public void arclight$drainChunkDemands() {
-        if (DimensionTickManager.inDimensionTick() || RegionTickManager.inRegionTick()) {
+        if (DimensionTickManager.isDimensionTickThread() || RegionTickManager.isRegionWorker()) {
             return;
         }
         int budget = ChunkDemandQueue.maxPerTick;
         int loaded = 0;
         ChunkPos pos;
-        while (loaded < budget && (pos = ChunkDemandQueue.poll()) != null) {
+        while (loaded < budget && (pos = ChunkDemandQueue.poll(this.level)) != null) {
             ChunkAccess chunk = this.level.getChunk(pos.x, pos.z, ChunkStatus.FULL, false);
             if (chunk instanceof LevelChunk lc) {
                 long key = ChunkPos.asLong(pos.x, pos.z);
@@ -208,7 +208,7 @@ public abstract class ServerChunkCacheMixin_DimParallel implements io.izzel.arcl
                 loaded++;
             }
         }
-        ChunkDemandQueue.afterDrain();
+        ChunkDemandQueue.afterDrain(this.level);
     }
 
     @Unique

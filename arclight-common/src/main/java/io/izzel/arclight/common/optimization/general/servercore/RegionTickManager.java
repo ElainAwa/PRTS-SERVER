@@ -20,7 +20,6 @@ import net.minecraft.world.level.block.entity.TickingBlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.entity.EntityTickList;
-import net.minecraft.world.level.material.Fluid;
 import net.minecraft.world.ticks.LevelTicks;
 import net.minecraft.world.ticks.ScheduledTick;
 import org.apache.logging.log4j.LogManager;
@@ -53,7 +52,8 @@ public final class RegionTickManager {
     private static final AtomicInteger THREAD_SEQ = new AtomicInteger();
 
     /** 首次 tick 需在主线程执行的方块实体（如 Create 机械网络初始化），按维度分队列。 */
-    private static final Map<ServerLevel, ConcurrentLinkedQueue<BlockEntity>> MAIN_THREAD_BLOCK_ENTITIES = new WeakHashMap<>();
+    private static final Map<ServerLevel, ConcurrentLinkedQueue<BlockEntity>> MAIN_THREAD_BLOCK_ENTITIES =
+            java.util.Collections.synchronizedMap(new WeakHashMap<>());
 
     private static final ThreadPoolExecutor REGION_POOL = new ThreadPoolExecutor(
             0, 16, 60L, TimeUnit.SECONDS, new SynchronousQueue<>(),
@@ -72,7 +72,7 @@ public final class RegionTickManager {
     @SuppressWarnings("unchecked")
     private static ConcurrentLinkedQueue<TickingBlockEntity>[] TE_TICK_QUEUES = new ConcurrentLinkedQueue[REGION_COUNT];
     /** LevelTicks.schedule tasks deferred from region workers, applied on the main thread. */
-    private static final ConcurrentLinkedQueue<ScheduledTick<?>> SCHEDULE_TASKS = new ConcurrentLinkedQueue<>();
+    private static final ConcurrentLinkedQueue<ScheduleTask> SCHEDULE_TASKS = new ConcurrentLinkedQueue<>();
 
     static {
         for (int i = 0; i < REGION_COUNT; i++) {
@@ -86,7 +86,7 @@ public final class RegionTickManager {
     private static final AtomicBoolean CONFIGURED = new AtomicBoolean(false);
 
     private static final AtomicBoolean IN_REGION_TICK = new AtomicBoolean(false);
-    private static final ThreadLocal<Integer> CURRENT_REGION = new ThreadLocal<>();
+    private static final ThreadLocal<RegionContext> REGION_CONTEXT = new ThreadLocal<>();
 
     /** Last game tick on which cross-region updates were applied (per-tick gate). */
     private static volatile long APPLIED_TICK = -1L;
@@ -222,25 +222,38 @@ public final class RegionTickManager {
 
     /** Region id owned by the current region worker (-1 outside region tick). */
     public static int currentRegion() {
-        Integer r = CURRENT_REGION.get();
-        return r == null ? -1 : r;
+        RegionContext ctx = REGION_CONTEXT.get();
+        return ctx == null ? -1 : ctx.regionId();
     }
 
-    /** True when the current thread is a region worker. */
+    /** True when the current thread is a region worker inside a region session. */
     public static boolean isRegionWorker() {
-        return currentRegion() >= 0;
+        return REGION_CONTEXT.get() != null;
+    }
+
+    /** True when the current thread is the region worker of the given level. */
+    public static boolean isRegionWorkerFor(ServerLevel level) {
+        RegionContext ctx = REGION_CONTEXT.get();
+        return ctx != null && ctx.level() == level;
     }
 
     /** 把一个方块实体排到主线程队列（下次主线程 PRE 阶段执行其 tick）。 */
     public static void queueMainThreadBlockEntity(BlockEntity be) {
         if (be.getLevel() instanceof ServerLevel level) {
-            MAIN_THREAD_BLOCK_ENTITIES.computeIfAbsent(level, k -> new ConcurrentLinkedQueue<>()).add(be);
+            ConcurrentLinkedQueue<BlockEntity> queue;
+            synchronized (MAIN_THREAD_BLOCK_ENTITIES) {
+                queue = MAIN_THREAD_BLOCK_ENTITIES.computeIfAbsent(level, k -> new ConcurrentLinkedQueue<>());
+            }
+            queue.add(be);
         }
     }
 
     /** 主线程 PRE 阶段调用：执行本维度排队的主线程方块实体 tick。 */
     public static void drainMainThreadBlockEntities(ServerLevel level) {
-        ConcurrentLinkedQueue<BlockEntity> queue = MAIN_THREAD_BLOCK_ENTITIES.remove(level);
+        ConcurrentLinkedQueue<BlockEntity> queue;
+        synchronized (MAIN_THREAD_BLOCK_ENTITIES) {
+            queue = MAIN_THREAD_BLOCK_ENTITIES.remove(level);
+        }
         if (queue == null) {
             return;
         }
@@ -311,18 +324,19 @@ public final class RegionTickManager {
     }
 
     /** Defers a LevelTicks.schedule call to the main thread (LevelTicks is not thread-safe). */
-    public static void collectScheduleTick(ScheduledTick<?> tick) {
-        SCHEDULE_TASKS.add(tick);
+    public static void collectScheduleTick(LevelTicks<?> owner, ScheduledTick<?> tick) {
+        SCHEDULE_TASKS.add(new ScheduleTask(owner, tick));
     }
 
     /** Applies deferred scheduling tasks on the main thread after a region session. */
-    private static void drainScheduleTasks(ServerLevel level) {
-        ScheduledTick<?> t;
-        while ((t = SCHEDULE_TASKS.poll()) != null) {
-            if (t.type() instanceof Block) {
-                level.getBlockTicks().schedule((ScheduledTick<Block>) t);
-            } else {
-                level.getFluidTicks().schedule((ScheduledTick<Fluid>) t);
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private static void drainScheduleTasks() {
+        ScheduleTask task;
+        while ((task = SCHEDULE_TASKS.poll()) != null) {
+            try {
+                task.owner().schedule(task.tick());
+            } catch (Throwable t) {
+                LOGGER.warn("[region-tick] deferred schedule failed: {}", t.toString());
             }
         }
     }
@@ -436,46 +450,56 @@ public final class RegionTickManager {
     /** Submits one worker per region, drains the given phase work, waits for all. */
     private static void runWorkers(ServerLevel level, boolean applyNow, IntConsumer work) {
         IN_REGION_TICK.set(true);
-        CountDownLatch latch = new CountDownLatch(REGION_COUNT);
-        AtomicReference<Throwable> failure = new AtomicReference<>();
-        for (int r = 0; r < REGION_COUNT; r++) {
-            final int region = r;
-            REGION_POOL.execute(() -> {
-                CURRENT_REGION.set(region);
+        try {
+            CountDownLatch latch = new CountDownLatch(REGION_COUNT);
+            AtomicReference<Throwable> failure = new AtomicReference<>();
+            for (int r = 0; r < REGION_COUNT; r++) {
+                final int region = r;
                 try {
-                    long start = Util.getNanos();
-                    if (applyNow) {
-                        applyCrossUpdates(level, region);
-                    }
-                    // Apply this region's async pathfinding results on the region
-                    // worker before ticking, same-thread with entity ticks.
-                    AsyncPathfindingManager.drainRegion(region, level.getGameTime());
-                    work.accept(region);
-                    STATS.record("region" + region, Util.getNanos() - start);
+                    REGION_POOL.execute(() -> {
+                        REGION_CONTEXT.set(new RegionContext(region, level));
+                        try {
+                            long start = Util.getNanos();
+                            if (applyNow) {
+                                applyCrossUpdates(level, region);
+                            }
+                            // Apply this region's async pathfinding results on the region
+                            // worker before ticking, same-thread with entity ticks.
+                            AsyncPathfindingManager.drainRegion(region, level.getGameTime());
+                            work.accept(region);
+                            STATS.record("region" + region, Util.getNanos() - start);
+                        } catch (Throwable t) {
+                            failure.compareAndSet(null, t);
+                        } finally {
+                            REGION_CONTEXT.remove();
+                            latch.countDown();
+                        }
+                    });
                 } catch (Throwable t) {
+                    // RejectedExecutionException etc.: count this region as done so the
+                    // barrier can never hang, then surface the failure below.
                     failure.compareAndSet(null, t);
-                } finally {
-                    CURRENT_REGION.remove();
                     latch.countDown();
                 }
-            });
-        }
-        try {
-            if (!latch.await(PRTSFeaturesConfig.barrierTimeoutMs, TimeUnit.MILLISECONDS)) {
-                throw new RuntimeException(DimensionTickManager.barrierTimeoutDump("region"));
             }
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new RuntimeException("Interrupted while waiting for region ticks", e);
-        }
-        IN_REGION_TICK.set(false);
+            try {
+                if (!latch.await(PRTSFeaturesConfig.barrierTimeoutMs, TimeUnit.MILLISECONDS)) {
+                    throw new RuntimeException(DimensionTickManager.barrierTimeoutDump("region"));
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new RuntimeException("Interrupted while waiting for region ticks", e);
+            }
 
-        Throwable failure0 = failure.get();
-        if (failure0 != null) {
-            throw new RuntimeException("Exception ticking on region thread", failure0);
+            Throwable failure0 = failure.get();
+            if (failure0 != null) {
+                throw new RuntimeException("Exception ticking on region thread", failure0);
+            }
+            drainScheduleTasks();
+            STATS.tick(level.getServer() == null ? 0 : level.getServer().getTickCount());
+        } finally {
+            IN_REGION_TICK.set(false);
         }
-        drainScheduleTasks(level);
-        STATS.tick(level.getServer() == null ? 0 : level.getServer().getTickCount());
     }
 
     /** Vanilla forEach consumer semantics, run on the region worker. */
@@ -516,5 +540,12 @@ public final class RegionTickManager {
     }
 
     private record BlockTick(BlockPos pos, Block block) {
+    }
+
+    private record RegionContext(int regionId, ServerLevel level) {
+    }
+
+    @SuppressWarnings("rawtypes")
+    private record ScheduleTask(LevelTicks owner, ScheduledTick<?> tick) {
     }
 }

@@ -152,50 +152,60 @@ public final class DimensionTickManager {
 
         // 2. Parallel ticks on worker threads, behind a per-tick barrier.
         IN_DIMENSION_TICK.set(true);
-        CountDownLatch latch = new CountDownLatch(n);
-        AtomicReference<Throwable> failure = new AtomicReference<>();
-        for (int i = 0; i < n; i++) {
-            final ParallelTickUnit unit = units[i];
-            POOL.execute(() -> {
+        try {
+            CountDownLatch latch = new CountDownLatch(n);
+            AtomicReference<Throwable> failure = new AtomicReference<>();
+            for (int i = 0; i < n; i++) {
+                final ParallelTickUnit unit = units[i];
                 try {
-                    unit.tick(hasTimeLeft);
+                    POOL.execute(() -> {
+                        try {
+                            unit.tick(hasTimeLeft);
+                        } catch (Throwable t) {
+                            failure.compareAndSet(null, t);
+                        } finally {
+                            latch.countDown();
+                        }
+                    });
                 } catch (Throwable t) {
+                    // RejectedExecutionException (pool saturated) etc.: count the unit
+                    // as done so the barrier never hangs, then surface the failure.
                     failure.compareAndSet(null, t);
-                } finally {
                     latch.countDown();
                 }
-            });
-        }
-        try {
-            if (!latch.await(PRTSFeaturesConfig.barrierTimeoutMs, TimeUnit.MILLISECONDS)) {
-                throw new RuntimeException(barrierTimeoutDump("dimension"));
             }
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new RuntimeException("Interrupted while waiting for parallel ticks", e);
+            try {
+                if (!latch.await(PRTSFeaturesConfig.barrierTimeoutMs, TimeUnit.MILLISECONDS)) {
+                    throw new RuntimeException(barrierTimeoutDump("dimension"));
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new RuntimeException("Interrupted while waiting for parallel ticks", e);
+            }
+
+            // 3. Propagate a worker failure (crashes the server like vanilla would).
+            Throwable failure0 = failure.get();
+            if (failure0 != null) {
+                throw new ReportedExceptionWrapping(failure0);
+            }
+
+            // 4. Post phase (main thread) + perWorldTickTimes in vanilla format.
+            for (int i = 0; i < n; i++) {
+                ServerLevel level = units[i].level();
+                POST.fire(level, hasTimeLeft);
+                long elapsed = Util.getNanos() - startNanos[i];
+                perWorldTickTimes.computeIfAbsent(level.dimension(), k -> new long[100])[tickCount % 100] = elapsed;
+                STATS.record(timerName(level.dimension()), elapsed);
+            }
+
+            // 5. Execute deferred cross-dimension transfers on the main thread.
+            drainTransfers();
+
+            // 6. Fire deferred entity load/unload events on the main thread.
+            drainEvents();
+        } finally {
+            IN_DIMENSION_TICK.set(false);
         }
-        IN_DIMENSION_TICK.set(false);
-
-        // 3. Propagate a worker failure (crashes the server like vanilla would).
-        Throwable failure0 = failure.get();
-        if (failure0 != null) {
-            throw new ReportedExceptionWrapping(failure0);
-        }
-
-        // 4. Post phase (main thread) + perWorldTickTimes in vanilla format.
-        for (int i = 0; i < n; i++) {
-            ServerLevel level = units[i].level();
-            POST.fire(level, hasTimeLeft);
-            long elapsed = Util.getNanos() - startNanos[i];
-            perWorldTickTimes.computeIfAbsent(level.dimension(), k -> new long[100])[tickCount % 100] = elapsed;
-            STATS.record(timerName(level.dimension()), elapsed);
-        }
-
-        // 5. Execute deferred cross-dimension transfers on the main thread.
-        drainTransfers();
-
-        // 6. Fire deferred entity load/unload events on the main thread.
-        drainEvents();
 
         STATS.tick(tickCount);
     }

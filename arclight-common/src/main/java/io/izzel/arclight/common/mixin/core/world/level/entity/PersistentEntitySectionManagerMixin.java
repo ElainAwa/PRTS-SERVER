@@ -69,7 +69,7 @@ public abstract class PersistentEntitySectionManagerMixin<T extends EntityAccess
             List<Entity> entities = list.stream().map(entity -> (Entity) entity).collect(Collectors.toList());
             // PRTS dimension parallelism (P2): Bukkit events must fire on the main thread;
             // defer when the entity unload happens inside a dimension tick worker.
-            if (DimensionTickManager.inDimensionTick()) {
+            if (DimensionTickManager.isDimensionTickThread()) {
                 DimensionTickManager.enqueueEntitiesEvent(level, new ChunkPos(pos), entities, true);
                 return;
             }
@@ -93,7 +93,7 @@ public abstract class PersistentEntitySectionManagerMixin<T extends EntityAccess
         ServerLevel level = ((EntityStorage) permanentStorage).level;
         // PRTS dimension parallelism (P2): Bukkit events must fire on the main thread;
         // defer when the entity load happens inside a dimension tick worker.
-        if (DimensionTickManager.inDimensionTick()) {
+        if (DimensionTickManager.isDimensionTickThread()) {
             DimensionTickManager.enqueueEntitiesEvent(level, chunkEntities.getPos(), entities, false);
             return;
         }

@@ -7,8 +7,11 @@ package io.izzel.arclight.common.mixin.optimization.general.servercore;
 
 import io.izzel.arclight.common.optimization.general.servercore.ChunkDemandQueue;
 import net.minecraft.server.level.GenerationChunkHolder;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.chunk.ChunkAccess;
+import net.minecraft.world.level.chunk.LevelChunk;
+import net.minecraft.world.level.chunk.status.ChunkStatus;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
@@ -26,7 +29,10 @@ public abstract class GenerationChunkHolderMixin_CompleteNotify {
     protected ChunkPos pos;
 
     @Inject(method = "completeFuture", at = @At("RETURN"))
-    private void arclight$notifyChunkComplete(net.minecraft.world.level.chunk.status.ChunkStatus status, ChunkAccess chunk, CallbackInfo ci) {
-        ChunkDemandQueue.completeChunk(this.pos.x, this.pos.z, chunk);
+    private void arclight$notifyChunkComplete(ChunkStatus status, ChunkAccess chunk, CallbackInfo ci) {
+        if (status != ChunkStatus.FULL || !(chunk instanceof LevelChunk levelChunk) || !(levelChunk.level instanceof ServerLevel level)) {
+            return;
+        }
+        ChunkDemandQueue.completeChunk(level, this.pos.x, this.pos.z, chunk);
     }
 }

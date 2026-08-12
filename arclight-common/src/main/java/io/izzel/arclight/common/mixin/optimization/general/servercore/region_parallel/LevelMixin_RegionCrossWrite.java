@@ -27,7 +27,7 @@ public abstract class LevelMixin_RegionCrossWrite {
     @Inject(method = "setBlock(Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/state/BlockState;I)Z",
         at = @At("HEAD"), cancellable = true)
     private void arclight$regionCrossWrite(BlockPos pos, BlockState state, int flags, CallbackInfoReturnable<Boolean> cir) {
-        if (!RegionTickManager.inRegionTick() || !RegionTickManager.isCrossWrite(pos)) {
+        if (!RegionTickManager.isRegionWorker() || !RegionTickManager.isCrossWrite(pos)) {
             return;
         }
         RegionTickManager.collectCrossWrite((ServerLevel) (Object) this, pos, state, flags);

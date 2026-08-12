@@ -29,7 +29,9 @@ public abstract class EntityMixin_DimTransfer {
         at = @At("HEAD"), cancellable = true)
     private void arclight$deferTransfer(DimensionTransition transition, CallbackInfoReturnable<Entity> cir) {
         if (!PRTSFeaturesConfig.parallelDimension) return;
-        if (!DimensionTickManager.inDimensionTick()) return;
+        // 只有维度 worker 线程上的传送才延后；主线程在 barrier 窗口或 API 调用
+        // 不受影响（全局 inDimensionTick 标志不能作为线程身份）。
+        if (!DimensionTickManager.isDimensionTickThread()) return;
         Entity self = (Entity) (Object) this;
         if (transition.newLevel() == self.level()) return;
         DimensionTickManager.enqueueTransfer(self, transition);

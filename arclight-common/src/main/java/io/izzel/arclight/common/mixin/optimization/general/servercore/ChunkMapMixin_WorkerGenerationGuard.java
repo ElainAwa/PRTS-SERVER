@@ -30,7 +30,8 @@ public abstract class ChunkMapMixin_WorkerGenerationGuard {
     private void arclight$guardWorkerApplyStep(GenerationChunkHolder holder, ChunkStep step,
                                                StaticCache2D<GenerationChunkHolder> cache,
                                                CallbackInfoReturnable<CompletableFuture<net.minecraft.world.level.chunk.ChunkAccess>> cir) {
-        if (RegionTickManager.isRegionWorker() || DimensionTickManager.inDimensionTick()) {
+        // 只有真实并行 worker 才被拦截；主线程在 barrier 窗口调用 applyStep 不受影响。
+        if (RegionTickManager.isRegionWorker() || DimensionTickManager.isDimensionTickThread()) {
             cir.cancel();
         }
     }
