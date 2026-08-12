@@ -84,8 +84,9 @@ barrier-timeout-ms: 120000
 ## Build & Deploy
 
 - JDK 21; command: `./gradlew --no-daemon :bootstrap:neoforgeJar`
-- Deploy: copy the jar to the server root → **clear `.arclight/mod_file/*`** (forces re-extraction
-  of the embedded common.jar) → start
+- Deploy: copy the jar to the server root → start. The build version embeds a working-tree
+  fingerprint, so the inner common.jar is re-extracted automatically on every build; no manual
+  `.arclight` cleanup is ever needed
 - Full instructions match the main branch — **see the main branch README**
 
 ## Everything else
