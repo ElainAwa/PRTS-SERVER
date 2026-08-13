@@ -11,11 +11,13 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerChunkCache;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.ticks.LevelTicks;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Invoker;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
 
+import java.util.function.BiConsumer;
 import java.util.function.BooleanSupplier;
 
 /**
@@ -40,5 +42,22 @@ public abstract class ServerLevelMixin_RegionBlockTick implements ServerLevelReg
     private void arclight$regionBlockTickPhase(ServerChunkCache cache, BooleanSupplier hasTimeLeft, boolean tickChunks) {
         RegionTickManager.runBlockTickPhase((ServerLevel) (Object) this);
         cache.tick(hasTimeLeft, tickChunks);
+    }
+
+    /**
+     * Route collected block ticks into the right dimension's queues: while
+     * {@link LevelTicks#tick} runs (block + fluid collection), the current level is
+     * published so {@link RegionTickManager#collectBlockTick} knows which dimension
+     * to write into. Cleared in finally so fluid ticks and nested calls stay clean.
+     */
+    @Redirect(method = "tick(Ljava/util/function/BooleanSupplier;)V",
+        at = @At(value = "INVOKE", target = "Lnet/minecraft/world/ticks/LevelTicks;tick(JILjava/util/function/BiConsumer;)V"))
+    private void arclight$publishCollectingLevel(LevelTicks ticks, long gameTime, int maxTicks, BiConsumer consumer) {
+        RegionTickManager.setCollectingLevel((ServerLevel) (Object) this);
+        try {
+            ticks.tick(gameTime, maxTicks, consumer);
+        } finally {
+            RegionTickManager.setCollectingLevel(null);
+        }
     }
 }

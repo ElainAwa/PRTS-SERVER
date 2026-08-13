@@ -10,10 +10,11 @@ import io.izzel.arclight.common.compat.prts.PRTSFeaturesConfig;
 import io.izzel.arclight.common.optimization.general.AsyncTaskStats;
 import net.minecraft.Util;
 import net.minecraft.core.BlockPos;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.TickingBlockEntity;
@@ -25,6 +26,8 @@ import net.minecraft.world.ticks.ScheduledTick;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.WeakHashMap;
 import java.util.concurrent.ConcurrentHashMap;
@@ -36,6 +39,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 import java.util.function.IntConsumer;
 
 /**
@@ -63,45 +67,76 @@ public final class RegionTickManager {
                 return t;
             });
 
-    @SuppressWarnings("unchecked")
-    private static ConcurrentLinkedQueue<Entity>[] QUEUES = new ConcurrentLinkedQueue[REGION_COUNT];
-    @SuppressWarnings("unchecked")
-    private static ConcurrentLinkedQueue<CrossUpdate>[] CROSS_UPDATES = new ConcurrentLinkedQueue[REGION_COUNT];
-    @SuppressWarnings("unchecked")
-    private static ConcurrentLinkedQueue<BlockTick>[] BLOCK_TICK_QUEUES = new ConcurrentLinkedQueue[REGION_COUNT];
-    @SuppressWarnings("unchecked")
-    private static ConcurrentLinkedQueue<TickingBlockEntity>[] TE_TICK_QUEUES = new ConcurrentLinkedQueue[REGION_COUNT];
     /** LevelTicks.schedule tasks deferred from region workers, applied on the main thread. */
     private static final ConcurrentLinkedQueue<ScheduleTask> SCHEDULE_TASKS = new ConcurrentLinkedQueue<>();
-
-    static {
-        for (int i = 0; i < REGION_COUNT; i++) {
-            QUEUES[i] = new ConcurrentLinkedQueue<>();
-            CROSS_UPDATES[i] = new ConcurrentLinkedQueue<>();
-            BLOCK_TICK_QUEUES[i] = new ConcurrentLinkedQueue<>();
-            TE_TICK_QUEUES[i] = new ConcurrentLinkedQueue<>();
-        }
-    }
 
     private static final AtomicBoolean CONFIGURED = new AtomicBoolean(false);
 
     private static final AtomicBoolean IN_REGION_TICK = new AtomicBoolean(false);
     private static final ThreadLocal<RegionContext> REGION_CONTEXT = new ThreadLocal<>();
 
-    /** Last game tick on which cross-region updates were applied (per-tick gate). */
-    private static volatile long APPLIED_TICK = -1L;
+    /**
+     * The level whose vanilla block-tick collection is currently running on this
+     * thread (set around ServerChunkCache.tick during the block-tick phase). Lets
+     * {@link #collectBlockTick} route into the right dimension's queues.
+     */
+    private static final ThreadLocal<ServerLevel> COLLECTING_LEVEL = new ThreadLocal<>();
+
+    /** Sets the level that {@link #collectBlockTick} routes into (main/dimension thread). */
+    public static void setCollectingLevel(ServerLevel level) {
+        if (level == null) {
+            COLLECTING_LEVEL.remove();
+        } else {
+            COLLECTING_LEVEL.set(level);
+        }
+    }
 
     /** Last-seen region per entity (authority-transfer counter). */
     private static final Map<Entity, Integer> LAST_REGION = java.util.Collections.synchronizedMap(new WeakHashMap<>());
 
-    /** Per-region entity dispatch snapshot (auto-scale input; replaced atomically). */
-    private static volatile int[] LAST_ENTITY_DIST = new int[REGION_COUNT];
+    /**
+     * Per-dimension region state: queues, cross-region updates, and the per-tick
+     * gate are isolated per ServerLevel so nether/end tick workers never mix their
+     * entities into another dimension's queues. {@link #REGION_COUNT} stays global
+     * because {@link RegionLevel#regionId} is a static stripe partition.
+     */
+    private static final ConcurrentHashMap<ServerLevel, DimensionState> DIMENSION_STATES = new ConcurrentHashMap<>();
 
-    /** Auto-scale state: consecutive low-load periods, last evaluation tick, last cross.read. */
-    private static int LOW_PERIODS = 0;
-    private static long LAST_EVAL_TICK = -1L;
-    private static long LAST_CROSS_READ = 0L;
-    private static long LAST_TICKS = 0L;
+    private static final class DimensionState {
+        final ConcurrentLinkedQueue<Entity>[] entityQueues;
+        final ConcurrentLinkedQueue<CrossUpdate>[] crossUpdates;
+        final ConcurrentLinkedQueue<BlockTick>[] blockTickQueues;
+        final ConcurrentLinkedQueue<TickingBlockEntity>[] teTickQueues;
+        volatile long appliedTick = -1L;
+        volatile int[] lastEntityDist;
+        // Auto-scale per-dimension counters (only overworld drives the decision).
+        int lowPeriods = 0;
+        long lastEvalTick = -1L;
+        long lastCrossRead = 0L;
+        long lastTicks = 0L;
+
+        DimensionState(int n) {
+            this.entityQueues = newQueues(n);
+            this.crossUpdates = newQueues(n);
+            this.blockTickQueues = newQueues(n);
+            this.teTickQueues = newQueues(n);
+            this.lastEntityDist = new int[n];
+        }
+
+        @SuppressWarnings("unchecked")
+        private static <T> ConcurrentLinkedQueue<T>[] newQueues(int n) {
+            ConcurrentLinkedQueue<T>[] q = new ConcurrentLinkedQueue[n];
+            for (int i = 0; i < n; i++) {
+                q[i] = new ConcurrentLinkedQueue<>();
+            }
+            return q;
+        }
+    }
+
+    /** Returns (and lazily creates) the region state for a level. */
+    private static DimensionState state(ServerLevel level) {
+        return DIMENSION_STATES.computeIfAbsent(level, k -> new DimensionState(REGION_COUNT));
+    }
 
     private static final AsyncTaskStats STATS = AsyncTaskStats.builder("[region-tick]")
             .intervalTicks(600)
@@ -129,27 +164,13 @@ public final class RegionTickManager {
     /** Rebuilds the per-region queues for a new region count (startup only). */
     static synchronized void reconfigure(int n) {
         REGION_COUNT = n;
-        @SuppressWarnings("unchecked")
-        ConcurrentLinkedQueue<Entity>[] q = new ConcurrentLinkedQueue[n];
-        @SuppressWarnings("unchecked")
-        ConcurrentLinkedQueue<CrossUpdate>[] cu = new ConcurrentLinkedQueue[n];
-        @SuppressWarnings("unchecked")
-        ConcurrentLinkedQueue<BlockTick>[] bt = new ConcurrentLinkedQueue[n];
-        @SuppressWarnings("unchecked")
-        ConcurrentLinkedQueue<TickingBlockEntity>[] te = new ConcurrentLinkedQueue[n];
         for (int i = 0; i < n; i++) {
-            q[i] = new ConcurrentLinkedQueue<>();
-            cu[i] = new ConcurrentLinkedQueue<>();
-            bt[i] = new ConcurrentLinkedQueue<>();
-            te[i] = new ConcurrentLinkedQueue<>();
             STATS.ensureTimer("region" + i);
             STATS.ensureGroupMember("entities", "region" + i);
         }
-        QUEUES = q;
-        CROSS_UPDATES = cu;
-        BLOCK_TICK_QUEUES = bt;
-        TE_TICK_QUEUES = te;
-        LAST_ENTITY_DIST = new int[n];
+        // Rebuild queues for every already-seen dimension. reconfigure runs on the
+        // main thread after workers have latched, so no worker holds a stale array.
+        DIMENSION_STATES.forEach((level, st) -> DIMENSION_STATES.put(level, new DimensionState(n)));
         LOGGER.info("[region-tick] region parallelism reconfigured: count={} (perRegion={} chunks/region)",
                 n, RegionLevel.STRIPE_WIDTH / n);
     }
@@ -157,20 +178,28 @@ public final class RegionTickManager {
     /**
      * Periodically evaluates region load and adjusts the region count between the
      * configured min and max. Called after tickChildren when all workers have latched.
+     * Auto-scale only reacts to overworld load; nether/end share the resulting global
+     * region count (their per-dimension queues are rebuilt by {@link #reconfigure}).
      */
-    public static void evaluateAutoScale(int serverTick) {
+    public static void evaluateAutoScale(MinecraftServer server) {
         if (!regionEnabled() || !PRTSFeaturesConfig.regionAutoScale) {
             return;
         }
-        long intervalTicks = Math.max(20L, PRTSFeaturesConfig.regionScaleIntervalSeconds * 20L);
-        if (serverTick - LAST_EVAL_TICK < intervalTicks) {
+        ServerLevel overworld = server.overworld();
+        if (overworld == null) {
             return;
         }
-        LAST_EVAL_TICK = serverTick;
+        DimensionState st = state(overworld);
+        int serverTick = server.getTickCount();
+        long intervalTicks = Math.max(20L, PRTSFeaturesConfig.regionScaleIntervalSeconds * 20L);
+        if (serverTick - st.lastEvalTick < intervalTicks) {
+            return;
+        }
+        st.lastEvalTick = serverTick;
         int n = REGION_COUNT;
         double maxAvg = 0.0;
         int active = 0;
-        int[] dist = LAST_ENTITY_DIST;
+        int[] dist = st.lastEntityDist;
         for (int i = 0; i < n; i++) {
             double avg = STATS.avgMillis("region" + i);
             if (avg > maxAvg) maxAvg = avg;
@@ -178,10 +207,10 @@ public final class RegionTickManager {
         }
         long crossNow = STATS.counterSum("cross.read");
         long ticksNow = STATS.counterSum("ticks");
-        long crossDelta = crossNow - LAST_CROSS_READ;
-        long ticksDelta = Math.max(1L, ticksNow - LAST_TICKS);
-        LAST_CROSS_READ = crossNow;
-        LAST_TICKS = ticksNow;
+        long crossDelta = crossNow - st.lastCrossRead;
+        long ticksDelta = Math.max(1L, ticksNow - st.lastTicks);
+        st.lastCrossRead = crossNow;
+        st.lastTicks = ticksNow;
         double crossRatio = (double) crossDelta / ticksDelta;
         double high = PRTSFeaturesConfig.regionScaleHighMspt;
         double low = PRTSFeaturesConfig.regionScaleLowMspt;
@@ -193,15 +222,15 @@ public final class RegionTickManager {
         if (maxAvg > high && n < max && active >= n && crossRatio <= crossBudget) {
             target = n * 2;
             reason = String.format("high-load maxAvg=%.1fms active=%d crossRatio=%.3f", maxAvg, active, crossRatio);
-            LOW_PERIODS = 0;
+            st.lowPeriods = 0;
         } else if (maxAvg < low && active <= n / 2) {
-            if (++LOW_PERIODS >= PRTSFeaturesConfig.regionScaleStablePeriods && n > min) {
+            if (++st.lowPeriods >= PRTSFeaturesConfig.regionScaleStablePeriods && n > min) {
                 target = n / 2;
-                reason = String.format("low-load maxAvg=%.1fms active=%d periods=%d", maxAvg, active, LOW_PERIODS);
-                LOW_PERIODS = 0;
+                reason = String.format("low-load maxAvg=%.1fms active=%d periods=%d", maxAvg, active, st.lowPeriods);
+                st.lowPeriods = 0;
             }
         } else {
-            LOW_PERIODS = 0;
+            st.lowPeriods = 0;
         }
         if (target != n) {
             reconfigure(target);
@@ -291,7 +320,7 @@ public final class RegionTickManager {
     /** Collects a cross-region write into the target region's queue (Level.setBlock interception). */
     public static void collectCrossWrite(ServerLevel level, BlockPos pos, BlockState state, int flags) {
         int target = RegionLevel.regionId(pos);
-        CROSS_UPDATES[target].add(new CrossUpdate(pos, state, flags));
+        state(level).crossUpdates[target].add(new CrossUpdate(pos, state, flags));
         STATS.increment("cross.block");
         if (isRedstone(state.getBlock())) {
             STATS.increment("cross.redstone");
@@ -311,15 +340,19 @@ public final class RegionTickManager {
 
     /** Collects a due scheduled block tick into the owning region's queue. */
     public static void collectBlockTick(BlockPos pos, Block block) {
+        ServerLevel level = COLLECTING_LEVEL.get();
+        if (level == null) {
+            return;
+        }
         int r = RegionLevel.regionId(pos);
-        BLOCK_TICK_QUEUES[r].add(new BlockTick(pos, block));
+        state(level).blockTickQueues[r].add(new BlockTick(pos, block));
         STATS.increment("update.blockTicks");
     }
 
     /** Collects a ticking block entity into the owning region's queue. */
-    public static void collectBlockEntityTick(TickingBlockEntity ticker) {
+    public static void collectBlockEntityTick(ServerLevel level, TickingBlockEntity ticker) {
         int r = RegionLevel.regionId(ticker.getPos());
-        TE_TICK_QUEUES[r].add(ticker);
+        state(level).teTickQueues[r].add(ticker);
         STATS.increment("update.teTicks");
     }
 
@@ -343,24 +376,25 @@ public final class RegionTickManager {
 
     /** Session 1: runs collected scheduled block ticks on region workers (per-tick gate for cross-region updates). */
     public static boolean runBlockTickPhase(ServerLevel level) {
-        if (!regionEnabled() || level.dimension() != Level.OVERWORLD) {
+        if (!regionEnabled()) {
             return false;
         }
         ensureConfigured();
+        DimensionState st = state(level);
         long gameTime = level.getGameTime();
-        boolean applyNow = APPLIED_TICK != gameTime;
+        boolean applyNow = st.appliedTick != gameTime;
         if (applyNow) {
-            APPLIED_TICK = gameTime;
+            st.appliedTick = gameTime;
         }
-        if (!applyNow && isEmpty(BLOCK_TICK_QUEUES)) {
+        if (!applyNow && isEmpty(st.blockTickQueues)) {
             return false;
         }
-        if (applyNow && isEmpty(BLOCK_TICK_QUEUES) && isEmpty(CROSS_UPDATES)) {
+        if (applyNow && isEmpty(st.blockTickQueues) && isEmpty(st.crossUpdates)) {
             return false;
         }
         runWorkers(level, applyNow, region -> {
             BlockTick bt;
-            while ((bt = BLOCK_TICK_QUEUES[region].poll()) != null) {
+            while ((bt = st.blockTickQueues[region].poll()) != null) {
                 ((ServerLevelRegionBlockTickAccess) level).arclight$tickBlock(bt.pos(), bt.block());
             }
         });
@@ -369,21 +403,22 @@ public final class RegionTickManager {
 
     /** Session 3: runs collected block-entity ticks on region workers. */
     public static boolean runBlockEntityTickPhase(ServerLevel level) {
-        if (!regionEnabled() || level.dimension() != Level.OVERWORLD) {
+        if (!regionEnabled()) {
             return false;
         }
         ensureConfigured();
-        if (isEmpty(TE_TICK_QUEUES)) {
+        DimensionState st = state(level);
+        if (isEmpty(st.teTickQueues)) {
             return false;
         }
         long gameTime = level.getGameTime();
-        boolean applyNow = APPLIED_TICK != gameTime;
+        boolean applyNow = st.appliedTick != gameTime;
         if (applyNow) {
-            APPLIED_TICK = gameTime;
+            st.appliedTick = gameTime;
         }
         runWorkers(level, applyNow, region -> {
             TickingBlockEntity te;
-            while ((te = TE_TICK_QUEUES[region].poll()) != null) {
+            while ((te = st.teTickQueues[region].poll()) != null) {
                 te.tick();
             }
         });
@@ -391,18 +426,26 @@ public final class RegionTickManager {
     }
 
     /** Session 2 (entity tick): dispatches the entity list by region and ticks on region workers. */
-    public static boolean dispatchAndTick(ServerLevel level, EntityTickList list) {
-        if (!regionEnabled() || level.dimension() != Level.OVERWORLD) {
+    public static boolean dispatchAndTick(ServerLevel level, EntityTickList list, Consumer<Entity> consumer) {
+        if (!regionEnabled()) {
             return false;
         }
         ensureConfigured();
+        DimensionState st = state(level);
         STATS.increment("ticks");
 
         // 1. Dispatch (dimension worker; no concurrent write to the tick list here).
+        //    玩家实体不进区域 worker：容器菜单 stillValid/网络发包等假设主线程时序，
+        //    在并行 worker 上读方块实体状态会不一致，导致打开容器被立即关闭。
         int[] perRegion = new int[REGION_COUNT];
+        List<Entity> players = new ArrayList<>();
         list.forEach(entity -> {
+            if (entity instanceof ServerPlayer) {
+                players.add(entity);
+                return;
+            }
             int r = RegionLevel.regionId(entity.blockPosition());
-            QUEUES[r].add(entity);
+            st.entityQueues[r].add(entity);
             perRegion[r]++;
             // authority-transfer counter: entity moved to a different region than last tick.
             Integer last = LAST_REGION.put(entity, r);
@@ -413,20 +456,25 @@ public final class RegionTickManager {
         for (int r = 0; r < REGION_COUNT; r++) {
             STATS.add("entities.region" + r, perRegion[r]);
         }
-        LAST_ENTITY_DIST = perRegion.clone();
+        st.lastEntityDist = perRegion.clone();
 
         // 2. Parallel region ticks behind a per-phase latch.
         long gameTime = level.getGameTime();
-        boolean applyNow = APPLIED_TICK != gameTime;
+        boolean applyNow = st.appliedTick != gameTime;
         if (applyNow) {
-            APPLIED_TICK = gameTime;
+            st.appliedTick = gameTime;
         }
         runWorkers(level, applyNow, region -> {
             Entity entity;
-            while ((entity = QUEUES[region].poll()) != null) {
+            while ((entity = st.entityQueues[region].poll()) != null) {
                 tickEntity(level, entity);
             }
         });
+
+        // 3. Tick players on the current (dimension) thread with vanilla semantics.
+        for (Entity player : players) {
+            consumer.accept(player);
+        }
         return true;
     }
 
@@ -434,7 +482,8 @@ public final class RegionTickManager {
     private static void applyCrossUpdates(ServerLevel level, int regionId) {
         CrossUpdate u;
         int applied = 0;
-        while ((u = CROSS_UPDATES[regionId].poll()) != null) {
+        ConcurrentLinkedQueue<CrossUpdate> updates = state(level).crossUpdates[regionId];
+        while ((u = updates.poll()) != null) {
             try {
                 level.setBlock(u.pos(), u.state(), u.flags());
                 applied++;

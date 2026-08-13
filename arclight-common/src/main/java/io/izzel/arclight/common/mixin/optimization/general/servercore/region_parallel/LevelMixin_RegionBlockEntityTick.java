@@ -26,8 +26,8 @@ public abstract class LevelMixin_RegionBlockEntityTick {
     @Redirect(method = "tickBlockEntities",
         at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/block/entity/TickingBlockEntity;tick()V"))
     private void arclight$regionBlockEntityTick(TickingBlockEntity ticker) {
-        if (RegionTickManager.regionEnabled() && PRTSFeaturesConfig.regionBlockEntityParallel) {
-            RegionTickManager.collectBlockEntityTick(ticker);
+        if (RegionTickManager.regionEnabled() && PRTSFeaturesConfig.regionBlockEntityParallel && (Object) this instanceof ServerLevel sl) {
+            RegionTickManager.collectBlockEntityTick(sl, ticker);
         } else {
             ticker.tick();
         }

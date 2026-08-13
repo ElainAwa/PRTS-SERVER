@@ -28,7 +28,7 @@ public abstract class ServerLevelMixin_RegionTick {
     @Redirect(method = "tick(Ljava/util/function/BooleanSupplier;)V",
         at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/entity/EntityTickList;forEach(Ljava/util/function/Consumer;)V"))
     private void arclight$regionEntityTick(EntityTickList list, Consumer<Entity> consumer, BooleanSupplier hasTimeLeft) {
-        if (!RegionTickManager.dispatchAndTick((ServerLevel) (Object) this, list)) {
+        if (!RegionTickManager.dispatchAndTick((ServerLevel) (Object) this, list, consumer)) {
             list.forEach(consumer);
         }
     }

@@ -24,6 +24,6 @@ public abstract class MinecraftServerMixin_RegionAutoScale {
     @Inject(method = "tickChildren", at = @At("RETURN"))
     private void arclight$regionAutoScale(CallbackInfo ci) {
         MinecraftServer server = (MinecraftServer) (Object) this;
-        RegionTickManager.evaluateAutoScale(server.getTickCount());
+        RegionTickManager.evaluateAutoScale(server);
     }
 }
