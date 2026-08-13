@@ -15,8 +15,6 @@ import org.objectweb.asm.tree.*;
 
 import java.io.InputStream;
 import java.lang.reflect.Field;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Map;
 import java.util.jar.Attributes;
@@ -97,16 +95,10 @@ public class AbstractBootstrap {
 
     private void extract(InputStream path, String version) throws Exception {
         System.setProperty("arclight.version", version);
-        var dir = Paths.get(".arclight", "mod_file");
-        if (!Files.exists(dir)) {
-            Files.createDirectories(dir);
-        }
-        var mod = dir.resolve(version + ".jar");
-        if (!Files.exists(mod) || Boolean.getBoolean("arclight.alwaysExtract")) {
-            for (Path old : Files.list(dir).toList()) {
-                Files.delete(old);
-            }
-            Files.copy(path, mod);
-        }
+        EmbeddedJarExtractor.extract(
+                path,
+                Paths.get(".arclight", "mod_file"),
+                version + ".jar",
+                Boolean.getBoolean("arclight.alwaysExtract"));
     }
 }

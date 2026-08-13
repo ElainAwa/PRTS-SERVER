@@ -15,37 +15,7 @@ allprojects {
             // Return a default value if git command fails
             return "test"
         }
-        def hash = stdout.toString().trim()
-        // 工作树有未提交改动时追加内容指纹, 重建 jar 的版本串随之变化, 部署缓存自动失效
-        try {
-            def statusOut = new ByteArrayOutputStream()
-            exec {
-                commandLine 'git', 'status', '--porcelain'
-                standardOutput = statusOut
-            }
-            // 仅 tracked 文件改动计入指纹, untracked 噪音(构建日志等)不触发版本变化
-            if (statusOut.toString().readLines().any { !it.startsWith('??') }) {
-                def dirtyOut = new ByteArrayOutputStream()
-                exec {
-                    commandLine 'git', 'stash', 'create'
-                    standardOutput = dirtyOut
-                }
-                def dirty = dirtyOut.toString().trim()
-                // stash commit 含时间戳不具确定性, 取其 tree 快照(纯内容寻址)作指纹
-                if (!dirty.isEmpty()) {
-                    def treeOut = new ByteArrayOutputStream()
-                    exec {
-                        commandLine 'git', 'rev-parse', "${dirty}^{tree}"
-                        standardOutput = treeOut
-                    }
-                    def tree = treeOut.toString().trim()
-                    hash += '-' + tree.take(12)
-                }
-            }
-        } catch (Exception ignored) {
-            // 指纹计算失败时保持原行为, 仅以 HEAD hash 为版本串
-        }
-        return hash
+        return stdout.toString().trim()
     }
 
     ext {
