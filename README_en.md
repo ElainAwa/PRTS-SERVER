@@ -40,7 +40,7 @@ Only zero-perception low-level optimizations and crash fixes — gameplay is unc
 ## Deploy
 
 1. Copy the new jar to the server root and point your start script at it (`_start.bat` runs `java -jar PRTS-neoforge-1.21.1-<version>.jar -nogui`)
-2. Start — the build version embeds a working-tree fingerprint, so the inner `common.jar` is re-extracted automatically on every build; no manual `.arclight` cleanup is ever needed
+2. Start — the inner `common.jar` is re-extracted automatically when its content changes, so a rebuilt jar with the same version string still refreshes; no manual `.arclight` cleanup is ever needed
 
 ## Config
 
