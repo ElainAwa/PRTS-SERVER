@@ -22,6 +22,10 @@ dependencies {
     // 运行期不依赖，mixin 用 @LoadIfMod 条件加载）
     compileOnly files('libs/create-1.21.1-6.0.10.jar')
 
+    // 编译期引用 Sable 的 VoxelNeighborhoodState（并发 map 加锁兼容 mixin 的 target 校验；
+    // 运行期不依赖，mixin 用 @LoadIfMod 条件加载）
+    compileOnly files('libs/sable-neoforge-1.21.1-2.0.3.jar')
+
     implementation libs.izzel.tools
     implementation libs.arclight.api
     implementation libs.mixin.tools
