@@ -1,5 +1,7 @@
 # PRTS-FeudalKings — Minecraft 1.21.1 / NeoForge
 
+**[English](./README.md) · [中文文档](./README_zh.md)**
+
 > [!NOTE]
 > This README is AI-authored and maintained, for a quick overview and feature provenance; see the `docs/` directory for technical details.
 
