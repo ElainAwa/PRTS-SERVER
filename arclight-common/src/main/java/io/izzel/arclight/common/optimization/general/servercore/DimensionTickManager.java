@@ -150,13 +150,24 @@ public final class DimensionTickManager {
                     (Object) level.getChunkSource()).arclight$drainChunkDemands();
         }
 
-        // 2. Parallel ticks on worker threads, behind a per-tick barrier.
+        // 2. Parallel ticks: dimensions with players stay on the main thread to
+        //    keep vanilla single-thread semantics for player tick (container menus,
+        //    network packets, Bukkit player events); playerless dimensions run on
+        //    workers behind a per-tick barrier.
         IN_DIMENSION_TICK.set(true);
         try {
-            CountDownLatch latch = new CountDownLatch(n);
-            AtomicReference<Throwable> failure = new AtomicReference<>();
+            java.util.ArrayList<ParallelTickUnit> playerless = new java.util.ArrayList<>();
+            java.util.ArrayList<ParallelTickUnit> withPlayers = new java.util.ArrayList<>();
             for (int i = 0; i < n; i++) {
-                final ParallelTickUnit unit = units[i];
+                if (units[i].level().players().isEmpty()) {
+                    playerless.add(units[i]);
+                } else {
+                    withPlayers.add(units[i]);
+                }
+            }
+            CountDownLatch latch = new CountDownLatch(playerless.size());
+            AtomicReference<Throwable> failure = new AtomicReference<>();
+            for (final ParallelTickUnit unit : playerless) {
                 try {
                     POOL.execute(() -> {
                         try {
@@ -172,6 +183,13 @@ public final class DimensionTickManager {
                     // as done so the barrier never hangs, then surface the failure.
                     failure.compareAndSet(null, t);
                     latch.countDown();
+                }
+            }
+            for (ParallelTickUnit unit : withPlayers) {
+                try {
+                    unit.tick(hasTimeLeft);
+                } catch (Throwable t) {
+                    failure.compareAndSet(null, t);
                 }
             }
             try {
