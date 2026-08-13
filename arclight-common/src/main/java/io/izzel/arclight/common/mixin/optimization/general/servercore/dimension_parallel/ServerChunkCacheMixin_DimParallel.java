@@ -32,8 +32,6 @@ import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 
 /**
  * Breaks the sync-chunk-load deadlock for dimension tick workers: vanilla
@@ -70,22 +68,7 @@ public abstract class ServerChunkCacheMixin_DimParallel implements io.izzel.arcl
         at = @At(value = "INVOKE", target = "Ljava/util/concurrent/CompletableFuture;join()Ljava/lang/Object;"))
     private Object arclight$dimParallelChunkGet(CompletableFuture<?> future, int x, int z, ChunkStatus status, boolean required) {
         if (!DimensionTickManager.isDimensionTickThread() && !RegionTickManager.isRegionWorker()) {
-            if (PRTSFeaturesConfig.parallelDimension || PRTSFeaturesConfig.parallelRegion) {
-                // 并行开启时主线程 chunk 加载依赖并行 tick 的调度推进；若调度因主线程
-                // 卡在 getChunk 而无法运行，future 永不完成会无限递归卡死。加超时兜底：
-                // 超时返回空气，主线程恢复 tick 后调度继续推进该 chunk。
-                try {
-                    Object v = future.get(2, TimeUnit.SECONDS);
-                    if (v != null) {
-                        return v;
-                    }
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    return new EmptyLevelChunk(this.level, new ChunkPos(x, z), arclight$voidBiome(this.level));
-                } catch (TimeoutException | java.util.concurrent.ExecutionException e) {
-                    return new EmptyLevelChunk(this.level, new ChunkPos(x, z), arclight$voidBiome(this.level));
-                }
-            }
+            // 主线程走 vanilla 阻塞语义，worldgen 在 Worker 线程池执行，join 不会死锁
             return future.join();
         }        Object now = future.getNow(null);
         if (now != null) {
@@ -143,8 +126,11 @@ public abstract class ServerChunkCacheMixin_DimParallel implements io.izzel.arcl
             cir.setReturnValue(cached);
             return;
         }
-        boolean mainThread = !DimensionTickManager.isDimensionTickThread() && !RegionTickManager.isRegionWorker();
-        CompletableFuture<ChunkAccess> future = ChunkDemandQueue.submitWait(this.level, this.chunkMap, x, z, mainThread);
+        // 主线程回退 vanilla getChunk，保证 required 区块阻塞生成（否则玩家进未生成区拿到空气）
+        if (!DimensionTickManager.isDimensionTickThread() && !RegionTickManager.isRegionWorker()) {
+            return;
+        }
+        CompletableFuture<ChunkAccess> future = ChunkDemandQueue.submitWait(this.level, this.chunkMap, x, z, false);
         if (required) {
             ChunkAccess c = ChunkDemandQueue.await(this.level, x, z, future, 50);
             if (c != null) {

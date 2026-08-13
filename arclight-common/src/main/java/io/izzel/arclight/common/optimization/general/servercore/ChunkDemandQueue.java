@@ -81,10 +81,11 @@ public final class ChunkDemandQueue {
         if (immediate) {
             try {
                 chunkMap.scheduleGenerationTask(ChunkStatus.FULL, new ChunkPos(x, z));
+                return;
             } catch (Throwable t) {
-                LOGGER.warn("[chunk-demand] scheduleGenerationTask failed at ({}, {}): {}", x, z, t.toString());
+                // 新 chunk 尚无 holder 时 acquireGeneration 会 NPE，降级入队由主线程 drain 走 vanilla 流程
+                LOGGER.warn("[chunk-demand] scheduleGenerationTask failed at ({}, {}), falling back to queue:", x, z, t);
             }
-            return;
         }
         if (!SEEN.add(key)) {
             return;
