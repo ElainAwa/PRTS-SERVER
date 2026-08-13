@@ -30,7 +30,7 @@ under heavy load. The parallel engine consists of three independently toggleable
 
 - **Async pathfinding** (`pathfinding-async`): mob pathfinding runs on worker threads, off the main thread.
 - **Dimension parallelism** (`dimension-parallel`): each dimension ticks on its own thread without blocking the others.
-- **Region parallelism** (`region-parallel`): the overworld is split into regions by chunk stripes and ticked in parallel. The region count is configurable via `region-count` (2/4/8, default 4); `region-auto-scale` adjusts it based on load.
+- **Region parallelism** (`region-parallel`): non-player entity tick across all dimensions (overworld / nether / end) is split into regions by chunk stripes and ticked in parallel. Players keep vanilla single-thread tick semantics (container menus, networking, Bukkit player events stay on the main thread). The region count is configurable via `region-count` (2/4/8, default 4); `region-auto-scale` adjusts it based on overworld load.
 
 ### Chunkgen spike control & barrier robustness (v1.0.29)
 
@@ -46,6 +46,17 @@ and two watchdog hooks keep the engine responsive:
 
 Prevents the server hang that parallelism could trigger on heavy modpacks. Effect: with
 parallelism on, world tick stays responsive and chunk generation no longer deadlocks under load.
+
+### Player tick on main thread & region parity across dimensions (v1.0.32)
+
+Two correctness fixes that keep parallelism safe while preserving gameplay:
+
+- **Player tick stays on the main thread**: dimension parallelism used to tick a whole
+  `ServerLevel` — including players — on a worker, racing the main thread's container-open
+  handling and closing chests/menus immediately. Dimensions with players now tick on the main
+  thread; only playerless dimensions run on workers.
+- **Region parallelism covers nether and end**: region state is now per-dimension, so entity
+  tick splits across regions in every dimension, not just the overworld.
 
 ## Branch-specific config (`prts-features.yml`, server root)
 
@@ -84,9 +95,9 @@ barrier-timeout-ms: 120000
 ## Build & Deploy
 
 - JDK 21; command: `./gradlew --no-daemon :bootstrap:neoforgeJar`
-- Deploy: copy the jar to the server root → start. The build version embeds a working-tree
-  fingerprint, so the inner common.jar is re-extracted automatically on every build; no manual
-  `.arclight` cleanup is ever needed
+- Deploy: copy the jar to the server root → start. The inner `common.jar` is re-extracted
+  automatically when its content changes, so a rebuilt jar with the same version string still
+  refreshes; no manual `.arclight` cleanup is ever needed
 - Full instructions match the main branch — **see the main branch README**
 
 ## Everything else
