@@ -66,6 +66,19 @@ public abstract class EntitySectionMixin_RegionLock {
     }
 
     @Redirect(method = "getEntities(Lnet/minecraft/world/level/entity/EntityTypeTest;Lnet/minecraft/world/phys/AABB;Lnet/minecraft/util/AbortableIterationConsumer;)Lnet/minecraft/util/AbortableIterationConsumer$Continuation;",
+        at = @At(value = "INVOKE", target = "Lnet/minecraft/util/ClassInstanceMultiMap;find(Ljava/lang/Class;)Ljava/util/Collection;"))
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private Collection arclight$sectionTypedFind(ClassInstanceMultiMap storage, Class type) {
+        // find 内部 createList 既遍历全列表又写类型表，须写锁与增删互斥（双读并发 put 也会坏表）
+        this.arclight$sectionLock.writeLock().lock();
+        try {
+            return storage.find(type);
+        } finally {
+            this.arclight$sectionLock.writeLock().unlock();
+        }
+    }
+
+    @Redirect(method = "getEntities(Lnet/minecraft/world/level/entity/EntityTypeTest;Lnet/minecraft/world/phys/AABB;Lnet/minecraft/util/AbortableIterationConsumer;)Lnet/minecraft/util/AbortableIterationConsumer$Continuation;",
         at = @At(value = "INVOKE", target = "Ljava/util/Collection;iterator()Ljava/util/Iterator;"))
     @SuppressWarnings("rawtypes")
     private Iterator arclight$sectionTypedEntitiesSnapshot(Collection entities) {
