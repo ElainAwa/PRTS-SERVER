@@ -66,6 +66,13 @@ public final class RegionTickManager {
     private static final Map<ServerLevel, ConcurrentLinkedQueue<TickingBlockEntity>> MAIN_THREAD_TE_TICKS =
             java.util.Collections.synchronizedMap(new WeakHashMap<>());
 
+    /** 维度并行期间收集、由主线程统一执行的实体 tick（Create 装置实体），按维度分队列。 */
+    private static final Map<ServerLevel, ConcurrentLinkedQueue<Entity>> MAIN_THREAD_ENTITY_TICKS =
+            java.util.Collections.synchronizedMap(new WeakHashMap<>());
+
+    /** 主线程实体判定缓存（类名前缀走查超类链）。 */
+    private static final ConcurrentHashMap<Class<?>, Boolean> MAIN_THREAD_ENTITY_CACHE = new ConcurrentHashMap<>();
+
     private static final ThreadPoolExecutor REGION_POOL = new ThreadPoolExecutor(
             0, 16, 60L, TimeUnit.SECONDS, new SynchronousQueue<>(),
             r -> {
@@ -192,6 +199,7 @@ public final class RegionTickManager {
             STATS.ensureTimer("region" + i);
             STATS.ensureGroupMember("entities", "region" + i);
         }
+        STATS.ensureGroupMember("entities", "mainThread");
         // Rebuild queues for every already-seen dimension. reconfigure runs on the
         // main thread after workers have latched, so no worker holds a stale array.
         DIMENSION_STATES.forEach((level, st) -> DIMENSION_STATES.put(level, new DimensionState(n)));
@@ -349,6 +357,83 @@ public final class RegionTickManager {
                 LOGGER.error("[region-tick] main-thread block entity tick failed at {}: {}",
                         ticker.getPos(), t.toString());
             }
+        }
+    }
+
+    /** 维度 worker 调用：把实体 tick 排到本维度的主线程队列。 */
+    public static void queueMainThreadEntityTick(ServerLevel level, Entity entity) {
+        ConcurrentLinkedQueue<Entity> queue;
+        synchronized (MAIN_THREAD_ENTITY_TICKS) {
+            queue = MAIN_THREAD_ENTITY_TICKS.computeIfAbsent(level, k -> new ConcurrentLinkedQueue<>());
+        }
+        queue.add(entity);
+    }
+
+    /** 主线程 POST 阶段调用：执行本维度排队的主线程实体 tick。 */
+    public static void drainMainThreadEntityTicks(ServerLevel level) {
+        ConcurrentLinkedQueue<Entity> queue;
+        synchronized (MAIN_THREAD_ENTITY_TICKS) {
+            queue = MAIN_THREAD_ENTITY_TICKS.remove(level);
+        }
+        if (queue == null) {
+            return;
+        }
+        Entity entity;
+        while ((entity = queue.poll()) != null) {
+            try {
+                tickEntitySafely(level, entity);
+                STATS.increment("entities.mainThread");
+            } catch (Throwable t) {
+                LOGGER.error("[region-tick] main-thread entity tick failed at {}: {}",
+                        entity.blockPosition(), t.toString());
+            }
+        }
+    }
+
+    /**
+     * 主线程实体判定：这些 mod 实体的 tick 会调用 Level.getBlockEntity（1.21.1 在
+     * 非主线程固定返回 null）或读写主线程专属全局状态，在 region worker 上会自毁/失效。
+     */
+    private static final String[] MAIN_THREAD_ENTITY_PREFIXES = {
+            "com.simibubi.create.content.contraptions.", // Create 装置/座椅
+            "com.simibubi.create.content.trains.",       // Create 列车实体
+            "com.minecolonies.",                          // 殖民地市民/袭击者/矿车
+            "com.arxyt.colonypathingedition.",
+            "com.dannyboythomas.hole_filler_mod.",        // 填洞球等投掷实体(落地放方块+取 BE)
+            "net.minecraft.world.entity.vehicle.",        // 矿车/船：onMinecartPass→getBlockEntity 触发装配站
+    };
+
+    public static boolean needsMainThreadTick(Entity entity) {
+        Class<?> c = entity.getClass();
+        Boolean cached = MAIN_THREAD_ENTITY_CACHE.get(c);
+        if (cached != null) {
+            return cached;
+        }
+        boolean hit = false;
+        Class<?> sup = c;
+        while (sup != null && sup != Entity.class) {
+            String name = sup.getName();
+            for (String prefix : MAIN_THREAD_ENTITY_PREFIXES) {
+                if (name.startsWith(prefix)) {
+                    hit = true;
+                    break;
+                }
+            }
+            if (hit) {
+                break;
+            }
+            sup = sup.getSuperclass();
+        }
+        MAIN_THREAD_ENTITY_CACHE.put(c, hit);
+        return hit;
+    }
+
+    /** 主线程实体路由：维度并行期间排主线程队列，否则当前线程（主线程）就地 tick。 */
+    private static void routeMainThreadEntity(ServerLevel level, Entity entity) {
+        if (DimensionTickManager.inDimensionTick()) {
+            queueMainThreadEntityTick(level, entity);
+        } else {
+            tickEntitySafely(level, entity);
         }
     }
 
@@ -517,6 +602,11 @@ public final class RegionTickManager {
                 localTicks.add(entity);
                 return;
             }
+            if (needsMainThreadTick(entity)) {
+                // 装置/殖民地实体 tick 依赖主线程 getBlockEntity 与全局状态，dispatch 阶段直接路由主线程
+                routeMainThreadEntity(level, entity);
+                return;
+            }
             int r = RegionLevel.regionId(entity.blockPosition());
             st.entityQueues[r].add(entity);
             perRegion[r]++;
@@ -556,6 +646,26 @@ public final class RegionTickManager {
             consumer.accept(entity);
         }
         return true;
+    }
+
+    /**
+     * region-parallel 关闭时的 vanilla forEach 兜底：维度 worker 上的装置/殖民地实体
+     * 改排主线程队列（主线程 POST 阶段 drain），其余实体按原 consumer 执行。
+     */
+    public static void vanillaEntityTick(ServerLevel level, EntityTickList list, Consumer<Entity> consumer) {
+        if (!DimensionTickManager.inDimensionTick()) {
+            list.forEach(consumer);
+            return;
+        }
+        List<Entity> local = new ArrayList<>();
+        list.forEach(entity -> {
+            if (needsMainThreadTick(entity)) {
+                queueMainThreadEntityTick(level, entity);
+            } else {
+                local.add(entity);
+            }
+        });
+        local.forEach(consumer);
     }
 
     /** Drains and applies the update set collected for a region (on the region worker). */
@@ -633,9 +743,30 @@ public final class RegionTickManager {
 
     /** Vanilla forEach consumer semantics, run on the region worker. */
     private static void tickEntity(ServerLevel level, Entity entity) {
+        // 装置/殖民地实体兜底：任何喂入区域队列的主线程实体改走主线程（正常路径已在 dispatch 路由）
+        if (needsMainThreadTick(entity)) {
+            routeMainThreadEntity(level, entity);
+            return;
+        }
+        // 车辆载有装置实体乘客时车辆也必须主线程 tick——否则 tickPassenger 在 worker 上
+        // 驱动装置（矿车装配站：装置骑矿车，worker 上 getBlockEntity 恒 null → 装置自毁）
+        for (Entity passenger : entity.getPassengers()) {
+            if (needsMainThreadTick(passenger)) {
+                routeMainThreadEntity(level, entity);
+                return;
+            }
+        }
         // 区块已卸载的实体跳过（vanilla 卸载时先移除实体，并行窗口内兜底）
         ChunkPos chunkPos = entity.chunkPosition();
         if (!((ServerChunkCacheRegionBridge) level.getChunkSource()).arclight$hasLiveChunk(chunkPos.x, chunkPos.z)) {
+            return;
+        }
+        tickEntitySafely(level, entity);
+    }
+
+    /** 与 vanilla forEach consumer 等价的实体 tick 体，worker 与主线程 drain 共用。 */
+    private static void tickEntitySafely(ServerLevel level, Entity entity) {
+        if (entity.isRemoved()) {
             return;
         }
         Entity vehicle = entity.getVehicle();

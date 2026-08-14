@@ -29,7 +29,8 @@ public abstract class ServerLevelMixin_RegionTick {
         at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/entity/EntityTickList;forEach(Ljava/util/function/Consumer;)V"))
     private void arclight$regionEntityTick(EntityTickList list, Consumer<Entity> consumer, BooleanSupplier hasTimeLeft) {
         if (!RegionTickManager.dispatchAndTick((ServerLevel) (Object) this, list, consumer)) {
-            list.forEach(consumer);
+            // 兜底路径：装置实体仍不能在维度 worker 上 tick，需主线程路由
+            RegionTickManager.vanillaEntityTick((ServerLevel) (Object) this, list, consumer);
         }
     }
 }
