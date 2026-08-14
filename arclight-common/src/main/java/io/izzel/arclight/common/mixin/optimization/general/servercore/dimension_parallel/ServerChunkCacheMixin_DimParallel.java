@@ -193,6 +193,16 @@ public abstract class ServerChunkCacheMixin_DimParallel implements io.izzel.arcl
         return arclight$snapshotRead(x, z) != null || arclight$existingChunkRead(x, z) != null;
     }
 
+    /** worker 安全读取：快照读优先，updating 兜底；无活区块返回 null。 */
+    @Override
+    public net.minecraft.world.level.chunk.ChunkAccess arclight$getChunkForRead(int x, int z) {
+        net.minecraft.world.level.chunk.ChunkAccess snapshot = arclight$snapshotRead(x, z);
+        if (snapshot != null) {
+            return snapshot;
+        }
+        return arclight$existingChunkRead(x, z);
+    }
+
     /**
      * 主线程 drain 的落地实现：按配额消费需求，非阻塞触发生成（required=false，
      * 不等待完成）。成功后写入 lastChunk 环形缓存供 vanilla getChunkNow 使用

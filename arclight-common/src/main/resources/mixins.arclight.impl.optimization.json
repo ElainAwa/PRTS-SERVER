@@ -41,7 +41,6 @@
     "servercore.dimension_parallel.SimplePluginManagerMixin_DimParallel",
     "servercore.dimension_parallel.EntityCallbacksMixin_DimParallel",
     "servercore.dimension_parallel.ServerLevelAccessor_DimParallel",
-    "servercore.misc.PathFinderMixin",
     "servercore.tickets.ChunkGeneratorMixin",
     "servercore.tickets.NaturalSpawnerMixin",
     "servercore.sync_loads.BeeMixin",
@@ -125,6 +124,9 @@
     "servercore.region_parallel.ChunkMapMixin_EntityIndexLock",
     "servercore.region_parallel.MinecraftServerMixin_RegionAutoScale",
     "servercore.region_parallel.ServerLevelMixin_RegionNeighborLock",
-    "servercore.region_parallel.LevelMixin_RegionNeighborShapeLock"
+    "servercore.region_parallel.LevelMixin_RegionNeighborShapeLock",
+    "servercore.region_parallel.PoiManagerMixin_PoiLock",
+    "servercore.region_parallel.GroundPathNavigationMixin_RegionSafe",
+    "servercore.region_parallel.PathNavigationRegionMixin_RegionSafe"
   ]
 }
