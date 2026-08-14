@@ -13,6 +13,7 @@ import net.minecraft.core.Holder;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.server.level.ChunkHolder;
 import net.minecraft.server.level.ChunkMap;
+import net.minecraft.server.level.ChunkResult;
 import net.minecraft.server.level.ServerChunkCache;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.ChunkPos;
@@ -42,7 +43,8 @@ import java.util.concurrent.CompletableFuture;
  * priority=2000 so it runs after Lithium's same-method injection at 1000.
  */
 @Mixin(value = ServerChunkCache.class, priority = 2000)
-public abstract class ServerChunkCacheMixin_DimParallel implements io.izzel.arclight.common.bridge.core.world.server.ServerChunkCacheDemandBridge {
+public abstract class ServerChunkCacheMixin_DimParallel implements io.izzel.arclight.common.bridge.core.world.server.ServerChunkCacheDemandBridge,
+        io.izzel.arclight.common.bridge.core.world.server.ServerChunkCacheRegionBridge {
 
     @Shadow
     @Final
@@ -75,27 +77,21 @@ public abstract class ServerChunkCacheMixin_DimParallel implements io.izzel.arcl
             return now;
         }
         try {
-            // supplyAsync future 在主线程 barrier 期间永远不会完成(getNow 恒 null)。
-            // 1. lastChunk 环形缓存(纯数组无锁读, 并发安全)。
+            // visibleChunkMap 是 volatile 整体替换；二次身份复核排除卸载瞬间的陈旧 holder
+            //（旧 chunk 的方块实体在卸载后会被清空，块状态仍在，会造成 getBlockState 命中而 getBlockEntity 为空）。
             long key = ChunkPos.asLong(x, z);
-            for (int i = 0; i < this.lastChunkPos.length; i++) {
-                if (this.lastChunkPos[i] == key && this.lastChunkStatus[i] == ChunkStatus.FULL) {
-                    ChunkAccess cached = this.lastChunk[i];
-                    if (cached != null) {
-                        return cached;
-                    }
-                }
-            }
-            // 2. visibleChunkMap 是 volatile + 整体替换引用(promoteChunkMap 从
-            //    updatingChunkMap clone), worker 读旧快照安全; getFullChunkFuture
-            //    是 CompletableFuture(getNow 非阻塞线程安全)。
             ChunkHolder holder = this.chunkMap.visibleChunkMap.get(key);
             if (holder != null) {
                 ChunkAccess cached = holder.getFullChunkFuture().getNow(null) == null
                         ? null : holder.getFullChunkFuture().getNow(null).orElse(null);
-                if (cached != null) {
+                if (cached != null && this.chunkMap.visibleChunkMap.get(key) == holder) {
                     return cached;
                 }
+            }
+            // 卸载中区块仍在 updatingChunkMap 可见，恢复真实数据读。
+            ChunkAccess existing = arclight$existingChunkRead(x, z);
+            if (existing != null) {
+                return existing;
             }
         } catch (Throwable t) {
             // 任何异常回退空气, 绝不让 worker 卡死/崩溃。
@@ -121,13 +117,29 @@ public abstract class ServerChunkCacheMixin_DimParallel implements io.izzel.arcl
         if (status != ChunkStatus.FULL) {
             return;
         }
-        ChunkAccess cached = arclight$snapshotRead(x, z);
+        ChunkAccess cached;
+        try {
+            cached = arclight$snapshotRead(x, z);
+        } catch (Throwable t) {
+            cached = null;
+        }
         if (cached != null) {
             cir.setReturnValue(cached);
             return;
         }
         // 主线程回退 vanilla getChunk，保证 required 区块阻塞生成（否则玩家进未生成区拿到空气）
         if (!DimensionTickManager.isDimensionTickThread() && !RegionTickManager.isRegionWorker()) {
+            return;
+        }
+        // 卸载 promotion 中的区块仍在 updatingChunkMap：实体 tick 期间应读到真实数据
+        ChunkAccess existing;
+        try {
+            existing = arclight$existingChunkRead(x, z);
+        } catch (Throwable t) {
+            existing = null;
+        }
+        if (existing != null) {
+            cir.setReturnValue(existing);
             return;
         }
         CompletableFuture<ChunkAccess> future = ChunkDemandQueue.submitWait(this.level, this.chunkMap, x, z, false);
@@ -141,18 +153,10 @@ public abstract class ServerChunkCacheMixin_DimParallel implements io.izzel.arcl
         cir.setReturnValue(new EmptyLevelChunk(this.level, new ChunkPos(x, z), arclight$voidBiome(this.level)));
     }
 
-    /** 无锁快照读：lastChunk 环形缓存 + visibleChunkMap（并发安全，同 worker 分支逻辑）。 */
+    /** 无锁快照读：只信 visibleChunkMap 的已完成 full future，二次身份复核排除卸载瞬间的陈旧 holder。 */
     @Unique
     private ChunkAccess arclight$snapshotRead(int x, int z) {
         long key = ChunkPos.asLong(x, z);
-        for (int i = 0; i < this.lastChunkPos.length; i++) {
-            if (this.lastChunkPos[i] == key && this.lastChunkStatus[i] == ChunkStatus.FULL) {
-                ChunkAccess cached = this.lastChunk[i];
-                if (cached != null) {
-                    return cached;
-                }
-            }
-        }
         ChunkHolder holder = this.chunkMap.visibleChunkMap.get(key);
         if (holder != null) {
             java.util.concurrent.CompletableFuture<net.minecraft.server.level.ChunkResult<net.minecraft.world.level.chunk.LevelChunk>> full = holder.getFullChunkFuture();
@@ -160,7 +164,8 @@ public abstract class ServerChunkCacheMixin_DimParallel implements io.izzel.arcl
                 net.minecraft.server.level.ChunkResult<net.minecraft.world.level.chunk.LevelChunk> r = full.getNow(null);
                 if (r != null) {
                     ChunkAccess cached = r.orElse(null);
-                    if (cached != null) {
+                    // holder 若已离开当前可见表，旧 chunk 的方块实体可能已被卸载清空
+                    if (cached != null && this.chunkMap.visibleChunkMap.get(key) == holder) {
                         return cached;
                     }
                 }
@@ -169,9 +174,29 @@ public abstract class ServerChunkCacheMixin_DimParallel implements io.izzel.arcl
         return null;
     }
 
+    /** 读取卸载中/未 promotion 区块（updatingChunkMap），无阻塞、worker 安全。 */
+    @Unique
+    private ChunkAccess arclight$existingChunkRead(int x, int z) {
+        ChunkHolder holder = this.chunkMap.updatingChunkMap.get(ChunkPos.asLong(x, z));
+        if (holder != null) {
+            ChunkResult<LevelChunk> r = holder.getFullChunkFuture().getNow(null);
+            if (r != null) {
+                return r.orElse(null);
+            }
+        }
+        return null;
+    }
+
+    /** 区块是否仍可读（已加载或卸载中）；生成未完成返回 false。 */
+    @Override
+    public boolean arclight$hasLiveChunk(int x, int z) {
+        return arclight$snapshotRead(x, z) != null || arclight$existingChunkRead(x, z) != null;
+    }
+
     /**
      * 主线程 drain 的落地实现：按配额消费需求，非阻塞触发生成（required=false，
-     * 不等待完成），成功后写入 lastChunk 环形缓存，worker 下一 tick 立即可见。
+     * 不等待完成）。成功后写入 lastChunk 环形缓存供 vanilla getChunkNow 使用
+     * （worker 侧读取路径不读环形缓存，避免卸载后陈旧 chunk 的方块实体空表）。
      * 仅主线程调用（调用方已保证 barrier 结束）。
      */
     @Override

@@ -6,6 +6,7 @@
 package io.izzel.arclight.common.optimization.general.servercore;
 
 import io.izzel.arclight.common.bridge.core.entity.EntityBridge;
+import io.izzel.arclight.common.bridge.core.world.server.ServerChunkCacheRegionBridge;
 import io.izzel.arclight.common.compat.prts.PRTSFeaturesConfig;
 import io.izzel.arclight.common.optimization.general.AsyncTaskStats;
 import net.minecraft.Util;
@@ -14,7 +15,9 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.ExperienceOrb;
+import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.TickingBlockEntity;
@@ -59,6 +62,10 @@ public final class RegionTickManager {
     private static final Map<ServerLevel, ConcurrentLinkedQueue<BlockEntity>> MAIN_THREAD_BLOCK_ENTITIES =
             java.util.Collections.synchronizedMap(new WeakHashMap<>());
 
+    /** 维度并行期间收集、由主线程统一执行的方块实体 tick，按维度分队列。 */
+    private static final Map<ServerLevel, ConcurrentLinkedQueue<TickingBlockEntity>> MAIN_THREAD_TE_TICKS =
+            java.util.Collections.synchronizedMap(new WeakHashMap<>());
+
     private static final ThreadPoolExecutor REGION_POOL = new ThreadPoolExecutor(
             0, 16, 60L, TimeUnit.SECONDS, new SynchronousQueue<>(),
             r -> {
@@ -93,6 +100,23 @@ public final class RegionTickManager {
 
     /** Last-seen region per entity (authority-transfer counter). */
     private static final Map<Entity, Integer> LAST_REGION = java.util.Collections.synchronizedMap(new WeakHashMap<>());
+
+    /** alternate_current 的连线图非线程安全，检测结果缓存后决定方块 tick 是否串行。 */
+    private static volatile Boolean SERIALIZE_BLOCK_TICKS;
+
+    private static boolean serializeBlockTicksForMods() {
+        Boolean b = SERIALIZE_BLOCK_TICKS;
+        if (b == null) {
+            try {
+                io.izzel.arclight.common.mod.ArclightCommon.Api api = io.izzel.arclight.common.mod.ArclightCommon.api();
+                b = api != null && api.isModLoaded("alternate_current");
+            } catch (Throwable t) {
+                b = Boolean.TRUE;
+            }
+            SERIALIZE_BLOCK_TICKS = b;
+        }
+        return b;
+    }
 
     /**
      * Per-dimension region state: queues, cross-region updates, and the per-tick
@@ -142,7 +166,7 @@ public final class RegionTickManager {
             .intervalTicks(600)
             .counter("ticks")
             .group("cross", "block", "redstone", "redstoneBoundary", "transfer", "read")
-            .group("update", "blockTicks", "teTicks", "applied")
+            .group("update", "blockTicks", "teTicks", "applied", "teMainTicks")
             .build();
 
     private RegionTickManager() {
@@ -298,6 +322,36 @@ public final class RegionTickManager {
         }
     }
 
+    /** 维度 worker 调用：把方块实体 tick 排到本维度的主线程队列。 */
+    public static void queueMainThreadBlockEntityTick(ServerLevel level, TickingBlockEntity ticker) {
+        ConcurrentLinkedQueue<TickingBlockEntity> queue;
+        synchronized (MAIN_THREAD_TE_TICKS) {
+            queue = MAIN_THREAD_TE_TICKS.computeIfAbsent(level, k -> new ConcurrentLinkedQueue<>());
+        }
+        queue.add(ticker);
+    }
+
+    /** 主线程 POST 阶段调用：执行本维度排队的主线程方块实体 tick。 */
+    public static void drainMainThreadBlockEntityTicks(ServerLevel level) {
+        ConcurrentLinkedQueue<TickingBlockEntity> queue;
+        synchronized (MAIN_THREAD_TE_TICKS) {
+            queue = MAIN_THREAD_TE_TICKS.remove(level);
+        }
+        if (queue == null) {
+            return;
+        }
+        TickingBlockEntity ticker;
+        while ((ticker = queue.poll()) != null) {
+            try {
+                ticker.tick();
+                STATS.increment("update.teMainTicks");
+            } catch (Throwable t) {
+                LOGGER.error("[region-tick] main-thread block entity tick failed at {}: {}",
+                        ticker.getPos(), t.toString());
+            }
+        }
+    }
+
     /** True when the region-parallel feature is enabled (PRTS prts-features.yml). */
     public static boolean regionEnabled() {
         return PRTSFeaturesConfig.parallelRegion;
@@ -392,6 +446,25 @@ public final class RegionTickManager {
         if (applyNow && isEmpty(st.blockTickQueues) && isEmpty(st.crossUpdates)) {
             return false;
         }
+        if (serializeBlockTicksForMods()) {
+            // 红石网络类优化 mod（alternate_current）的连线图非线程安全：
+            // 并行方块 tick 会撕裂网络节点引用，此处回退当前线程串行（每维度单线程）
+            for (int r = 0; r < st.blockTickQueues.length; r++) {
+                BlockTick bt;
+                while ((bt = st.blockTickQueues[r].poll()) != null) {
+                    ((ServerLevelRegionBlockTickAccess) level).arclight$tickBlock(bt.pos(), bt.block());
+                }
+            }
+            if (applyNow) {
+                for (int r = 0; r < st.crossUpdates.length; r++) {
+                    CrossUpdate u;
+                    while ((u = st.crossUpdates[r].poll()) != null) {
+                        level.setBlock(u.pos(), u.state(), u.flags());
+                    }
+                }
+            }
+            return true;
+        }
         runWorkers(level, applyNow, region -> {
             BlockTick bt;
             while ((bt = st.blockTickQueues[region].poll()) != null) {
@@ -435,13 +508,13 @@ public final class RegionTickManager {
         STATS.increment("ticks");
 
         // 1. Dispatch (dimension worker; no concurrent write to the tick list here).
-        //    玩家实体不进区域 worker：容器菜单 stillValid/网络发包等假设主线程时序，
-        //    在并行 worker 上读方块实体状态会不一致，导致打开容器被立即关闭。
+        //    玩家与拾取交互实体（物品/经验球）不进区域 worker：拾取/推挤/容器菜单
+        //    依赖玩家所在线程时序，跨线程读写会造成拾取失效与移动抖动。
         int[] perRegion = new int[REGION_COUNT];
-        List<Entity> players = new ArrayList<>();
+        List<Entity> localTicks = new ArrayList<>();
         list.forEach(entity -> {
-            if (entity instanceof ServerPlayer) {
-                players.add(entity);
+            if (entity instanceof ServerPlayer || entity instanceof ItemEntity || entity instanceof ExperienceOrb) {
+                localTicks.add(entity);
                 return;
             }
             int r = RegionLevel.regionId(entity.blockPosition());
@@ -471,9 +544,16 @@ public final class RegionTickManager {
             }
         });
 
-        // 3. Tick players on the current (dimension) thread with vanilla semantics.
-        for (Entity player : players) {
-            consumer.accept(player);
+        // 3. Tick players and pickup-interactive entities on the current thread.
+        for (Entity entity : localTicks) {
+            if (!(entity instanceof ServerPlayer)) {
+                // 区块已卸载时跳过：维度 worker 无法补生成，vanilla 此时已移除实体
+                ChunkPos cp = entity.chunkPosition();
+                if (!((ServerChunkCacheRegionBridge) level.getChunkSource()).arclight$hasLiveChunk(cp.x, cp.z)) {
+                    continue;
+                }
+            }
+            consumer.accept(entity);
         }
         return true;
     }
@@ -553,20 +633,22 @@ public final class RegionTickManager {
 
     /** Vanilla forEach consumer semantics, run on the region worker. */
     private static void tickEntity(ServerLevel level, Entity entity) {
-        Entity vehicle = entity.getVehicle();
-        if (vehicle != null && !vehicle.isRemoved() && vehicle.hasPassenger(entity)) {
+        // 区块已卸载的实体跳过（vanilla 卸载时先移除实体，并行窗口内兜底）
+        ChunkPos chunkPos = entity.chunkPosition();
+        if (!((ServerChunkCacheRegionBridge) level.getChunkSource()).arclight$hasLiveChunk(chunkPos.x, chunkPos.z)) {
             return;
         }
-        entity.stopRiding();
+        Entity vehicle = entity.getVehicle();
+        if (vehicle != null) {
+            if (!vehicle.isRemoved() && vehicle.hasPassenger(entity)) {
+                return;
+            }
+            // 仅断链清理；无条件调用会拆解 Create 装置实体（stopRiding 即 disassemble）
+            entity.stopRiding();
+        }
         Entity[] parts = ((EntityBridge) entity).bridge$forge$getParts();
         if (!entity.isRemoved() && (parts == null || parts.length == 0)) {
             level.tickNonPassenger(entity);
-            // NeoForge moved AI scheduling (goalSelector/targetSelector/brain) out
-            // of Entity.tick into serverAiStep(), invoked only by the main-thread
-            // tick consumer. The region worker must run it explicitly or mobs freeze.
-            if (entity instanceof LivingEntity living) {
-                ((LivingEntityServerAiStepAccess) living).arclight$invokerServerAiStep();
-            }
         }
     }
 

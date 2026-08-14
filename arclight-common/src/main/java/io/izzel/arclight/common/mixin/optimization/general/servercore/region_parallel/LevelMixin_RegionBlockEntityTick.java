@@ -6,6 +6,7 @@
 package io.izzel.arclight.common.mixin.optimization.general.servercore.region_parallel;
 
 import io.izzel.arclight.common.compat.prts.PRTSFeaturesConfig;
+import io.izzel.arclight.common.optimization.general.servercore.DimensionTickManager;
 import io.izzel.arclight.common.optimization.general.servercore.RegionTickManager;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
@@ -17,8 +18,8 @@ import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
- * 方块实体 tick 的区域并行入口。默认关闭并行（BE 间交互复杂，跨区访问有竞态，
- * 见 parallel.region-block-entity-parallel 配置）：关闭时走原版主线程 tick。
+ * 方块实体 tick 的调度入口。并行默认关闭（BE 间交互复杂，跨区访问有竞态）：
+ * 并行开启时进区域队列，否则维度并行期排队到主线程、其余情况原版内联 tick。
  */
 @Mixin(Level.class)
 public abstract class LevelMixin_RegionBlockEntityTick {
@@ -28,6 +29,9 @@ public abstract class LevelMixin_RegionBlockEntityTick {
     private void arclight$regionBlockEntityTick(TickingBlockEntity ticker) {
         if (RegionTickManager.regionEnabled() && PRTSFeaturesConfig.regionBlockEntityParallel && (Object) this instanceof ServerLevel sl) {
             RegionTickManager.collectBlockEntityTick(sl, ticker);
+        } else if (DimensionTickManager.inDimensionTick() && (Object) this instanceof ServerLevel sl) {
+            // 维度并行激活期：BE tick 依赖主线程 Bukkit API，排队到主线程 POST 段执行
+            RegionTickManager.queueMainThreadBlockEntityTick(sl, ticker);
         } else {
             ticker.tick();
         }

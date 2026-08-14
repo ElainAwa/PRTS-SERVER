@@ -210,6 +210,8 @@ public final class DimensionTickManager {
             // 4. Post phase (main thread) + perWorldTickTimes in vanilla format.
             for (int i = 0; i < n; i++) {
                 ServerLevel level = units[i].level();
+                // 维度 worker 收集的方块实体 tick 在主线程执行（BE tick 依赖主线程 Bukkit API）
+                RegionTickManager.drainMainThreadBlockEntityTicks(level);
                 POST.fire(level, hasTimeLeft);
                 long elapsed = Util.getNanos() - startNanos[i];
                 perWorldTickTimes.computeIfAbsent(level.dimension(), k -> new long[100])[tickCount % 100] = elapsed;
