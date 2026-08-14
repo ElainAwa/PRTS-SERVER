@@ -49,11 +49,10 @@ public abstract class PathNavigationRegionMixin implements PathNavigationRegionA
     public ImmutablePathNavigationRegion arclight$snapshot(int centerY, int yRadius) {
         int cx = this.chunks.length;
         int cz = this.chunks[0].length;
-        // centerX/centerZ 是 minPos 的方块坐标; 中心 chunk 坐标 = >>4。
-        int centerChunkX = this.centerX >> 4;
-        int centerChunkZ = this.centerZ >> 4;
-        int minX = (centerChunkX - cx / 2) << 4;
-        int minZ = (centerChunkZ - cz / 2) << 4;
+        // centerX/centerZ 是构造器 from 角(最小)的 section 坐标, 不是中心:
+        // 直接 <<4 得最小方块坐标, 否则快照内容整体偏移导致 A* 全 1 节点路径。
+        int minX = this.centerX << 4;
+        int minZ = this.centerZ << 4;
         int maxX = minX + (cx << 4);
         int maxZ = minZ + (cz << 4);
         int xSize = maxX - minX;

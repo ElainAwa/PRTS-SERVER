@@ -35,10 +35,14 @@ public final class AsyncPathfindingManager {
     private static final Logger LOGGER = LogManager.getLogger("Arclight");
 
     public static final int MAX_PENDING_TASKS = 1024;
-    public static final long MAX_RESULT_AGE_TICKS = 20;
+    /** 结果有效窗口（毫秒，真实时钟）：提交到应用超过即超时丢弃，防止生物沿过期路径反向移动。
+     * 不可用 tick 数比较——提交端 server.getTickCount()（本次启动以来）与 drain 端
+     * level.getGameTime()（世界年龄）基准不同，恒差世界年龄导致全部超时。 */
+    public static final long MAX_RESULT_AGE_MILLIS = 3000;
     /** 结果积压硬上限（主队列 + region 桶合计）：防止极端情况下结果堆积导致内存膨胀。 */
     private static final int MAX_RESULT_BACKLOG = 4096;
-    private static final int WORKER_COUNT = Math.max(2, Runtime.getRuntime().availableProcessors() / 2);
+    /** 低核 VM（如 6 vCPU 生产机）上 2 线程太少，A* 排队超时导致生物不追人；上限防 hjkc 32 核全开。 */
+    private static final int WORKER_COUNT = Math.max(4, Math.min(16, Runtime.getRuntime().availableProcessors()));
 
     private static final AtomicInteger PENDING = new AtomicInteger();
     private static final AtomicInteger RESULT_BACKLOG = new AtomicInteger();
@@ -96,8 +100,9 @@ public final class AsyncPathfindingManager {
     private AsyncPathfindingManager() {
     }
 
+    /** 在飞任务超过 worker 数约 2 倍即拒绝新提交（调用方跳过本次寻路，防止排队时间超过结果有效期）。 */
     public static boolean canSubmit() {
-        return PENDING.get() < MAX_PENDING_TASKS;
+        return PENDING.get() < Math.max(16, Math.min(64, WORKER_COUNT * 2));
     }
 
     private static boolean reservePending() {
@@ -155,6 +160,7 @@ public final class AsyncPathfindingManager {
             // 提交时(主线程/区域 worker)捕获实体存活快照: 工作线程的预检只读这个标记,
             // 绝不直接触碰可能已被主线程修改/回收的原实体字段(内存可见性隔离)。
             java.util.concurrent.atomic.AtomicBoolean aliveSnapshot = new java.util.concurrent.atomic.AtomicBoolean(mob.isAlive());
+            long requestNanos = System.nanoTime();
             PathNavigationAccess navigationAccess = (PathNavigationAccess) navigation;
             navigationAccess.arclight$markAsyncPending();
             EXECUTOR.execute(() -> {
@@ -169,7 +175,7 @@ public final class AsyncPathfindingManager {
                         return;
                     }
                     Path path = pathFinder.findPath(snapshot, mob, targets, maxRange, accuracy, depthMultiplier);
-                    Result result = new Result(navigation, path, serverTick);
+                    Result result = new Result(navigation, path, requestNanos);
                     if (!offerResult(regionId, result)) {
                         // 积压超限：丢弃结果并清 pending，导航下个 tick 可重新提交。
                         ((PathNavigationAccess) navigation).arclight$clearAsyncPending();
@@ -224,13 +230,13 @@ public final class AsyncPathfindingManager {
             drained.add(r);
         }
         for (Result result : drained) {
-            if (serverTick - result.requestTick > MAX_RESULT_AGE_TICKS) {
+            long ageMillis = (System.nanoTime() - result.requestNanos) / 1_000_000L;
+            if (ageMillis > MAX_RESULT_AGE_MILLIS) {
                 STATS.increment("discarded.timeout");
                 PathNavigation nav = result.navigation.get();
                 // 结果作废: 必须清 pending, 否则该导航永久卡死不再提交异步任务。
                 if (nav != null) ((PathNavigationAccess) nav).arclight$clearAsyncPending();
-                LOGGER.debug("[async-pathfinding] timeout discard: delta={} requestTick={} serverTick={}",
-                        serverTick - result.requestTick, result.requestTick, serverTick);
+                LOGGER.debug("[async-pathfinding] timeout discard: age={}ms", ageMillis);
                 continue;
             }
             PathNavigation nav = result.navigation.get();
@@ -252,12 +258,12 @@ public final class AsyncPathfindingManager {
     private static final class Result {
         final java.lang.ref.WeakReference<PathNavigation> navigation;
         final Path path;
-        final long requestTick;
+        final long requestNanos;
 
-        Result(PathNavigation navigation, Path path, long requestTick) {
+        Result(PathNavigation navigation, Path path, long requestNanos) {
             this.navigation = new java.lang.ref.WeakReference<>(navigation);
             this.path = path;
-            this.requestTick = requestTick;
+            this.requestNanos = requestNanos;
         }
     }
 }

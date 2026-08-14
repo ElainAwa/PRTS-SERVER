@@ -70,7 +70,12 @@ public abstract class PathFinderMixin_Async {
         PathNavigation navigation = mob.getNavigation();
         if (navigation == null) return;
         PathNavigationAccess access = (PathNavigationAccess) navigation;
-        if (access.arclight$isAsyncPending()) return;
+        if (access.arclight$isAsyncPending()) {
+            // 在途时直接取消: 原实现放行走 vanilla 同步 A*, 每个在途 tick 都在 worker 上重算一遍
+            // (生产 4 秒卡顿来源), 且刚算好的结果被 moveTo(null) 清空。
+            cir.setReturnValue(null);
+            return;
+        }
 
         long tick = server.getTickCount();
         // Result draining must stay on the thread that owns the entity's region:
@@ -80,15 +85,21 @@ public abstract class PathFinderMixin_Async {
             AsyncPathfindingManager.drainIfNeeded(tick);
         }
         if (!AsyncPathfindingManager.canSubmit()) {
-            LOGGER.debug("[pf-async] queue full, fallback sync");
+            // 队列饱和：跳过本次寻路（下 tick 重试），同步 A* 回退会拖垮 region worker TPS
+            LOGGER.debug("[pf-async] queue full, skipping this tick");
+            cir.setReturnValue(null);
             return;
         }
 
         // 快照捕获线程 = 拥有该区域状态的线程(主线程 / 维度 worker / 区域 worker):
         // BlockState 是不可变单例, 引用数组拷贝后工作线程完全脱离可变状态。
         int radius = (int) (maxRange + accuracy);
-        ImmutablePathNavigationRegion snapshot = ((PathNavigationRegionAccess) region).arclight$snapshot(mob.getBlockY(), radius);
-        PathFinder taskFinder = access.arclight$createPathFinder(radius);
+        // 快照垂直范围封顶: A* 垂直探索受跳跃/跌落限制, ±16 足够, 原 ±40 每请求多拷 30 万格。
+        ImmutablePathNavigationRegion snapshot = ((PathNavigationRegionAccess) region).arclight$snapshot(mob.getBlockY(), Math.min(radius, 16));
+        // 节点预算镜像 vanilla PathNavigation 构造器: floor(followRange*16)。此前误传 radius(≈17),
+        // A* 只能搜出 3-4 格路径 → 生物"追到三四格就不动"。
+        int nodeBudget = net.minecraft.util.Mth.floor(maxRange * 16);
+        PathFinder taskFinder = access.arclight$createPathFinder(nodeBudget);
         int regionId = regionWorker ? RegionTickManager.currentRegion() : -1;
         if (AsyncPathfindingManager.submit(taskFinder, snapshot, mob, targets,
                 maxRange, accuracy, depthMultiplier, navigation, tick, regionId)) {
