@@ -8,6 +8,7 @@ package io.izzel.arclight.common.optimization.general.servercore;
 import io.izzel.arclight.common.optimization.general.AsyncTaskStats;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import net.minecraft.core.BlockPos;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.ai.navigation.PathNavigation;
 import net.minecraft.world.level.pathfinder.Path;
@@ -17,6 +18,7 @@ import org.apache.logging.log4j.Logger;
 
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -55,6 +57,10 @@ public final class AsyncPathfindingManager {
     private static volatile AtomicLong[] LAST_REGION_DRAINED = new AtomicLong[0];
     private static final Object REGION_RESULTS_LOCK = new Object();
 
+    // Dimension workers own their level's entity ticks, so their results must be
+    // applied by the same dimension worker (never by the main thread).
+    private static final ConcurrentHashMap<ServerLevel, DimensionBucket> DIMENSION_RESULTS = new ConcurrentHashMap<>();
+
     /** Rebuilds the per-region result buckets (startup / auto-scale reconfiguration). */
     public static synchronized void reconfigureRegions(int n) {
         @SuppressWarnings("unchecked")
@@ -82,7 +88,7 @@ public final class AsyncPathfindingManager {
     private static final AsyncTaskStats STATS = AsyncTaskStats.builder("[async-pathfinding]")
             .intervalTicks(600)
             .counter("applied")
-            .group("discarded", "dead", "cancelled", "timeout")
+            .group("discarded", "dead", "cancelled", "timeout", "saturated", "moved")
             .gauge("pending")
             .build();
 
@@ -102,7 +108,23 @@ public final class AsyncPathfindingManager {
 
     /** 在飞任务超过 worker 数约 2 倍即拒绝新提交（调用方跳过本次寻路，防止排队时间超过结果有效期）。 */
     public static boolean canSubmit() {
-        return PENDING.get() < Math.max(16, Math.min(64, WORKER_COUNT * 2));
+        boolean ok = PENDING.get() < Math.max(16, Math.min(64, WORKER_COUNT * 2));
+        if (!ok) {
+            STATS.increment("discarded.saturated");
+        }
+        return ok;
+    }
+
+    /** One-line status for /servercore status. */
+    public static String statusText() {
+        return "workers=" + WORKER_COUNT
+                + " pending=" + PENDING.get()
+                + " applied=" + STATS.counterSum("applied")
+                + " discard[dead=" + STATS.counterSum("discarded.dead")
+                + " cancelled=" + STATS.counterSum("discarded.cancelled")
+                + " timeout=" + STATS.counterSum("discarded.timeout")
+                + " saturated=" + STATS.counterSum("discarded.saturated")
+                + " moved=" + STATS.counterSum("discarded.moved") + "]";
     }
 
     private static boolean reservePending() {
@@ -122,15 +144,20 @@ public final class AsyncPathfindingManager {
     }
 
     /**
-     * Enqueues a finished result into the main queue or the owning region's bucket.
+     * Enqueues a finished result into the bucket owned by the submitting thread:
+     * main queue, the owning region's bucket, or the dimension worker's bucket.
      * Returns {@code false} (and does not enqueue) when the combined backlog is
      * over {@link #MAX_RESULT_BACKLOG} — the caller must clear the navigation's
      * pending flag so it can re-submit next tick.
      */
-    private static boolean offerResult(int regionId, Result result) {
+    private static boolean offerResult(int regionId, boolean dimensionOwned, ServerLevel dimensionLevel, Result result) {
         if (RESULT_BACKLOG.incrementAndGet() > MAX_RESULT_BACKLOG) {
             RESULT_BACKLOG.decrementAndGet();
             return false;
+        }
+        if (dimensionOwned && dimensionLevel != null) {
+            DIMENSION_RESULTS.computeIfAbsent(dimensionLevel, ignored -> new DimensionBucket()).queue.add(result);
+            return true;
         }
         if (regionId >= 0) {
             synchronized (REGION_RESULTS_LOCK) {
@@ -149,16 +176,19 @@ public final class AsyncPathfindingManager {
     }
 
     /**
-     * Submits an async pathfinding task. {@code regionId} routes the result to the
-     * main queue ({@code -1}) or the owning region's queue ({@code >= 0}).
+     * Submits an async pathfinding task. The result is routed back to the same
+     * ownership class that submitted it: main queue ({@code regionId == -1},
+     * {@code dimensionOwned == false}), owning region bucket ({@code regionId >= 0}),
+     * or the owning dimension worker's bucket ({@code dimensionOwned == true}).
      */
     public static boolean submit(PathFinder pathFinder, ImmutablePathNavigationRegion snapshot, Mob mob,
                                  Set<BlockPos> targets, float maxRange, int accuracy, float depthMultiplier,
-                                 PathNavigation navigation, long serverTick, int regionId) {
+                                 PathNavigation navigation, long serverTick, int regionId, boolean dimensionOwned) {
         if (!reservePending()) return false;
+        ServerLevel ownerLevel = dimensionOwned && mob.level() instanceof ServerLevel sl ? sl : null;
         try {
-            // 提交时(主线程/区域 worker)捕获实体存活快照: 工作线程的预检只读这个标记,
-            // 绝不直接触碰可能已被主线程修改/回收的原实体字段(内存可见性隔离)。
+            // 提交时(主线程/区域 worker/维度 worker)捕获实体存活快照: 工作线程的预检只读这个标记,
+            // 绝不直接触碰可能已被其他线程修改/回收的原实体字段(内存可见性隔离)。
             java.util.concurrent.atomic.AtomicBoolean aliveSnapshot = new java.util.concurrent.atomic.AtomicBoolean(mob.isAlive());
             long requestNanos = System.nanoTime();
             PathNavigationAccess navigationAccess = (PathNavigationAccess) navigation;
@@ -175,8 +205,8 @@ public final class AsyncPathfindingManager {
                         return;
                     }
                     Path path = pathFinder.findPath(snapshot, mob, targets, maxRange, accuracy, depthMultiplier);
-                    Result result = new Result(navigation, path, requestNanos);
-                    if (!offerResult(regionId, result)) {
+                    Result result = new Result(navigation, mob, path, requestNanos, regionId);
+                    if (!offerResult(regionId, dimensionOwned, ownerLevel, result)) {
                         // 积压超限：丢弃结果并清 pending，导航下个 tick 可重新提交。
                         ((PathNavigationAccess) navigation).arclight$clearAsyncPending();
                         STATS.increment("discarded.timeout");
@@ -200,13 +230,13 @@ public final class AsyncPathfindingManager {
         }
     }
 
-    /** Drains pending results on the main thread (once per tick). */
+    /** Drains pending main-owned results on the main thread (once per tick). */
     public static void drainIfNeeded(long serverTick) {
         long last = LAST_TICK_DRAINED.get();
         if (last == serverTick) return;
         if (RESULTS.isEmpty()) return;
         LAST_TICK_DRAINED.set(serverTick);
-        drain(RESULTS, serverTick);
+        drain(RESULTS, serverTick, Owner.MAIN, null);
         STATS.tick(serverTick);
     }
 
@@ -218,11 +248,25 @@ public final class AsyncPathfindingManager {
         if (last == serverTick) return;
         if (buckets[regionId].isEmpty()) return;
         LAST_REGION_DRAINED[regionId].set(serverTick);
-        drain(buckets[regionId], serverTick);
+        drain(buckets[regionId], serverTick, Owner.REGION, null);
         STATS.tick(serverTick);
     }
 
-    private static void drain(ConcurrentLinkedQueue<Result> queue, long serverTick) {
+    /** Drains the level's result queue on that level's dimension worker before its tick. */
+    public static void drainDimension(ServerLevel level, long serverTick) {
+        DimensionBucket bucket = DIMENSION_RESULTS.get(level);
+        if (bucket == null) {
+            return;
+        }
+        long last = bucket.lastDrained.get();
+        if (last == serverTick) return;
+        if (bucket.queue.isEmpty()) return;
+        bucket.lastDrained.set(serverTick);
+        drain(bucket.queue, serverTick, Owner.DIMENSION, level);
+        STATS.tick(serverTick);
+    }
+
+    private static void drain(ConcurrentLinkedQueue<Result> queue, long serverTick, Owner owner, ServerLevel ownerLevel) {
         List<Result> drained = new ObjectArrayList<>();
         Result r;
         while ((r = queue.poll()) != null) {
@@ -249,21 +293,57 @@ public final class AsyncPathfindingManager {
                 STATS.increment("discarded.cancelled");
                 continue;
             }
+            // Ownership re-check at apply time: an entity may have crossed a region
+            // boundary between submission and result. Never apply navigation state
+            // from a thread that no longer owns the entity's region.
+            Mob mob = result.mob.get();
+            if (mob == null || !mob.isAlive()) {
+                STATS.increment("discarded.dead");
+                access.arclight$clearAsyncPending();
+                continue;
+            }
+            if (owner == Owner.REGION) {
+                int currentRegion = RegionTickManager.currentRegion();
+                if (result.regionId != currentRegion || RegionLevel.regionId(mob.blockPosition()) != currentRegion) {
+                    STATS.increment("discarded.moved");
+                    access.arclight$clearAsyncPending();
+                    continue;
+                }
+            } else if (owner == Owner.DIMENSION && mob.level() != ownerLevel) {
+                STATS.increment("discarded.moved");
+                access.arclight$clearAsyncPending();
+                continue;
+            }
             access.arclight$applyAsyncResult(result.path);
             access.arclight$clearAsyncPending();
             STATS.increment("applied");
         }
     }
 
+    private enum Owner {
+        MAIN,
+        REGION,
+        DIMENSION
+    }
+
+    private static final class DimensionBucket {
+        final ConcurrentLinkedQueue<Result> queue = new ConcurrentLinkedQueue<>();
+        final AtomicLong lastDrained = new AtomicLong(-1);
+    }
+
     private static final class Result {
         final java.lang.ref.WeakReference<PathNavigation> navigation;
+        final java.lang.ref.WeakReference<Mob> mob;
         final Path path;
         final long requestNanos;
+        final int regionId;
 
-        Result(PathNavigation navigation, Path path, long requestNanos) {
+        Result(PathNavigation navigation, Mob mob, Path path, long requestNanos, int regionId) {
             this.navigation = new java.lang.ref.WeakReference<>(navigation);
+            this.mob = new java.lang.ref.WeakReference<>(mob);
             this.path = path;
             this.requestNanos = requestNanos;
+            this.regionId = regionId;
         }
     }
 }

@@ -30,6 +30,9 @@ public final class DimensionTickUnit implements ParallelTickUnit {
 
     @Override
     public void tick(BooleanSupplier hasTimeLeft) {
+        // 本维度 worker 提交的异步寻路结果必须由本 worker 应用，先 drain 再 tick，
+        // 否则主线程应用会与本维度实体 tick 并发写 PathNavigation。
+        AsyncPathfindingManager.drainDimension(this.level, this.level.getServer().getTickCount());
         this.level.tick(hasTimeLeft);
     }
 }

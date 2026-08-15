@@ -85,11 +85,17 @@ public abstract class PathFinderMixin_Async {
             AsyncPathfindingManager.drainIfNeeded(tick);
         }
         if (!AsyncPathfindingManager.canSubmit()) {
-            // 队列饱和：跳过本次寻路（下 tick 重试），同步 A* 回退会拖垮 region worker TPS
-            LOGGER.debug("[pf-async] queue full, skipping this tick");
+            // 队列饱和：跳过本次寻路（下 tick 重试），同步 A* 回退会拖垮 region worker TPS。
+            // 但必须保住当前路径，否则原版 moveTo(null) 每 tick 清一次路径，饱和期生物原地罚站。
+            access.arclight$markPathKeep();
+            LOGGER.debug("[pf-async] queue full, keeping current path this tick");
             cir.setReturnValue(null);
             return;
         }
+
+        // 提交成功与否都会清掉"保路径"标记：成功时结果会接管路径；失败说明是
+        // 极窄的 reserve 竞态，下一 tick 会重新走饱和分支再次标记。
+        access.arclight$clearPathKeep();
 
         // 快照捕获线程 = 拥有该区域状态的线程(主线程 / 维度 worker / 区域 worker):
         // BlockState 是不可变单例, 引用数组拷贝后工作线程完全脱离可变状态。
@@ -102,11 +108,14 @@ public abstract class PathFinderMixin_Async {
         PathFinder taskFinder = access.arclight$createPathFinder(nodeBudget);
         int regionId = regionWorker ? RegionTickManager.currentRegion() : -1;
         if (AsyncPathfindingManager.submit(taskFinder, snapshot, mob, targets,
-                maxRange, accuracy, depthMultiplier, navigation, tick, regionId)) {
+                maxRange, accuracy, depthMultiplier, navigation, tick, regionId, dimensionWorker)) {
             cir.setReturnValue(null);
             if (LOGGER.isDebugEnabled()) {
                 LOGGER.debug("[pf-async] submitted nav={} mob={} targets={} region={}", navigation, mob.getType(), targets.size(), regionId);
             }
+        } else {
+            // reservePending 失败的窄竞态：保住路径，下一 tick 重试。
+            access.arclight$markPathKeep();
         }
     }
 }

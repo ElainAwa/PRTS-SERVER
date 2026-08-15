@@ -21,6 +21,17 @@ public interface PathNavigationAccess {
 
     void arclight$clearAsyncPending();
 
+    /**
+     * Queue-saturated skip flag: when the async pool cannot accept a new task,
+     * the current path must survive the navigation's {@code moveTo(null)} call
+     * so mobs keep walking instead of clearing their path every tick.
+     */
+    boolean arclight$isPathKeep();
+
+    void arclight$markPathKeep();
+
+    void arclight$clearPathKeep();
+
     void arclight$applyAsyncResult(Path path);
 
     /** Creates a private PathFinder instance (main thread only) for an async task. */
