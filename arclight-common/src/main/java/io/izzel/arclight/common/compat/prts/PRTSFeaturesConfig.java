@@ -82,6 +82,10 @@ public class PRTSFeaturesConfig {
     public static List<String> mainThreadEntityAllow;
     /** 优雅停机时把本会话学到的路由追加写回配置文件（默认关，后续版本启用）。 */
     public static boolean persistLearnedRoutes;
+    /** 跨区写 journal 每区域队列上限（最旧条目丢弃，默认 4096）。 */
+    public static int journalMaxPerRegion;
+    /** read-your-writes overlay 总开关（默认关，仅预留接口，未接入方块读路径）。 */
+    public static boolean journalReadBack;
 
     // Reliable chunk save - WAL 预写日志（PRTS 自研可靠区块保存，默认关）
     public static boolean reliableChunkSave;
@@ -179,6 +183,8 @@ public class PRTSFeaturesConfig {
         LOGGER.info("parallel main-thread-routing={} threshold={} window={} ticks force={} allow={} persist={}",
                 mainThreadRouting, routeThreshold, routeWindowTicks,
                 mainThreadEntityForce.size(), mainThreadEntityAllow.size(), persistLearnedRoutes);
+        journalMaxPerRegion = Math.max(16, config.getInt("parallel.journal-max-per-region", 4096));
+        journalReadBack = config.getBoolean("parallel.journal-read-back", false);
         reliableChunkSave = config.getBoolean("reliable-chunk-save.enabled", false);
         journalIntervalSeconds = config.getLong("reliable-chunk-save.interval-seconds", 30);
         journalChunksPerTick = config.getInt("reliable-chunk-save.chunks-per-tick", 50);
@@ -257,6 +263,8 @@ public class PRTSFeaturesConfig {
                   main-thread-entity-force: []     # 强制主线程 tick 的类名/前缀
                   main-thread-entity-allow: []     # 强制不路由的类名/前缀（危险调试用）
                   persist-learned-routes: false    # 停机时把学到的路由写回配置（暂未实现）
+                  journal-max-per-region: 4096     # 跨区写 journal 每区域队列上限（最旧丢弃）
+                  journal-read-back: false         # read-your-writes overlay（预留接口，默认关）
 
                 # 可靠区块保存（WAL 预写日志，默认关）
                 reliable-chunk-save:

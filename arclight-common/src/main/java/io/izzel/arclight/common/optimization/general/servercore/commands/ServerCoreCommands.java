@@ -13,6 +13,7 @@ import com.mojang.brigadier.Command;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import io.izzel.arclight.common.optimization.general.servercore.AsyncPathfindingManager;
+import io.izzel.arclight.common.optimization.general.servercore.RegionTickManager;
 import io.izzel.arclight.common.optimization.general.servercore.ServerCoreConfig;
 import io.izzel.arclight.common.optimization.general.servercore.dynamic.DynamicManager;
 import io.izzel.arclight.common.optimization.general.servercore.dynamic.DynamicSetting;
@@ -119,6 +120,10 @@ public class ServerCoreCommands {
 
             component.append(Formatter.parse("\n<dark_gray>» <c:#primary>AsyncPathfinding: <c:#secondary>%s".formatted(
                     AsyncPathfindingManager.statusText()
+            ), source.getServer()));
+
+            component.append(Formatter.parse("\n<dark_gray>» <c:#primary>Journal: <c:#secondary>%s".formatted(
+                    RegionTickManager.journalStatusText(source.getServer())
             ), source.getServer()));
             return component;
         }, false);

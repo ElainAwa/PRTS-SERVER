@@ -139,7 +139,7 @@ public final class RegionTickManager {
 
     private static final class DimensionState {
         final ConcurrentLinkedQueue<Entity>[] entityQueues;
-        final ConcurrentLinkedQueue<CrossUpdate>[] crossUpdates;
+        final WorldWriteJournal journal;
         final ConcurrentLinkedQueue<BlockTick>[] blockTickQueues;
         final ConcurrentLinkedQueue<TickingBlockEntity>[] teTickQueues;
         volatile long appliedTick = -1L;
@@ -152,7 +152,7 @@ public final class RegionTickManager {
 
         DimensionState(int n) {
             this.entityQueues = newQueues(n);
-            this.crossUpdates = newQueues(n);
+            this.journal = new WorldWriteJournal(n, PRTSFeaturesConfig.journalMaxPerRegion);
             this.blockTickQueues = newQueues(n);
             this.teTickQueues = newQueues(n);
             this.lastEntityDist = new int[n];
@@ -493,10 +493,15 @@ public final class RegionTickManager {
         }
     }
 
-    /** Collects a cross-region write into the target region's queue (Level.setBlock interception). */
+    /** Collects a cross-region write into the target region's journal (Level.setBlock interception). */
     public static void collectCrossWrite(ServerLevel level, BlockPos pos, BlockState state, int flags) {
         int target = RegionLevel.regionId(pos);
-        state(level).crossUpdates[target].add(new CrossUpdate(pos, state, flags));
+        long tick = level.getServer() != null ? level.getServer().getTickCount() : 0L;
+        String source = CURRENT_ENTITY_CLASS.get();
+        if (source == null || source.isEmpty()) {
+            source = Thread.currentThread().getName();
+        }
+        state(level).journal.submit(target, new WorldWriteJournal.Entry(pos, state, flags, tick, source));
         STATS.increment("cross.block");
         if (isRedstone(state.getBlock())) {
             STATS.increment("cross.redstone");
@@ -565,7 +570,7 @@ public final class RegionTickManager {
         if (!applyNow && isEmpty(st.blockTickQueues)) {
             return false;
         }
-        if (applyNow && isEmpty(st.blockTickQueues) && isEmpty(st.crossUpdates)) {
+        if (applyNow && isEmpty(st.blockTickQueues) && st.journal.isEmpty()) {
             return false;
         }
         if (serializeBlockTicksForMods()) {
@@ -578,11 +583,8 @@ public final class RegionTickManager {
                 }
             }
             if (applyNow) {
-                for (int r = 0; r < st.crossUpdates.length; r++) {
-                    CrossUpdate u;
-                    while ((u = st.crossUpdates[r].poll()) != null) {
-                        level.setBlock(u.pos(), u.state(), u.flags());
-                    }
+                for (int r = 0; r < regionCount(); r++) {
+                    st.journal.apply(level, r);
                 }
             }
             return true;
@@ -717,19 +719,9 @@ public final class RegionTickManager {
         }
     }
 
-    /** Drains and applies the update set collected for a region (on the region worker). */
+    /** Drains and applies the journal entries collected for a region (on the region worker). */
     private static void applyCrossUpdates(ServerLevel level, int regionId) {
-        CrossUpdate u;
-        int applied = 0;
-        ConcurrentLinkedQueue<CrossUpdate> updates = state(level).crossUpdates[regionId];
-        while ((u = updates.poll()) != null) {
-            try {
-                level.setBlock(u.pos(), u.state(), u.flags());
-                applied++;
-            } catch (Throwable t) {
-                LOGGER.warn("[region-tick] cross-update apply failed at {}: {}", u.pos(), t.toString());
-            }
-        }
+        int applied = state(level).journal.apply(level, regionId);
         if (applied > 0) {
             STATS.add("update.applied", applied);
         }
@@ -855,7 +847,13 @@ public final class RegionTickManager {
                 || block == Blocks.TARGET || block == Blocks.DAYLIGHT_DETECTOR;
     }
 
-    private record CrossUpdate(BlockPos pos, BlockState state, int flags) {
+    /** One-line cross-write journal status for /servercore status (overworld). */
+    public static String journalStatusText(net.minecraft.server.MinecraftServer server) {
+        ServerLevel overworld = server != null ? server.overworld() : null;
+        if (overworld == null) {
+            return "no overworld";
+        }
+        return state(overworld).journal.statusText();
     }
 
     private record BlockTick(BlockPos pos, Block block) {
