@@ -32,6 +32,7 @@
     "servercore.SmartBlockEntityMixin_MainThreadInit",
     "servercore.compat.VoxelNeighborhoodStateMixin_Sable",
     "servercore.compat.FunnelBlockMixin_Create",
+    "servercore.compat.TrackBlockEntityMixin_LazySpread",
     "servercore.compat.AbstractEntityCitizenMixin_ColonyPhase",
     "servercore.compat.EntityCitizenMixin_MainThreadDeath",
     "servercore.ownership.LevelMixin_OwnershipGuard",
