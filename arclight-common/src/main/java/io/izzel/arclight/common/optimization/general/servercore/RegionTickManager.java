@@ -5,7 +5,6 @@
 
 package io.izzel.arclight.common.optimization.general.servercore;
 
-import io.izzel.arclight.common.bridge.core.entity.EntityBridge;
 import io.izzel.arclight.common.bridge.core.world.server.ServerChunkCacheRegionBridge;
 import io.izzel.arclight.common.compat.prts.PRTSFeaturesConfig;
 import io.izzel.arclight.common.optimization.general.AsyncTaskStats;
@@ -174,6 +173,7 @@ public final class RegionTickManager {
             .counter("ticks")
             .group("cross", "block", "redstone", "redstoneBoundary", "transfer", "read")
             .group("update", "blockTicks", "teTicks", "applied", "teMainTicks")
+            .timer("entities.mainThreadMs")
             .build();
 
     private RegionTickManager() {
@@ -378,6 +378,7 @@ public final class RegionTickManager {
         if (queue == null) {
             return;
         }
+        long start = Util.getNanos();
         Entity entity;
         while ((entity = queue.poll()) != null) {
             try {
@@ -388,6 +389,7 @@ public final class RegionTickManager {
                         entity.blockPosition(), t.toString());
             }
         }
+        STATS.record("entities.mainThreadMs", Util.getNanos() - start);
     }
 
     /**
@@ -401,6 +403,7 @@ public final class RegionTickManager {
             "com.arxyt.colonypathingedition.",
             "com.dannyboythomas.hole_filler_mod.",        // 填洞球等投掷实体(落地放方块+取 BE)
             "net.minecraft.world.entity.vehicle.",        // 矿车/船：onMinecartPass→getBlockEntity 触发装配站
+            "net.minecraft.world.entity.boss.enderdragon.", // 末影龙：飞行 AI 读地形，worker 空气回退会让它悬停
     };
 
     public static boolean needsMainThreadTick(Entity entity) {
@@ -777,10 +780,8 @@ public final class RegionTickManager {
             // 仅断链清理；无条件调用会拆解 Create 装置实体（stopRiding 即 disassemble）
             entity.stopRiding();
         }
-        Entity[] parts = ((EntityBridge) entity).bridge$forge$getParts();
-        if (!entity.isRemoved() && (parts == null || parts.length == 0)) {
-            level.tickNonPassenger(entity);
-        }
+        // multipart 实体（末影龙）主体也必须 tick，部件由实体自身 tick 驱动
+        level.tickNonPassenger(entity);
     }
 
     private static boolean isEmpty(ConcurrentLinkedQueue<?>[] queues) {

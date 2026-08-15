@@ -142,14 +142,9 @@ public abstract class ServerChunkCacheMixin_DimParallel implements io.izzel.arcl
             cir.setReturnValue(existing);
             return;
         }
-        CompletableFuture<ChunkAccess> future = ChunkDemandQueue.submitWait(this.level, this.chunkMap, x, z, false);
-        if (required) {
-            ChunkAccess c = ChunkDemandQueue.await(this.level, x, z, future, 50);
-            if (c != null) {
-                cir.setReturnValue(c);
-                return;
-            }
-        }
+        // 主线程在 barrier 中无法 drain 需求，worker 等待必然超时：只提交需求，
+        // 立即返回空壳（下 tick 主线程 drain 生成完成后 worker 就能读到真实区块）。
+        ChunkDemandQueue.submit(this.level, this.chunkMap, x, z, false);
         cir.setReturnValue(new EmptyLevelChunk(this.level, new ChunkPos(x, z), arclight$voidBiome(this.level)));
     }
 

@@ -10,6 +10,7 @@ import io.izzel.arclight.common.bridge.core.server.MinecraftServerBridge;
 import io.izzel.arclight.common.bridge.core.world.level.ExplosionBridge;
 import io.izzel.arclight.common.bridge.core.world.level.levelgen.flat.FlatLevelGeneratorSettingsBridge;
 import io.izzel.arclight.common.bridge.core.world.server.ServerChunkProviderBridge;
+import io.izzel.arclight.common.compat.prts.PRTSFeaturesConfig;
 import io.izzel.arclight.common.bridge.core.server.level.ServerLevelBridge;
 import io.izzel.arclight.common.bridge.core.world.level.storage.DerivedLevelDataBridge;
 import io.izzel.arclight.common.bridge.core.world.level.storage.LevelStorageSourceBridge;
@@ -49,6 +50,7 @@ import net.minecraft.world.Container;
 import net.minecraft.world.RandomSequences;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LightningBolt;
+import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.ai.navigation.PathNavigation;
 import net.minecraft.world.level.CustomSpawner;
 import net.minecraft.world.level.Explosion;
@@ -88,6 +90,7 @@ import org.bukkit.event.weather.LightningStrikeEvent;
 import org.bukkit.event.world.GenericGameEvent;
 import org.bukkit.event.world.TimeSkipEvent;
 import org.bukkit.event.world.WorldSaveEvent;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Opcodes;
 import org.spigotmc.SpigotWorldConfig;
@@ -105,6 +108,7 @@ import javax.annotation.Nonnull;
 import java.util.ConcurrentModificationException;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Executor;
 
@@ -530,6 +534,19 @@ public abstract class ServerLevelMixin extends LevelMixin implements ServerLevel
             return raw;
         }
         return Iterators.filter(raw, it -> it != null && ((ServerPlayerBridge)it).bridge$getBukkitEntity().canSee(player.bridge$getBukkitEntity()));
+    }
+
+    @Redirect(method = "sendBlockUpdated",
+            at = @At(value = "INVOKE", target = "Ljava/util/Set;iterator()Ljava/util/Iterator;"))
+    private Iterator<Mob> arclight$snapshotNavigatingMobs(Set<Mob> instance) {
+        if (!PRTSFeaturesConfig.parallelDimension && !PRTSFeaturesConfig.parallelRegion) {
+            return instance.iterator();
+        }
+        // 并行开启时 navigatingMobs 的写侧在 EntityCallbacks mixin 里已对集合加锁，
+        // 读侧必须用同一把锁做快照，否则 fastutil 集合 rehash 会让迭代器 wrapped 变 null。
+        synchronized (instance) {
+            return new ObjectArrayList<>(instance).iterator();
+        }
     }
 
     @Decorate(method = "sendBlockUpdated", at = @At(value = "INVOKE", target = "Ljava/util/Iterator;next()Ljava/lang/Object;"))
