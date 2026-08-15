@@ -23,7 +23,6 @@
     "trackingrange.ChunkMapMixin_TrackingRange",
     "trackingrange.EntityMixin_TrackingRange",
     "servercore.biome_lookups.NaturalSpawnerMixin",
-    "servercore.misc.PathFinderMixin",
     "servercore.tickets.ChunkGeneratorMixin",
     "servercore.tickets.NaturalSpawnerMixin",
     "servercore.sync_loads.BeeMixin",
