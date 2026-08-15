@@ -99,6 +99,8 @@ public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<T
     // @formatter:off
     @Shadow private int tickCount;
     @Shadow protected long nextTickTimeNanos;
+    @Shadow private boolean mayHaveDelayedTasks;
+    @Shadow private long delayedTasksMaxNextTickTimeNanos;
     @Shadow @Final static Logger LOGGER;
     @Shadow public abstract Commands getCommands();
     @Shadow protected abstract void updateMobSpawningFlags();
@@ -272,9 +274,22 @@ public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<T
         }
     }
 
-    @Inject(method = "haveTime", cancellable = true, at = @At("HEAD"))
-    private void arclight$forceAheadOfTime(CallbackInfoReturnable<Boolean> cir) {
-        if (this.forceTicks) cir.setReturnValue(true);
+    /**
+     * @author ElainAwa
+     * @reason haveTime is called from every poll/shouldRun loop per tick; the
+     * previous @Inject allocated a CallbackInfoReturnable on each call (visible
+     * in spark as 6% self-time). Overwrite mirrors vanilla exactly and only
+     * short-circuits when PRTS forces the server ahead of schedule.
+     */
+    @Overwrite
+    private boolean haveTime() {
+        if (this.forceTicks) {
+            return true;
+        }
+        if (this.runningTask()) {
+            return true;
+        }
+        return Util.getNanos() < (this.mayHaveDelayedTasks ? this.delayedTasksMaxNextTickTimeNanos : this.nextTickTimeNanos);
     }
 
     @Inject(method = "createLevels", at = @At(value = "NEW", ordinal = 0, target = "(Lnet/minecraft/server/MinecraftServer;Ljava/util/concurrent/Executor;Lnet/minecraft/world/level/storage/LevelStorageSource$LevelStorageAccess;Lnet/minecraft/world/level/storage/ServerLevelData;Lnet/minecraft/resources/ResourceKey;Lnet/minecraft/world/level/dimension/LevelStem;Lnet/minecraft/server/level/progress/ChunkProgressListener;ZJLjava/util/List;ZLnet/minecraft/world/RandomSequences;)Lnet/minecraft/server/level/ServerLevel;"))
