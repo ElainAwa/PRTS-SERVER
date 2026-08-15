@@ -1,5 +1,8 @@
 package io.izzel.arclight.common.compat.prts;
 
+import io.izzel.arclight.common.optimization.general.servercore.ownership.ClassAffinityLedger;
+import io.izzel.arclight.common.optimization.general.servercore.ownership.ThreadPolicy;
+import io.izzel.arclight.common.optimization.general.servercore.ownership.WorldAccessGuard;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -63,6 +66,22 @@ public class PRTSFeaturesConfig {
     public static int regionScaleMin;
     public static int regionScaleMax;
     public static double regionScaleCrossReadRatio;
+    /** worker 世界访问策略：off（关闭）/ stats（只统计，默认）/ enforce（测服定位用）。 */
+    public static ThreadPolicy threadPolicy;
+    /** 违规日志每分钟每类限流条数（>0）。 */
+    public static int violationLogPerMinute;
+    /** 自动路由：auto（违规学习）/ manual（只认前缀种子 + force/allow 列表）。 */
+    public static String mainThreadRouting;
+    /** 时间窗内 MAIN_ONLY 违规达到该次数即把实体类路由主线程（0 = 禁用学习）。 */
+    public static int routeThreshold;
+    /** 违规学习窗口（tick，默认 2400 = 2 分钟）。 */
+    public static long routeWindowTicks;
+    /** 强制主线程 tick 的类名/前缀（优先级最高）。 */
+    public static List<String> mainThreadEntityForce;
+    /** 强制不路由的类名/前缀（危险调试用，覆盖学习与种子）。 */
+    public static List<String> mainThreadEntityAllow;
+    /** 优雅停机时把本会话学到的路由追加写回配置文件（默认关，后续版本启用）。 */
+    public static boolean persistLearnedRoutes;
 
     // Reliable chunk save - WAL 预写日志（PRTS 自研可靠区块保存，默认关）
     public static boolean reliableChunkSave;
@@ -130,6 +149,36 @@ public class PRTSFeaturesConfig {
         regionScaleMax = clampPower(config.getInt("parallel.region-scale-max", 8), 2, 8);
         if (regionScaleMin > regionScaleMax) regionScaleMin = regionScaleMax;
         regionScaleCrossReadRatio = Math.max(0.0, config.getDouble("parallel.region-scale-cross-read-ratio", 0.05));
+        // worker 世界访问策略：解析失败/未知值回退 stats（只统计不拦截，生产安全）。
+        // YAML 会把裸写的 off/on 解析成布尔值，这里先还原成字符串再交给 ThreadPolicy。
+        Object threadPolicyValue = config.get("parallel.thread-policy", "stats");
+        String threadPolicyRaw;
+        if (threadPolicyValue instanceof Boolean bool) {
+            threadPolicyRaw = bool ? "on" : "off";
+        } else {
+            threadPolicyRaw = String.valueOf(threadPolicyValue);
+        }
+        threadPolicy = ThreadPolicy.parse(threadPolicyRaw);
+        LOGGER.info("parallel.thread-policy raw={} parsed={}", threadPolicyRaw, threadPolicy);
+        if (threadPolicy == ThreadPolicy.ENFORCE) {
+            LOGGER.warn("parallel.thread-policy=enforce is for test-server debugging only; violations will abort the offending entity tick");
+        }
+        violationLogPerMinute = Math.max(1, config.getInt("parallel.violation-log-per-minute", 20));
+        WorldAccessGuard.applyConfig(threadPolicy, violationLogPerMinute);
+        mainThreadRouting = config.getString("parallel.main-thread-routing", "auto").trim().toLowerCase(java.util.Locale.ROOT);
+        if (!"auto".equals(mainThreadRouting) && !"manual".equals(mainThreadRouting)) {
+            LOGGER.warn("parallel.main-thread-routing={} is invalid; falling back to auto", mainThreadRouting);
+            mainThreadRouting = "auto";
+        }
+        routeThreshold = Math.max(0, config.getInt("parallel.route-threshold", 2));
+        routeWindowTicks = Math.max(20, config.getLong("parallel.route-window-ticks", 2400));
+        mainThreadEntityForce = new ArrayList<>(config.getStringList("parallel.main-thread-entity-force"));
+        mainThreadEntityAllow = new ArrayList<>(config.getStringList("parallel.main-thread-entity-allow"));
+        persistLearnedRoutes = config.getBoolean("parallel.persist-learned-routes", false);
+        ClassAffinityLedger.applyConfig(routeThreshold, routeWindowTicks);
+        LOGGER.info("parallel main-thread-routing={} threshold={} window={} ticks force={} allow={} persist={}",
+                mainThreadRouting, routeThreshold, routeWindowTicks,
+                mainThreadEntityForce.size(), mainThreadEntityAllow.size(), persistLearnedRoutes);
         reliableChunkSave = config.getBoolean("reliable-chunk-save.enabled", false);
         journalIntervalSeconds = config.getLong("reliable-chunk-save.interval-seconds", 30);
         journalChunksPerTick = config.getInt("reliable-chunk-save.chunks-per-tick", 50);
@@ -200,6 +249,14 @@ public class PRTSFeaturesConfig {
                   region-scale-min: 2
                   region-scale-max: 8
                   region-scale-cross-read-ratio: 0.05
+                  thread-policy: stats             # worker 世界访问策略: off/stats/enforce（生产用 stats）
+                  violation-log-per-minute: 20     # 违规日志每分钟每类限流条数
+                  main-thread-routing: auto        # auto 违规学习 / manual 只认种子列表
+                  route-threshold: 2               # 窗口内 MAIN_ONLY 违规次数即路由主线程（0=禁用学习）
+                  route-window-ticks: 2400         # 违规学习窗口（tick，2400=2分钟）
+                  main-thread-entity-force: []     # 强制主线程 tick 的类名/前缀
+                  main-thread-entity-allow: []     # 强制不路由的类名/前缀（危险调试用）
+                  persist-learned-routes: false    # 停机时把学到的路由写回配置（暂未实现）
 
                 # 可靠区块保存（WAL 预写日志，默认关）
                 reliable-chunk-save:

@@ -8,6 +8,8 @@ package io.izzel.arclight.common.optimization.general.servercore;
 import io.izzel.arclight.common.bridge.core.world.server.ServerChunkCacheRegionBridge;
 import io.izzel.arclight.common.compat.prts.PRTSFeaturesConfig;
 import io.izzel.arclight.common.optimization.general.AsyncTaskStats;
+import io.izzel.arclight.common.optimization.general.servercore.ownership.AccessViolation;
+import io.izzel.arclight.common.optimization.general.servercore.ownership.ClassAffinityLedger;
 import net.minecraft.Util;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.MinecraftServer;
@@ -87,6 +89,9 @@ public final class RegionTickManager {
 
     private static final AtomicBoolean IN_REGION_TICK = new AtomicBoolean(false);
     private static final ThreadLocal<RegionContext> REGION_CONTEXT = new ThreadLocal<>();
+
+    /** 当前 region worker 正在 tick 的实体类名，供 WorldAccessGuard 归因违规。 */
+    private static final ThreadLocal<String> CURRENT_ENTITY_CLASS = new ThreadLocal<>();
 
     /**
      * The level whose vanilla block-tick collection is currently running on this
@@ -298,6 +303,11 @@ public final class RegionTickManager {
         return ctx != null && ctx.level() == level;
     }
 
+    /** Entity class currently ticking on this region worker, or null outside entity ticks. */
+    public static String currentEntityClassName() {
+        return CURRENT_ENTITY_CLASS.get();
+    }
+
     /** 把一个方块实体排到主线程队列（下次主线程 PRE 阶段执行其 tick）。 */
     public static void queueMainThreadBlockEntity(BlockEntity be) {
         if (be.getLevel() instanceof ServerLevel level) {
@@ -408,27 +418,51 @@ public final class RegionTickManager {
 
     public static boolean needsMainThreadTick(Entity entity) {
         Class<?> c = entity.getClass();
-        Boolean cached = MAIN_THREAD_ENTITY_CACHE.get(c);
-        if (cached != null) {
-            return cached;
+        // 1) force：显式强制主线程（最高优先级）
+        if (matchesAnyConfiguredPrefix(c, PRTSFeaturesConfig.mainThreadEntityForce)) {
+            return true;
         }
-        boolean hit = false;
+        // 2) allow：显式放行（危险调试用，覆盖种子与学习结果）
+        if (matchesAnyConfiguredPrefix(c, PRTSFeaturesConfig.mainThreadEntityAllow)) {
+            return false;
+        }
+        // 3) 种子前缀：v0.35 沉淀的手工知识，作为学习器的初始规则
+        Boolean seeded = MAIN_THREAD_ENTITY_CACHE.get(c);
+        if (seeded == null) {
+            seeded = matchesAnyPrefix(c, MAIN_THREAD_ENTITY_PREFIXES);
+            MAIN_THREAD_ENTITY_CACHE.put(c, seeded);
+        }
+        if (seeded) {
+            return true;
+        }
+        // 4) 运行时学习：Phase 2 违规窗口阈值路由（下 tick 起生效）
+        if (!"auto".equals(PRTSFeaturesConfig.mainThreadRouting)) {
+            return false;
+        }
+        long tick = entity.level().getServer() != null ? entity.level().getServer().getTickCount() : 0L;
+        return ClassAffinityLedger.shouldRouteMainThread(c.getName(), tick);
+    }
+
+    /** 沿类继承链匹配任意前缀（Entity 自身为止）。 */
+    private static boolean matchesAnyPrefix(Class<?> c, String[] prefixes) {
         Class<?> sup = c;
         while (sup != null && sup != Entity.class) {
             String name = sup.getName();
-            for (String prefix : MAIN_THREAD_ENTITY_PREFIXES) {
+            for (String prefix : prefixes) {
                 if (name.startsWith(prefix)) {
-                    hit = true;
-                    break;
+                    return true;
                 }
-            }
-            if (hit) {
-                break;
             }
             sup = sup.getSuperclass();
         }
-        MAIN_THREAD_ENTITY_CACHE.put(c, hit);
-        return hit;
+        return false;
+    }
+
+    private static boolean matchesAnyConfiguredPrefix(Class<?> c, List<String> prefixes) {
+        if (prefixes == null || prefixes.isEmpty()) {
+            return false;
+        }
+        return matchesAnyPrefix(c, prefixes.toArray(new String[0]));
     }
 
     /** 主线程实体路由：维度并行期间排主线程队列，否则当前线程（主线程）就地 tick。 */
@@ -668,7 +702,19 @@ public final class RegionTickManager {
                 local.add(entity);
             }
         });
-        local.forEach(consumer);
+        for (Entity entity : local) {
+            // 维度 worker 上没有区域归属，但仍有 WorldAccessGuard 的违规归因需求：
+            // 包一层实体上下文，enforce 模式的异常只中止当前实体 tick。
+            CURRENT_ENTITY_CLASS.set(entity.getClass().getName());
+            try {
+                consumer.accept(entity);
+            } catch (AccessViolation violation) {
+                LOGGER.debug("[dimension-tick] worker access violation swallowed for {}: {}",
+                        violation.ownerClassName(), violation.getMessage());
+            } finally {
+                CURRENT_ENTITY_CLASS.remove();
+            }
+        }
     }
 
     /** Drains and applies the update set collected for a region (on the region worker). */
@@ -764,7 +810,17 @@ public final class RegionTickManager {
         if (!((ServerChunkCacheRegionBridge) level.getChunkSource()).arclight$hasLiveChunk(chunkPos.x, chunkPos.z)) {
             return;
         }
-        tickEntitySafely(level, entity);
+        CURRENT_ENTITY_CLASS.set(entity.getClass().getName());
+        try {
+            tickEntitySafely(level, entity);
+        } catch (AccessViolation violation) {
+            // enforce 模式：只中止当前实体的本次 tick（guard 已记录/限流日志），
+            // 绝不让单个 mod 的违规升级为并行会话失败。
+            LOGGER.debug("[region-tick] worker access violation swallowed for {}: {}",
+                    violation.ownerClassName(), violation.getMessage());
+        } finally {
+            CURRENT_ENTITY_CLASS.remove();
+        }
     }
 
     /** 与 vanilla forEach consumer 等价的实体 tick 体，worker 与主线程 drain 共用。 */

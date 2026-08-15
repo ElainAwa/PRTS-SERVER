@@ -34,6 +34,8 @@
     "servercore.compat.FunnelBlockMixin_Create",
     "servercore.compat.AbstractEntityCitizenMixin_ColonyPhase",
     "servercore.compat.EntityCitizenMixin_MainThreadDeath",
+    "servercore.ownership.LevelMixin_OwnershipGuard",
+    "servercore.ownership.ServerLevelMixin_OwnershipGuard",
     "servercore.ServerChunkCacheMixin_ChunkDemandDrain",
     "servercore.GenerationChunkHolderMixin_CompleteNotify",
     "servercore.ChunkMapMixin_WorkerGenerationGuard",

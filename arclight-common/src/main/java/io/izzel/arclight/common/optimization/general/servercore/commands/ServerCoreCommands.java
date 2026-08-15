@@ -12,9 +12,11 @@ package io.izzel.arclight.common.optimization.general.servercore.commands;
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
+import io.izzel.arclight.common.optimization.general.servercore.AsyncPathfindingManager;
 import io.izzel.arclight.common.optimization.general.servercore.ServerCoreConfig;
 import io.izzel.arclight.common.optimization.general.servercore.dynamic.DynamicManager;
 import io.izzel.arclight.common.optimization.general.servercore.dynamic.DynamicSetting;
+import io.izzel.arclight.common.optimization.general.servercore.ownership.WorldAccessGuard;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.network.chat.Component;
@@ -110,6 +112,14 @@ public class ServerCoreCommands {
                         setting.getFormattedName(), setting.getFormattedValue()
                 ), source.getServer()));
             }
+
+            component.append(Formatter.parse("\n<dark_gray>» <c:#primary>ThreadPolicy: <c:#secondary>%s".formatted(
+                    WorldAccessGuard.statusText()
+            ), source.getServer()));
+
+            component.append(Formatter.parse("\n<dark_gray>» <c:#primary>AsyncPathfinding: <c:#secondary>%s".formatted(
+                    AsyncPathfindingManager.statusText()
+            ), source.getServer()));
             return component;
         }, false);
         return Command.SINGLE_SUCCESS;
