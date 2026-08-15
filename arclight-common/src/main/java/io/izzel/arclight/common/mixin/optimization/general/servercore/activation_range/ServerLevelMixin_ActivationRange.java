@@ -35,8 +35,10 @@ public abstract class ServerLevelMixin_ActivationRange {
     @Shadow @Final private MinecraftServer server;
     // @formatter:on
 
-    @Inject(method = "tick", at = @At(value = "INVOKE",
-            target = "Lnet/minecraft/world/level/entity/EntityTickList;forEach(Ljava/util/function/Consumer;)V"))
+    // 注意：不能锚定在 EntityTickList.forEach 调用点——区域并行 mixin 用 @Redirect 消费了
+    // 同一个 INVOKE，@Inject 会被跳过，激活扫描永远不执行，玩家附近的实体也全部 inactive。
+    // 改为 tick HEAD（每 20 tick 扫描一次），保证在主线程、在实体分派之前完成激活。
+    @Inject(method = "tick", at = @At("HEAD"))
     private void activationRange$activateEntities(BooleanSupplier hasTimeLeft, CallbackInfo ci) {
         if (!ServerCoreConfig.isActivationRangeEnabled()) return;
         final int currentTick = this.server.getTickCount();
