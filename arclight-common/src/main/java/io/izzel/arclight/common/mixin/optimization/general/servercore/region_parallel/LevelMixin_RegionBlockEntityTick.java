@@ -27,10 +27,12 @@ public abstract class LevelMixin_RegionBlockEntityTick {
     @Redirect(method = "tickBlockEntities",
         at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/block/entity/TickingBlockEntity;tick()V"))
     private void arclight$regionBlockEntityTick(TickingBlockEntity ticker) {
-        if (RegionTickManager.regionEnabled() && PRTSFeaturesConfig.regionBlockEntityParallel && (Object) this instanceof ServerLevel sl) {
+        if ((Object) this instanceof ServerLevel sl
+                && RegionTickManager.shouldParallelTickBlockEntity(sl, ticker)) {
+            // BE 三档调度：仅 allow 列表且未被台账降级的 BE 进区域 worker
             RegionTickManager.collectBlockEntityTick(sl, ticker);
         } else if (DimensionTickManager.inDimensionTick() && (Object) this instanceof ServerLevel sl) {
-            // 维度并行激活期：BE tick 依赖主线程 Bukkit API，排队到主线程 POST 段执行
+            // 维度并行激活期：其余 BE 依赖主线程 Bukkit API，排队到主线程 POST 段执行
             RegionTickManager.queueMainThreadBlockEntityTick(sl, ticker);
         } else {
             ticker.tick();

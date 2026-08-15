@@ -12,6 +12,8 @@ import io.izzel.arclight.common.optimization.general.servercore.ownership.Access
 import io.izzel.arclight.common.optimization.general.servercore.ownership.ClassAffinityLedger;
 import net.minecraft.Util;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -23,6 +25,7 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.TickingBlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.entity.EntityTickList;
 import net.minecraft.world.ticks.LevelTicks;
@@ -330,12 +333,15 @@ public final class RegionTickManager {
         }
         BlockEntity be;
         while ((be = queue.poll()) != null) {
+            long start = Util.getNanos();
             try {
                 // 方块实体子类各自定义 tick()（BlockEntity 基类无此方法），反射调用
                 be.getClass().getMethod("tick").invoke(be);
             } catch (Throwable t) {
                 LOGGER.error("[region-tick] main-thread block entity tick failed at {}: {}",
                         be.getBlockPos(), t.toString());
+            } finally {
+                BlockEntityTickStats.record(blockEntityTypeKey(be), Util.getNanos() - start, String.valueOf(be.getBlockPos()));
             }
         }
     }
@@ -360,12 +366,15 @@ public final class RegionTickManager {
         }
         TickingBlockEntity ticker;
         while ((ticker = queue.poll()) != null) {
+            long start = Util.getNanos();
             try {
                 ticker.tick();
                 STATS.increment("update.teMainTicks");
             } catch (Throwable t) {
                 LOGGER.error("[region-tick] main-thread block entity tick failed at {}: {}",
                         ticker.getPos(), t.toString());
+            } finally {
+                BlockEntityTickStats.record(blockEntityTypeKey(ticker), Util.getNanos() - start, String.valueOf(ticker.getPos()));
             }
         }
     }
@@ -537,6 +546,15 @@ public final class RegionTickManager {
         STATS.increment("update.teTicks");
     }
 
+    /** BE 三档判定：allow 列表 + force 列表 + 违规台账自动降级。 */
+    public static boolean shouldParallelTickBlockEntity(ServerLevel level, TickingBlockEntity ticker) {
+        if (!regionEnabled() || !PRTSFeaturesConfig.regionBlockEntityParallel) {
+            return false;
+        }
+        long tick = level.getServer() != null ? level.getServer().getTickCount() : 0L;
+        return BlockEntityAffinity.shouldRunOnWorker(blockEntityTypeKey(ticker), tick);
+    }
+
     /** Defers a LevelTicks.schedule call to the main thread (LevelTicks is not thread-safe). */
     public static void collectScheduleTick(LevelTicks<?> owner, ScheduledTick<?> tick) {
         SCHEDULE_TASKS.add(new ScheduleTask(owner, tick));
@@ -616,7 +634,20 @@ public final class RegionTickManager {
         runWorkers(level, applyNow, region -> {
             TickingBlockEntity te;
             while ((te = st.teTickQueues[region].poll()) != null) {
-                te.tick();
+                String typeKey = blockEntityTypeKey(te);
+                CURRENT_ENTITY_CLASS.set("block-entity:" + typeKey);
+                long start = Util.getNanos();
+                try {
+                    te.tick();
+                } catch (AccessViolation violation) {
+                    // enforce 模式：单个 BE 的违规只中止它自己，台账已记录，
+                    // 下一 tick 该类型会被自动降级回主线程。
+                    LOGGER.debug("[region-tick] BE worker access violation swallowed for {}: {}",
+                            typeKey, violation.getMessage());
+                } finally {
+                    BlockEntityTickStats.record(typeKey, Util.getNanos() - start, String.valueOf(te.getPos()));
+                    CURRENT_ENTITY_CLASS.remove();
+                }
             }
         });
         return true;
@@ -854,6 +885,27 @@ public final class RegionTickManager {
             return "no overworld";
         }
         return state(overworld).journal.statusText();
+    }
+
+    private static String blockEntityTypeKey(TickingBlockEntity ticker) {
+        try {
+            return ticker.getType();
+        } catch (Throwable t) {
+            return "unknown";
+        }
+    }
+
+    private static String blockEntityTypeKey(BlockEntity be) {
+        try {
+            return blockEntityTypeKey(be.getType());
+        } catch (Throwable t) {
+            return "unknown";
+        }
+    }
+
+    private static String blockEntityTypeKey(BlockEntityType<?> type) {
+        ResourceLocation key = BuiltInRegistries.BLOCK_ENTITY_TYPE.getKey(type);
+        return key != null ? key.toString() : String.valueOf(type);
     }
 
     private record BlockTick(BlockPos pos, Block block) {

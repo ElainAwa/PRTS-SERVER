@@ -13,6 +13,8 @@ import com.mojang.brigadier.Command;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import io.izzel.arclight.common.optimization.general.servercore.AsyncPathfindingManager;
+import io.izzel.arclight.common.optimization.general.servercore.BlockEntityAffinity;
+import io.izzel.arclight.common.optimization.general.servercore.BlockEntityTickStats;
 import io.izzel.arclight.common.optimization.general.servercore.RegionTickManager;
 import io.izzel.arclight.common.optimization.general.servercore.ServerCoreConfig;
 import io.izzel.arclight.common.optimization.general.servercore.dynamic.DynamicManager;
@@ -124,6 +126,14 @@ public class ServerCoreCommands {
 
             component.append(Formatter.parse("\n<dark_gray>» <c:#primary>Journal: <c:#secondary>%s".formatted(
                     RegionTickManager.journalStatusText(source.getServer())
+            ), source.getServer()));
+
+            component.append(Formatter.parse("\n<dark_gray>» <c:#primary>BlockEntityTicks: <c:#secondary>%s".formatted(
+                    BlockEntityTickStats.statusText(6)
+            ), source.getServer()));
+
+            component.append(Formatter.parse("\n<dark_gray>» <c:#primary>BEPolicy: <c:#secondary>%s".formatted(
+                    BlockEntityAffinity.statusText()
             ), source.getServer()));
             return component;
         }, false);

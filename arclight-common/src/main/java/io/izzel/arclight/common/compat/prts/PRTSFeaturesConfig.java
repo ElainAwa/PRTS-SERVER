@@ -86,6 +86,14 @@ public class PRTSFeaturesConfig {
     public static int journalMaxPerRegion;
     /** read-your-writes overlay 总开关（默认关，仅预留接口，未接入方块读路径）。 */
     public static boolean journalReadBack;
+    /** BE 三档调度：允许在区域 worker 上 tick 的方块实体类型（registry key 或前缀*）。 */
+    public static List<String> beParallelAllow;
+    /** BE 三档调度：强制主线程 tick 的方块实体类型（优先级最高）。 */
+    public static List<String> beMainThreadForce;
+    /** Create 长轨道假轨光栅化分摊（默认关）：每 tick 处理一条连接的一个区块。 */
+    public static boolean createTrackLazySpread;
+    /** 分摊时单连接每 tick 最多处理的栅格块数（默认 64）。 */
+    public static int createTrackLazyChunkBlocks;
 
     // Reliable chunk save - WAL 预写日志（PRTS 自研可靠区块保存，默认关）
     public static boolean reliableChunkSave;
@@ -185,6 +193,17 @@ public class PRTSFeaturesConfig {
                 mainThreadEntityForce.size(), mainThreadEntityAllow.size(), persistLearnedRoutes);
         journalMaxPerRegion = Math.max(16, config.getInt("parallel.journal-max-per-region", 4096));
         journalReadBack = config.getBoolean("parallel.journal-read-back", false);
+        beParallelAllow = new ArrayList<>(config.getStringList("parallel.be-parallel-allow"));
+        beMainThreadForce = new ArrayList<>(config.getStringList("parallel.be-main-thread-force"));
+        if (beMainThreadForce.isEmpty()) {
+            // spike 实测：create:track 单次 tick 最大 342ms（列车图全局计算），铁主线程。
+            beMainThreadForce.add("create:track");
+        }
+        createTrackLazySpread = config.getBoolean("parallel.create-track-lazy-spread", false);
+        createTrackLazyChunkBlocks = Math.max(8, Math.min(512, config.getInt("parallel.create-track-lazy-chunk-blocks", 64)));
+        LOGGER.info("parallel be-policy allow={} force={} parallelEnabled={} trackLazySpread={} chunk={}",
+                beParallelAllow, beMainThreadForce, regionBlockEntityParallel,
+                createTrackLazySpread, createTrackLazyChunkBlocks);
         reliableChunkSave = config.getBoolean("reliable-chunk-save.enabled", false);
         journalIntervalSeconds = config.getLong("reliable-chunk-save.interval-seconds", 30);
         journalChunksPerTick = config.getInt("reliable-chunk-save.chunks-per-tick", 50);
@@ -265,6 +284,10 @@ public class PRTSFeaturesConfig {
                   persist-learned-routes: false    # 停机时把学到的路由写回配置（暂未实现）
                   journal-max-per-region: 4096     # 跨区写 journal 每区域队列上限（最旧丢弃）
                   journal-read-back: false         # read-your-writes overlay（预留接口，默认关）
+                  be-parallel-allow: []            # BE 三档：允许 region worker tick 的类型（registry key 或前缀*）
+                  be-main-thread-force: ["create:track"] # BE 三档：强制主线程类型（尖峰/跨区依赖）
+                  create-track-lazy-spread: false   # Create 长轨道假轨光栅化分摊（默认关）
+                  create-track-lazy-chunk-blocks: 64 # 分摊时单连接每 tick 最多栅格块数
 
                 # 可靠区块保存（WAL 预写日志，默认关）
                 reliable-chunk-save:
