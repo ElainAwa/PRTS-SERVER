@@ -639,11 +639,12 @@ public final class RegionTickManager {
                 long start = Util.getNanos();
                 try {
                     te.tick();
-                } catch (AccessViolation violation) {
-                    // enforce 模式：单个 BE 的违规只中止它自己，台账已记录，
-                    // 下一 tick 该类型会被自动降级回主线程。
-                    LOGGER.debug("[region-tick] BE worker access violation swallowed for {}: {}",
-                            typeKey, violation.getMessage());
+                } catch (Throwable t) {
+                    // 任何异常都不允许从 BE 并行会话冒泡成服务器崩溃：
+                    // 该类型本会话永久降级回主线程（含非世界访问类的 mod 竞态）。
+                    BlockEntityAffinity.markUnsafe(typeKey);
+                    LOGGER.error("[region-tick] BE worker tick failed for {} at {}: {}",
+                            typeKey, te.getPos(), t.toString());
                 } finally {
                     BlockEntityTickStats.record(typeKey, Util.getNanos() - start, String.valueOf(te.getPos()));
                     CURRENT_ENTITY_CLASS.remove();

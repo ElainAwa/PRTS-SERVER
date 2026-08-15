@@ -17,6 +17,10 @@ import io.izzel.arclight.common.optimization.general.servercore.ownership.ClassA
  */
 public final class BlockEntityAffinity {
 
+    /** BE 类型在 worker 上抛过任意异常（不只是世界访问违规）→ 本会话永久回主线程。 */
+    private static final java.util.concurrent.ConcurrentHashMap<String, Boolean> UNSAFE =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
     private BlockEntityAffinity() {
     }
 
@@ -25,17 +29,26 @@ public final class BlockEntityAffinity {
         if (matchesAny(typeKey, PRTSFeaturesConfig.beMainThreadForce)) {
             return false;
         }
+        if (UNSAFE.containsKey(typeKey)) {
+            return false;
+        }
         if (!matchesAny(typeKey, PRTSFeaturesConfig.beParallelAllow)) {
             return false;
         }
         return !ClassAffinityLedger.shouldRouteMainThread("block-entity:" + typeKey, tick);
     }
 
+    /** Marks a BE type as worker-unsafe for the rest of the server session. */
+    public static void markUnsafe(String typeKey) {
+        UNSAFE.put(typeKey, Boolean.TRUE);
+    }
+
     /** One-line policy summary for /servercore status. */
     public static String statusText() {
         return "allow=" + PRTSFeaturesConfig.beParallelAllow.size()
                 + " force=" + PRTSFeaturesConfig.beMainThreadForce.size()
-                + " demoted=" + ClassAffinityLedger.routedCount();
+                + " demoted=" + ClassAffinityLedger.routedCount()
+                + " unsafe=" + UNSAFE.size();
     }
 
     private static boolean matchesAny(String key, java.util.List<String> patterns) {
