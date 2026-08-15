@@ -32,6 +32,7 @@
     "servercore.SmartBlockEntityMixin_MainThreadInit",
     "servercore.compat.VoxelNeighborhoodStateMixin_Sable",
     "servercore.compat.FunnelBlockMixin_Create",
+    "servercore.compat.AbstractEntityCitizenMixin_ColonyPhase",
     "servercore.ServerChunkCacheMixin_ChunkDemandDrain",
     "servercore.GenerationChunkHolderMixin_CompleteNotify",
     "servercore.ChunkMapMixin_WorkerGenerationGuard",
