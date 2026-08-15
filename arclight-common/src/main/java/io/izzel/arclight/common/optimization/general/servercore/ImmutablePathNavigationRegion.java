@@ -11,7 +11,6 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.PathNavigationRegion;
-import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.border.WorldBorder;
@@ -29,66 +28,44 @@ import java.util.List;
  */
 public final class ImmutablePathNavigationRegion extends PathNavigationRegion {
 
-    private static final BlockState AIR = Blocks.AIR.defaultBlockState();
     private static final ProfilerFiller NOOP_PROFILER = new NoopProfiler();
 
-    private final BlockState[] states;
-    private final int xSize;
-    private final int ySize;
-    private final int zSize;
-    private final int minX;
-    private final int minY;
-    private final int minZ;
-    private final int minBuildHeight;
-    private final int maxBuildHeight;
+    private final ImmutableBlockView view;
     private final WorldBorder borderSnapshot;
 
     public ImmutablePathNavigationRegion(Level level, BlockPos minPos, BlockPos maxPos,
                                          BlockState[] states, int xSize, int ySize, int zSize,
                                          int minBuildHeight, int maxBuildHeight, WorldBorder borderSnapshot) {
         super(level, minPos, maxPos);
-        this.states = states;
-        this.xSize = xSize;
-        this.ySize = ySize;
-        this.zSize = zSize;
-        this.minX = minPos.getX();
-        this.minY = minPos.getY();
-        this.minZ = minPos.getZ();
-        this.minBuildHeight = minBuildHeight;
-        this.maxBuildHeight = maxBuildHeight;
+        this.view = new ImmutableBlockView(states, xSize, ySize, zSize,
+                minPos.getX(), minPos.getY(), minPos.getZ(),
+                minBuildHeight, maxBuildHeight);
         this.borderSnapshot = borderSnapshot;
     }
 
     @Override
     public BlockState getBlockState(BlockPos pos) {
-        int x = pos.getX() - this.minX;
-        int y = pos.getY() - this.minY;
-        int z = pos.getZ() - this.minZ;
-        if (x < 0 || y < 0 || z < 0 || x >= this.xSize || y >= this.ySize || z >= this.zSize) {
-            return AIR;
-        }
-        BlockState state = this.states[(z * this.ySize + y) * this.xSize + x];
-        return state != null ? state : AIR;
+        return this.view.getBlockState(pos);
     }
 
     @Override
     public BlockEntity getBlockEntity(BlockPos pos) {
-        return null;
+        return this.view.getBlockEntity(pos);
     }
 
     @Override
     public FluidState getFluidState(BlockPos pos) {
-        return this.getBlockState(pos).getFluidState();
+        return this.view.getFluidState(pos);
     }
 
     @Override
     public int getMinBuildHeight() {
-        return this.minBuildHeight;
+        return this.view.getMinBuildHeight();
     }
 
     @Override
     public int getHeight() {
-        return this.maxBuildHeight;
+        return this.view.getHeight();
     }
 
     @Override
