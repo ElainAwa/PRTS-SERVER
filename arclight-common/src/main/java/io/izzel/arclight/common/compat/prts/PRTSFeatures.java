@@ -3,6 +3,7 @@ package io.izzel.arclight.common.compat.prts;
 import io.izzel.arclight.common.compat.prts.feature.EntityClear;
 import io.izzel.arclight.common.compat.prts.feature.PRTSThreadCost;
 import io.izzel.arclight.common.compat.prts.feature.WatchMohist;
+import io.izzel.arclight.common.optimization.general.lightengine.LightEngineStats;
 import java.util.ArrayList;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -28,6 +29,9 @@ public class PRTSFeatures {
 
     public static void tick() {
         WatchMohist.update();
+        // 光线程写 [light-engine] 统计，主线程每 tick 驱动周期汇总日志。
+        CraftServer craft = (CraftServer) Bukkit.getServer();
+        LightEngineStats.tick(craft == null || craft.getServer() == null ? 0L : craft.getServer().getTickCount());
     }
 
     public static void stop() {

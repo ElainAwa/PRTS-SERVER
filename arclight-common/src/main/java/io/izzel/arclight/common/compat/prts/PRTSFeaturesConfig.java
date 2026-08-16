@@ -117,6 +117,14 @@ public class PRTSFeaturesConfig {
     /** Barrier await timeout ms; on expiry dump all threads and crash with a report. */
     public static long barrierTimeoutMs;
 
+    // Lighting - per-tick light propagation budget + telemetry (PRTS 光照预算化).
+    // 限制每 tick 光照传播工作量，风暴时超出部分顺延下一 tick（最终光照一致，只是延迟）。
+    public static boolean lightBudgetEnabled;
+    /** 每 tick 最多传播的方块数（0 = 不限/vanilla）。 */
+    public static int lightBudgetPerTick;
+    /** 采集光照队列长度/耗时进 AsyncTaskStats（[light-engine] 日志）。 */
+    public static boolean lightTelemetryEnabled;
+
     public static void init() {
         File file = new File("prts-features.yml");
         if (!file.exists()) {
@@ -214,6 +222,10 @@ public class PRTSFeaturesConfig {
         barrierWatchdogAware = config.getBoolean("barrier-watchdog-aware", true);
         barrierTimeoutMs = config.getLong("barrier-timeout-ms", 120000L);
         if (barrierTimeoutMs < 1000L) barrierTimeoutMs = 120000L;
+        lightBudgetEnabled = config.getBoolean("lighting.budget-enabled", true);
+        lightBudgetPerTick = config.getInt("lighting.budget-per-tick", 100000);
+        if (lightBudgetPerTick < 0) lightBudgetPerTick = 0;
+        lightTelemetryEnabled = config.getBoolean("lighting.telemetry-enabled", true);
     }
 
     private static int clampPower(int v, int lo, int hi) {
@@ -302,6 +314,14 @@ public class PRTSFeaturesConfig {
                 # Barrier 健壮性
                 barrier-watchdog-aware: true         # watchdog 感知并行 barrier（防误杀）
                 barrier-timeout-ms: 120000           # barrier 卡死超时（毫秒）
+
+                # 光照：每 tick 传播预算 + 遥测（1.21.1 光照传播在光线程异步执行）
+                # 预算限制每 tick 传播工作量，风暴（大量方块变更）时超出部分顺延下一 tick；
+                # 最终光照一致，只是延迟，mod 无感知。0 = 不限（vanilla）。
+                lighting:
+                  budget-enabled: true               # 每 tick 光照传播预算开关
+                  budget-per-tick: 100000            # 每 tick 最多传播的方块数（默认保守，只拦风暴；按 [light-engine] 日志调）
+                  telemetry-enabled: true            # 采集队列长度/耗时进 [light-engine] 日志
                 """;
         try {
             Files.writeString(file.toPath(), template, StandardCharsets.UTF_8);
