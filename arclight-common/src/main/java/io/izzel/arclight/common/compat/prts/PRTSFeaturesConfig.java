@@ -182,7 +182,7 @@ public class PRTSFeaturesConfig {
             LOGGER.warn("parallel.main-thread-routing={} is invalid; falling back to auto", mainThreadRouting);
             mainThreadRouting = "auto";
         }
-        routeThreshold = Math.max(0, config.getInt("parallel.route-threshold", 2));
+        routeThreshold = Math.max(0, config.getInt("parallel.route-threshold", 5));
         routeWindowTicks = Math.max(20, config.getLong("parallel.route-window-ticks", 2400));
         mainThreadEntityForce = new ArrayList<>(config.getStringList("parallel.main-thread-entity-force"));
         mainThreadEntityAllow = new ArrayList<>(config.getStringList("parallel.main-thread-entity-allow"));
@@ -198,6 +198,9 @@ public class PRTSFeaturesConfig {
         if (beMainThreadForce.isEmpty()) {
             // spike 实测：create:track 单次 tick 最大 342ms（列车图全局计算），铁主线程。
             beMainThreadForce.add("create:track");
+            // 灰度实测：lootr:lootr_chest 在 worker 上复现 ReportedException
+            // （08-16 13:18），安全阀兜住后永久 unsafe——默认直接锁主线程。
+            beMainThreadForce.add("lootr:lootr_chest");
         }
         createTrackLazySpread = config.getBoolean("parallel.create-track-lazy-spread", false);
         createTrackLazyChunkBlocks = Math.max(8, Math.min(512, config.getInt("parallel.create-track-lazy-chunk-blocks", 64)));
@@ -277,7 +280,7 @@ public class PRTSFeaturesConfig {
                   thread-policy: stats             # worker 世界访问策略: off/stats/enforce（生产用 stats）
                   violation-log-per-minute: 20     # 违规日志每分钟每类限流条数
                   main-thread-routing: auto        # auto 违规学习 / manual 只认种子列表
-                  route-threshold: 2               # 窗口内 MAIN_ONLY 违规次数即路由主线程（0=禁用学习）
+                  route-threshold: 5               # 窗口内 MAIN_ONLY 违规次数即路由主线程（0=禁用学习；灰度后从 2 调宽）
                   route-window-ticks: 2400         # 违规学习窗口（tick，2400=2分钟）
                   main-thread-entity-force: []     # 强制主线程 tick 的类名/前缀
                   main-thread-entity-allow: []     # 强制不路由的类名/前缀（危险调试用）
@@ -285,7 +288,7 @@ public class PRTSFeaturesConfig {
                   journal-max-per-region: 4096     # 跨区写 journal 每区域队列上限（最旧丢弃）
                   journal-read-back: false         # read-your-writes overlay（预留接口，默认关）
                   be-parallel-allow: []            # BE 三档：允许 region worker tick 的类型（registry key 或前缀*）
-                  be-main-thread-force: ["create:track"] # BE 三档：强制主线程类型（尖峰/跨区依赖）
+                  be-main-thread-force: ["create:track", "lootr:lootr_chest"] # BE 三档：强制主线程类型（尖峰/跨区依赖）
                   create-track-lazy-spread: false   # Create 长轨道假轨光栅化分摊（默认关）
                   create-track-lazy-chunk-blocks: 64 # 分摊时单连接每 tick 最多栅格块数
 

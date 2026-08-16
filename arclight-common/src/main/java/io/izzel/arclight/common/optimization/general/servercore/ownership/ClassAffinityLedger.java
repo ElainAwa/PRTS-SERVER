@@ -103,9 +103,14 @@ public final class ClassAffinityLedger {
 
     /** Number of classes currently routed to the main thread. */
     public static int routedCount() {
+        return routedCount(null);
+    }
+
+    /** Number of routed classes whose key starts with the given prefix (null = all). */
+    public static int routedCount(String prefix) {
         int n = 0;
-        for (Entry entry : ENTRIES.values()) {
-            if (entry.routed) {
+        for (Map.Entry<String, Entry> e : ENTRIES.entrySet()) {
+            if (e.getValue().routed && (prefix == null || e.getKey().startsWith(prefix))) {
                 n++;
             }
         }

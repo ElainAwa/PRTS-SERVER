@@ -47,7 +47,7 @@ public final class BlockEntityAffinity {
     public static String statusText() {
         return "allow=" + PRTSFeaturesConfig.beParallelAllow.size()
                 + " force=" + PRTSFeaturesConfig.beMainThreadForce.size()
-                + " demoted=" + ClassAffinityLedger.routedCount()
+                + " demoted=" + ClassAffinityLedger.routedCount("block-entity:")
                 + " unsafe=" + UNSAFE.size();
     }
 
