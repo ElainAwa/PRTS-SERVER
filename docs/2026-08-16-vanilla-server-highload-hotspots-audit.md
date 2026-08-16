@@ -86,7 +86,7 @@ PRTS 已经沉淀出的三层兼容策略（本文每处缺口都会套用这套
 | 13 | 村民/动物繁殖失控 | ✅ 已优化 | `breeding_cap/*`、`VillagerMixin_Lobotomize` |
 | 14 | 自动存档 | ✅ 已优化 | `MinecraftServerMixin_Autosave` |
 | 15 | **光照引擎** | ◐ 已部分优化 | `lightengine/*`（预算化 + 遥测，`79406ea4`；无传播算法重写） |
-| 16 | **实体 AABB 空间查询** | ◐ 已部分优化 | `entityspatial/*`（懒 4×4×4 子格索引，默认关；typed 查询不动） |
+| 16 | **实体 AABB 空间查询** | ◐ 已部分优化 | `entityspatial/*`（懒 4×4×4 子格索引，默认开；typed 查询不动） |
 | 17 | **活塞批量移动** | ◐ 仅激活范围修复 | 无批量移动优化 |
 | 18 | **液体流动** | ◐ 仅随机 tick | 无流动批量优化 |
 | 19 | **区块保存全量 NBT** | ◐ 仅 WAL + 异步 IO | 无序列化减负 |
@@ -113,14 +113,14 @@ PRTS 已经沉淀出的三层兼容策略（本文每处缺口都会套用这套
 - **已优化**：`entitytracking/*`（`AreaMap` 空间索引替代全量扫描追踪范围内的玩家）、`trackingrange/*`（可配置追踪距离）、`nearbyplayers/*`（`NearbyPlayerIndex` 空间索引算「附近玩家」）、`network/*`（连接/发包优化）。
 - **剩余缺口**：实体**可见性 diff 已做，但「脏数据」的合并与发包频率仍由原版语义决定**。可考虑对高频小实体（物品、经验球）降频发包，但需非常克制——mod 可能依赖精确的显示状态（如隐蔽机械、展示实体）。
 
-#### 1.3 实体碰撞检测与 `getEntities(AABB)` 空间查询 ⭐缺口 → 已部分优化（懒 4×4×4 子格索引，默认关）
+#### 1.3 实体碰撞检测与 `getEntities(AABB)` 空间查询 ⭐缺口 → 已部分优化（懒 4×4×4 子格索引，默认开）
 - **原版机理**：`Entity.getBoundingBox` 与 `Entity.getCollisions`；`Level.getEntities(Entity, AABB)` 通过 `EntitySectionStorage` 把 AABB 落进 `EntitySection` 后**线性遍历该 section 的所有实体做盒-盒相交**。原版对「某区域有哪些实体」没有真正的空间索引，section 内是裸 `List`。
 - **为什么烂**：高密度场景（刷怪塔、养鸡场、掉落物山、末影龙战）下，一次 `getEntities(AABB)` 就是 O(该 section 实体数) 的线性扫描，且**每次 tick 被反复调用**（AI 探测、碰撞、玩家交互、`item.merge` 等）。
 - **已优化**：① `RegionTickManager` 施加 section 级锁（`EntitySectionMixin_RegionLock`）保证并行下不崩；② **✅ 懒 4×4×4 子格空间索引**（`entityspatial/*`，本节下文），section 实体数 ≥ `entity-spatial-index.min-section-size`（默认 16）时建索引，纯空间 `getEntities(AABB)` 只扫命中子格。
 - **兼容安全优化方向（已按此实现）**：
   - **给 section 内实体加懒散空间/类型索引**（如按 `MobCategory` 或按小网格分桶），把「扫描全 section」改为「只扫命中网格」。**关键兼容点**：必须保留 `getEntities` 的**返回语义**（含顺序、去重、是否含自身），且对 mod 自定义实体类型**不区分**（索引只按原版已有属性分桶，不按类名特判）。检测到 Lithium/Canary 等已做此优化的 mod 时整体让位（`@LoadIfMod ABSENT`）。
   - **风险**：返回顺序若被 mod 依赖（如拾取顺序、AI 选目标顺序），分桶会改变结果。建议**只对「无玩家交互的纯空间查询」加速**，玩家交互路径保留原版线性扫描。
-  - **✅ 已实现（`2026-08-16`，`entityspatial/*`）**：`EntitySpatialIndex`（64 桶，按 **bb 中心**低 4 位单桶归属）+ `EntitySectionMixin_SpatialIndex`（查询 HEAD 走索引、add/remove RETURN 维护、懒构建回填）+ `EntityMixin_SectionIndexRebome`（`setBoundingBox` TAIL，section 内移动 rehome——`bb` 字段唯一运行时写入点）。**保序**：实体加插入序号，命中候选按序号排序输出，与原版 per-section 顺序（`allInstances` 插入序）完全一致（`ArrayList.remove` 保序 ⇒ 剩余实体顺序 = 插入序）；**不漏**：桶按 bb 中心归属 ⇒ 实体 bb 与查询框相交 ⇒ 中心距查询框 ≤ bb 半径（最大 4，史莱姆 8×8×8），查询框统一膨胀 4 格覆盖中心桶（真机遥测曾用 8 格导致候选≈全扫，已修正）。锁与 `EntitySectionMixin_RegionLock` 共用 `arclight$sectionLock`（经 `ISectionLock` bridge）。默认关（`entity-spatial-index.enabled: false`），配 `[entity-spatial-index]` 遥测；typed 查询 / 玩家交互路径 / `getNearbyPlayers`（本就不走 section）不动。真机验证（`2026-08-16` 测试服，40 只僵尸压测）：索引构建/查询/遥测正常、TPS 20.0、0 异常；僵尸 AI 目标选择为 35 格大框查询，索引无收益也无损失——主收益场景是静态高密度 section 的小查询（碰撞 2×2：候选 ~6 vs 全扫 34）。
+  - **✅ 已实现（`2026-08-16`，`entityspatial/*`）**：`EntitySpatialIndex`（64 桶，按 **bb 中心**低 4 位单桶归属）+ `EntitySectionMixin_SpatialIndex`（查询 HEAD 走索引、add/remove RETURN 维护、懒构建回填）+ `EntityMixin_SectionIndexRebome`（`setBoundingBox` TAIL，section 内移动 rehome——`bb` 字段唯一运行时写入点）。**保序**：实体加插入序号，命中候选按序号排序输出，与原版 per-section 顺序（`allInstances` 插入序）完全一致（`ArrayList.remove` 保序 ⇒ 剩余实体顺序 = 插入序）；**不漏**：桶按 bb 中心归属 ⇒ 实体 bb 与查询框相交 ⇒ 中心距查询框 ≤ bb 半径（最大 4，史莱姆 8×8×8），查询框统一膨胀 4 格覆盖中心桶（真机遥测曾用 8 格导致候选≈全扫，已修正）。锁与 `EntitySectionMixin_RegionLock` 共用 `arclight$sectionLock`（经 `ISectionLock` bridge）。**默认开**（`entity-spatial-index.enabled: true`，用户 2026-08-16 决策），配 `[entity-spatial-index]` 遥测；typed 查询 / 玩家交互路径 / `getNearbyPlayers`（本就不走 section）不动。真机验证（`2026-08-16` 测试服，120 只 AI 僵尸高密度 A/B 对比）：**索引开 avg mspt 5.1→3.4ms（-33%）**、TPS 20.0、0 异常；40 只场景（AI 35 格大框查询主导）索引无收益也无损失。**残余兼容风险**：超大 bb 实体（半径 > 4，vanilla 无；mod 自定义超大实体罕见）被「只覆盖其部分 bb 的小框查询」命中时理论上可能漏检——vanilla 线性扫描无此问题；若生产服出现可疑行为，先关 `entity-spatial-index.enabled` 回归确认。
 
 #### 1.4 实体类型查找 `getEntities(Class)`
 - **原版机理**：`ClassInstanceMultiMap` 按类维护 `byClass` 映射。原版给每个 `EntitySection` 建一张 `ClassInstanceMultiMap`，`getEntitiesOfClass` 走 `byClass.get(clazz)`。
@@ -230,7 +230,7 @@ PRTS 已经沉淀出的三层兼容策略（本文每处缺口都会套用这套
 | ~~P1~~ | **contiguous 不透明短路** | 不透明方块互替仍走光照 | 中 | 低（每次调方法，不缓存） | **取消**（1.21.1 冗余，见 §3.5 更正） |
 | **P1** | **未变区块跳过存盘** | 全量 NBT 每存盘 tick 重写 | 中高（IO 尖峰） | 中（需保全量语义） | 研究 |
 | **P2** | **红石 dust power 幂等短路** | power 未变仍重算广播 | 中 | 高（红石最敏感） | 研究，默认关 |
-| ~~P2~~ | **实体 AABB 空间索引** | section 线性扫描 | 中 | 中（返回顺序） | ✅ **已实现**（`entityspatial/*`，默认关，保序） |
+| ~~P2~~ | **实体 AABB 空间索引** | section 线性扫描 | 中 | 中（返回顺序） | ✅ **已实现**（`entityspatial/*`，**默认开**，保序；实测 -33% avg mspt） |
 | **P3** | **活塞批量原子化** | 逐 setBlock 中间态级联 | 中 | **高**（mod 机械核心） | **暂不做** |
 
 ### 与 `techdoc (1).html` §14.3「未来演进」的衔接（避免重复立项）
@@ -278,7 +278,7 @@ HTML 已登记的未来演进：`N=16`、不等宽条带、完整数据副本（
 
 7. **红石 power 幂等短路**（P2，研究）。检测到红石增强 mod 整体让位，默认关。
 
-8. **实体 AABB 空间索引**（P2，研究）。只加速纯空间查询，玩家交互路径保留线性扫描。**✅ 已实现（`entityspatial/*`，默认关）**：剩余动作是按 `[entity-spatial-index]` 遥测（`indexedQueries` vs `fallbackQueries`、`candidatesScanned` vs `fullScanned`）确认高密度 section 收益后，把 `entity-spatial-index.enabled` 置 true 并调 `min-section-size`。
+8. **实体 AABB 空间索引**（P2，研究）。只加速纯空间查询，玩家交互路径保留线性扫描。**✅ 已实现（`entityspatial/*`，默认开）**：真机 A/B 已验证高密度场景 -33% avg mspt；剩余动作是生产服观察 `[entity-spatial-index]` 遥测（`indexedQueries` vs `fallbackQueries`、`candidatesScanned` vs `fullScanned`），按需调 `min-section-size`，并对「超大 bb mod 实体」的可疑行为做回归（见 §1.3 残余风险）。
 
 9. **活塞批量原子化**（P3，暂不做）。列为研究项，除非实测活塞成为瓶颈。
 
@@ -290,7 +290,7 @@ HTML 已登记的未来演进：`N=16`、不等宽条带、完整数据副本（
 - **事件洪流降本**：复用 spark 复测 `EventBus.post` 子树（目标从 75.5% 显著回落），并做**功能回归**——QuarryPlus 整列破块、RTSbuilding 破坏任务、其他监听 `BlockEvent` 的 mod 必须**一个事件都不少**（可加监听器计数断言，确认事件数量/时机零变化）。
 - 光照预算化（`79406ea4` 已实现）：用 `[light-engine]` 遥测日志（`updates= queue= run=avg/max`，AsyncTaskStats）观测队列长度与单次排空耗时，确认风暴时预算让 `updates` 分摊到多个 tick、`run max` 回落，且最终光照一致（无「黑块」/「光错」）；再据此调 `lighting.budget-per-tick`。
 - 漏斗降频：用 `BlockEntityTickStats` 对比开关前后漏斗 tick 次数与 mspt，确认无物品时数量显著下降、有物品时恢复。
-- 实体空间索引（`entityspatial/*` 已实现，默认关）：高密度 section（刷怪塔/掉落物堆）压测，对比 `[entity-spatial-index]` 遥测 `candidatesScanned` vs `fullScanned`；回归物品合并/AI 目标/拾取**顺序**与原版一致（顺序断言）；`thread-policy: enforce` 测服下无线程违规；确认后再开 `entity-spatial-index.enabled`。
+- 实体空间索引（`entityspatial/*` 已实现，默认开）：高密度 section（刷怪塔/掉落物堆）压测，对比 `[entity-spatial-index]` 遥测 `candidatesScanned` vs `fullScanned`（期望 candidates < fullScanned 同口径）；回归物品合并/AI 目标/拾取**顺序**与原版一致（顺序断言）；`thread-policy: enforce` 测服下无线程违规；可疑行为先关 `entity-spatial-index.enabled` 回归确认（超大 bb mod 实体残余风险）。
 - 所有新优化叠加「第三方 mod 压测」：Create 机械、AE2 网络、红石工程、殖民地 NPC 同时跑，确认无线程违规（`thread-policy: enforce` 测服定位）/ 无功能回退。
 
 ---
