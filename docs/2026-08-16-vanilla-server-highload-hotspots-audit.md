@@ -306,9 +306,9 @@ PRTS 已经沉淀出的三层兼容策略（本文每处缺口都会套用这套
 | ~~P2~~ | **typed 查询未桶化** | `getEntitiesOfClass` 线性扫同类实体（传感器/增援/刷怪笼） | 中（刷怪塔/村庄） | 中（同 entityspatial，保序/让位机制可复用） | ✅ **已实现**（entityspatial 二期，默认开；真机：大框持平、小框 typedSkipped 剪枝生效；落地见 `2026-08-16-entityspatial-p2-typed-query-ab.md`） |
 | **P2** | **位置相关形状不缓存** | 栅栏/墙/玻璃板每碰重算 4 向邻居连接 | 中 | 中（失效精确性） | 研究，默认关（§阶段5·5.3） |
 | **P2** | **GameEvent 派发链** | setBlock/move 每次构造 Context 并走派发；有 sculk 监听器时成本线性 | 中（有 sculk 时） | 低（只降内部成本，事件照发） | 先实测归因（§阶段5·5.5） |
-| **P3** | **容器菜单全槽广播** | `broadcastChanges` 每 tick 遍历所有打开菜单全部槽位 | 中（大容器模组） | 中（同步时序） | 先实测（§阶段5·5.6） |
-| **P3** | **Tab list 广播** | 1.20.1 O(玩家²)/tick；1.21.1 需实测 | 低（13 人边际） | 低 | 先实测（§阶段5·5.7） |
-| **P3** | **弹射物 clip 逐格查询** | 箭雨塔每 tick 数百次逐格 raycast | 低-中 | 低 | 研究（§阶段5·5.8） |
+| ~~P3~~ | **容器菜单全槽广播** | `broadcastChanges` 每 tick 遍历所有打开菜单全部槽位 | 中（大容器模组） | 中（同步时序） | ✅ **已实现**（2026-08-16 晚，`menubroadcast/*` + `/prtsfeatures menubench`，默认关；全等预检短路 + 失败冷却，语义逐位一致、mod 直写容器零漏检；实测静止 +54%、稀疏 +46%、密集持平，见 `2026-08-16-P3-menu-broadcast-ab.md`） |
+| ~~P3~~ | **Tab list 广播** | 1.20.1 O(玩家²)/tick；1.21.1 需实测 | 低（13 人边际） | 低 | ✅ **已实测归因**（1.21.1 已无每 tick 广播：`refreshTabListName` diff 短路 + `PlayerList.tick` 每 600 tick 才发 `UPDATE_LATENCY`，无需实现，见 P3 文档 §4.1） |
+| ~~P3~~ | **弹射物 clip 逐格查询** | 箭雨塔每 tick 数百次逐格 raycast | 低-中 | 低 | ✅ **已实测归因**（800 箭 + JFR：0 样本命中 clip；air 已短路，无安全优化点，不立项，见 P3 文档 §4.2） |
 
 ### 与 `techdoc (1).html` §14.3「未来演进」的衔接（避免重复立项）
 
@@ -364,7 +364,7 @@ HTML 已登记的未来演进：`N=16`、不等宽条带、完整数据副本（
 10. **POI 查询空 chunk 预检**（P1）✅ **已实现**（`poi/*`，默认开）。1.21.1 的 `PoiSection` 已按 `PoiType` 分桶（初稿论断修正），真实缺口是 `getInChunk` 对无 POI chunk 的全垂直 section 扫描。落地：`SectionStorageMixin_Presence` 维护 chunk→present 位掩码（单调累加，section 不卸载故精确）+ `PoiManagerMixin_QueryFastPath` 空 chunk 直接跳过、present chunk 只迭代命中 y 层、冷 chunk 保留原版读盘。真机：30s 跳过 12288 空 chunk。**二期候选**：`findClosest` 最近优先剪枝（同类型 POI 密集时收益显著）。
 11. **移动碰撞 step-up 二次收集去重**（P1）✅ **已实现**（`collision/EntityMixin_CollisionBatch`，默认开，对 Lithium/Canary/Radium 让位）。1.21.1 已「一次收集、逐轴 clip」（初稿「三轴三查」修正），真实缺口是 step-up 分支的二次全量 `collectColliders`。落地：per-entity 帧级缓存 + 顶部条带增量补取，语义零变化。验证：`[collision-batch]` 遥测 `incrementalFetches` 增长 + 实体移动回归（上下台阶、贴墙滑行、活塞推挤对照原版）。
 12. **typed 查询桶化 = entityspatial 二期**（P2）✅ **已实现**（`entityspatial/*` 二期，默认开，2026-08-16 晚）。实现为「vanilla 类列表 + 覆盖格子预筛」（语义逐位一致、零维护成本），并顺带把一期 untyped 路径改成三档（纯 vanilla 循环 / storage 迭代+格预筛 / 桶 gather+排序），消除密集单 section 大框查询的性能倒挂（实测 2.0 vs 1.9ms 持平）。剩余动作：生产服观察 `[entity-spatial-index]` 遥测的 `typedSkipped` / `membersSkipped` / `vanillaOrderQueries`，按需调 `min-section-size`。
-13. **其余研究项**：位置相关形状缓存（P2，默认关）、GameEvent 派发链（P2，先 spark 归因，无 sculk 则跳过）、容器菜单全槽广播（P3，先实测）、Tab list 广播（P3，1.21.1 先确认是否仍每 tick）、弹射物 `Level.clip`（P3）。全部走「默认关 → stats 观测 → 实机开 → 回归」闭环。
+13. **其余研究项**：位置相关形状缓存（P2，默认关）、GameEvent 派发链（P2，先 spark 归因，无 sculk 则跳过）、容器菜单全槽广播（P3）✅ **已实现**（`menubroadcast/*`，默认关，2026-08-16 晚，见 `2026-08-16-P3-menu-broadcast-ab.md`）、Tab list 广播（P3）✅ **已实测归因取消**（1.21.1 无每 tick 广播）、弹射物 `Level.clip`（P3）✅ **已实测归因不立项**（800 箭 JFR 0 样本 + air 已短路）。全部走「默认关 → stats 观测 → 实机开 → 回归」闭环。
 
 ---
 

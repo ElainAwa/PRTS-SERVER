@@ -1,11 +1,13 @@
 package io.izzel.arclight.common.compat.prts;
 
 import io.izzel.arclight.common.compat.prts.feature.EntityClear;
+import io.izzel.arclight.common.compat.prts.feature.MenuBenchmark;
 import io.izzel.arclight.common.compat.prts.feature.PRTSThreadCost;
 import io.izzel.arclight.common.compat.prts.feature.WatchMohist;
 import io.izzel.arclight.common.optimization.general.collision.CollisionBatchStats;
 import io.izzel.arclight.common.optimization.general.entityspatial.EntitySpatialIndexStats;
 import io.izzel.arclight.common.optimization.general.lightengine.LightEngineStats;
+import io.izzel.arclight.common.optimization.general.menubroadcast.MenuBroadcastStats;
 import io.izzel.arclight.common.optimization.general.poi.PoiQueryStats;
 import java.util.ArrayList;
 import org.apache.logging.log4j.LogManager;
@@ -39,6 +41,7 @@ public class PRTSFeatures {
         EntitySpatialIndexStats.tick(serverTick);
         PoiQueryStats.tick(serverTick);
         CollisionBatchStats.tick(serverTick);
+        MenuBroadcastStats.tick(serverTick);
     }
 
     public static void stop() {
@@ -54,11 +57,15 @@ public class PRTSFeatures {
                     PRTSThreadCost.dumpThreadCpuTime(sender);
                     return true;
                 }
-                sender.sendMessage("§e[PRTS] 用法: /prtsfeatures threadcost");
+                if (args.length >= 1 && args[0].equalsIgnoreCase("menubench")) {
+                    MenuBenchmark.run(sender);
+                    return true;
+                }
+                sender.sendMessage("§e[PRTS] 用法: /prtsfeatures threadcost|menubench");
                 return true;
             }
         };
         ((CraftServer) Bukkit.getServer()).getCommandMap().register("prts", cmd);
-        LOGGER.info("[PRTS-Features] registered command /prtsfeatures threadcost");
+        LOGGER.info("[PRTS-Features] registered command /prtsfeatures threadcost|menubench");
     }
 }

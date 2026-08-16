@@ -152,6 +152,18 @@ public class PRTSFeaturesConfig {
     /** 采集命中/增量/全量计数进 AsyncTaskStats（[collision-batch] 日志）。 */
     public static boolean collisionBatchTelemetryEnabled;
 
+    // Menu broadcast precheck - AbstractContainerMenu.broadcastChanges 全等预检短路（P3，默认关）。
+    // 1.21.1 的 broadcastChanges 每 tick 对每个打开菜单全量遍历所有槽位：每槽 getItem +
+    // requireNonNull + memoize lambda 分配，随后 triggerSlotListeners/synchronizeSlotToRemote
+    // 内部都做 lastSlots diff（无变化时纯浪费，但 lambda 已分配）。本优化在 HEAD 用与原版
+    // 逐条等价的判定（lastSlots/remoteCarried/dataSlots 值缓存）预检：全部相等 = 原版循环
+    // 必然无动作，直接跳过整个循环。语义逐位一致（预检不是脏槽跟踪，是全量 diff 的提前
+    // 等价物——mod 直写容器同样被同一 diff 捕获，零漏检）。默认关：P3 定位「先实测归因」，
+    // 生产服 spark 确认 broadcastChanges 子树占比后再开。
+    public static boolean menuBroadcastEnabled;
+    /** 采集短路/全量/槽位检查数进 AsyncTaskStats（[menu-broadcast] 日志）。 */
+    public static boolean menuBroadcastTelemetryEnabled;
+
     public static void init() {
         File file = new File("prts-features.yml");
         if (!file.exists()) {
@@ -264,6 +276,9 @@ public class PRTSFeaturesConfig {
         collisionBatchEnabled = config.getBoolean("collision-batch.enabled", true);
         collisionBatchTelemetryEnabled = config.getBoolean("collision-batch.telemetry-enabled", true);
         io.izzel.arclight.common.optimization.general.collision.CollisionBatchStats.setEnabled(collisionBatchTelemetryEnabled);
+        menuBroadcastEnabled = config.getBoolean("menu-broadcast.enabled", false);
+        menuBroadcastTelemetryEnabled = config.getBoolean("menu-broadcast.telemetry-enabled", true);
+        io.izzel.arclight.common.optimization.general.menubroadcast.MenuBroadcastStats.setEnabled(menuBroadcastTelemetryEnabled);
     }
 
     private static int clampPower(int v, int lo, int hi) {
@@ -388,6 +403,18 @@ public class PRTSFeaturesConfig {
                 collision-batch:
                   enabled: true                      # 默认开（纯读加速，语义零变化）
                   telemetry-enabled: true            # 命中/增量/全量计数进 [collision-batch] 日志
+
+                # 容器菜单广播预检短路（默认关，P3「先实测归因」）
+                # 1.21.1 的 broadcastChanges 每 tick 对每个打开菜单全量遍历全部槽位，每槽
+                # 做 getItem + requireNonNull + memoize lambda 分配（即使菜单长期静止）。
+                # 本优化在 HEAD 用与原版逐条等价的判定（lastSlots diff / remoteCarried diff /
+                # dataSlots 值快照）预检：全部相等 = 原版循环必然无动作，直接跳过整个循环，
+                # 省掉全部 lambda 分配与重复 diff。语义逐位一致：不是脏槽跟踪，是全量 diff
+                # 的提前等价物，mod 直写容器（Container.setItem 绕过 menu）同样被捕获。
+                # 注意：默认关——先用生产服 spark 看 broadcastChanges 子树占比再决定开启。
+                menu-broadcast:
+                  enabled: false                     # 默认关（实测归因后再开）
+                  telemetry-enabled: true            # 短路/全量/槽位检查数进 [menu-broadcast] 日志
                 """;
         try {
             Files.writeString(file.toPath(), template, StandardCharsets.UTF_8);

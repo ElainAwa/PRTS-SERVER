@@ -117,6 +117,7 @@
     "poi.SectionStorageMixin_Presence",
     "poi.PoiManagerMixin_QueryFastPath",
     "collision.EntityMixin_CollisionBatch",
+    "menubroadcast.AbstractContainerMenuMixin_MenuBroadcast",
     "neoforgeitems.InvWrapperMixin_NoNull",
     "servercore.region_parallel.ServerLevelMixin_RegionTick",
     "servercore.region_parallel.ServerLevelMixin_RegionBlockTick",
