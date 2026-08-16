@@ -5,6 +5,7 @@
 
 package io.izzel.arclight.common.mixin.optimization.general.servercore.async_pathfinding;
 
+import io.izzel.arclight.common.optimization.general.servercore.async_pathfinding.SyncPathfindingGate;
 import io.izzel.arclight.common.optimization.general.servercore.PathNavigationAccess;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.ai.navigation.PathNavigation;
@@ -102,6 +103,18 @@ public abstract class PathNavigationMixin implements PathNavigationAccess {
     @Override
     public PathFinder arclight$createPathFinder(int range) {
         return this.arclight$invokerCreatePathFinder(range);
+    }
+
+    /**
+     * 一次性多目标寻路（AcquirePoi.findPathToPois 等）必须拿到同步 Path：
+     * 异步提交会把 findPath 的返回值置 null，调用方永远走不到 PoiManager.take，
+     * 村民无法认领职业（生产服 2026-08-16 全职业不认领根因）。
+     * 用 consume-once 门闩标记，下一次 PathFinder.findPath 在同一线程同步执行。
+     */
+    @Inject(method = "createPath(Ljava/util/Set;I)Lnet/minecraft/world/level/pathfinder/Path;",
+            at = @At("HEAD"))
+    private void arclight$markSyncMultiTarget(CallbackInfoReturnable<Path> cir) {
+        SyncPathfindingGate.mark();
     }
 
     // 异步在途或队列饱和跳过时 createPath 返回 null, 原版 moveTo(null) 会清空当前路径——
