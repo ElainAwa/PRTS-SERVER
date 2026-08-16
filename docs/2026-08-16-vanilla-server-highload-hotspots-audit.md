@@ -85,14 +85,14 @@ PRTS 已经沉淀出的三层兼容策略（本文每处缺口都会套用这套
 | 12 | 物品/经验球合并 | ✅ 已优化 | `features/merging/*` |
 | 13 | 村民/动物繁殖失控 | ✅ 已优化 | `breeding_cap/*`、`VillagerMixin_Lobotomize` |
 | 14 | 自动存档 | ✅ 已优化 | `MinecraftServerMixin_Autosave` |
-| 15 | **光照引擎** | ❌ **未优化（大缺口）** | 无任何 LightEngine mixin |
+| 15 | **光照引擎** | ◐ 已部分优化 | `lightengine/*`（预算化 + 遥测，`79406ea4`；无传播算法重写） |
 | 16 | **实体 AABB 空间查询** | ❌ **未优化（大缺口）** | 无 `getEntities(AABB)` 空间索引 |
 | 17 | **活塞批量移动** | ◐ 仅激活范围修复 | 无批量移动优化 |
 | 18 | **液体流动** | ◐ 仅随机 tick | 无流动批量优化 |
 | 19 | **区块保存全量 NBT** | ◐ 仅 WAL + 异步 IO | 无序列化减负 |
 | 20 | **红石 dust power 重算** | ◐ 仅熔断 | 无重算风暴根治 |
 
-> 结论：**架构层面已经把「主循环换代」这条最粗的腿（维度/实体/方块实体/寻路/IO）基本搬空**。剩余的大头集中在两处：**① 光照引擎**（原版最大单点瓶颈之一，且最难并行）；**② 各类「链式反应」**（红石 power、邻居更新、活塞、液体）——它们无法靠并行搬走，只能靠「削减无谓重算 + 预算化」根治。
+> 结论：**架构层面已经把「主循环换代」这条最粗的腿（维度/实体/方块实体/寻路/IO）基本搬空**；**光照引擎**也已于 `79406ea4` 落地「预算化 + 遥测」（传播成本仍高于理论最优，但已从「完全未动」变为「有预算、可观测」，见 §3.5）。剩余的大头集中在**各类「链式反应」**（红石 power、邻居更新、活塞、液体）——它们无法靠并行搬走，只能靠「削减无谓重算 + 预算化」根治。
 
 ---
 
@@ -181,11 +181,11 @@ PRTS 已经沉淀出的三层兼容策略（本文每处缺口都会套用这套
 - **已优化**：`RegionFileStorageMixin_AsyncIO`（异步有界线程池 + CallerRunsPolicy）、`reliable-chunk-save`（WAL 预写日志）。
 - **剩余缺口（值得做）**：**ChunkSerializer 全量 NBT 序列化**。原版保存一个区块时，`ChunkSerializer.write` 把区块内**所有方块状态、方块实体、计划 tick、实体、光照**整体序列化，即使只有 1 个方块变过。存盘 tick (`autosave-interval`) 时全量重写，是 IO 尖峰主因。可做「**增量序列化**」：只重写脏（dirty）区块的差异部分，或对未变区块跳过写盘。**兼容点**：增量序列化必须与 mod 的 `BlockEntity.saveAdditional` / `Entity.saveAdditional` 完全一致（mod 可能依赖全量保存的幂等性），且**保存的完整性语义不能变**（崩溃恢复仍需能还原）。建议先做「未变区块跳过写盘」这种最保守的惰性，不做差异合并。
 
-#### 3.5 光照引擎（LightEngine）⭐最大单点缺口
+#### 3.5 光照引擎（LightEngine）⭐最大单点缺口 → 已部分优化（预算化 + 遥测，`79406ea4`）
 - **原版机理**：`LightEngine` / `ServerLightEngine` 在主线程处理方块变更引起的光照更新。`LevelLightEngine.checkBlock` 在有方块变更时，沿六个方向做**光照传播**（BFS/DFS 遍历相邻区块的 light 队列），天空光照在区块加载/生成时也要传播。光照是原版**除实体 tick 外最贵的主线程子阶段**，且极其模块化、难以并行。
-- **为什么是最大缺口**：任何 mod 的方块放置/破坏/生长都会触发 `checkBlock`。高密度机械（Create 传动、AE2 网络、红石工程）每秒成百上千次 `setBlock`，每次都是一次光照传播。本项目**完全没有光照 mixin**（已确认无 LightEngine 相关 hook）。
+- **为什么是最大缺口**：任何 mod 的方块放置/破坏/生长都会触发 `checkBlock`。高密度机械（Create 传动、AE2 网络、红石工程）每秒成百上千次 `setBlock`，每次都是一次光照传播。**现状（`79406ea4` 后）**：已实现「每 tick 传播预算 + 遥测」（`lightengine/*`），但未重写传播算法本身——预算只限制传播速率，单次 BFS 的单位成本依旧。
 - **兼容安全优化方向**（按保守度排序）：
-  1. **最保守（推荐先做）**：**光照更新预算化/卸载低优先级**。在 `LightEngine` 的传播队列上施加每 tick 预算，light queue 拥挤时下一 tick 继续，避免单 tick 光照风暴卡死主线程。**语义完全不变**（最终光照一致，只是延迟），mod 无感知。这是所有光照方案里唯一「零破坏」的。
+  1. **最保守（推荐先做）**：**光照更新预算化/卸载低优先级**。在 `LightEngine` 的传播队列上施加每 tick 预算，light queue 拥挤时下一 tick 继续，避免单 tick 光照风暴卡死主线程。**语义完全不变**（最终光照一致，只是延迟），mod 无感知。这是所有光照方案里唯一「零破坏」的。**✅ 已实现（`79406ea4`）**：`LightEngineMixin_LightBudget` 在 `propagateIncreases`/`propagateDecreases` 的排空循环上施加每 tick 预算（`LightBudget` 状态机），超出部分顺延下一 tick；`prts-features.yml` 新增 `lighting:` 段（`budget-enabled` / `budget-per-tick` 默认 100000 保守 / `telemetry-enabled`），配 `[light-engine]` 遥测日志（`LightEngineStats`）按实测调阈值；对 C2ME/Lithium/Canary/Radium 让位（`@LoadIfMod ABSENT`）。
   2. **次保守**：跳过「不影响光照」的 `setBlock` 的光照重算。检测 `newState.getLightEmission == oldState.getLightEmission && getLightBlock 两侧均为 15`（不透光且不发光）时跳过 `checkBlock`。原版对「不透明方块互相替换」仍走光照，实际是浪费。**兼容点**：`getLightBlock` / `getLightEmission` 是 mod 可覆写方法，必须每次调用（不能缓存 state 的返回值，因为 mod 可能动态改变），只做一个「两侧都 15 且不发光 → 跳过」的短路，安全。
 
      > **⚠️ 2026-08-16 更正（本项目已实测确认）**：方案2 在 1.20+ 上**几乎冗余**，本 fork **不实现**。vanilla 的方块变更光照门 `LightEngine.hasDifferentLightProperties(level, pos, old, new)`（在 `LevelChunk.setBlockState` 调用，line 277）体为 `old.getLightBlock != new.getLightBlock || old.getLightEmission != new.getLightEmission || old.useShapeForLightOcclusion() || new.useShapeForLightOcclusion()`。对「两侧 `getLightBlock==15` 且 `getLightEmission` 相等」的替换，前两项均为 false；而 `useShapeForLightOcclusion` 对完全不透明（lightBlock==15）的方块恒为 false（它是为非满立方体/玻璃类方块而设），故第三项亦 false → 该方法已返回 `false` → `checkBlock` 已被跳过。结论：**12.0+ 原版已内置该短路**，再实现只是重复读同样的（已缓存）字段，几乎零收益。若真要实现，必须带 `useShapeForLightOcclusion` 守卫（否则对 mod 中「lightBlock==15 但 shape 依赖」的方块替换会错误跳过，丢光照）；而加了守卫后与 vanilla 现有逻辑完全等价。故方案2 不再实现，仅保留方案1（预算化）+ 遥测。
@@ -224,9 +224,9 @@ PRTS 已经沉淀出的三层兼容策略（本文每处缺口都会套用这套
 
 | 优先级 | 缺口 | 原版烂在哪 | 收益 | 兼容风险 | 建议 |
 |---|---|---|---|---|---|
-| **P0** | **光照更新预算化** | 单 tick 光照风暴卡死主线程 | 高（机械/红石服主痛点） | **极低**（语义不变，仅延迟） | **做** |
+| ~~P0~~ | **光照更新预算化** | 单 tick 光照风暴卡死主线程 | 高（机械/红石服主痛点） | **极低**（语义不变，仅延迟） | ✅ **已实现**（`79406ea4`，剩调阈值） |
 | **P0** | **漏斗空转检测** | 无物可动的漏斗每 tick 满频探测 | 高（农场服） | 低（有物即恢复，可关） | **做** |
-| **P1** | **contiguous 不透明短路** | 不透明方块互替仍走光照 | 中 | 低（每次调方法，不缓存） | **做** |
+| ~~P1~~ | **contiguous 不透明短路** | 不透明方块互替仍走光照 | 中 | 低（每次调方法，不缓存） | **取消**（1.21.1 冗余，见 §3.5 更正） |
 | **P1** | **未变区块跳过存盘** | 全量 NBT 每存盘 tick 重写 | 中高（IO 尖峰） | 中（需保全量语义） | 研究 |
 | **P2** | **红石 dust power 幂等短路** | power 未变仍重算广播 | 中 | 高（红石最敏感） | 研究，默认关 |
 | **P2** | **实体 AABB 空间索引** | section 线性扫描 | 中 | 中（返回顺序） | 研究，只加速纯查询 |
@@ -242,7 +242,7 @@ HTML 已登记的未来演进：`N=16`、不等宽条带、完整数据副本（
 
 本项目所有优化必须遵守以下五条，这是「我们兼容模组、而非模组兼容我们」的具体落地：
 
-1. **检测到他人优化器，主动让位**：`@LoadIfMod(ModCondition.ABSENT)`——Lithium/Canary/Radium/Recruits 已做同类优化时，我们的 `ClassInstanceMultiMap` 优化不生效，避免「双优化」冲突。**未来的光照/实体空间索引优化必须同样让位给 C2ME/Lithium 等**。
+1. **检测到他人优化器，主动让位**：`@LoadIfMod(ModCondition.ABSENT)`——Lithium/Canary/Radium/Recruits 已做同类优化时，我们的 `ClassInstanceMultiMap` 优化不生效，避免「双优化」冲突。**光照优化已落实让位**（`LightEngineMixin_LightBudget` 对 C2ME/Lithium/Canary/Radium ABSENT，`79406ea4`）；**未来的实体空间索引优化必须同样让位给 C2ME/Lithium 等**。
 
 2. **检测到 mod 破坏并行语义，主动降级串行**：`serializeBlockTicksForMods()` 对 `alternate_current` 回退。这是「宁可牺牲性能，不可破坏 mod」的底线。
 
@@ -267,11 +267,11 @@ HTML 已登记的未来演进：`N=16`、不等宽条带、完整数据副本（
 
 2. **生产减压（配置收敛）**（P0）。`max-chained-neighbor-updates=1000000 → 16/≤1000`、开 `reliable-chunk-save`。techdoc §14.3 已列，属「把已上线机制调回正确档位」，非新机制、无新风险。
 
-3. **光照更新预算化**（P0，vanilla 结构性里风险最低）。在 LightEngine 传播队列加每 tick 预算，语义不变。先 `stats` 观测队列长度，再决定阈值。
+3. **光照更新预算化**（P0，vanilla 结构性里风险最低）。在 LightEngine 传播队列加每 tick 预算，语义不变。先 `stats` 观测队列长度，再决定阈值。**✅ 已实现（`79406ea4`）**：剩余动作是按 `[light-engine]` 遥测把 `lighting.budget-per-tick` 从保守默认 100000 调到实测基准。
 
 4. **漏斗空转检测**（P0）。只对「上一 tick 无传输成功」的漏斗降频，有物即恢复。默认开但可关。
 
-5. **不透明方块光照短路**（P1）。`getLightEmission==0 && 两侧 getLightBlock==15` 时跳过 `checkBlock`；每次现调两个方法，不碰 mod 覆写语义。
+5. ~~**不透明方块光照短路**（P1）~~。`getLightEmission==0 && 两侧 getLightBlock==15` 时跳过 `checkBlock`；每次现调两个方法，不碰 mod 覆写语义。**已取消**：1.21.1 上 vanilla `hasDifferentLightProperties` 已内置等价短路（见 §3.5 方案2 更正）。
 
 6. **未变区块跳过存盘**（P1，研究）。最保守做「dirty=false 区块不重写」，保全量语义。
 
@@ -287,7 +287,7 @@ HTML 已登记的未来演进：`N=16`、不等宽条带、完整数据副本（
 
 - 每个优化都走「prts-features.yml 默认关 → stats 观测 → 实机开 → 回归」闭环。
 - **事件洪流降本**：复用 spark 复测 `EventBus.post` 子树（目标从 75.5% 显著回落），并做**功能回归**——QuarryPlus 整列破块、RTSbuilding 破坏任务、其他监听 `BlockEvent` 的 mod 必须**一个事件都不少**（可加监听器计数断言，确认事件数量/时机零变化）。
-- 光照预算化：用 `/servercore status` / `AsyncTaskStats` 观测更新队列长度与主线程 mspt，确认队列不堆积、最终光照一致。
+- 光照预算化（`79406ea4` 已实现）：用 `[light-engine]` 遥测日志（`updates= queue= run=avg/max`，AsyncTaskStats）观测队列长度与单次排空耗时，确认风暴时预算让 `updates` 分摊到多个 tick、`run max` 回落，且最终光照一致（无「黑块」/「光错」）；再据此调 `lighting.budget-per-tick`。
 - 漏斗降频：用 `BlockEntityTickStats` 对比开关前后漏斗 tick 次数与 mspt，确认无物品时数量显著下降、有物品时恢复。
 - 所有新优化叠加「第三方 mod 压测」：Create 机械、AE2 网络、红石工程、殖民地 NPC 同时跑，确认无线程违规（`thread-policy: enforce` 测服定位）/ 无功能回退。
 
@@ -303,6 +303,6 @@ HTML 已登记的未来演进：`N=16`、不等宽条带、完整数据副本（
 
 1. **削模组事件洪流的内部成本**（P0）——事件照发，只降派发/锁/NBT 拷贝成本，这是当前生产服边际收益最大的一处。
 2. **生产减压**（`max-chained-neighbor-updates` 回落 + 开 `reliable-chunk-save`，techdoc §14.3 已列）。
-3. **光照预算化 + 漏斗空转检测**（vanilla 结构性热点里最低风险、最高收益）作为长期纵深。
+3. **光照预算化（✅ 已实现，`79406ea4`）+ 漏斗空转检测（待做）**（vanilla 结构性热点里最低风险、最高收益）作为长期纵深。
 
 两类优化共同点仍是：**无法靠并行搬走，只能靠「削减无谓重算 + 预算化」根治**——而这恰好是兼容第三方模组最友好的形态（语义不变、最终一致、可配置回退）。所有项始终守住「**我们兼容第三方模组、而非模组兼容我们**」这条红线，尤其对 `BlockEvent`：**数量与时机是 mod 契约，绝不削减，只降单个事件的内部成本**。
