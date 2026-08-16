@@ -7,6 +7,7 @@ package io.izzel.arclight.common.optimization.general.entityspatial;
 
 import net.minecraft.util.AbortableIterationConsumer;
 import net.minecraft.world.level.entity.EntityAccess;
+import net.minecraft.world.level.entity.EntityTypeTest;
 import net.minecraft.world.phys.AABB;
 
 import java.util.ArrayList;
@@ -15,7 +16,8 @@ import java.util.List;
 
 /**
  * Lazily-built 4x4x4 sub-grid spatial index for one {@code EntitySection}, accelerating pure
- * AABB queries ({@code EntitySection.getEntities(AABB, consumer)}).
+ * AABB queries ({@code EntitySection.getEntities(AABB, consumer)}) and, as of entityspatial
+ * phase 2 (audit doc §5.4), typed queries ({@code EntitySection.getEntities(EntityTypeTest, ...)}).
  *
  * <p>Each entity is assigned to a single cell by its {@code blockPosition()} low bits (4 blocks
  * per cell). Queries inflate the box by {@link CellMath#QUERY_INFLATE} and scan only covered
@@ -29,10 +31,29 @@ import java.util.List;
  * the indexed output is identical to the vanilla linear scan (order, no duplicates — one cell per
  * entity; self-inclusion is handled at the Level lambda layer and is untouched).
  *
+ * <p><b>Typed queries</b> ({@link #query(EntityTypeTest, AABB, AbortableIterationConsumer, Iterable)}):
+ * instead of maintaining a class x cell composite bucket map (audit §5.4 sketch), we iterate the
+ * vanilla per-class collection — obtained via {@code ClassInstanceMultiMap.find(getBaseClass())},
+ * which is exact by construction (same lazy list, same order, same IllegalArgumentException on
+ * invalid classes) — and skip members whose bounding-box center cell is outside the covered
+ * cells. The inflate guarantee makes the skip sound: an entity whose bb intersects the query has
+ * its center within {@link CellMath#QUERY_INFLATE} of it, hence inside a covered cell. Skipping
+ * costs one cell computation + mask check per class member and saves the {@code intersects} test
+ * (and consumer accept) for out-of-range members; it is never worse than the vanilla typed scan,
+ * and it keeps the vanilla class-collection order without sorting. The per-cell class buckets of
+ * the audit sketch would only save the instanceof tryCast on foreign candidates — negligible
+ * against the maintenance cost they would impose on every add/remove/rebome.
+ *
  * <p>All mutation/query methods must be called under the owning section's lock (see
  * {@code EntitySectionMixin_SpatialIndex}).
  */
 public final class EntitySpatialIndex<T extends EntityAccess> {
+
+    /** Storage-skip iteration is used when at least this many cells (of 64) are covered. */
+    private static final int STORAGE_SKIP_MIN_CELLS = 8;
+
+    /** Plain vanilla loop when at least this many cells are covered (half the section). */
+    private static final int STORAGE_SKIP_HIGH_CELLS = 32;
 
     private final List<T>[] buckets = new List[CellMath.CELL_COUNT];
     private final IdentityHashMap<T, Integer> cellOf = new IdentityHashMap<>();
@@ -103,9 +124,58 @@ public final class EntitySpatialIndex<T extends EntityAccess> {
 
     /** Query covered cells for the (un-inflated) box; must hold the section read lock. */
     public AbortableIterationConsumer.Continuation query(AABB bounds, AbortableIterationConsumer<? super T> consumer) {
+        return query(bounds, consumer, null);
+    }
+
+    /**
+     * Same as {@link #query(AABB, AbortableIterationConsumer)}, optionally with the section's
+     * vanilla {@code allInstances} list. Three tiers, chosen by the number of covered cells:
+     * <ul>
+     *   <li>{@code >= STORAGE_SKIP_HIGH_CELLS}: the box covers most of the section — the per-member
+     *       cell check would be pure overhead, so run the plain vanilla loop (exact vanilla cost).</li>
+     *   <li>{@code >= STORAGE_SKIP_MIN_CELLS}: storage-skip iteration — members whose bounding-box
+     *       center cell is not covered are skipped (the inflate guarantee makes the skip exact, see
+     *       {@link #query(EntityTypeTest, AABB, AbortableIterationConsumer, Iterable)}); vanilla
+     *       order, no allocation, no sort.</li>
+     *   <li>below: very selective queries — bucket gather + seq sort of the small candidate set.</li>
+     * </ul>
+     */
+    public AbortableIterationConsumer.Continuation query(AABB bounds, AbortableIterationConsumer<? super T> consumer,
+                                                         Iterable<? extends T> storage) {
         boolean[] xs = CellMath.coveredCells(bounds.minX - CellMath.QUERY_INFLATE, bounds.maxX + CellMath.QUERY_INFLATE);
         boolean[] ys = CellMath.coveredCells(bounds.minY - CellMath.QUERY_INFLATE, bounds.maxY + CellMath.QUERY_INFLATE);
         boolean[] zs = CellMath.coveredCells(bounds.minZ - CellMath.QUERY_INFLATE, bounds.maxZ + CellMath.QUERY_INFLATE);
+        if (storage != null) {
+            int covered = coveredCellCount(xs, ys, zs);
+            if (covered >= STORAGE_SKIP_HIGH_CELLS) {
+                // box covers most of the section: cell checks are overhead, plain vanilla loop
+                EntitySpatialIndexStats.increment("vanillaOrderQueries");
+                for (T entity : storage) {
+                    if (entity.getBoundingBox().intersects(bounds)
+                            && consumer.accept(entity).shouldAbort()) {
+                        return AbortableIterationConsumer.Continuation.ABORT;
+                    }
+                }
+                return AbortableIterationConsumer.Continuation.CONTINUE;
+            }
+            if (covered >= STORAGE_SKIP_MIN_CELLS) {
+                int skipped = 0;
+                boolean aborted = false;
+                for (T entity : storage) {
+                    if (!isCellCovered(xs, ys, zs, entity)) {
+                        skipped++;
+                        continue;
+                    }
+                    if (entity.getBoundingBox().intersects(bounds)
+                            && consumer.accept(entity).shouldAbort()) {
+                        aborted = true;
+                        break;
+                    }
+                }
+                EntitySpatialIndexStats.add("membersSkipped", skipped);
+                return aborted ? AbortableIterationConsumer.Continuation.ABORT : AbortableIterationConsumer.Continuation.CONTINUE;
+            }
+        }
 
         ArrayList<T> candidates = new ArrayList<>(this.size);
         for (int x = 0; x < CellMath.CELLS_PER_DIM; x++) {
@@ -139,5 +209,78 @@ public final class EntitySpatialIndex<T extends EntityAccess> {
             }
         }
         return AbortableIterationConsumer.Continuation.CONTINUE;
+    }
+
+    /**
+     * Typed query (entityspatial phase 2, audit §5.4): same inflate/covered-cell rule as
+     * {@link #query(AABB, AbortableIterationConsumer)}, but iterating the vanilla per-class
+     * collection {@code classCollection} (from {@code ClassInstanceMultiMap.find(getBaseClass())},
+     * under the section write lock by the caller) and skipping members whose bounding-box center
+     * cell is not covered. The {@code tryCast} filter is applied per member exactly like vanilla
+     * ({@code forExactClass} tests need it even inside the class collection), so results, order
+     * and abort semantics are byte-identical to the vanilla typed scan; only the {@code intersects}
+     * work for out-of-range members is saved.
+     */
+    @SuppressWarnings("unchecked")
+    public <U extends T> AbortableIterationConsumer.Continuation query(EntityTypeTest<T, U> test, AABB bounds,
+                                                                      AbortableIterationConsumer<? super U> consumer,
+                                                                      Iterable<? extends T> classCollection) {
+        boolean[] xs = CellMath.coveredCells(bounds.minX - CellMath.QUERY_INFLATE, bounds.maxX + CellMath.QUERY_INFLATE);
+        boolean[] ys = CellMath.coveredCells(bounds.minY - CellMath.QUERY_INFLATE, bounds.maxY + CellMath.QUERY_INFLATE);
+        boolean[] zs = CellMath.coveredCells(bounds.minZ - CellMath.QUERY_INFLATE, bounds.maxZ + CellMath.QUERY_INFLATE);
+
+        int scanned = 0;
+        int skipped = 0;
+        boolean aborted = false;
+        for (T entity : classCollection) {
+            scanned++;
+            U u = test.tryCast(entity);
+            if (u == null) {
+                continue;
+            }
+            if (!isCellCovered(xs, ys, zs, entity)) {
+                skipped++;
+                continue;
+            }
+            if (entity.getBoundingBox().intersects(bounds) && consumer.accept(u).shouldAbort()) {
+                aborted = true;
+                break;
+            }
+        }
+        EntitySpatialIndexStats.add("typedScanned", scanned);
+        EntitySpatialIndexStats.add("typedSkipped", skipped);
+        return aborted ? AbortableIterationConsumer.Continuation.ABORT : AbortableIterationConsumer.Continuation.CONTINUE;
+    }
+
+    /** True if the cell of the entity's bounding-box center is covered by all three axis masks. */
+    private static boolean isCellCovered(boolean[] xs, boolean[] ys, boolean[] zs, EntityAccess entity) {
+        AABB bb = entity.getBoundingBox();
+        int id = CellMath.cellId((int) Math.floor(bb.getCenter().x), (int) Math.floor(bb.getCenter().y), (int) Math.floor(bb.getCenter().z));
+        return xs[id & 3] && ys[(id >> 2) & 3] && zs[(id >> 4) & 3];
+    }
+
+    /**
+     * Number of covered cells (0..64) from the three axis masks. The storage-skip iteration is
+     * used when this is at least {@link #STORAGE_SKIP_MIN_CELLS} (12.5% of the section); below
+     * that the bucket gather+sort of a small candidate set is cheaper.
+     */
+    private static int coveredCellCount(boolean[] xs, boolean[] ys, boolean[] zs) {
+        int count = 0;
+        for (int x = 0; x < CellMath.CELLS_PER_DIM; x++) {
+            if (!xs[x]) {
+                continue;
+            }
+            for (int y = 0; y < CellMath.CELLS_PER_DIM; y++) {
+                if (!ys[y]) {
+                    continue;
+                }
+                for (int z = 0; z < CellMath.CELLS_PER_DIM; z++) {
+                    if (zs[z]) {
+                        count++;
+                    }
+                }
+            }
+        }
+        return count;
     }
 }

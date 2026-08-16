@@ -126,7 +126,8 @@ public class PRTSFeaturesConfig {
     public static boolean lightTelemetryEnabled;
 
     // Entity spatial index - EntitySection 内懒 4×4×4 子格索引（默认开，2026-08-16 真机 A/B 验证）。
-    // 只加速纯空间 AABB 查询（getEntities(AABB)）；typed 查询/玩家交互路径不动；
+    // 加速纯空间 AABB 查询（getEntities(AABB)）与 typed 查询（getEntitiesOfClass 等，二期：
+    // vanilla 类列表按覆盖格子预筛，顺序/语义与原版逐位一致）；玩家交互路径不动；
     // 返回顺序与原版一致（插入序号排序）；对 Lithium/Canary/Radium/Recruits 让位。
     public static boolean entitySpatialIndexEnabled;
     /** section 实体数达到该值才建索引（小 section 走原版线性扫描，零成本）。 */
@@ -361,8 +362,9 @@ public class PRTSFeaturesConfig {
                   telemetry-enabled: true            # 采集队列长度/耗时进 [light-engine] 日志
 
                 # 实体空间索引：EntitySection 内懒 4×4×4 子格索引（默认开）
-                # 只加速纯空间 AABB 查询（getEntities(AABB)），typed getEntitiesOfClass 不动；
-                # 返回顺序与原版一致（插入序号排序）；对 Lithium/Canary/Radium/Recruits 让位。
+                # 加速纯空间 AABB 查询（getEntities(AABB)）与 typed 查询（getEntitiesOfClass 等，
+                # entityspatial 二期：在 vanilla 类列表上按覆盖格子预筛，结果/顺序与原版逐位一致）；
+                # 返回顺序与原版一致；对 Lithium/Canary/Radium/Recruits 让位。
                 # 2026-08-16 真机 A/B：120 只僵尸高密度场景 avg mspt 5.1→3.4ms（-33%）。
                 entity-spatial-index:
                   enabled: true                      # 默认开（可随时关；异常时看 [entity-spatial-index] 日志）

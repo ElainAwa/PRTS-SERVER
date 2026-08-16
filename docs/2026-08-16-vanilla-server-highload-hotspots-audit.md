@@ -126,7 +126,7 @@ PRTS 已经沉淀出的三层兼容策略（本文每处缺口都会套用这套
 - **兼容安全优化方向（已按此实现）**：
   - **给 section 内实体加懒散空间/类型索引**（如按 `MobCategory` 或按小网格分桶），把「扫描全 section」改为「只扫命中网格」。**关键兼容点**：必须保留 `getEntities` 的**返回语义**（含顺序、去重、是否含自身），且对 mod 自定义实体类型**不区分**（索引只按原版已有属性分桶，不按类名特判）。检测到 Lithium/Canary 等已做此优化的 mod 时整体让位（`@LoadIfMod ABSENT`）。
   - **风险**：返回顺序若被 mod 依赖（如拾取顺序、AI 选目标顺序），分桶会改变结果。建议**只对「无玩家交互的纯空间查询」加速**，玩家交互路径保留原版线性扫描。
-  - **✅ 已实现（`2026-08-16`，`entityspatial/*`）**：`EntitySpatialIndex`（64 桶，按 **bb 中心**低 4 位单桶归属）+ `EntitySectionMixin_SpatialIndex`（查询 HEAD 走索引、add/remove RETURN 维护、懒构建回填）+ `EntityMixin_SectionIndexRebome`（`setBoundingBox` TAIL，section 内移动 rehome——`bb` 字段唯一运行时写入点）。**保序**：实体加插入序号，命中候选按序号排序输出，与原版 per-section 顺序（`allInstances` 插入序）完全一致（`ArrayList.remove` 保序 ⇒ 剩余实体顺序 = 插入序）；**不漏**：桶按 bb 中心归属 ⇒ 实体 bb 与查询框相交 ⇒ 中心距查询框 ≤ bb 半径（最大 4，史莱姆 8×8×8），查询框统一膨胀 4 格覆盖中心桶（真机遥测曾用 8 格导致候选≈全扫，已修正）。锁与 `EntitySectionMixin_RegionLock` 共用 `arclight$sectionLock`（经 `ISectionLock` bridge）。**默认开**（`entity-spatial-index.enabled: true`，用户 2026-08-16 决策），配 `[entity-spatial-index]` 遥测；typed 查询 / 玩家交互路径 / `getNearbyPlayers`（本就不走 section）不动。真机验证（`2026-08-16` 测试服，120 只 AI 僵尸高密度 A/B 对比）：**索引开 avg mspt 5.1→3.4ms（-33%）**、TPS 20.0、0 异常；40 只场景（AI 35 格大框查询主导）索引无收益也无损失。**残余兼容风险**：超大 bb 实体（半径 > 4，vanilla 无；mod 自定义超大实体罕见）被「只覆盖其部分 bb 的小框查询」命中时理论上可能漏检——vanilla 线性扫描无此问题；若生产服出现可疑行为，先关 `entity-spatial-index.enabled` 回归确认。
+  - **✅ 已实现（`2026-08-16`，`entityspatial/*`）**：`EntitySpatialIndex`（64 桶，按 **bb 中心**低 4 位单桶归属）+ `EntitySectionMixin_SpatialIndex`（查询 HEAD 走索引、add/remove RETURN 维护、懒构建回填）+ `EntityMixin_SectionIndexRebome`（`setBoundingBox` TAIL，section 内移动 rehome——`bb` 字段唯一运行时写入点）。**保序**：实体加插入序号，命中候选按序号排序输出，与原版 per-section 顺序（`allInstances` 插入序）完全一致（`ArrayList.remove` 保序 ⇒ 剩余实体顺序 = 插入序）；**不漏**：桶按 bb 中心归属 ⇒ 实体 bb 与查询框相交 ⇒ 中心距查询框 ≤ bb 半径（最大 4，史莱姆 8×8×8），查询框统一膨胀 4 格覆盖中心桶（真机遥测曾用 8 格导致候选≈全扫，已修正）。锁与 `EntitySectionMixin_RegionLock` 共用 `arclight$sectionLock`（经 `ISectionLock` bridge）。**默认开**（`entity-spatial-index.enabled: true`，用户 2026-08-16 决策），配 `[entity-spatial-index]` 遥测；typed 查询已由二期（§5.4）覆盖、玩家交互路径 / `getNearbyPlayers`（本就不走 section）不动。真机验证（`2026-08-16` 测试服，120 只 AI 僵尸高密度 A/B 对比）：**索引开 avg mspt 5.1→3.4ms（-33%）**、TPS 20.0、0 异常；40 只场景（AI 35 格大框查询主导）索引无收益也无损失。**残余兼容风险**：超大 bb 实体（半径 > 4，vanilla 无；mod 自定义超大实体罕见）被「只覆盖其部分 bb 的小框查询」命中时理论上可能漏检——vanilla 线性扫描无此问题；若生产服出现可疑行为，先关 `entity-spatial-index.enabled` 回归确认。
 
 #### 1.4 实体类型查找 `getEntities(Class)`
 - **原版机理**：`ClassInstanceMultiMap` 按类维护 `byClass` 映射。原版给每个 `EntitySection` 建一张 `ClassInstanceMultiMap`，`getEntitiesOfClass` 走 `byClass.get(clazz)`。
@@ -238,12 +238,12 @@ PRTS 已经沉淀出的三层兼容策略（本文每处缺口都会套用这套
 - **兼容安全优化方向**：**per-chunk 位置形状缓存**：`LevelChunk` 上挂 `Map<BlockPos, VoxelShape>`（LRU 上限），命中即返回；`setBlockState` 时失效目标格 ±2 半径（连接型方块只依赖 ±1 邻位，±2 是安全余量）。**兼容点**：① 只缓存明确实现位置分支的方块（按类名/继承白名单：Fence/Wall/Pipe/Multiface + 子树），mod 自定义方块默认 miss；② 失效必须精确（±2 内任何 setBlockState 都清对应缓存），否则出现「墙接了新栅栏但碰撞形状没跟上」的错位；③ 检测「修改形状的 mod」困难——本项最大风险，故默认关。
 - **优先级**：**P2（研究）**。收益中（密集连接型方块场景），风险中（失效正确性）。
 
-#### 5.4 typed 实体查询（`getEntitiesOfClass`）未桶化 ⭐P2（entityspatial 二期）
+#### 5.4 typed 实体查询（`getEntitiesOfClass`）未桶化 ⭐P2（entityspatial 二期）→ ✅ **已实现**（2026-08-16 晚，`entityspatial/*` 二期）
 - **原版机理**：`entityspatial/*` 索引只加速**无类型** `getEntities(Entity, AABB)`；`getEntitiesOfClass` 仍走 `EntitySection.getEntitiesOfClass` → `ClassInstanceMultiMap` 的类列表线性扫描（§1.4 的惰性 byClass 只是去掉了「空类索引」的预建成本，**扫描本身没变**）。
 - **为什么烂**：typed 查询是全服最频繁的实体空间查询形态——村民 Brain 传感器（`NearestLivingEntitySensor` 每 tick `getEntitiesOfClass(LivingEntity.class, box)`）、僵尸增援（`getEntitiesOfClass(Zombie.class)`）、Allay 找物品、Raid 扫掠者清点、刷怪笼上限检查（`BaseSpawner`）、`Level.findNearestEntity`。高密度区每次都是 O(同 section 同类实体数)，且每 tick 反复调用。
-- **已优化**：无（§1.3 当时「typed 查询不动」是取舍，现在是缺口）。
-- **兼容安全优化方向**：**「类 × 子格」复合桶**：在 `EntitySection.getEntitiesOfClass` 查询入口挂与现有索引同构的 per-class 子格桶（`EntitySpatialIndex` 的桶按 bb 中心，typed 版再加一层类维度），命中候选按插入序号排序保序、查询框膨胀规则复用；**不动 `ClassInstanceMultiMap` 本体**（mod 可见结构，保持原样）。兼容点与 §1.3 完全一致：Lithium/Canary/Radium ABSENT 让位、超大 bb 实体残余风险、保序；另加一条——**只对「纯空间 + 类过滤」加速**，带自定义 `Predicate` 参数的查询回退原版（谓词语义零变化）。
-- **优先级**：**P2（做）**。收益与 §1.3 同源（高密度 section 的 typed 扫描是村民/刷怪塔场景主力），风险同 §1.3（已有一套经过验证的保序/让位/遥测机制可直接复用）。
+- **✅ 已实现（`entityspatial/*` 二期，落地记录见 `docs/2026-08-16-entityspatial-p2-typed-query-ab.md`）**：`EntitySpatialIndex` 新增 typed `query(EntityTypeTest, AABB, consumer, classCollection)` + `EntitySectionMixin_SpatialIndex` 的 typed HEAD 注入（`storage.find(baseClass)` 走 section **写锁**——与 `EntitySectionMixin_RegionLock` 原版 redirect 同纪律；查询走读锁）。实现与本节「类 × 子格复合桶」sketch 的偏差及理由：**改为在 vanilla 类列表上做覆盖格子预筛**（`isCellCovered`：成员 bb 中心所在格不在查询框(膨胀 4)覆盖格内则跳过）——语义逐位一致（顺序 = 原版类列表顺序；tryCast 逐成员执行，`forExactClass` 正确；`find` 的惰性构建与 `IllegalArgumentException` 保留），零漏检（同 §1.3 膨胀论证），且避免双层桶的 add/remove/rebome 维护成本。带自定义 `Predicate` 的查询在 Level 层 consumer 包装之下，语义零变化。**顺带修复一期 untyped 路径在「密集单 section 大框查询」几何下的性能倒挂**（gather+sort 白付）：三档路径（覆盖格 ≥32 → 纯 vanilla 循环；≥8 → storage 迭代 + 格预筛；<8 → 桶 gather + 排序）。
+- **兼容点与 §1.3 完全一致**：Lithium/Canary/Radium ABSENT 让位（同一 mixin 类）、超大 bb 实体残余风险、保序（typed = 原版类列表顺序）；另加——谓词语义零变化（Level 层包装）、`forExactClass` 逐成员 tryCast 保留（`BaseSpawner` 用 exact-class，实测剪枝生效）。
+- **真机验证**（2026-08-16 晚测试服，120 AI 僵尸围栏 pen，控制变量协议：永久午夜 + 关自然刷怪 + 关挤压 + 同流程 A/B）：索引开 vs 关 **avg mspt 2.0ms vs 1.9ms（持平，噪声内）**，TPS 20.0、0 异常；typed 遥测 `typedQueries≈155/tick`、小框查询场景（刷怪笼 9×9×9）`typedSkipped≈74/tick` 剪枝生效；大框查询（索敌/传感器）`typedSkipped=0` 属设计内 break-even（每成员 ~5ns 格检查，~57 成员/tick 可忽略）。**注意**：§1.3 一期真机 -33%（5.1→3.4ms）来自 08-16 白天不同环境与几何，与本次数字不可直接对比。
 
 #### 5.5 GameEvent（游戏事件）派发链 ⭐P2（先实测归因）
 - **原版机理**：每个 `Entity.move`（STEP 等）、每次 `setBlock` 都会走 `ServerLevel.gameEvent(Holder<GameEvent>, Vec3, GameEvent.Context)` → `GameEventDispatcher.post`；1.21.1 已改为队列批量处理（`handleGameEventMessagesInQueue`）。监听器（sculk 传感器、`DynamicGameEventListener`）存在时，每次事件要构造 `GameEvent.Context`（含状态/来源实体）并走监听器判定；**无监听器时近乎零成本**（空列表短路）。
@@ -303,7 +303,7 @@ PRTS 已经沉淀出的三层兼容策略（本文每处缺口都会套用这套
 |---|---|---|---|---|---|
 | ~~P1~~ | **POI 查询空 chunk 扫描** | `getInChunk` 对查询方阵内每个 chunk 做 24~32 个垂直 section 空扫描（1.21.1 已按类型分桶，初稿论断已修正） | 高（村庄服） | 低（跳过空 chunk = 结果集不变；冷 chunk 保留原版读盘） | ✅ **已实现**（`poi/*`，默认开；实测 30s 跳过 12288 空 chunk） |
 | ~~P1~~ | **移动碰撞 step-up 二次收集** | `Entity.collide` 上台阶分支对扩展区域全量重取（1.21.1 已一次收集，初稿「三轴三查」已修正） | 高（所有地面移动） | 低（纯读，缓存帧内有效，语义零变化） | ✅ **已实现**（`collision/*`，默认开，对 Lithium/Canary/Radium 让位） |
-| **P2** | **typed 查询未桶化** | `getEntitiesOfClass` 线性扫同类实体（传感器/增援/刷怪笼） | 中（刷怪塔/村庄） | 中（同 entityspatial，保序/让位机制可复用） | **做** entityspatial 二期（§阶段5·5.4） |
+| ~~P2~~ | **typed 查询未桶化** | `getEntitiesOfClass` 线性扫同类实体（传感器/增援/刷怪笼） | 中（刷怪塔/村庄） | 中（同 entityspatial，保序/让位机制可复用） | ✅ **已实现**（entityspatial 二期，默认开；真机：大框持平、小框 typedSkipped 剪枝生效；落地见 `2026-08-16-entityspatial-p2-typed-query-ab.md`） |
 | **P2** | **位置相关形状不缓存** | 栅栏/墙/玻璃板每碰重算 4 向邻居连接 | 中 | 中（失效精确性） | 研究，默认关（§阶段5·5.3） |
 | **P2** | **GameEvent 派发链** | setBlock/move 每次构造 Context 并走派发；有 sculk 监听器时成本线性 | 中（有 sculk 时） | 低（只降内部成本，事件照发） | 先实测归因（§阶段5·5.5） |
 | **P3** | **容器菜单全槽广播** | `broadcastChanges` 每 tick 遍历所有打开菜单全部槽位 | 中（大容器模组） | 中（同步时序） | 先实测（§阶段5·5.6） |
@@ -363,7 +363,7 @@ HTML 已登记的未来演进：`N=16`、不等宽条带、完整数据副本（
 
 10. **POI 查询空 chunk 预检**（P1）✅ **已实现**（`poi/*`，默认开）。1.21.1 的 `PoiSection` 已按 `PoiType` 分桶（初稿论断修正），真实缺口是 `getInChunk` 对无 POI chunk 的全垂直 section 扫描。落地：`SectionStorageMixin_Presence` 维护 chunk→present 位掩码（单调累加，section 不卸载故精确）+ `PoiManagerMixin_QueryFastPath` 空 chunk 直接跳过、present chunk 只迭代命中 y 层、冷 chunk 保留原版读盘。真机：30s 跳过 12288 空 chunk。**二期候选**：`findClosest` 最近优先剪枝（同类型 POI 密集时收益显著）。
 11. **移动碰撞 step-up 二次收集去重**（P1）✅ **已实现**（`collision/EntityMixin_CollisionBatch`，默认开，对 Lithium/Canary/Radium 让位）。1.21.1 已「一次收集、逐轴 clip」（初稿「三轴三查」修正），真实缺口是 step-up 分支的二次全量 `collectColliders`。落地：per-entity 帧级缓存 + 顶部条带增量补取，语义零变化。验证：`[collision-batch]` 遥测 `incrementalFetches` 增长 + 实体移动回归（上下台阶、贴墙滑行、活塞推挤对照原版）。
-12. **typed 查询桶化 = entityspatial 二期**（P2，做）。复用 §1.3 的保序/让位/遥测机制，在 `getEntitiesOfClass` 入口挂「类 × 子格」桶；先复用 `[entity-spatial-index]` 遥测看 typed 查询占比再立项。
+12. **typed 查询桶化 = entityspatial 二期**（P2）✅ **已实现**（`entityspatial/*` 二期，默认开，2026-08-16 晚）。实现为「vanilla 类列表 + 覆盖格子预筛」（语义逐位一致、零维护成本），并顺带把一期 untyped 路径改成三档（纯 vanilla 循环 / storage 迭代+格预筛 / 桶 gather+排序），消除密集单 section 大框查询的性能倒挂（实测 2.0 vs 1.9ms 持平）。剩余动作：生产服观察 `[entity-spatial-index]` 遥测的 `typedSkipped` / `membersSkipped` / `vanillaOrderQueries`，按需调 `min-section-size`。
 13. **其余研究项**：位置相关形状缓存（P2，默认关）、GameEvent 派发链（P2，先 spark 归因，无 sculk 则跳过）、容器菜单全槽广播（P3，先实测）、Tab list 广播（P3，1.21.1 先确认是否仍每 tick）、弹射物 `Level.clip`（P3）。全部走「默认关 → stats 观测 → 实机开 → 回归」闭环。
 
 ---
