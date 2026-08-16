@@ -125,6 +125,15 @@ public class PRTSFeaturesConfig {
     /** 采集光照队列长度/耗时进 AsyncTaskStats（[light-engine] 日志）。 */
     public static boolean lightTelemetryEnabled;
 
+    // Entity spatial index - EntitySection 内懒 4×4×4 子格索引（P2 研究项，默认关）。
+    // 只加速纯空间 AABB 查询（getEntities(AABB)）；typed 查询/玩家交互路径不动；
+    // 返回顺序与原版一致（插入序号排序）；对 Lithium/Canary/Radium/Recruits 让位。
+    public static boolean entitySpatialIndexEnabled;
+    /** section 实体数达到该值才建索引（小 section 走原版线性扫描，零成本）。 */
+    public static int entitySpatialIndexMinSectionSize;
+    /** 采集查询/候选数进 AsyncTaskStats（[entity-spatial-index] 日志）。 */
+    public static boolean entitySpatialIndexTelemetryEnabled;
+
     public static void init() {
         File file = new File("prts-features.yml");
         if (!file.exists()) {
@@ -226,6 +235,11 @@ public class PRTSFeaturesConfig {
         lightBudgetPerTick = config.getInt("lighting.budget-per-tick", 100000);
         if (lightBudgetPerTick < 0) lightBudgetPerTick = 0;
         lightTelemetryEnabled = config.getBoolean("lighting.telemetry-enabled", true);
+        entitySpatialIndexEnabled = config.getBoolean("entity-spatial-index.enabled", false);
+        entitySpatialIndexMinSectionSize = config.getInt("entity-spatial-index.min-section-size", 16);
+        if (entitySpatialIndexMinSectionSize < 4) entitySpatialIndexMinSectionSize = 4;
+        entitySpatialIndexTelemetryEnabled = config.getBoolean("entity-spatial-index.telemetry-enabled", true);
+        io.izzel.arclight.common.optimization.general.entityspatial.EntitySpatialIndexStats.setEnabled(entitySpatialIndexTelemetryEnabled);
     }
 
     private static int clampPower(int v, int lo, int hi) {
@@ -322,6 +336,14 @@ public class PRTSFeaturesConfig {
                   budget-enabled: true               # 每 tick 光照传播预算开关
                   budget-per-tick: 100000            # 每 tick 最多传播的方块数（默认保守，只拦风暴；按 [light-engine] 日志调）
                   telemetry-enabled: true            # 采集队列长度/耗时进 [light-engine] 日志
+
+                # 实体空间索引：EntitySection 内懒 4×4×4 子格索引（P2 研究项，默认关）
+                # 只加速纯空间 AABB 查询（getEntities(AABB)），typed getEntitiesOfClass 不动；
+                # 返回顺序与原版一致（插入序号排序）；对 Lithium/Canary/Radium/Recruits 让位。
+                entity-spatial-index:
+                  enabled: false                     # 默认关：先观测 [entity-spatial-index] 日志再开
+                  min-section-size: 16               # section 实体数达到该值才建索引（小 section 走原版线性扫描）
+                  telemetry-enabled: true            # 采集查询/候选数进 [entity-spatial-index] 日志
                 """;
         try {
             Files.writeString(file.toPath(), template, StandardCharsets.UTF_8);

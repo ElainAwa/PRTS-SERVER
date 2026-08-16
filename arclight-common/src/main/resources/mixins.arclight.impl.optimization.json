@@ -112,6 +112,8 @@
     "neighbor.LevelMixin_NeighborUpdateCircuitBreaker",
     "neighbor.TeslaCoilBlockEntityMixin_SetWorkingThrottle",
     "lightengine.LightEngineMixin_LightBudget",
+    "entityspatial.EntitySectionMixin_SpatialIndex",
+    "entityspatial.EntityMixin_SectionIndexRebome",
     "neoforgeitems.InvWrapperMixin_NoNull",
     "servercore.region_parallel.ServerLevelMixin_RegionTick",
     "servercore.region_parallel.ServerLevelMixin_RegionBlockTick",

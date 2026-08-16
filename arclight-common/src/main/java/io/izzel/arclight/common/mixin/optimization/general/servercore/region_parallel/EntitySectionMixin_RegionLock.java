@@ -5,6 +5,7 @@
 
 package io.izzel.arclight.common.mixin.optimization.general.servercore.region_parallel;
 
+import io.izzel.arclight.common.bridge.optimization.ISectionLock;
 import net.minecraft.util.ClassInstanceMultiMap;
 import net.minecraft.world.level.entity.EntitySection;
 import org.spongepowered.asm.mixin.Mixin;
@@ -22,12 +23,21 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
  * within a region, arbitrates only cross-region writes and main-thread spawns.
  * Read traversal snapshots under the read lock so a main-thread remove does not
  * cause a CME on a region worker iterating the section.
+ *
+ * <p>Implements {@link ISectionLock} so the spatial index (EntitySectionMixin_SpatialIndex /
+ * EntityMixin_SectionIndexRebome) shares the same lock — index writes must be serialized
+ * together with the underlying storage writes.
  */
 @Mixin(EntitySection.class)
-public abstract class EntitySectionMixin_RegionLock {
+public abstract class EntitySectionMixin_RegionLock implements ISectionLock {
 
     @Unique
     private final ReentrantReadWriteLock arclight$sectionLock = new ReentrantReadWriteLock();
+
+    @Override
+    public ReentrantReadWriteLock arclight$getSectionLock() {
+        return this.arclight$sectionLock;
+    }
 
     @Redirect(method = "add(Lnet/minecraft/world/level/entity/EntityAccess;)V",
         at = @At(value = "INVOKE", target = "Lnet/minecraft/util/ClassInstanceMultiMap;add(Ljava/lang/Object;)Z"))
