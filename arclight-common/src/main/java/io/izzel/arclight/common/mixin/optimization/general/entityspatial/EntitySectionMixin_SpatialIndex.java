@@ -15,6 +15,7 @@ import io.izzel.arclight.common.optimization.general.entityspatial.EntitySpatial
 import io.izzel.arclight.common.optimization.general.entityspatial.EntitySpatialIndexStats;
 import net.minecraft.util.AbortableIterationConsumer;
 import net.minecraft.util.ClassInstanceMultiMap;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.entity.EntityAccess;
 import net.minecraft.world.level.entity.EntitySection;
 import net.minecraft.world.phys.AABB;
@@ -89,7 +90,7 @@ public abstract class EntitySectionMixin_SpatialIndex implements IEntitySpatialI
         if (!PRTSFeaturesConfig.entitySpatialIndexEnabled) {
             return;
         }
-        if (entity.level() == null || entity.level().isClientSide) {
+        if (entity instanceof Entity e && e.level() != null && e.level().isClientSide) {
             return;
         }
         EntitySpatialIndex<EntityAccess> index = this.prts$spatialIndex;

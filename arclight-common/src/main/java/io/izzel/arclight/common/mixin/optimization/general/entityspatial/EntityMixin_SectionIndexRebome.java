@@ -58,7 +58,7 @@ public abstract class EntityMixin_SectionIndexRebome implements IEntitySectionHo
         if (section == null) {
             return; // not indexed (section below threshold / feature off) -> zero cost
         }
-        if (this.level() == null || this.level().isClientSide) {
+        if (((Entity) (Object) this).level() == null || ((Entity) (Object) this).level().isClientSide) {
             return;
         }
         if (section instanceof IEntitySpatialIndex index) {

@@ -18,9 +18,11 @@ public final class CellMath {
     public static final int CELLS_PER_DIM = 4;
     public static final int CELL_COUNT = 64;
 
-    /** Query inflation in blocks: any entity whose AABB intersects the query is at most
-     *  (max AABB radius ~4) blocks from the query box; 8 gives a 2x safety margin. */
-    public static final double QUERY_INFLATE = 8.0;
+    /** Query inflation in blocks (uniform). Entities are bucketed by their bounding-box CENTER;
+     *  a center lies inside its own box, so any entity whose box intersects the query has its
+     *  center within max AABB radius (4, e.g. a max slime 8x8x8) of the query box. Inflating the
+     *  query by 4 before computing covered cells therefore guarantees no misses. */
+    public static final double QUERY_INFLATE = 4.0;
 
     private CellMath() {
     }

@@ -5,7 +5,6 @@
 
 package io.izzel.arclight.common.optimization.general.entityspatial;
 
-import net.minecraft.core.BlockPos;
 import net.minecraft.util.AbortableIterationConsumer;
 import net.minecraft.world.level.entity.EntityAccess;
 import net.minecraft.world.phys.AABB;
@@ -42,8 +41,7 @@ public final class EntitySpatialIndex<T extends EntityAccess> {
     private int size;
 
     public void add(T entity) {
-        BlockPos pos = entity.blockPosition();
-        int cell = CellMath.cellId(pos.getX(), pos.getY(), pos.getZ());
+        int cell = cellOf(entity);
         List<T> bucket = this.buckets[cell];
         if (bucket == null) {
             bucket = new ArrayList<>(4);
@@ -75,8 +73,7 @@ public final class EntitySpatialIndex<T extends EntityAccess> {
         if (cell == null) {
             return; // not indexed (should not happen: only called on entities known to the index)
         }
-        BlockPos pos = entity.blockPosition();
-        int newCell = CellMath.cellId(pos.getX(), pos.getY(), pos.getZ());
+        int newCell = cellOf(entity);
         if (cell == newCell) {
             return; // static within the cell -> zero cost for idle high-density sections
         }
@@ -96,6 +93,12 @@ public final class EntitySpatialIndex<T extends EntityAccess> {
 
     public boolean isEmpty() {
         return this.size == 0;
+    }
+
+    /** Cell of an entity, keyed by its bounding-box center (see {@link CellMath#QUERY_INFLATE}). */
+    private static int cellOf(EntityAccess entity) {
+        AABB bb = entity.getBoundingBox();
+        return CellMath.cellId((int) Math.floor(bb.getCenter().x), (int) Math.floor(bb.getCenter().y), (int) Math.floor(bb.getCenter().z));
     }
 
     /** Query covered cells for the (un-inflated) box; must hold the section read lock. */
