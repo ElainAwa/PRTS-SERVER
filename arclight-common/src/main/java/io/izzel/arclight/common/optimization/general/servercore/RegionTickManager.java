@@ -77,13 +77,18 @@ public final class RegionTickManager {
     /** 主线程实体判定缓存（类名前缀走查超类链）。 */
     private static final ConcurrentHashMap<Class<?>, Boolean> MAIN_THREAD_ENTITY_CACHE = new ConcurrentHashMap<>();
 
+    // 需求峰值 = 无玩家维度数 × REGION_COUNT。实测 4 维度 × N=8 = 32 个 region 任务，
+    // 旧上限 16 + SynchronousQueue + AbortPolicy 会 RejectedExecutionException 崩服
+    // （crash-2026-08-16_11.16.50-server.txt）。上限按 4 维度 × N=16 预留 64；
+    // CallerRunsPolicy 让任何瞬时超额降级为「调用线程内联执行」，绝不拒绝任务。
     private static final ThreadPoolExecutor REGION_POOL = new ThreadPoolExecutor(
-            0, 16, 60L, TimeUnit.SECONDS, new SynchronousQueue<>(),
+            0, 64, 60L, TimeUnit.SECONDS, new SynchronousQueue<>(),
             r -> {
                 Thread t = new Thread(r, REGION_THREAD_PREFIX + THREAD_SEQ.incrementAndGet());
                 t.setDaemon(true);
                 return t;
-            });
+            },
+            new ThreadPoolExecutor.CallerRunsPolicy());
 
     /** LevelTicks.schedule tasks deferred from region workers, applied on the main thread. */
     private static final ConcurrentLinkedQueue<ScheduleTask> SCHEDULE_TASKS = new ConcurrentLinkedQueue<>();
