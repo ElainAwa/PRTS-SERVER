@@ -164,6 +164,28 @@ public class PRTSFeaturesConfig {
     /** 采集短路/全量/槽位检查数进 AsyncTaskStats（[menu-broadcast] 日志）。 */
     public static boolean menuBroadcastTelemetryEnabled;
 
+    // Event bridge on-demand registration (P0-1, 2026-08-17 计划稿 §四).
+    // Arclight 的 5 个 Forge 桥 dispatcher 从「启动时无条件注册」改为按「有插件在听对应
+    // Bukkit 事件」按需注册/注销（SimplePluginManager 注册/注销路径挂钩，0→1 注册、1→0
+    // 注销）。无插件监听的服务器上 Forge 事件照发、mod 监听器照收，只是桥自己的监听器
+    // 不在总线上——桥开销（CraftBlock/事件构造 + 空派发 + 回写）整块归零。
+    // P0-2 防御层：dispatcher 入口 O(1) 空监听器预检（HandlerList 空则跳过构造+派发）。
+    // 兼容红线：事件数量与时机零变化（只动 Arclight 自己的监听器是否在总线）。
+    public static boolean eventBridgeOnDemandEnabled;
+    /** 恢复 mod 加载期常驻注册（顺序敏感场景的逃生门）。 */
+    public static boolean eventBridgeEagerRegistration;
+    /** 采集转发/跳过/注册注销计数进 [event-bridge] 日志。 */
+    public static boolean eventBridgeTelemetryEnabled;
+
+    // Event short-circuit (P1-3/P1-4, 2026-08-17 计划稿 §8.5).
+    // EntityTickEvent（每实体每 tick ×2，频率之王）与 NeighborNotifyEvent（结果被丢弃）
+    // 在无监听器时短路掉事件构造与 post——零语义风险（无监听器 = Pre 恒未取消 = tick 照跑；
+    // onNeighborNotify 的 isCanceled 结果原代码直接丢弃）。
+    public static boolean eventShortcircuitEntityTickEnabled;
+    public static boolean eventShortcircuitNeighborNotifyEnabled;
+    /** 采集短路/转发计数进 [event-shortcircuit] 日志。 */
+    public static boolean eventShortcircuitTelemetryEnabled;
+
     public static void init() {
         File file = new File("prts-features.yml");
         if (!file.exists()) {
@@ -279,6 +301,20 @@ public class PRTSFeaturesConfig {
         menuBroadcastEnabled = config.getBoolean("menu-broadcast.enabled", false);
         menuBroadcastTelemetryEnabled = config.getBoolean("menu-broadcast.telemetry-enabled", true);
         io.izzel.arclight.common.optimization.general.menubroadcast.MenuBroadcastStats.setEnabled(menuBroadcastTelemetryEnabled);
+        eventBridgeOnDemandEnabled = config.getBoolean("event-bridge.on-demand-registration.enabled", true);
+        eventBridgeEagerRegistration = config.getBoolean("event-bridge.on-demand-registration.eager-registration", false);
+        eventBridgeTelemetryEnabled = config.getBoolean("event-bridge.on-demand-registration.telemetry-enabled", true);
+        io.izzel.arclight.common.optimization.general.eventbridge.EventBridgeStats.setEnabled(eventBridgeTelemetryEnabled);
+        // enabled=false 或 eager-registration=true 都恢复「启动即全注册」旧行为；否则按门收敛。
+        io.izzel.arclight.common.optimization.general.eventbridge.EventBridgeRegistry.setActive(
+                eventBridgeOnDemandEnabled && !eventBridgeEagerRegistration);
+        eventShortcircuitEntityTickEnabled = config.getBoolean("event-shortcircuit.entity-tick-event.enabled", true);
+        eventShortcircuitNeighborNotifyEnabled = config.getBoolean("event-shortcircuit.neighbor-notify-event.enabled", true);
+        eventShortcircuitTelemetryEnabled = config.getBoolean("event-shortcircuit.telemetry-enabled", true);
+        io.izzel.arclight.common.optimization.general.eventbridge.EventShortcircuitStats.setEnabled(eventShortcircuitTelemetryEnabled);
+        LOGGER.info("event-bridge on-demand={} eager={} | event-shortcircuit entityTick={} neighborNotify={}",
+                eventBridgeOnDemandEnabled, eventBridgeEagerRegistration,
+                eventShortcircuitEntityTickEnabled, eventShortcircuitNeighborNotifyEnabled);
     }
 
     private static int clampPower(int v, int lo, int hi) {
@@ -415,6 +451,32 @@ public class PRTSFeaturesConfig {
                 menu-broadcast:
                   enabled: false                     # 默认关（实测归因后再开）
                   telemetry-enabled: true            # 短路/全量/槽位检查数进 [menu-broadcast] 日志
+
+                # 事件桥按需注册（P0-1，默认开）+ 空监听器预检（P0-2）
+                # Arclight 的 5 个 Forge 桥 dispatcher 从「启动时无条件注册」改为按
+                # 「有插件在听对应 Bukkit 事件」按需注册/注销（0→1 注册、1→0 注销）。
+                # 无插件监听的服务器上 Forge 事件照发、mod 监听器照收，只是桥自己的
+                # 监听器不在总线上——桥开销（CraftBlock/事件构造 + 空派发 + 回写）归零。
+                # 事件数量与时机零变化（只动 Arclight 自己的监听器，不动事件本身）。
+                # 生产服第一大热点 EventBus.post 子树（实测 75.5%）中 Arclight 桥的份额
+                # 由本优化消除；mod 监听器主体与事件构造（vanilla/NeoForge 调用侧）不在此列。
+                event-bridge:
+                  on-demand-registration:
+                    enabled: true                     # 桥监听器按需注册（默认开）
+                    eager-registration: false         # 恢复 mod 加载期常驻注册（顺序敏感场景逃生门）
+                    telemetry-enabled: true           # 转发/跳过/注册注销计数进 [event-bridge] 日志
+
+                # 事件短路（P1-3/P1-4，默认开，零语义风险）
+                # EntityTickEvent：每实体每 tick ×2（频率之王）；无监听器时 Pre 恒未取消
+                # = entity.tick() 照跑，短路逐位等价。NeighborNotifyEvent：NeoForge 在
+                # vanilla 空壳 updateNeighborsAt 上 fire 事件且丢弃 isCanceled 结果——
+                # 无监听器时连 fire 都可跳过。两者有监听器时自动让位（length>0 判断）。
+                event-shortcircuit:
+                  entity-tick-event:
+                    enabled: true                     # 无监听器时跳过 EntityTickEvent 构造与 post
+                  neighbor-notify-event:
+                    enabled: true                     # 无监听器时跳过 NeighborNotifyEvent 构造与 post
+                  telemetry-enabled: true             # 短路/转发计数进 [event-shortcircuit] 日志
                 """;
         try {
             Files.writeString(file.toPath(), template, StandardCharsets.UTF_8);

@@ -1,12 +1,15 @@
 package io.izzel.arclight.neoforge;
 
 import io.izzel.arclight.api.Arclight;
+import io.izzel.arclight.common.compat.prts.PRTSFeaturesConfig;
 import io.izzel.arclight.common.mod.server.ArclightServer;
 import io.izzel.arclight.common.optimization.general.servercore.DimensionTickManager;
 import io.izzel.arclight.neoforge.mod.NeoForgeArclightServer;
 import io.izzel.arclight.neoforge.mod.event.ArclightEventDispatcherRegistry;
+import io.izzel.arclight.neoforge.mod.event.EventBusQuery;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.neoforge.event.EventHooks;
+import net.neoforged.neoforge.event.tick.LevelTickEvent;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -24,12 +27,27 @@ public class ArclightMod {
         Arclight.setServer(new NeoForgeArclightServer());
         System.setOut(new LoggingPrintStream("STDOUT", System.out, Level.INFO));
         System.setErr(new LoggingPrintStream("STDERR", System.err, Level.ERROR));
-        ArclightEventDispatcherRegistry.registerAllEventDispatchers();
+        ArclightEventDispatcherRegistry.init();
         // P2 dimension parallelism: bridge the common module's level-tick event
-        // callbacks to the real NeoForge EventHooks dispatchers.
+        // callbacks to the real NeoForge EventHooks dispatchers. Wrapped with the
+        // no-listener short-circuit (plan §8.4, gated by the entity-tick-event switch
+        // as the shared tick-event-family toggle): with nobody on the bus the event
+        // construction + empty post is skipped — observationally identical.
         DimensionTickManager.setLevelTickCallbacks(
-                EventHooks::fireLevelTickPre,
-                EventHooks::fireLevelTickPost
+                (level, hasTimeLeft) -> {
+                    if (PRTSFeaturesConfig.eventShortcircuitEntityTickEnabled
+                            && !EventBusQuery.hasListeners(LevelTickEvent.Pre.class)) {
+                        return;
+                    }
+                    EventHooks.fireLevelTickPre(level, hasTimeLeft);
+                },
+                (level, hasTimeLeft) -> {
+                    if (PRTSFeaturesConfig.eventShortcircuitEntityTickEnabled
+                            && !EventBusQuery.hasListeners(LevelTickEvent.Post.class)) {
+                        return;
+                    }
+                    EventHooks.fireLevelTickPost(level, hasTimeLeft);
+                }
         );
     }
 

@@ -7,6 +7,8 @@ import io.izzel.arclight.common.compat.prts.feature.WatchMohist;
 import io.izzel.arclight.common.optimization.general.collision.CollisionBatchStats;
 import io.izzel.arclight.common.optimization.general.entityspatial.EntitySpatialIndexStats;
 import io.izzel.arclight.common.optimization.general.lightengine.LightEngineStats;
+import io.izzel.arclight.common.optimization.general.eventbridge.EventBridgeStats;
+import io.izzel.arclight.common.optimization.general.eventbridge.EventShortcircuitStats;
 import io.izzel.arclight.common.optimization.general.menubroadcast.MenuBroadcastStats;
 import io.izzel.arclight.common.optimization.general.poi.PoiQueryStats;
 import java.util.ArrayList;
@@ -42,6 +44,8 @@ public class PRTSFeatures {
         PoiQueryStats.tick(serverTick);
         CollisionBatchStats.tick(serverTick);
         MenuBroadcastStats.tick(serverTick);
+        EventBridgeStats.tick(serverTick);
+        EventShortcircuitStats.tick(serverTick);
     }
 
     public static void stop() {
