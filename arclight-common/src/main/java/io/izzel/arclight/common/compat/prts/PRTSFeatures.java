@@ -3,8 +3,10 @@ package io.izzel.arclight.common.compat.prts;
 import io.izzel.arclight.common.compat.prts.feature.EntityClear;
 import io.izzel.arclight.common.compat.prts.feature.PRTSThreadCost;
 import io.izzel.arclight.common.compat.prts.feature.WatchMohist;
+import io.izzel.arclight.common.optimization.general.collision.CollisionBatchStats;
 import io.izzel.arclight.common.optimization.general.entityspatial.EntitySpatialIndexStats;
 import io.izzel.arclight.common.optimization.general.lightengine.LightEngineStats;
+import io.izzel.arclight.common.optimization.general.poi.PoiQueryStats;
 import java.util.ArrayList;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -35,6 +37,8 @@ public class PRTSFeatures {
         long serverTick = craft == null || craft.getServer() == null ? 0L : craft.getServer().getTickCount();
         LightEngineStats.tick(serverTick);
         EntitySpatialIndexStats.tick(serverTick);
+        PoiQueryStats.tick(serverTick);
+        CollisionBatchStats.tick(serverTick);
     }
 
     public static void stop() {

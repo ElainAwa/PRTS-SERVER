@@ -134,6 +134,23 @@ public class PRTSFeaturesConfig {
     /** 采集查询/候选数进 AsyncTaskStats（[entity-spatial-index] 日志）。 */
     public static boolean entitySpatialIndexTelemetryEnabled;
 
+    // POI query fast path - PoiManager.getInChunk 空 chunk 存在性预检（默认开，2026-08-16 落地）。
+    // 1.21.1 的 PoiSection 已按 PoiType 分桶（vanilla 自带），剩余成本 = 查询范围内大量无 POI
+    // 区块的全垂直 section 扫描；本优化维护「区块是否有 POI」位掩码，无 POI 区块直接跳过。
+    // 语义零变化（跳过空区块 = 结果集不变）；冷区块（未读盘）保持原版 getOrLoad 语义。
+    public static boolean poiQueryEnabled;
+    /** 采集命中/跳过计数进 AsyncTaskStats（[poi-query] 日志）。 */
+    public static boolean poiQueryTelemetryEnabled;
+
+    // Collision batch - Entity.collide 上台阶分支二次收集去重（默认开，2026-08-16 落地）。
+    // 1.21.1 collideBoundingBox 已「一次收集、逐轴 clip」；但 step-up 分支会对扩展区域再次
+    // 全量 collectColliders（走路生物每次地面移动都付）。本优化在同一 collide 帧内缓存首次
+    // 收集结果，step-up 只增量补取顶部条带。语义零变化（补集合并 = 全量结果）。
+    // 对 Lithium/Canary/Radium 让位（它们重写同一条碰撞路径）。
+    public static boolean collisionBatchEnabled;
+    /** 采集命中/增量/全量计数进 AsyncTaskStats（[collision-batch] 日志）。 */
+    public static boolean collisionBatchTelemetryEnabled;
+
     public static void init() {
         File file = new File("prts-features.yml");
         if (!file.exists()) {
@@ -240,6 +257,12 @@ public class PRTSFeaturesConfig {
         if (entitySpatialIndexMinSectionSize < 4) entitySpatialIndexMinSectionSize = 4;
         entitySpatialIndexTelemetryEnabled = config.getBoolean("entity-spatial-index.telemetry-enabled", true);
         io.izzel.arclight.common.optimization.general.entityspatial.EntitySpatialIndexStats.setEnabled(entitySpatialIndexTelemetryEnabled);
+        poiQueryEnabled = config.getBoolean("poi-query.enabled", true);
+        poiQueryTelemetryEnabled = config.getBoolean("poi-query.telemetry-enabled", true);
+        io.izzel.arclight.common.optimization.general.poi.PoiQueryStats.setEnabled(poiQueryTelemetryEnabled);
+        collisionBatchEnabled = config.getBoolean("collision-batch.enabled", true);
+        collisionBatchTelemetryEnabled = config.getBoolean("collision-batch.telemetry-enabled", true);
+        io.izzel.arclight.common.optimization.general.collision.CollisionBatchStats.setEnabled(collisionBatchTelemetryEnabled);
     }
 
     private static int clampPower(int v, int lo, int hi) {
@@ -345,6 +368,24 @@ public class PRTSFeaturesConfig {
                   enabled: true                      # 默认开（可随时关；异常时看 [entity-spatial-index] 日志）
                   min-section-size: 16               # section 实体数达到该值才建索引（小 section 走原版线性扫描）
                   telemetry-enabled: true            # 采集查询/候选数进 [entity-spatial-index] 日志
+
+                # POI 查询加速：PoiManager.getInChunk 空 chunk 存在性预检（默认开）
+                # 1.21.1 的 PoiSection 已按 PoiType 分桶（vanilla 自带），剩余成本 = 查询范围内
+                # 大量无 POI 区块的全垂直 section 扫描；本优化维护「区块是否有 POI」位掩码，
+                # 已知空区块直接跳过，只迭代有 POI section 的 y 层。语义零变化；冷区块
+                # （未读盘）保持原版 getOrLoad 路径（含同步读盘），磁盘 POI 不会漏。
+                poi-query:
+                  enabled: true                      # 默认开（纯读加速，语义零变化）
+                  telemetry-enabled: true            # 命中/跳过计数进 [poi-query] 日志
+
+                # 碰撞批量收集：Entity.collide 上台阶分支二次收集去重（默认开）
+                # 1.21.1 collideBoundingBox 已「一次收集、逐轴 clip」；但 step-up 上台阶分支会对
+                # 扩展区域再次全量 collectColliders（走路生物每次地面移动都付）。本优化在同一
+                # collide 帧内缓存首次收集结果，step-up 只增量补取顶部条带。语义零变化
+                # （补集合并 = 全量结果）；对 Lithium/Canary/Radium 让位。
+                collision-batch:
+                  enabled: true                      # 默认开（纯读加速，语义零变化）
+                  telemetry-enabled: true            # 命中/增量/全量计数进 [collision-batch] 日志
                 """;
         try {
             Files.writeString(file.toPath(), template, StandardCharsets.UTF_8);

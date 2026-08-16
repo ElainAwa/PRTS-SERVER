@@ -6,6 +6,8 @@
 > **文档目的**：只分析、只给方向，**不写代码**。逐一指出原版服务端哪些操作天然低效、当前已优化到哪一步、剩余缺口有哪些、以及**在保证「我们主动兼容第三方模组、而非让模组反过来兼容我们」前提下的优化策略**。
 >
 > **⚠️ 本文档初稿为「纯理论 vanilla 热点审计」；2026-08-16 重读 `docs/PRTS-multithreading-techdoc (1).html` §1 后补入实测瓶颈（见 §〇·一），并据此重排优先级。核心结论修正：生产服实测第一大瓶颈不是任何 vanilla 热点，而是模组事件洪流 `EventBus.post`。**
+>
+> **📌 2026-08-16 二刷追加**：补充审计「阶段 5」（见 §二·阶段5）——前文未覆盖的**「反复扫描型」原版烂操作**：POI 查询线性扫描（P1）、移动碰撞三轴三查（P1）、typed 实体查询未桶化（P2，entityspatial 二期）、位置相关形状不缓存（P2）、GameEvent 派发链（P2，实测归因）、容器菜单全槽广播 / Tab list 广播 / 弹射物 clip（P3）。均已对照 1.21.1 源码核实，并同步进 §三 缺口汇总表与 §五 建议顺序。
 
 ---
 
@@ -91,6 +93,10 @@ PRTS 已经沉淀出的三层兼容策略（本文每处缺口都会套用这套
 | 18 | **液体流动** | ◐ 仅随机 tick | 无流动批量优化 |
 | 19 | **区块保存全量 NBT** | ◐ 仅 WAL + 异步 IO | 无序列化减负 |
 | 20 | **红石 dust power 重算** | ◐ 仅熔断 | 无重算风暴根治 |
+| 21 | **POI 查询** | ✅ 已优化 | 空 chunk 存在性预检 + present 掩码（`poi/*`，见 §阶段5·5.1） |
+| 22 | **实体移动碰撞** | ✅ 已优化 | step-up 二次收集去重（`collision/*`，见 §阶段5·5.2） |
+| 23 | **typed 实体查询** | ◐ 未优化 | entityspatial 仅加速无类型查询（见 §阶段5·5.4） |
+| 24 | **位置相关方块形状** | ◐ 未优化 | 无 per-chunk 缓存（见 §阶段5·5.3） |
 
 > 结论：**架构层面已经把「主循环换代」这条最粗的腿（维度/实体/方块实体/寻路/IO）基本搬空**；**光照引擎**也已于 `79406ea4` 落地「预算化 + 遥测」（传播成本仍高于理论最优，但已从「完全未动」变为「有预算、可观测」，见 §3.5）。剩余的大头集中在**各类「链式反应」**（红石 power、邻居更新、活塞、液体）——它们无法靠并行搬走，只能靠「削减无谓重算 + 预算化」根治。
 
@@ -208,6 +214,64 @@ PRTS 已经沉淀出的三层兼容策略（本文每处缺口都会套用这套
 #### 4.3 看门狗
 - **已优化**：`ServerWatchdogMixin_BarrierAware`（并行 barrier 期间不误杀主线程）、`PRTSFeaturesConfig.watchdogEnabled`。**无剩余缺口**。
 
+### 阶段 5：补充审计——「反复扫描型」原版烂操作（2026-08-16 追加）
+
+> **追加说明**：§二 前四阶段覆盖了主循环的「换代」主体（实体/方块/tick 链），阶段 5 补的是另一类原版结构性烂操作——**「每次查询都全量扫、且被高频调用」**。它们不依赖单线程换代，无法靠并行搬走，只能靠「索引 + 削减无谓重算」根治；与全文红线一致：语义不变、可配置回退、默认保守。以下各项均已对照 1.21.1 源码核实（方法名/调用链），优先级已并入 §三 汇总表。
+
+#### 5.1 POI 查询线性扫描 ⭐P1（高收益-低风险）→ ✅ **已实现**（2026-08-16，`poi/*`）
+- **原版机理（1.21.1 实况，已对照源码核实）**：`PoiSection` **已经**按 `PoiType` 分桶（`Map<Holder<PoiType>, Set<PoiRecord>> byType`，`getRecords` 只扫命中类型的桶）——**初稿「裸 Map 全扫」对 1.21.1 不成立，已修正**。真正剩余的成本在 `PoiManager.getInChunk`：对查询方阵内**每一个 chunk** 执行 `IntStream.range(minSection, maxSection)` → 逐 section `getOrLoad` + `Optional` 包装——村庄稀疏分布下，**绝大多数 chunk 根本没有 POI section**，一次 `getInRange` 就是对 25 个 chunk × 24~32 个垂直 section 的空扫描（每查询约 700 次 `getOrLoad` 调用链）。另有 `findClosest` 对范围内全部候选 `.min()` 无剪枝（本期未做，见下）。
+- **为什么烂**：村民 `AcquirePoi` / `WalkToPoi`（认领职业、回家、集合点）每 5–20 tick 一次；蜜蜂找巢、铁傀儡生成、`take` 占用全走同一条链。村庄人口多时 = **O(村民数 × 范围 chunk 数 × 垂直 section 数)** 的重复空扫描，且每 tick 反复执行。
+- **已优化**：① `PoiManagerMixin_PoiLock`（区域并行下 DistanceTracker 加锁）；② **✅ `poi/*`（本次落地）**：`SectionStorageMixin_Presence` 维护「chunk → present section y 位掩码」（`getOrLoad`/`getOrCreate` RETURN 时单调累加——1.21.1 `SectionStorage` 的 section 从不卸载，掩码精确无残留），`PoiManagerMixin_QueryFastPath` 在 `getInChunk` HEAD 走快速路径：**已知空 chunk 直接返回空流（跳过整个垂直扫描）**、有 POI 的 chunk 只迭代 present 位对应的 y 层、**从未读盘的冷 chunk 保持原版 `getOrLoad` 路径**（含同步读盘，磁盘 POI 不漏）。配置 `poi-query.enabled`（默认开）+ `[poi-query]` 遥测（`indexedChunks`/`skippedEmptyChunks`/`vanillaChunks`）。真机验证（2026-08-16 测试服）：村民触发查询后 30 秒窗口内 **`skippedEmptyChunks=12288`**（1.2 万空 chunk 跳过垂直扫描）、`indexedChunks=154`、`vanillaChunks=32`（冷 chunk 走原版读盘），TPS 19.9 稳定、0 异常。
+- **兼容点**：语义零变化（跳过空 chunk = 结果集不变；present 位迭代与原版 y 升序一致；冷 chunk 原版语义保留）。不依赖谓词形态（`getRecords(predicate, occupancy)` 原样调用），mod 自定义谓词不受影响。无已知同类优化器，不需要让位。
+- **剩余缺口（二期候选）**：`findClosest` / `take` 的「最近优先剪枝」（按 chunk 距查询中心升序迭代 + 提前终止）——在同类型 POI 密集（大量农田）时收益显著，本期未做。风险点：与原版的「并列距离取序」差异（原版本身是 HashSet 序，非契约）。
+
+#### 5.2 实体移动碰撞「上台阶二次全量收集」 ⭐P1（纯读优化）→ ✅ **已实现**（2026-08-16，`collision/EntityMixin_CollisionBatch`）
+- **原版机理（1.21.1 实况，已对照源码核实）**：**初稿「三轴三查」对 1.21.1 不成立，已修正**——`collideBoundingBox` 已经是「**一次收集、逐轴 clip**」：`collectColliders` 把扫掠区域的全部方块形状一次性取进 `List<VoxelShape>`（`world.getBlockCollisions`），`collideWithShapes` 再对已取列表做三轴 clip。**真正的剩余成本在 `Entity.collide` 的 step-up 上台阶分支**（line 947）：`maxUpStep > 0` 且地面移动时，对**扩展区域（升高 maxUpStep）再次执行全量 `collectColliders`**——与第一次收集重叠的方块全部重取，而走路生物每次地面移动都付这个二重成本。
+- **为什么烂**：碰撞是 `Entity.move` 的固定成本，每个 tick 每个移动实体都付；step-up 分支对几乎所有地面步行生物（`maxUpStep > 0` + 水平位移）必然触发 → **每次地面移动 2 次全量区域取形状**。§1.1 说「碰撞子阶段是实体 tick 最贵部分」，此即其具体构成之一。
+- **已优化**：① §1.3 实体空间索引只加速「实体-实体」；② **✅ `collision/EntityMixin_CollisionBatch`（本次落地）**：`collide` HEAD 初始化 per-entity 帧级缓存，`collectColliders` 两处调用点 @Redirect 到批处理逻辑——第一次收集（swept 区域）入缓存；step-up 请求满足「水平范围相同 + 仅向上扩展」时**只增量补取顶部条带**（`level.getBlockCollisions(cap)`），合并后与全量结果**形状集完全一致**；区域不匹配/重入帧回退原版收集。纯读、语义零变化（每轴 clip 与候选台阶高度从相同形状集计算）。配置 `collision-batch.enabled`（默认开）+ `[collision-batch]` 遥测（`reusedShapes`/`incrementalFetches`/`fullFetches`）；**对 Lithium/Canary/Radium 让位**（它们重写同一条碰撞路径）。真机验证（2026-08-16 测试服）：`incrementalFetches` 持续增长（step-up 增量补取在工作），TPS 19.9 稳定、0 异常。
+- **兼容点**：① `getCollisionShape` 仍逐格调用（mod 覆写语义保留）——只是 step-up 的重叠区从「全量重取」降为「缓存复用」；② 缓存只在单个 `collide` 帧内存在（`Entity` 实例字段，HEAD 建 RETURN 清），mod 直接调用静态 `collideBoundingBox` 时无缓存 → 原版路径；③ 与区域并行无冲突（纯读，worker 各自实体实例）。
+- **剩余缺口**：`collideWithShapes` 每轴对列表的遍历是纯算术（已是最优形态）；位置相关形状（栅栏/墙）的缓存见 5.3（P2 研究）。
+
+#### 5.3 位置相关方块形状不缓存 ⭐P2（研究）
+- **原版机理**：`FenceBlock` / `WallBlock` / `PipeBlock`（玻璃板、铁栏杆）/ `MultifaceBlock`（发光地衣等）的 `getCollisionShape(level, pos)` **每次调用重算 4 向邻居连接**（每次 4 次 `getBlockState` + 分支拼接）；原版只按 `BlockState` 缓存与位置无关的形状（`CollisionShapeCache`），位置相关形状**零缓存**。
+- **为什么烂**：密集栅栏/玻璃墙/铁栏杆区域（动物圈、温室、大型建筑）里，5.2 的每轴碰撞都触发重算——一次移动 × 最多 3 轴 × 27 格，连接型方块每格重算 4 次邻居读；且这类场景常与「生物聚堆」叠加。
+- **兼容安全优化方向**：**per-chunk 位置形状缓存**：`LevelChunk` 上挂 `Map<BlockPos, VoxelShape>`（LRU 上限），命中即返回；`setBlockState` 时失效目标格 ±2 半径（连接型方块只依赖 ±1 邻位，±2 是安全余量）。**兼容点**：① 只缓存明确实现位置分支的方块（按类名/继承白名单：Fence/Wall/Pipe/Multiface + 子树），mod 自定义方块默认 miss；② 失效必须精确（±2 内任何 setBlockState 都清对应缓存），否则出现「墙接了新栅栏但碰撞形状没跟上」的错位；③ 检测「修改形状的 mod」困难——本项最大风险，故默认关。
+- **优先级**：**P2（研究）**。收益中（密集连接型方块场景），风险中（失效正确性）。
+
+#### 5.4 typed 实体查询（`getEntitiesOfClass`）未桶化 ⭐P2（entityspatial 二期）
+- **原版机理**：`entityspatial/*` 索引只加速**无类型** `getEntities(Entity, AABB)`；`getEntitiesOfClass` 仍走 `EntitySection.getEntitiesOfClass` → `ClassInstanceMultiMap` 的类列表线性扫描（§1.4 的惰性 byClass 只是去掉了「空类索引」的预建成本，**扫描本身没变**）。
+- **为什么烂**：typed 查询是全服最频繁的实体空间查询形态——村民 Brain 传感器（`NearestLivingEntitySensor` 每 tick `getEntitiesOfClass(LivingEntity.class, box)`）、僵尸增援（`getEntitiesOfClass(Zombie.class)`）、Allay 找物品、Raid 扫掠者清点、刷怪笼上限检查（`BaseSpawner`）、`Level.findNearestEntity`。高密度区每次都是 O(同 section 同类实体数)，且每 tick 反复调用。
+- **已优化**：无（§1.3 当时「typed 查询不动」是取舍，现在是缺口）。
+- **兼容安全优化方向**：**「类 × 子格」复合桶**：在 `EntitySection.getEntitiesOfClass` 查询入口挂与现有索引同构的 per-class 子格桶（`EntitySpatialIndex` 的桶按 bb 中心，typed 版再加一层类维度），命中候选按插入序号排序保序、查询框膨胀规则复用；**不动 `ClassInstanceMultiMap` 本体**（mod 可见结构，保持原样）。兼容点与 §1.3 完全一致：Lithium/Canary/Radium ABSENT 让位、超大 bb 实体残余风险、保序；另加一条——**只对「纯空间 + 类过滤」加速**，带自定义 `Predicate` 参数的查询回退原版（谓词语义零变化）。
+- **优先级**：**P2（做）**。收益与 §1.3 同源（高密度 section 的 typed 扫描是村民/刷怪塔场景主力），风险同 §1.3（已有一套经过验证的保序/让位/遥测机制可直接复用）。
+
+#### 5.5 GameEvent（游戏事件）派发链 ⭐P2（先实测归因）
+- **原版机理**：每个 `Entity.move`（STEP 等）、每次 `setBlock` 都会走 `ServerLevel.gameEvent(Holder<GameEvent>, Vec3, GameEvent.Context)` → `GameEventDispatcher.post`；1.21.1 已改为队列批量处理（`handleGameEventMessagesInQueue`）。监听器（sculk 传感器、`DynamicGameEventListener`）存在时，每次事件要构造 `GameEvent.Context`（含状态/来源实体）并走监听器判定；**无监听器时近乎零成本**（空列表短路）。
+- **为什么烂**：**成本与「有没有 sculk」强相关**——无 sculk 的服近零；有振动监听器的区域，`setBlock` 风暴与实体移动每次都要付派发成本。且 `setBlock` 路径上的 gameEvent 与 §〇·一 的 `BlockEvent` 洪流**同源**（都是方块变更的观测链），可合并归因。
+- **兼容安全优化方向**：① **无监听器短路**（若 1.21.1 已短路则跳过）；② 监听器存在时的**距离粗筛**（监听范围外的事件直接丢弃——须与 `DynamicGameEventListener` 移入/移出语义一致，按「监听器当前位置 + 最大监听范围」计算）；③ 与 P0 事件洪流共享归因（spark 看 `GameEventDispatcher.post` / `handleGameEventMessagesInQueue` 子树）。
+- **兼容点**：sculk 机制是 vanilla 契约（含 mod 扩展），事件**必须照发、时机不变**，只降内部成本。
+- **优先级**：**P2（先 spark 归因再定）**。生产服无 sculk 密集区则跳过。
+
+#### 5.6 容器菜单每 tick 全槽位广播（P3，先实测归因）
+- **原版机理**：`AbstractContainerMenu.broadcastChanges` 对**每个打开中的菜单每 tick** 遍历全部槽位（`Slot.getItem` + `ItemStack.matches` 比较 + 变化槽发包）。
+- **为什么烂**：已打开菜单数 × 槽位数是固定支出；AE2 终端、Create 背包、模组大容器（几百槽）打开时每 tick 全扫。变化槽发包本身是 diff 的（原版已做），但**「全槽位遍历 + 比较」不做 diff**。
+- **兼容安全优化方向**：脏槽位跟踪（槽位变更时标记，`broadcastChanges` 只扫脏槽）或降频（2–4 tick 一次）。**兼容点**：mod 依赖精确同步（快速取放时序），降频有风险；脏槽跟踪语义等价，但要覆盖 mod 直接写容器（`Container.setItem` 绕过 menu）的路径——**先实测归因**，若生产服打开菜单数不多则跳过。
+- **优先级**：**P3**。
+
+#### 5.7 Tab list 每 tick 广播（P3，低优先，需实测）
+- **原版机理**：1.20.1 的 `ServerPlayer.updateTabList` 每 tick 把本玩家行广播给全服玩家 → **O(玩家²)/tick** 的 `ClientboundPlayerInfoUpdatePacket`；1.21.1 玩家信息包结构已重做（`ClientboundPlayerInfoUpdatePacket` + `PlayerList.broadcastAll`），是否仍每 tick 广播**需实测确认**。
+- **为什么烂**：13 人边际（≈169 行/tick）；100+ 人服务器显著（万行级/tick 的序列化 + 发包）。
+- **兼容安全优化方向**：节流/按需（显示名变化、加入退出时立即，静态期降频）。低优先，先实测。
+
+#### 5.8 弹射物射线 `Level.clip` 逐格查询（P3，研究）
+- **原版机理**：`Projectile.tick` 每 tick 一次 `Level.clip`（`BlockGetter.clip` 沿射线逐格 `getBlockState` + `getCollisionShape().clip()`）；箭雨塔、弹药密集场景每 tick 数百次逐格查询。
+- **兼容安全优化方向**：高密度场景节流/预算，或 shape clip 快速路径。收益边际，研究项。
+
+#### 5.9 待实测候选池（先 spark 归因，不立项）
+- `EntityTrackerEntry` 每 tick 的 culling AABB 分配（`getBoundingBoxForCulling`）——零分配主题的小项；
+- 计分板系统（`ServerScoreboard` 每分数变更广播）——插件/模组计分场景；
+- 信标金字塔扫描（每 80 tick 全金字塔 `getBlockState`）——边际。
+
 ---
 
 ## 三、重点缺口汇总（按「原版烂 + 实测瓶颈 + 收益 / 兼容风险」排序）
@@ -232,6 +296,19 @@ PRTS 已经沉淀出的三层兼容策略（本文每处缺口都会套用这套
 | **P2** | **红石 dust power 幂等短路** | power 未变仍重算广播 | 中 | 高（红石最敏感） | 研究，默认关 |
 | ~~P2~~ | **实体 AABB 空间索引** | section 线性扫描 | 中 | 中（返回顺序） | ✅ **已实现**（`entityspatial/*`，**默认开**，保序；实测 -33% avg mspt） |
 | **P3** | **活塞批量原子化** | 逐 setBlock 中间态级联 | 中 | **高**（mod 机械核心） | **暂不做** |
+
+**2026-08-16 二刷追加**（阶段 5，均对照 1.21.1 源码核实）：
+
+| 优先级 | 缺口 | 原版烂在哪 | 收益 | 兼容风险 | 建议 |
+|---|---|---|---|---|---|
+| ~~P1~~ | **POI 查询空 chunk 扫描** | `getInChunk` 对查询方阵内每个 chunk 做 24~32 个垂直 section 空扫描（1.21.1 已按类型分桶，初稿论断已修正） | 高（村庄服） | 低（跳过空 chunk = 结果集不变；冷 chunk 保留原版读盘） | ✅ **已实现**（`poi/*`，默认开；实测 30s 跳过 12288 空 chunk） |
+| ~~P1~~ | **移动碰撞 step-up 二次收集** | `Entity.collide` 上台阶分支对扩展区域全量重取（1.21.1 已一次收集，初稿「三轴三查」已修正） | 高（所有地面移动） | 低（纯读，缓存帧内有效，语义零变化） | ✅ **已实现**（`collision/*`，默认开，对 Lithium/Canary/Radium 让位） |
+| **P2** | **typed 查询未桶化** | `getEntitiesOfClass` 线性扫同类实体（传感器/增援/刷怪笼） | 中（刷怪塔/村庄） | 中（同 entityspatial，保序/让位机制可复用） | **做** entityspatial 二期（§阶段5·5.4） |
+| **P2** | **位置相关形状不缓存** | 栅栏/墙/玻璃板每碰重算 4 向邻居连接 | 中 | 中（失效精确性） | 研究，默认关（§阶段5·5.3） |
+| **P2** | **GameEvent 派发链** | setBlock/move 每次构造 Context 并走派发；有 sculk 监听器时成本线性 | 中（有 sculk 时） | 低（只降内部成本，事件照发） | 先实测归因（§阶段5·5.5） |
+| **P3** | **容器菜单全槽广播** | `broadcastChanges` 每 tick 遍历所有打开菜单全部槽位 | 中（大容器模组） | 中（同步时序） | 先实测（§阶段5·5.6） |
+| **P3** | **Tab list 广播** | 1.20.1 O(玩家²)/tick；1.21.1 需实测 | 低（13 人边际） | 低 | 先实测（§阶段5·5.7） |
+| **P3** | **弹射物 clip 逐格查询** | 箭雨塔每 tick 数百次逐格 raycast | 低-中 | 低 | 研究（§阶段5·5.8） |
 
 ### 与 `techdoc (1).html` §14.3「未来演进」的衔接（避免重复立项）
 
@@ -282,6 +359,13 @@ HTML 已登记的未来演进：`N=16`、不等宽条带、完整数据副本（
 
 9. **活塞批量原子化**（P3，暂不做）。列为研究项，除非实测活塞成为瓶颈。
 
+**2026-08-16 二刷追加**（对应 §阶段5，插在 4 之后、与 5~9 并列推进）：
+
+10. **POI 查询空 chunk 预检**（P1）✅ **已实现**（`poi/*`，默认开）。1.21.1 的 `PoiSection` 已按 `PoiType` 分桶（初稿论断修正），真实缺口是 `getInChunk` 对无 POI chunk 的全垂直 section 扫描。落地：`SectionStorageMixin_Presence` 维护 chunk→present 位掩码（单调累加，section 不卸载故精确）+ `PoiManagerMixin_QueryFastPath` 空 chunk 直接跳过、present chunk 只迭代命中 y 层、冷 chunk 保留原版读盘。真机：30s 跳过 12288 空 chunk。**二期候选**：`findClosest` 最近优先剪枝（同类型 POI 密集时收益显著）。
+11. **移动碰撞 step-up 二次收集去重**（P1）✅ **已实现**（`collision/EntityMixin_CollisionBatch`，默认开，对 Lithium/Canary/Radium 让位）。1.21.1 已「一次收集、逐轴 clip」（初稿「三轴三查」修正），真实缺口是 step-up 分支的二次全量 `collectColliders`。落地：per-entity 帧级缓存 + 顶部条带增量补取，语义零变化。验证：`[collision-batch]` 遥测 `incrementalFetches` 增长 + 实体移动回归（上下台阶、贴墙滑行、活塞推挤对照原版）。
+12. **typed 查询桶化 = entityspatial 二期**（P2，做）。复用 §1.3 的保序/让位/遥测机制，在 `getEntitiesOfClass` 入口挂「类 × 子格」桶；先复用 `[entity-spatial-index]` 遥测看 typed 查询占比再立项。
+13. **其余研究项**：位置相关形状缓存（P2，默认关）、GameEvent 派发链（P2，先 spark 归因，无 sculk 则跳过）、容器菜单全槽广播（P3，先实测）、Tab list 广播（P3，1.21.1 先确认是否仍每 tick）、弹射物 `Level.clip`（P3）。全部走「默认关 → stats 观测 → 实机开 → 回归」闭环。
+
 ---
 
 ## 六、验证建议
@@ -306,5 +390,6 @@ HTML 已登记的未来演进：`N=16`、不等宽条带、完整数据副本（
 1. **削模组事件洪流的内部成本**（P0）——事件照发，只降派发/锁/NBT 拷贝成本，这是当前生产服边际收益最大的一处。
 2. **生产减压**（`max-chained-neighbor-updates` 回落 + 开 `reliable-chunk-save`，techdoc §14.3 已列）。
 3. **光照预算化（✅ 已实现，`79406ea4`）+ 漏斗空转检测（待做）**（vanilla 结构性热点里最低风险、最高收益）作为长期纵深；**实体 AABB 空间索引（✅ 已实现，`entityspatial/*`，默认关）** 属 P2 研究项，按 `[entity-spatial-index]` 遥测确认收益后再开。
+4. **2026-08-16 二刷追加的「反复扫描型」两项 P1**：**POI 查询分桶**（村庄服高收益）与**移动碰撞批量取形状**（所有实体移动的纯读优化）——与第 3 项同属「削减无谓重算」家族，语义不变、可配置回退，插在光照/漏斗之后推进；**typed 查询桶化**作为 entityspatial 二期（P2）复用已验证的保序/让位/遥测机制；其余（位置形状缓存、GameEvent、容器广播、Tab list、clip）先 spark 归因再立项（详见 §阶段5）。
 
 两类优化共同点仍是：**无法靠并行搬走，只能靠「削减无谓重算 + 预算化」根治**——而这恰好是兼容第三方模组最友好的形态（语义不变、最终一致、可配置回退）。所有项始终守住「**我们兼容第三方模组、而非模组兼容我们**」这条红线，尤其对 `BlockEvent`：**数量与时机是 mod 契约，绝不削减，只降单个事件的内部成本**。
