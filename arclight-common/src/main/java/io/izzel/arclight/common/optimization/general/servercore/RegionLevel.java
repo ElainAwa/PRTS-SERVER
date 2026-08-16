@@ -18,7 +18,12 @@ public final class RegionLevel {
 
     /** Initial placeholder before ensureConfigured() applies the configured count. */
     public static final int INITIAL_REGION_COUNT = 2;
-    static final int STRIPE_WIDTH = 8;
+    /** Chunk-column stripe width. 8 for N<=8, grows to N for N=16 (default behavior unchanged). */
+    static volatile int STRIPE_WIDTH = 8;
+
+    static void setStripeWidth(int stripeWidth) {
+        STRIPE_WIDTH = Math.max(8, Integer.highestOneBit(stripeWidth));
+    }
 
     private final int regionId;
 

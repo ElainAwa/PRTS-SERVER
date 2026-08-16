@@ -11,6 +11,8 @@ import io.izzel.arclight.common.mod.mixins.annotation.LoadIfMod;
 import org.objectweb.asm.Opcodes;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Constant;
+import org.spongepowered.asm.mixin.injection.ModifyConstant;
 import org.spongepowered.asm.mixin.injection.Redirect;
 
 /**
@@ -27,6 +29,13 @@ public abstract class AbstractEntityCitizenMixin_ColonyPhase {
         if (!PRTSFeaturesConfig.parallelColonyPhaseStagger) {
             return self.tickCount;
         }
-        return self.tickCount + (self.getId() & 0x7FFFFFFF) % 5;
+        int interval = PRTSFeaturesConfig.colonyNpcWorkInterval;
+        return self.tickCount + (self.getId() & 0x7FFFFFFF) % interval;
+    }
+
+    /** 把 aiStep 里硬编码的 %5 换成配置间隔（默认 5，行为不变）。 */
+    @ModifyConstant(method = "aiStep", remap = false, constant = @Constant(intValue = 5))
+    private int arclight$colonyWorkInterval(int original) {
+        return PRTSFeaturesConfig.colonyNpcWorkInterval;
     }
 }
