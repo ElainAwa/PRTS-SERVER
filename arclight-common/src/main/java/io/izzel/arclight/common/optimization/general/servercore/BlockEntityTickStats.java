@@ -5,6 +5,8 @@
 
 package io.izzel.arclight.common.optimization.general.servercore;
 
+import net.minecraft.core.BlockPos;
+
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -26,7 +28,7 @@ public final class BlockEntityTickStats {
     private BlockEntityTickStats() {
     }
 
-    public static void record(String typeKey, long nanos, String posDesc) {
+    public static void record(String typeKey, long nanos, BlockPos pos) {
         TypeStats stats = TYPES.computeIfAbsent(typeKey, ignored -> new TypeStats());
         stats.nanos.add(nanos);
         stats.ticks.increment();
@@ -34,8 +36,9 @@ public final class BlockEntityTickStats {
         while (nanos > prev && !stats.maxNanos.compareAndSet(prev, nanos)) {
             prev = stats.maxNanos.get();
         }
+        // 只有刷新最大值才做字符串化，避免每个 BE tick 都分配 BlockPos.toString。
         if (nanos >= stats.maxNanos.get()) {
-            stats.maxPos.set(posDesc);
+            stats.maxPos.set(String.valueOf(pos));
         }
     }
 

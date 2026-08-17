@@ -34,6 +34,7 @@
     "servercore.compat.FunnelBlockMixin_Create",
     "servercore.compat.TrackBlockEntityMixin_LazySpread",
     "servercore.compat.AbstractEntityCitizenMixin_ColonyPhase",
+    "servercore.compat.ColonyManagerMixin_ServerTickCache",
     "servercore.compat.EntityCitizenMixin_MainThreadDeath",
     "servercore.ownership.LevelMixin_OwnershipGuard",
     "servercore.ownership.ServerLevelMixin_OwnershipGuard",

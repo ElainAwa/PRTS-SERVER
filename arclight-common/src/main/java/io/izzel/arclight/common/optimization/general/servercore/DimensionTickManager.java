@@ -53,7 +53,8 @@ public final class DimensionTickManager {
                 Thread t = new Thread(r, DIMENSION_THREAD_PREFIX + THREAD_SEQ.incrementAndGet());
                 t.setDaemon(true);
                 return t;
-            });
+            },
+            new ThreadPoolExecutor.CallerRunsPolicy());
 
     private static final ConcurrentLinkedQueue<PendingTransfer> TRANSFERS = new ConcurrentLinkedQueue<>();
     private static final ConcurrentLinkedQueue<PendingEvent> PENDING_EVENTS = new ConcurrentLinkedQueue<>();

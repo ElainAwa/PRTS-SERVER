@@ -33,12 +33,15 @@ import net.minecraft.world.ticks.ScheduledTick;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.WeakHashMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -63,27 +66,36 @@ public final class RegionTickManager {
     private static final AtomicInteger THREAD_SEQ = new AtomicInteger();
 
     /** 首次 tick 需在主线程执行的方块实体（如 Create 机械网络初始化），按维度分队列。 */
-    private static final Map<ServerLevel, ConcurrentLinkedQueue<BlockEntity>> MAIN_THREAD_BLOCK_ENTITIES =
+    private static final Map<ServerLevel, LinkedBlockingQueue<BlockEntity>> MAIN_THREAD_BLOCK_ENTITIES =
             java.util.Collections.synchronizedMap(new WeakHashMap<>());
 
+    /** 主线程反射 tick 的 MethodHandle 缓存：BlockEntity 基类无 tick()，按具体类缓存。 */
+    private static final ConcurrentHashMap<Class<?>, MethodHandle> MAIN_THREAD_BE_TICK_HANDLES =
+            new ConcurrentHashMap<>();
+
     /** 维度并行期间收集、由主线程统一执行的方块实体 tick，按维度分队列。 */
-    private static final Map<ServerLevel, ConcurrentLinkedQueue<TickingBlockEntity>> MAIN_THREAD_TE_TICKS =
+    private static final Map<ServerLevel, LinkedBlockingQueue<TickingBlockEntity>> MAIN_THREAD_TE_TICKS =
             java.util.Collections.synchronizedMap(new WeakHashMap<>());
 
     /** 维度并行期间收集、由主线程统一执行的实体 tick（Create 装置实体），按维度分队列。 */
-    private static final Map<ServerLevel, ConcurrentLinkedQueue<Entity>> MAIN_THREAD_ENTITY_TICKS =
+    private static final Map<ServerLevel, LinkedBlockingQueue<Entity>> MAIN_THREAD_ENTITY_TICKS =
             java.util.Collections.synchronizedMap(new WeakHashMap<>());
 
     /** 主线程实体判定缓存（类名前缀走查超类链）。 */
     private static final ConcurrentHashMap<Class<?>, Boolean> MAIN_THREAD_ENTITY_CACHE = new ConcurrentHashMap<>();
 
+    // 需求峰值 = 无玩家维度数 × REGION_COUNT。实测 4 维度 × N=8 = 32 个 region 任务，
+    // 旧上限 16 + SynchronousQueue + AbortPolicy 会 RejectedExecutionException 崩服
+    // （crash-2026-08-16_11.16.50-server.txt）。上限按 4 维度 × N=16 预留 64；
+    // CallerRunsPolicy 让任何瞬时超额降级为「调用线程内联执行」，绝不拒绝任务。
     private static final ThreadPoolExecutor REGION_POOL = new ThreadPoolExecutor(
-            0, 16, 60L, TimeUnit.SECONDS, new SynchronousQueue<>(),
+            0, 64, 60L, TimeUnit.SECONDS, new SynchronousQueue<>(),
             r -> {
                 Thread t = new Thread(r, REGION_THREAD_PREFIX + THREAD_SEQ.incrementAndGet());
                 t.setDaemon(true);
                 return t;
-            });
+            },
+            new ThreadPoolExecutor.CallerRunsPolicy());
 
     /** LevelTicks.schedule tasks deferred from region workers, applied on the main thread. */
     private static final ConcurrentLinkedQueue<ScheduleTask> SCHEDULE_TASKS = new ConcurrentLinkedQueue<>();
@@ -182,6 +194,8 @@ public final class RegionTickManager {
             .group("cross", "block", "redstone", "redstoneBoundary", "transfer", "read")
             .group("update", "blockTicks", "teTicks", "applied", "teMainTicks")
             .timer("entities.mainThreadMs")
+            .counter("colony.ticks")
+            .timer("colony.ms")
             .build();
 
     private RegionTickManager() {
@@ -203,6 +217,8 @@ public final class RegionTickManager {
     /** Rebuilds the per-region queues for a new region count (startup only). */
     static synchronized void reconfigure(int n) {
         REGION_COUNT = n;
+        // N=16 时把条纹宽从 8 扩到 16，保证每区仍为整数条 chunk 列（N<=8 保持 8，行为不变）。
+        RegionLevel.setStripeWidth(n);
         for (int i = 0; i < n; i++) {
             STATS.ensureTimer("region" + i);
             STATS.ensureGroupMember("entities", "region" + i);
@@ -314,9 +330,9 @@ public final class RegionTickManager {
     /** 把一个方块实体排到主线程队列（下次主线程 PRE 阶段执行其 tick）。 */
     public static void queueMainThreadBlockEntity(BlockEntity be) {
         if (be.getLevel() instanceof ServerLevel level) {
-            ConcurrentLinkedQueue<BlockEntity> queue;
+            LinkedBlockingQueue<BlockEntity> queue;
             synchronized (MAIN_THREAD_BLOCK_ENTITIES) {
-                queue = MAIN_THREAD_BLOCK_ENTITIES.computeIfAbsent(level, k -> new ConcurrentLinkedQueue<>());
+                queue = MAIN_THREAD_BLOCK_ENTITIES.computeIfAbsent(level, k -> new LinkedBlockingQueue<>());
             }
             queue.add(be);
         }
@@ -324,48 +340,62 @@ public final class RegionTickManager {
 
     /** 主线程 PRE 阶段调用：执行本维度排队的主线程方块实体 tick。 */
     public static void drainMainThreadBlockEntities(ServerLevel level) {
-        ConcurrentLinkedQueue<BlockEntity> queue;
+        LinkedBlockingQueue<BlockEntity> queue;
         synchronized (MAIN_THREAD_BLOCK_ENTITIES) {
             queue = MAIN_THREAD_BLOCK_ENTITIES.remove(level);
         }
         if (queue == null) {
             return;
         }
-        BlockEntity be;
-        while ((be = queue.poll()) != null) {
+        java.util.Collection<BlockEntity> batch = new ArrayList<>();
+        queue.drainTo(batch);
+        for (BlockEntity be : batch) {
             long start = Util.getNanos();
             try {
-                // 方块实体子类各自定义 tick()（BlockEntity 基类无此方法），反射调用
-                be.getClass().getMethod("tick").invoke(be);
+                // 方块实体子类各自定义 tick()（BlockEntity 基类无此方法）；getMethod 只在首次缓存，
+                // 之后走 MethodHandle，避免每 tick 反射查找/调用（BE 并行时该队列每 tick 都有 Create BE）。
+                MethodHandle handle = MAIN_THREAD_BE_TICK_HANDLES.computeIfAbsent(be.getClass(), cls -> {
+                    try {
+                        return MethodHandles.lookup().unreflect(cls.getMethod("tick"));
+                    } catch (Throwable ignored) {
+                        return null;
+                    }
+                });
+                if (handle != null) {
+                    handle.invoke(be);
+                } else {
+                    be.getClass().getMethod("tick").invoke(be);
+                }
             } catch (Throwable t) {
                 LOGGER.error("[region-tick] main-thread block entity tick failed at {}: {}",
                         be.getBlockPos(), t.toString());
             } finally {
-                BlockEntityTickStats.record(blockEntityTypeKey(be), Util.getNanos() - start, String.valueOf(be.getBlockPos()));
+                BlockEntityTickStats.record(blockEntityTypeKey(be), Util.getNanos() - start, be.getBlockPos());
             }
         }
     }
 
     /** 维度 worker 调用：把方块实体 tick 排到本维度的主线程队列。 */
     public static void queueMainThreadBlockEntityTick(ServerLevel level, TickingBlockEntity ticker) {
-        ConcurrentLinkedQueue<TickingBlockEntity> queue;
+        LinkedBlockingQueue<TickingBlockEntity> queue;
         synchronized (MAIN_THREAD_TE_TICKS) {
-            queue = MAIN_THREAD_TE_TICKS.computeIfAbsent(level, k -> new ConcurrentLinkedQueue<>());
+            queue = MAIN_THREAD_TE_TICKS.computeIfAbsent(level, k -> new LinkedBlockingQueue<>());
         }
         queue.add(ticker);
     }
 
     /** 主线程 POST 阶段调用：执行本维度排队的主线程方块实体 tick。 */
     public static void drainMainThreadBlockEntityTicks(ServerLevel level) {
-        ConcurrentLinkedQueue<TickingBlockEntity> queue;
+        LinkedBlockingQueue<TickingBlockEntity> queue;
         synchronized (MAIN_THREAD_TE_TICKS) {
             queue = MAIN_THREAD_TE_TICKS.remove(level);
         }
         if (queue == null) {
             return;
         }
-        TickingBlockEntity ticker;
-        while ((ticker = queue.poll()) != null) {
+        java.util.Collection<TickingBlockEntity> batch = new ArrayList<>();
+        queue.drainTo(batch);
+        for (TickingBlockEntity ticker : batch) {
             long start = Util.getNanos();
             try {
                 ticker.tick();
@@ -374,23 +404,23 @@ public final class RegionTickManager {
                 LOGGER.error("[region-tick] main-thread block entity tick failed at {}: {}",
                         ticker.getPos(), t.toString());
             } finally {
-                BlockEntityTickStats.record(blockEntityTypeKey(ticker), Util.getNanos() - start, String.valueOf(ticker.getPos()));
+                BlockEntityTickStats.record(blockEntityTypeKey(ticker), Util.getNanos() - start, ticker.getPos());
             }
         }
     }
 
     /** 维度 worker 调用：把实体 tick 排到本维度的主线程队列。 */
     public static void queueMainThreadEntityTick(ServerLevel level, Entity entity) {
-        ConcurrentLinkedQueue<Entity> queue;
+        LinkedBlockingQueue<Entity> queue;
         synchronized (MAIN_THREAD_ENTITY_TICKS) {
-            queue = MAIN_THREAD_ENTITY_TICKS.computeIfAbsent(level, k -> new ConcurrentLinkedQueue<>());
+            queue = MAIN_THREAD_ENTITY_TICKS.computeIfAbsent(level, k -> new LinkedBlockingQueue<>());
         }
         queue.add(entity);
     }
 
     /** 主线程 POST 阶段调用：执行本维度排队的主线程实体 tick。 */
     public static void drainMainThreadEntityTicks(ServerLevel level) {
-        ConcurrentLinkedQueue<Entity> queue;
+        LinkedBlockingQueue<Entity> queue;
         synchronized (MAIN_THREAD_ENTITY_TICKS) {
             queue = MAIN_THREAD_ENTITY_TICKS.remove(level);
         }
@@ -398,11 +428,18 @@ public final class RegionTickManager {
             return;
         }
         long start = Util.getNanos();
-        Entity entity;
-        while ((entity = queue.poll()) != null) {
+        java.util.Collection<Entity> batch = new ArrayList<>();
+        queue.drainTo(batch);
+        for (Entity entity : batch) {
+            boolean colony = entity.getClass().getName().startsWith("com.minecolonies.");
+            long entityStart = colony ? Util.getNanos() : 0L;
             try {
                 tickEntitySafely(level, entity);
                 STATS.increment("entities.mainThread");
+                if (colony) {
+                    STATS.increment("colony.ticks");
+                    STATS.record("colony.ms", Util.getNanos() - entityStart);
+                }
             } catch (Throwable t) {
                 LOGGER.error("[region-tick] main-thread entity tick failed at {}: {}",
                         entity.blockPosition(), t.toString());
@@ -646,7 +683,7 @@ public final class RegionTickManager {
                     LOGGER.error("[region-tick] BE worker tick failed for {} at {}: {}",
                             typeKey, te.getPos(), t.toString());
                 } finally {
-                    BlockEntityTickStats.record(typeKey, Util.getNanos() - start, String.valueOf(te.getPos()));
+                    BlockEntityTickStats.record(typeKey, Util.getNanos() - start, te.getPos());
                     CURRENT_ENTITY_CLASS.remove();
                 }
             }
@@ -765,6 +802,16 @@ public final class RegionTickManager {
         try {
             CountDownLatch latch = new CountDownLatch(REGION_COUNT);
             AtomicReference<Throwable> failure = new AtomicReference<>();
+            // 确定性模式：journal 在调度线程按 regionId 顺序统一应用（所有区域 session 启动前），
+            // 应用顺序不再取决于各 region worker 的完成先后。默认关，行为不变。
+            boolean globallyApplied = applyNow && PRTSFeaturesConfig.determinismMode;
+            if (globallyApplied) {
+                int applied = state(level).journal.applyAll(level);
+                if (applied > 0) {
+                    STATS.add("update.applied", applied);
+                }
+            }
+            final boolean applyLocal = applyNow && !globallyApplied;
             for (int r = 0; r < REGION_COUNT; r++) {
                 final int region = r;
                 try {
@@ -772,7 +819,7 @@ public final class RegionTickManager {
                         REGION_CONTEXT.set(new RegionContext(region, level));
                         try {
                             long start = Util.getNanos();
-                            if (applyNow) {
+                            if (applyLocal) {
                                 applyCrossUpdates(level, region);
                             }
                             // Apply this region's async pathfinding results on the region
@@ -809,6 +856,7 @@ public final class RegionTickManager {
             }
             drainScheduleTasks();
             STATS.tick(level.getServer() == null ? 0 : level.getServer().getTickCount());
+            EventBusStats.tickIfNeeded(level.getServer() == null ? 0 : level.getServer().getTickCount());
         } finally {
             IN_REGION_TICK.set(false);
         }

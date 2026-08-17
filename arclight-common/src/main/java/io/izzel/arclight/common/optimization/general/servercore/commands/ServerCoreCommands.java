@@ -10,9 +10,11 @@
 package io.izzel.arclight.common.optimization.general.servercore.commands;
 
 import com.mojang.brigadier.Command;
+import io.izzel.arclight.common.compat.prts.PRTSFeaturesConfig;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import io.izzel.arclight.common.optimization.general.servercore.AsyncPathfindingManager;
+import io.izzel.arclight.common.optimization.general.servercore.EventBusStats;
 import io.izzel.arclight.common.optimization.general.servercore.BlockEntityAffinity;
 import io.izzel.arclight.common.optimization.general.servercore.BlockEntityTickStats;
 import io.izzel.arclight.common.optimization.general.servercore.RegionTickManager;
@@ -116,6 +118,10 @@ public class ServerCoreCommands {
                 ), source.getServer()));
             }
 
+            component.append(Formatter.parse("\n<dark_gray>» <c:#primary>EventBus: <c:#secondary>%s".formatted(
+                    EventBusStats.statusText()
+            ), source.getServer()));
+
             component.append(Formatter.parse("\n<dark_gray>» <c:#primary>ThreadPolicy: <c:#secondary>%s".formatted(
                     WorldAccessGuard.statusText()
             ), source.getServer()));
@@ -126,6 +132,10 @@ public class ServerCoreCommands {
 
             component.append(Formatter.parse("\n<dark_gray>» <c:#primary>Journal: <c:#secondary>%s".formatted(
                     RegionTickManager.journalStatusText(source.getServer())
+            ), source.getServer()));
+
+            component.append(Formatter.parse("\n<dark_gray>» <c:#primary>Determinism: <c:#secondary>%s".formatted(
+                    PRTSFeaturesConfig.determinismMode ? "on (barrier-global)" : "off (region-local)"
             ), source.getServer()));
 
             component.append(Formatter.parse("\n<dark_gray>» <c:#primary>BlockEntityTicks: <c:#secondary>%s".formatted(

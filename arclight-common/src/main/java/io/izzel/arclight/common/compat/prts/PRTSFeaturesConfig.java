@@ -55,6 +55,14 @@ public class PRTSFeaturesConfig {
     public static boolean regionBlockEntityParallel;
     /** 殖民地 NPC 工作 AI 相位错峰（按 citizenId 摊平每 5 tick 的集中尖峰）。 */
     public static boolean parallelColonyPhaseStagger;
+    /** 殖民地 NPC 工作 AI 执行间隔（tick）。原版固定 5；2-60 可调。 */
+    public static int colonyNpcWorkInterval;
+    /** 殖民地管理器 ServerTick 事件里的 getAllColonies 快照缓存（默认关；测试服 A/B 后定默认）。 */
+    public static boolean colonyManagerTickCacheEnabled;
+    /** 殖民地列表快照的 TTL（tick）；过期自动重建，create/delete 路径立即失效。 */
+    public static int colonyManagerTickCacheInterval;
+    /** EventBus 事件分发遥测（诊断用，默认关；开启后会给每个事件类挂 HIGHEST/LOWEST 计时监听器）。 */
+    public static boolean eventBusTelemetryEnabled;
     /** 主线程每 tick 处理的 chunk 需求上限（统一需求调度，默认 50）。 */
     public static int chunkDemandPerTick;
     /** 动态区域自动扩容：按负载周期性地调整区域数。 */
@@ -86,6 +94,8 @@ public class PRTSFeaturesConfig {
     public static int journalMaxPerRegion;
     /** read-your-writes overlay 总开关（默认关，仅预留接口，未接入方块读路径）。 */
     public static boolean journalReadBack;
+    /** 确定性模式：跨区 journal 按区域序在主调度线程统一应用（默认关）。 */
+    public static boolean determinismMode;
     /** BE 三档调度：允许在区域 worker 上 tick 的方块实体类型（registry key 或前缀*）。 */
     public static List<String> beParallelAllow;
     /** BE 三档调度：强制主线程 tick 的方块实体类型（优先级最高）。 */
@@ -207,18 +217,22 @@ public class PRTSFeaturesConfig {
         neighborUpdateBreakerMaxPerTick = config.getLong("neighbor-update-breaker.max-per-tick", 200000);
         ae2ltSetWorkingThrottleEnabled = config.getBoolean("ae2lt-setworking-throttle.enabled", true);
         ae2ltSetWorkingThrottleMinTicks = config.getInt("ae2lt-setworking-throttle.min-ticks", 4);
+        eventBusTelemetryEnabled = config.getBoolean("eventbus.telemetry-enabled", false);
         parallelPathfindingAsync = config.getBoolean("parallel.pathfinding-async", true);
         parallelDimension = config.getBoolean("parallel.dimension-parallel", true);
         parallelRegion = config.getBoolean("parallel.region-parallel", true);
         regionBlockEntityParallel = config.getBoolean("parallel.region-block-entity-parallel", false);
         parallelColonyPhaseStagger = config.getBoolean("parallel.colony-npc-phase-stagger", true);
+        colonyNpcWorkInterval = Math.max(1, Math.min(60, config.getInt("parallel.colony-npc-work-interval", 5)));
+        colonyManagerTickCacheEnabled = config.getBoolean("parallel.colony-manager-tick-cache-enabled", true);
+        colonyManagerTickCacheInterval = Math.max(1, Math.min(120, config.getInt("parallel.colony-manager-tick-cache-interval", 20)));
         chunkDemandPerTick = config.getInt("parallel.chunk-demand-per-tick", 50);
         // 非正数会使需求 drain 永久不执行（budget <= 0），退回默认值。
         if (chunkDemandPerTick < 1) chunkDemandPerTick = 50;
         io.izzel.arclight.common.optimization.general.servercore.ChunkDemandQueue.maxPerTick = chunkDemandPerTick;
         int count = config.getInt("parallel.region-count", 4);
         if (count < 2) count = 2;
-        if (count > 8) count = 8;
+        if (count > 16) count = 16;
         if (Integer.bitCount(count) != 1) count = 4;
         parallelRegionCount = count;
         regionAutoScale = config.getBoolean("parallel.region-auto-scale", true);
@@ -226,8 +240,8 @@ public class PRTSFeaturesConfig {
         regionScaleHighMspt = config.getDouble("parallel.region-scale-high-mspt", 60.0);
         regionScaleLowMspt = config.getDouble("parallel.region-scale-low-mspt", 15.0);
         regionScaleStablePeriods = Math.max(1, config.getInt("parallel.region-scale-stable-periods", 2));
-        regionScaleMin = clampPower(config.getInt("parallel.region-scale-min", 2), 2, 8);
-        regionScaleMax = clampPower(config.getInt("parallel.region-scale-max", 8), 2, 8);
+        regionScaleMin = clampPower(config.getInt("parallel.region-scale-min", 2), 2, 16);
+        regionScaleMax = clampPower(config.getInt("parallel.region-scale-max", 8), 2, 16);
         if (regionScaleMin > regionScaleMax) regionScaleMin = regionScaleMax;
         regionScaleCrossReadRatio = Math.max(0.0, config.getDouble("parallel.region-scale-cross-read-ratio", 0.05));
         // worker 世界访问策略：解析失败/未知值回退 stats（只统计不拦截，生产安全）。
@@ -251,7 +265,7 @@ public class PRTSFeaturesConfig {
             LOGGER.warn("parallel.main-thread-routing={} is invalid; falling back to auto", mainThreadRouting);
             mainThreadRouting = "auto";
         }
-        routeThreshold = Math.max(0, config.getInt("parallel.route-threshold", 2));
+        routeThreshold = Math.max(0, config.getInt("parallel.route-threshold", 5));
         routeWindowTicks = Math.max(20, config.getLong("parallel.route-window-ticks", 2400));
         mainThreadEntityForce = new ArrayList<>(config.getStringList("parallel.main-thread-entity-force"));
         mainThreadEntityAllow = new ArrayList<>(config.getStringList("parallel.main-thread-entity-allow"));
@@ -262,11 +276,15 @@ public class PRTSFeaturesConfig {
                 mainThreadEntityForce.size(), mainThreadEntityAllow.size(), persistLearnedRoutes);
         journalMaxPerRegion = Math.max(16, config.getInt("parallel.journal-max-per-region", 4096));
         journalReadBack = config.getBoolean("parallel.journal-read-back", false);
+        determinismMode = config.getBoolean("parallel.determinism-mode", false);
         beParallelAllow = new ArrayList<>(config.getStringList("parallel.be-parallel-allow"));
         beMainThreadForce = new ArrayList<>(config.getStringList("parallel.be-main-thread-force"));
         if (beMainThreadForce.isEmpty()) {
             // spike 实测：create:track 单次 tick 最大 342ms（列车图全局计算），铁主线程。
             beMainThreadForce.add("create:track");
+            // 灰度实测：lootr:lootr_chest 在 worker 上复现 ReportedException
+            // （08-16 13:18），安全阀兜住后永久 unsafe——默认直接锁主线程。
+            beMainThreadForce.add("lootr:lootr_chest");
         }
         createTrackLazySpread = config.getBoolean("parallel.create-track-lazy-spread", false);
         createTrackLazyChunkBlocks = Math.max(8, Math.min(512, config.getInt("parallel.create-track-lazy-chunk-blocks", 64)));
@@ -353,6 +371,10 @@ public class PRTSFeaturesConfig {
                   enabled: true
                   max-per-tick: 200000
 
+                # EventBus 分发遥测（诊断用；会给每个事件类挂 HIGHEST/LOWEST 计时监听器，默认关）
+                eventbus:
+                  telemetry-enabled: false
+
                 # AE2LT SetWorking 节流
                 ae2lt-setworking-throttle:
                   enabled: true
@@ -365,8 +387,11 @@ public class PRTSFeaturesConfig {
                   region-parallel: true              # 主世界区域并行（实体 tick）
                   region-block-entity-parallel: false # 方块实体 tick 并行（默认关：BE 间交互复杂有竞态）
                   colony-npc-phase-stagger: true      # 殖民地 NPC 工作 AI 相位错峰（默认开）
+                  colony-npc-work-interval: 5        # 殖民地 NPC 工作 AI 执行间隔 tick（原版 5；大城市建议 10/20）
+                  colony-manager-tick-cache-enabled: true  # 殖民地 ServerTick 事件 getAllColonies 快照缓存（A/B：minecolonies 主线程自耗时 -60%）
+                  colony-manager-tick-cache-interval: 20   # 快照 TTL tick（1-120；create/delete 立即失效）
                   chunk-demand-per-tick: 50           # 主线程每 tick 处理的 chunk 需求上限（统一需求调度）
-                  region-count: 4                    # 区域数（2/4/8）
+                  region-count: 4                    # 区域数（2/4/8/16；16 时条纹宽自动扩到 16）
                   region-auto-scale: true            # 按负载自动调整区域数
                   region-scale-interval-seconds: 300
                   region-scale-high-mspt: 60.0
@@ -378,15 +403,16 @@ public class PRTSFeaturesConfig {
                   thread-policy: stats             # worker 世界访问策略: off/stats/enforce（生产用 stats）
                   violation-log-per-minute: 20     # 违规日志每分钟每类限流条数
                   main-thread-routing: auto        # auto 违规学习 / manual 只认种子列表
-                  route-threshold: 2               # 窗口内 MAIN_ONLY 违规次数即路由主线程（0=禁用学习）
+                  route-threshold: 5               # 窗口内 MAIN_ONLY 违规次数即路由主线程（0=禁用学习；灰度后从 2 调宽）
                   route-window-ticks: 2400         # 违规学习窗口（tick，2400=2分钟）
                   main-thread-entity-force: []     # 强制主线程 tick 的类名/前缀
                   main-thread-entity-allow: []     # 强制不路由的类名/前缀（危险调试用）
                   persist-learned-routes: false    # 停机时把学到的路由写回配置（暂未实现）
                   journal-max-per-region: 4096     # 跨区写 journal 每区域队列上限（最旧丢弃）
                   journal-read-back: false         # read-your-writes overlay（预留接口，默认关）
+                  determinism-mode: false           # 确定性模式：跨区 journal 按区域序在调度线程统一应用（默认关）
                   be-parallel-allow: []            # BE 三档：允许 region worker tick 的类型（registry key 或前缀*）
-                  be-main-thread-force: ["create:track"] # BE 三档：强制主线程类型（尖峰/跨区依赖）
+                  be-main-thread-force: ["create:track", "lootr:lootr_chest"] # BE 三档：强制主线程类型（尖峰/跨区依赖）
                   create-track-lazy-spread: false   # Create 长轨道假轨光栅化分摊（默认关）
                   create-track-lazy-chunk-blocks: 64 # 分摊时单连接每 tick 最多栅格块数
 

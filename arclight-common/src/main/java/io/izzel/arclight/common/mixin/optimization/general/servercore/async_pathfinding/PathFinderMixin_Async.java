@@ -6,6 +6,7 @@
 package io.izzel.arclight.common.mixin.optimization.general.servercore.async_pathfinding;
 
 import io.izzel.arclight.common.compat.prts.PRTSFeaturesConfig;
+import io.izzel.arclight.common.optimization.general.servercore.async_pathfinding.SyncPathfindingGate;
 import io.izzel.arclight.common.optimization.general.servercore.AsyncPathfindingManager;
 import io.izzel.arclight.common.optimization.general.servercore.DimensionTickManager;
 import io.izzel.arclight.common.optimization.general.servercore.ImmutablePathNavigationRegion;
@@ -47,6 +48,11 @@ public abstract class PathFinderMixin_Async {
     private void arclight$asyncPathfind(PathNavigationRegion region, Mob mob, Set<BlockPos> targets,
                                         float maxRange, int accuracy, float depthMultiplier,
                                         CallbackInfoReturnable<Path> cir) {
+        // One-shot callers (PathNavigation.createPath(Set,int), e.g. AcquirePoi job-site
+        // claiming) need the synchronous Path return value; run vanilla A* for them.
+        if (SyncPathfindingGate.consume()) {
+            return;
+        }
         if (LOGGER.isDebugEnabled()) {
             LOGGER.debug("[pf-async] entered thread={} mob={} feature={}", Thread.currentThread().getName(),
                     mob != null ? mob.getType() : "null",
