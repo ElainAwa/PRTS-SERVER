@@ -19,7 +19,10 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.ExperienceOrb;
+import net.minecraft.world.entity.animal.Animal;
+import net.minecraft.world.entity.animal.WaterAnimal;
 import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.entity.npc.Npc;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
@@ -709,6 +712,24 @@ public final class RegionTickManager {
             if (entity instanceof ServerPlayer || entity instanceof ItemEntity || entity instanceof ExperienceOrb) {
                 localTicks.add(entity);
                 return;
+            }
+            // 镜像 vanilla WorldServer.tick 实体循环的顺序：shouldDiscardEntity ->
+            // checkDespawn -> 进 ticking 范围才 tick。region worker 上只做 tick，
+            // discard/despawn 决策必须在维度 tick 线程完成（与 vanilla 相同）。
+            if (!level.getServer().isSpawningAnimals()
+                    && (entity instanceof Animal || entity instanceof WaterAnimal)) {
+                entity.discard();
+                return;
+            }
+            if (!level.getServer().areNpcsEnabled() && entity instanceof Npc) {
+                entity.discard();
+                return;
+            }
+            if (!level.tickRateManager().isEntityFrozen(entity)) {
+                entity.checkDespawn();
+                if (entity.isRemoved()) {
+                    return;
+                }
             }
             if (needsMainThreadTick(entity)) {
                 // 装置/殖民地实体 tick 依赖主线程 getBlockEntity 与全局状态，dispatch 阶段直接路由主线程
