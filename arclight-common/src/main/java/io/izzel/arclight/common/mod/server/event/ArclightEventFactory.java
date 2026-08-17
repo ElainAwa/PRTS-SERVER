@@ -5,6 +5,8 @@ import io.izzel.arclight.common.bridge.core.server.level.ServerPlayerBridge;
 import io.izzel.arclight.common.bridge.core.world.level.WorldBridge;
 import io.izzel.arclight.common.bridge.core.world.item.ItemStackBridge;
 import io.izzel.arclight.common.bridge.core.world.level.block.BlockBridge;
+import io.izzel.arclight.common.compat.prts.PRTSFeaturesConfig;
+import io.izzel.arclight.common.optimization.general.eventbridge.EventShortcircuitStats;
 import io.izzel.arclight.common.bridge.inject.InjectEntityBridge;
 import io.izzel.arclight.common.mod.util.ArclightCaptures;
 import io.izzel.arclight.common.mod.util.DistValidate;
@@ -87,6 +89,26 @@ public abstract class ArclightEventFactory {
         if (!DistValidate.isValid(world)) {
             return null;
         }
+
+        // P1-2 direct call-site precheck (plan 2026-08-17 §七, A-11): this is the shared
+        // funnel for the 8 callBlockFormEvent call sites (Liquid/Lava/ConcretePowder/
+        // ServerLevel/SnowGolem/ReplaceBlock/ReplaceDisk/LivingEntity/CraftEventFactory).
+        // BlockFormEvent / EntityBlockFormEvent fire into the Bukkit side (not the Forge
+        // bus), so the precheck is against the Bukkit HandlerList — an O(1) volatile array
+        // read (same as the P0-2 dispatcher prechecks). Every verified caller guards the
+        // result with `event != null && event.isCancelled()`, so returning null when no
+        // plugin listens is observationally identical to firing into an empty bus (zero
+        // construction + zero dispatch). The worldgen suppression above is preserved.
+        if (PRTSFeaturesConfig.eventShortcircuitBlockFormEnabled) {
+            boolean hasListeners = (entity == null
+                    ? BlockFormEvent.getHandlerList()
+                    : EntityBlockFormEvent.getHandlerList()).getRegisteredListeners().length > 0;
+            if (!hasListeners) {
+                EventShortcircuitStats.increment("skippedBlockForm");
+                return null;
+            }
+        }
+        EventShortcircuitStats.increment("forwardedBlockForm");
 
         CraftBlockState blockState = CraftBlockStates.getBlockState(world, pos, flag);
         blockState.setData(block);

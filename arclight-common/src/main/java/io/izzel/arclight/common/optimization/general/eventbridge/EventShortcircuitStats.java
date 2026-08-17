@@ -27,6 +27,8 @@ public final class EventShortcircuitStats {
             .counter("forwardedPre")       // EntityTickEvent.Pre fired (listeners present)
             .counter("forwardedPost")      // EntityTickEvent.Post fired (listeners present)
             .counter("neighborNotifySkipped") // NeighborNotifyEvent not fired (no listeners)
+            .counter("skippedBlockForm")      // P1-2: BlockFormEvent/EntityBlockFormEvent skipped (no listeners)
+            .counter("forwardedBlockForm")    // P1-2: BlockFormEvent/EntityBlockFormEvent fired (listeners present)
             .build();
 
     private EventShortcircuitStats() {
