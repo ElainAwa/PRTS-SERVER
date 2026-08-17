@@ -86,6 +86,8 @@
     "optimization.general.activationrange.entity.ItemEntityMixin_ActivationRange_NeoForge",
     "eventbridge.ServerLevelMixin_EntityTickShortcircuit",
     "eventbridge.LevelMixin_NeighborNotifyShortcircuit",
-    "eventbridge.ServerLevelMixin_NeighborNotifyShortcircuit"
+    "eventbridge.ServerLevelMixin_NeighborNotifyShortcircuit",
+    "eventbridge.NaturalSpawnerMixin_MobSpawnShortcircuit",
+    "eventbridge.MobMixin_DespawnShortcircuit"
   ]
 }

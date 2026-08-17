@@ -197,6 +197,8 @@ public class PRTSFeaturesConfig {
     public static boolean eventShortcircuitTelemetryEnabled;
     /** P1-2 直接调用点短路：callBlockFormEvent（BlockFormEvent/EntityBlockFormEvent）无监听器时返回 null。 */
     public static boolean eventShortcircuitBlockFormEnabled;
+    /** P2-3 刷怪事件短路：MobSpawnEvent.PositionCheck / MobDespawnEvent 无监听器时跳过构造与派发（内联原版判定结果）。 */
+    public static boolean eventShortcircuitMobSpawnEnabled;
 
     public static void init() {
         File file = new File("prts-features.yml");
@@ -332,6 +334,7 @@ public class PRTSFeaturesConfig {
         eventShortcircuitNeighborNotifyEnabled = config.getBoolean("event-shortcircuit.neighbor-notify-event.enabled", true);
         eventShortcircuitTelemetryEnabled = config.getBoolean("event-shortcircuit.telemetry-enabled", true);
         eventShortcircuitBlockFormEnabled = config.getBoolean("event-shortcircuit.block-form-event.enabled", true);
+        eventShortcircuitMobSpawnEnabled = config.getBoolean("event-shortcircuit.mob-spawn-event.enabled", true);
         io.izzel.arclight.common.optimization.general.eventbridge.EventShortcircuitStats.setEnabled(eventShortcircuitTelemetryEnabled);
         LOGGER.info("event-bridge on-demand={} eager={} | event-shortcircuit entityTick={} neighborNotify={}",
                 eventBridgeOnDemandEnabled, eventBridgeEagerRegistration,
@@ -507,6 +510,8 @@ public class PRTSFeaturesConfig {
                     enabled: true                     # 无监听器时跳过 NeighborNotifyEvent 构造与 post
                   block-form-event:
                     enabled: true                     # P1-2 直接调用点：无监听器时跳过 BlockFormEvent/EntityBlockFormEvent 构造与派发（callBlockFormEvent 漏斗，8 个调用点统一覆盖）
+                  mob-spawn-event:
+                    enabled: true                     # P2-3 无监听器时跳过 MobSpawnEvent.PositionCheck / MobDespawnEvent 构造与派发（内联原版判定结果，语义逐位等价）
                   telemetry-enabled: true             # 短路/转发计数进 [event-shortcircuit] 日志
                 """;
         try {
