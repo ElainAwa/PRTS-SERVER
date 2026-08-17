@@ -97,6 +97,15 @@ public final class WorldWriteJournal {
         return appliedNow;
     }
 
+    /** Determinism mode: drains every region queue in region order on the scheduling thread. */
+    public int applyAll(ServerLevel level) {
+        int total = 0;
+        for (int regionId = 0; regionId < this.queues.length; regionId++) {
+            total += apply(level, regionId);
+        }
+        return total;
+    }
+
     public boolean isEmpty() {
         for (ConcurrentLinkedQueue<Entry> queue : this.queues) {
             if (!queue.isEmpty()) {
