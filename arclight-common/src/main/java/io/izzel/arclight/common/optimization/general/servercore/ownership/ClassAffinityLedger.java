@@ -117,6 +117,19 @@ public final class ClassAffinityLedger {
         return n;
     }
 
+    /** Sorted names of attributable entity classes currently routed to the main thread. */
+    public static List<String> routedClassNames() {
+        List<String> names = new ArrayList<>();
+        for (Map.Entry<String, Entry> e : ENTRIES.entrySet()) {
+            if (e.getValue().routed && e.getValue().attributable
+                    && !e.getKey().startsWith("block-entity:")) {
+                names.add(e.getKey());
+            }
+        }
+        names.sort(String::compareTo);
+        return names;
+    }
+
     /** Human-readable top-N summary, one entry per line; routed classes get a * prefix. */
     public static String summary(int limit) {
         List<Map.Entry<String, Entry>> all = new ArrayList<>(ENTRIES.entrySet());

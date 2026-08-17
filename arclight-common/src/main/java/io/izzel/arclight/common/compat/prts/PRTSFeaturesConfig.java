@@ -6,9 +6,17 @@ import io.izzel.arclight.common.optimization.general.servercore.ownership.WorldA
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.bukkit.configuration.file.YamlConfiguration;
@@ -341,6 +349,131 @@ public class PRTSFeaturesConfig {
                 eventShortcircuitEntityTickEnabled, eventShortcircuitNeighborNotifyEnabled);
     }
 
+    /** Appends this session's learned entity routes to prts-features.yml without rewriting user content. */
+    public static void persistLearnedRoutes() {
+        if (!persistLearnedRoutes) {
+            return;
+        }
+        List<String> learned = ClassAffinityLedger.routedClassNames();
+        if (learned.isEmpty()) {
+            LOGGER.info("persist-learned-routes has no learned entity classes to persist");
+            return;
+        }
+        File file = new File("prts-features.yml");
+        if (!file.isFile()) {
+            LOGGER.warn("persist-learned-routes cannot write missing config: {}", file.getAbsolutePath());
+            return;
+        }
+        try {
+            String text = Files.readString(file.toPath(), StandardCharsets.UTF_8);
+            String newline = text.contains("\r\n") ? "\r\n" : "\n";
+            List<String> lines = new ArrayList<>(Arrays.asList(text.split("\\r?\\n", -1)));
+            int forceIndex = -1;
+            String forceIndent = "";
+            for (int i = 0; i < lines.size(); i++) {
+                String line = lines.get(i).strip();
+                if (line.startsWith("main-thread-entity-force:")) {
+                    forceIndex = i;
+                    forceIndent = lines.get(i).substring(0, lines.get(i).indexOf(lines.get(i).strip()));
+                    break;
+                }
+            }
+
+            Set<String> existing = new LinkedHashSet<>();
+            int insertAt;
+            String entryIndent;
+            if (forceIndex >= 0) {
+                String forceLine = lines.get(forceIndex);
+                int colon = forceLine.indexOf(':');
+                existing.addAll(parseInlineList(forceLine.substring(colon + 1)));
+                int cursor = forceIndex + 1;
+                while (cursor < lines.size()) {
+                    String raw = lines.get(cursor);
+                    String stripped = raw.strip();
+                    if (raw.isBlank()) {
+                        cursor++;
+                        continue;
+                    }
+                    int indent = raw.length() - raw.stripLeading().length();
+                    if (indent <= forceIndent.length()) {
+                        break;
+                    }
+                    if (stripped.startsWith("-")) {
+                        existing.add(stripped.substring(1).strip());
+                    }
+                    cursor++;
+                }
+                insertAt = cursor;
+                entryIndent = forceIndent + "  ";
+                if (forceLine.substring(colon + 1).strip().startsWith("[")) {
+                    lines.set(forceIndex, forceIndent + "main-thread-entity-force:");
+                }
+            } else {
+                int parallelIndex = -1;
+                String parallelIndent = "";
+                for (int i = 0; i < lines.size(); i++) {
+                    if (lines.get(i).strip().equals("parallel:")) {
+                        parallelIndex = i;
+                        parallelIndent = lines.get(i).substring(0, lines.get(i).indexOf(lines.get(i).strip()));
+                        break;
+                    }
+                }
+                entryIndent = (parallelIndent.isEmpty() ? "" : parallelIndent + "  ") + "  ";
+                if (parallelIndex >= 0) {
+                    insertAt = parallelIndex + 1;
+                } else {
+                    insertAt = lines.size();
+                }
+                lines.add(insertAt++, entryIndent.substring(0, Math.max(0, entryIndent.length() - 2)) + "main-thread-entity-force:");
+            }
+
+            String learnedTag = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm").format(LocalDateTime.now());
+            List<String> additions = new ArrayList<>();
+            int added = 0;
+            for (String name : learned) {
+                if (added >= 200 || existing.contains(name) || !name.matches("[A-Za-z0-9_.$]+")) {
+                    continue;
+                }
+                additions.add(entryIndent + "# learned " + learnedTag);
+                additions.add(entryIndent + "- " + name);
+                existing.add(name);
+                added++;
+            }
+            lines.addAll(insertAt, additions);
+
+            Path target = file.toPath();
+            Path temp = target.resolveSibling(file.getName() + ".tmp");
+            Files.writeString(temp, String.join(newline, lines) + newline, StandardCharsets.UTF_8);
+            try {
+                Files.move(temp, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+            } catch (AtomicMoveNotSupportedException ignored) {
+                Files.move(temp, target, StandardCopyOption.REPLACE_EXISTING);
+            }
+            LOGGER.info("persist-learned-routes persisted {} learned entity classes", added);
+        } catch (IOException e) {
+            LOGGER.warn("persist-learned-routes failed to update prts-features.yml", e);
+        }
+    }
+
+    private static List<String> parseInlineList(String value) {
+        String text = value.strip();
+        List<String> result = new ArrayList<>();
+        if (!text.startsWith("[") || !text.endsWith("]")) {
+            return result;
+        }
+        text = text.substring(1, text.length() - 1);
+        if (text.isBlank()) {
+            return result;
+        }
+        for (String part : text.split(",")) {
+            String item = part.strip().replace("\"", "").replace("'", "");
+            if (!item.isEmpty()) {
+                result.add(item);
+            }
+        }
+        return result;
+    }
+
     private static int clampPower(int v, int lo, int hi) {
         if (v <= 1) return lo;
         int p = 1;
@@ -413,7 +546,7 @@ public class PRTSFeaturesConfig {
                   route-window-ticks: 2400         # 违规学习窗口（tick，2400=2分钟）
                   main-thread-entity-force: []     # 强制主线程 tick 的类名/前缀
                   main-thread-entity-allow: []     # 强制不路由的类名/前缀（危险调试用）
-                  persist-learned-routes: false    # 停机时把学到的路由写回配置（暂未实现）
+                  persist-learned-routes: false    # 停机时把学到的路由写回配置（仅实体类，最多 200 条）
                   journal-max-per-region: 4096     # 跨区写 journal 每区域队列上限（最旧丢弃）
                   journal-read-back: false         # read-your-writes overlay（预留接口，默认关）
                   determinism-mode: false           # 确定性模式：跨区 journal 按区域序在调度线程统一应用（默认关）

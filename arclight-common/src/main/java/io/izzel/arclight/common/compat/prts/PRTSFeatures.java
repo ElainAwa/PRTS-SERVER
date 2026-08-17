@@ -49,6 +49,7 @@ public class PRTSFeatures {
     }
 
     public static void stop() {
+        PRTSFeaturesConfig.persistLearnedRoutes();
         EntityClear.stop();
         WatchMohist.stop();
     }
