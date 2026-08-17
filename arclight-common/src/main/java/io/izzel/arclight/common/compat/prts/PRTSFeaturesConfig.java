@@ -127,6 +127,75 @@ public class PRTSFeaturesConfig {
     /** Barrier await timeout ms; on expiry dump all threads and crash with a report. */
     public static long barrierTimeoutMs;
 
+    // Lighting - per-tick light propagation budget + telemetry (PRTS 光照预算化).
+    // 限制每 tick 光照传播工作量，风暴时超出部分顺延下一 tick（最终光照一致，只是延迟）。
+    public static boolean lightBudgetEnabled;
+    /** 每 tick 最多传播的方块数（0 = 不限/vanilla）。 */
+    public static int lightBudgetPerTick;
+    /** 采集光照队列长度/耗时进 AsyncTaskStats（[light-engine] 日志）。 */
+    public static boolean lightTelemetryEnabled;
+
+    // Entity spatial index - EntitySection 内懒 4×4×4 子格索引（默认开，2026-08-16 真机 A/B 验证）。
+    // 加速纯空间 AABB 查询（getEntities(AABB)）与 typed 查询（getEntitiesOfClass 等，二期：
+    // vanilla 类列表按覆盖格子预筛，顺序/语义与原版逐位一致）；玩家交互路径不动；
+    // 返回顺序与原版一致（插入序号排序）；对 Lithium/Canary/Radium/Recruits 让位。
+    public static boolean entitySpatialIndexEnabled;
+    /** section 实体数达到该值才建索引（小 section 走原版线性扫描，零成本）。 */
+    public static int entitySpatialIndexMinSectionSize;
+    /** 采集查询/候选数进 AsyncTaskStats（[entity-spatial-index] 日志）。 */
+    public static boolean entitySpatialIndexTelemetryEnabled;
+
+    // POI query fast path - PoiManager.getInChunk 空 chunk 存在性预检（默认开，2026-08-16 落地）。
+    // 1.21.1 的 PoiSection 已按 PoiType 分桶（vanilla 自带），剩余成本 = 查询范围内大量无 POI
+    // 区块的全垂直 section 扫描；本优化维护「区块是否有 POI」位掩码，无 POI 区块直接跳过。
+    // 语义零变化（跳过空区块 = 结果集不变）；冷区块（未读盘）保持原版 getOrLoad 语义。
+    public static boolean poiQueryEnabled;
+    /** 采集命中/跳过计数进 AsyncTaskStats（[poi-query] 日志）。 */
+    public static boolean poiQueryTelemetryEnabled;
+
+    // Collision batch - Entity.collide 上台阶分支二次收集去重（默认开，2026-08-16 落地）。
+    // 1.21.1 collideBoundingBox 已「一次收集、逐轴 clip」；但 step-up 分支会对扩展区域再次
+    // 全量 collectColliders（走路生物每次地面移动都付）。本优化在同一 collide 帧内缓存首次
+    // 收集结果，step-up 只增量补取顶部条带。语义零变化（补集合并 = 全量结果）。
+    // 对 Lithium/Canary/Radium 让位（它们重写同一条碰撞路径）。
+    public static boolean collisionBatchEnabled;
+    /** 采集命中/增量/全量计数进 AsyncTaskStats（[collision-batch] 日志）。 */
+    public static boolean collisionBatchTelemetryEnabled;
+
+    // Menu broadcast precheck - AbstractContainerMenu.broadcastChanges 全等预检短路（P3，默认关）。
+    // 1.21.1 的 broadcastChanges 每 tick 对每个打开菜单全量遍历所有槽位：每槽 getItem +
+    // requireNonNull + memoize lambda 分配，随后 triggerSlotListeners/synchronizeSlotToRemote
+    // 内部都做 lastSlots diff（无变化时纯浪费，但 lambda 已分配）。本优化在 HEAD 用与原版
+    // 逐条等价的判定（lastSlots/remoteCarried/dataSlots 值缓存）预检：全部相等 = 原版循环
+    // 必然无动作，直接跳过整个循环。语义逐位一致（预检不是脏槽跟踪，是全量 diff 的提前
+    // 等价物——mod 直写容器同样被同一 diff 捕获，零漏检）。默认关：P3 定位「先实测归因」，
+    // 生产服 spark 确认 broadcastChanges 子树占比后再开。
+    public static boolean menuBroadcastEnabled;
+    /** 采集短路/全量/槽位检查数进 AsyncTaskStats（[menu-broadcast] 日志）。 */
+    public static boolean menuBroadcastTelemetryEnabled;
+
+    // Event bridge on-demand registration (P0-1, 2026-08-17 计划稿 §四).
+    // Arclight 的 5 个 Forge 桥 dispatcher 从「启动时无条件注册」改为按「有插件在听对应
+    // Bukkit 事件」按需注册/注销（SimplePluginManager 注册/注销路径挂钩，0→1 注册、1→0
+    // 注销）。无插件监听的服务器上 Forge 事件照发、mod 监听器照收，只是桥自己的监听器
+    // 不在总线上——桥开销（CraftBlock/事件构造 + 空派发 + 回写）整块归零。
+    // P0-2 防御层：dispatcher 入口 O(1) 空监听器预检（HandlerList 空则跳过构造+派发）。
+    // 兼容红线：事件数量与时机零变化（只动 Arclight 自己的监听器是否在总线）。
+    public static boolean eventBridgeOnDemandEnabled;
+    /** 恢复 mod 加载期常驻注册（顺序敏感场景的逃生门）。 */
+    public static boolean eventBridgeEagerRegistration;
+    /** 采集转发/跳过/注册注销计数进 [event-bridge] 日志。 */
+    public static boolean eventBridgeTelemetryEnabled;
+
+    // Event short-circuit (P1-3/P1-4, 2026-08-17 计划稿 §8.5).
+    // EntityTickEvent（每实体每 tick ×2，频率之王）与 NeighborNotifyEvent（结果被丢弃）
+    // 在无监听器时短路掉事件构造与 post——零语义风险（无监听器 = Pre 恒未取消 = tick 照跑；
+    // onNeighborNotify 的 isCanceled 结果原代码直接丢弃）。
+    public static boolean eventShortcircuitEntityTickEnabled;
+    public static boolean eventShortcircuitNeighborNotifyEnabled;
+    /** 采集短路/转发计数进 [event-shortcircuit] 日志。 */
+    public static boolean eventShortcircuitTelemetryEnabled;
+
     public static void init() {
         File file = new File("prts-features.yml");
         if (!file.exists()) {
@@ -232,6 +301,38 @@ public class PRTSFeaturesConfig {
         barrierWatchdogAware = config.getBoolean("barrier-watchdog-aware", true);
         barrierTimeoutMs = config.getLong("barrier-timeout-ms", 120000L);
         if (barrierTimeoutMs < 1000L) barrierTimeoutMs = 120000L;
+        lightBudgetEnabled = config.getBoolean("lighting.budget-enabled", true);
+        lightBudgetPerTick = config.getInt("lighting.budget-per-tick", 100000);
+        if (lightBudgetPerTick < 0) lightBudgetPerTick = 0;
+        lightTelemetryEnabled = config.getBoolean("lighting.telemetry-enabled", true);
+        entitySpatialIndexEnabled = config.getBoolean("entity-spatial-index.enabled", true);
+        entitySpatialIndexMinSectionSize = config.getInt("entity-spatial-index.min-section-size", 16);
+        if (entitySpatialIndexMinSectionSize < 4) entitySpatialIndexMinSectionSize = 4;
+        entitySpatialIndexTelemetryEnabled = config.getBoolean("entity-spatial-index.telemetry-enabled", true);
+        io.izzel.arclight.common.optimization.general.entityspatial.EntitySpatialIndexStats.setEnabled(entitySpatialIndexTelemetryEnabled);
+        poiQueryEnabled = config.getBoolean("poi-query.enabled", true);
+        poiQueryTelemetryEnabled = config.getBoolean("poi-query.telemetry-enabled", true);
+        io.izzel.arclight.common.optimization.general.poi.PoiQueryStats.setEnabled(poiQueryTelemetryEnabled);
+        collisionBatchEnabled = config.getBoolean("collision-batch.enabled", true);
+        collisionBatchTelemetryEnabled = config.getBoolean("collision-batch.telemetry-enabled", true);
+        io.izzel.arclight.common.optimization.general.collision.CollisionBatchStats.setEnabled(collisionBatchTelemetryEnabled);
+        menuBroadcastEnabled = config.getBoolean("menu-broadcast.enabled", false);
+        menuBroadcastTelemetryEnabled = config.getBoolean("menu-broadcast.telemetry-enabled", true);
+        io.izzel.arclight.common.optimization.general.menubroadcast.MenuBroadcastStats.setEnabled(menuBroadcastTelemetryEnabled);
+        eventBridgeOnDemandEnabled = config.getBoolean("event-bridge.on-demand-registration.enabled", true);
+        eventBridgeEagerRegistration = config.getBoolean("event-bridge.on-demand-registration.eager-registration", false);
+        eventBridgeTelemetryEnabled = config.getBoolean("event-bridge.on-demand-registration.telemetry-enabled", true);
+        io.izzel.arclight.common.optimization.general.eventbridge.EventBridgeStats.setEnabled(eventBridgeTelemetryEnabled);
+        // enabled=false 或 eager-registration=true 都恢复「启动即全注册」旧行为；否则按门收敛。
+        io.izzel.arclight.common.optimization.general.eventbridge.EventBridgeRegistry.setActive(
+                eventBridgeOnDemandEnabled && !eventBridgeEagerRegistration);
+        eventShortcircuitEntityTickEnabled = config.getBoolean("event-shortcircuit.entity-tick-event.enabled", true);
+        eventShortcircuitNeighborNotifyEnabled = config.getBoolean("event-shortcircuit.neighbor-notify-event.enabled", true);
+        eventShortcircuitTelemetryEnabled = config.getBoolean("event-shortcircuit.telemetry-enabled", true);
+        io.izzel.arclight.common.optimization.general.eventbridge.EventShortcircuitStats.setEnabled(eventShortcircuitTelemetryEnabled);
+        LOGGER.info("event-bridge on-demand={} eager={} | event-shortcircuit entityTick={} neighborNotify={}",
+                eventBridgeOnDemandEnabled, eventBridgeEagerRegistration,
+                eventShortcircuitEntityTickEnabled, eventShortcircuitNeighborNotifyEnabled);
     }
 
     private static int clampPower(int v, int lo, int hi) {
@@ -328,6 +429,80 @@ public class PRTSFeaturesConfig {
                 # Barrier 健壮性
                 barrier-watchdog-aware: true         # watchdog 感知并行 barrier（防误杀）
                 barrier-timeout-ms: 120000           # barrier 卡死超时（毫秒）
+
+                # 光照：每 tick 传播预算 + 遥测（1.21.1 光照传播在光线程异步执行）
+                # 预算限制每 tick 传播工作量，风暴（大量方块变更）时超出部分顺延下一 tick；
+                # 最终光照一致，只是延迟，mod 无感知。0 = 不限（vanilla）。
+                lighting:
+                  budget-enabled: true               # 每 tick 光照传播预算开关
+                  budget-per-tick: 100000            # 每 tick 最多传播的方块数（默认保守，只拦风暴；按 [light-engine] 日志调）
+                  telemetry-enabled: true            # 采集队列长度/耗时进 [light-engine] 日志
+
+                # 实体空间索引：EntitySection 内懒 4×4×4 子格索引（默认开）
+                # 加速纯空间 AABB 查询（getEntities(AABB)）与 typed 查询（getEntitiesOfClass 等，
+                # entityspatial 二期：在 vanilla 类列表上按覆盖格子预筛，结果/顺序与原版逐位一致）；
+                # 返回顺序与原版一致；对 Lithium/Canary/Radium/Recruits 让位。
+                # 2026-08-16 真机 A/B：120 只僵尸高密度场景 avg mspt 5.1→3.4ms（-33%）。
+                entity-spatial-index:
+                  enabled: true                      # 默认开（可随时关；异常时看 [entity-spatial-index] 日志）
+                  min-section-size: 16               # section 实体数达到该值才建索引（小 section 走原版线性扫描）
+                  telemetry-enabled: true            # 采集查询/候选数进 [entity-spatial-index] 日志
+
+                # POI 查询加速：PoiManager.getInChunk 空 chunk 存在性预检（默认开）
+                # 1.21.1 的 PoiSection 已按 PoiType 分桶（vanilla 自带），剩余成本 = 查询范围内
+                # 大量无 POI 区块的全垂直 section 扫描；本优化维护「区块是否有 POI」位掩码，
+                # 已知空区块直接跳过，只迭代有 POI section 的 y 层。语义零变化；冷区块
+                # （未读盘）保持原版 getOrLoad 路径（含同步读盘），磁盘 POI 不会漏。
+                poi-query:
+                  enabled: true                      # 默认开（纯读加速，语义零变化）
+                  telemetry-enabled: true            # 命中/跳过计数进 [poi-query] 日志
+
+                # 碰撞批量收集：Entity.collide 上台阶分支二次收集去重（默认开）
+                # 1.21.1 collideBoundingBox 已「一次收集、逐轴 clip」；但 step-up 上台阶分支会对
+                # 扩展区域再次全量 collectColliders（走路生物每次地面移动都付）。本优化在同一
+                # collide 帧内缓存首次收集结果，step-up 只增量补取顶部条带。语义零变化
+                # （补集合并 = 全量结果）；对 Lithium/Canary/Radium 让位。
+                collision-batch:
+                  enabled: true                      # 默认开（纯读加速，语义零变化）
+                  telemetry-enabled: true            # 命中/增量/全量计数进 [collision-batch] 日志
+
+                # 容器菜单广播预检短路（默认关，P3「先实测归因」）
+                # 1.21.1 的 broadcastChanges 每 tick 对每个打开菜单全量遍历全部槽位，每槽
+                # 做 getItem + requireNonNull + memoize lambda 分配（即使菜单长期静止）。
+                # 本优化在 HEAD 用与原版逐条等价的判定（lastSlots diff / remoteCarried diff /
+                # dataSlots 值快照）预检：全部相等 = 原版循环必然无动作，直接跳过整个循环，
+                # 省掉全部 lambda 分配与重复 diff。语义逐位一致：不是脏槽跟踪，是全量 diff
+                # 的提前等价物，mod 直写容器（Container.setItem 绕过 menu）同样被捕获。
+                # 注意：默认关——先用生产服 spark 看 broadcastChanges 子树占比再决定开启。
+                menu-broadcast:
+                  enabled: false                     # 默认关（实测归因后再开）
+                  telemetry-enabled: true            # 短路/全量/槽位检查数进 [menu-broadcast] 日志
+
+                # 事件桥按需注册（P0-1，默认开）+ 空监听器预检（P0-2）
+                # Arclight 的 5 个 Forge 桥 dispatcher 从「启动时无条件注册」改为按
+                # 「有插件在听对应 Bukkit 事件」按需注册/注销（0→1 注册、1→0 注销）。
+                # 无插件监听的服务器上 Forge 事件照发、mod 监听器照收，只是桥自己的
+                # 监听器不在总线上——桥开销（CraftBlock/事件构造 + 空派发 + 回写）归零。
+                # 事件数量与时机零变化（只动 Arclight 自己的监听器，不动事件本身）。
+                # 生产服第一大热点 EventBus.post 子树（实测 75.5%）中 Arclight 桥的份额
+                # 由本优化消除；mod 监听器主体与事件构造（vanilla/NeoForge 调用侧）不在此列。
+                event-bridge:
+                  on-demand-registration:
+                    enabled: true                     # 桥监听器按需注册（默认开）
+                    eager-registration: false         # 恢复 mod 加载期常驻注册（顺序敏感场景逃生门）
+                    telemetry-enabled: true           # 转发/跳过/注册注销计数进 [event-bridge] 日志
+
+                # 事件短路（P1-3/P1-4，默认开，零语义风险）
+                # EntityTickEvent：每实体每 tick ×2（频率之王）；无监听器时 Pre 恒未取消
+                # = entity.tick() 照跑，短路逐位等价。NeighborNotifyEvent：NeoForge 在
+                # vanilla 空壳 updateNeighborsAt 上 fire 事件且丢弃 isCanceled 结果——
+                # 无监听器时连 fire 都可跳过。两者有监听器时自动让位（length>0 判断）。
+                event-shortcircuit:
+                  entity-tick-event:
+                    enabled: true                     # 无监听器时跳过 EntityTickEvent 构造与 post
+                  neighbor-notify-event:
+                    enabled: true                     # 无监听器时跳过 NeighborNotifyEvent 构造与 post
+                  telemetry-enabled: true             # 短路/转发计数进 [event-shortcircuit] 日志
                 """;
         try {
             Files.writeString(file.toPath(), template, StandardCharsets.UTF_8);

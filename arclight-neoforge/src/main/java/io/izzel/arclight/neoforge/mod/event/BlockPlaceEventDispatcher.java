@@ -3,6 +3,7 @@ package io.izzel.arclight.neoforge.mod.event;
 import io.izzel.arclight.common.bridge.core.server.level.ServerPlayerBridge;
 import io.izzel.arclight.common.mod.util.ArclightCaptures;
 import io.izzel.arclight.common.mod.util.DistValidate;
+import io.izzel.arclight.common.optimization.general.eventbridge.EventBridgeStats;
 import io.izzel.arclight.neoforge.mod.util.ArclightBlockSnapshot;
 import net.minecraft.core.Direction;
 import net.minecraft.world.InteractionHand;
@@ -24,8 +25,20 @@ import java.util.List;
 
 public class BlockPlaceEventDispatcher {
 
+    /**
+     * P0-2 precheck: {@code BlockMultiPlaceEvent} extends {@code BlockPlaceEvent} and
+     * shares its static HandlerList, so a single check covers both dispatch methods.
+     */
+    private static boolean anyPlaceListener() {
+        return BlockPlaceEvent.getHandlerList().getRegisteredListeners().length > 0;
+    }
+
     @SubscribeEvent(receiveCanceled = true)
     public void onBlockPlace(BlockEvent.EntityPlaceEvent event) {
+        if (!anyPlaceListener()) {
+            EventBridgeStats.increment("skippedEvents");
+            return;
+        }
         Entity entity = event.getEntity();
         if (entity instanceof ServerPlayerBridge playerEntity) {
             Player player = playerEntity.bridge$getBukkitEntity();
@@ -52,6 +65,7 @@ public class BlockPlaceEventDispatcher {
                         !event.isCanceled(),
                         bukkitHand
                 );
+                EventBridgeStats.increment("forwardedEvents");
                 placeEvent.setCancelled(event.isCanceled());
                 Bukkit.getPluginManager().callEvent(placeEvent);
                 event.setCanceled(placeEvent.isCancelled() || !placeEvent.canBuild());
@@ -61,6 +75,10 @@ public class BlockPlaceEventDispatcher {
 
     @SubscribeEvent(receiveCanceled = true)
     public void onMultiPlace(BlockEvent.EntityMultiPlaceEvent event) {
+        if (!anyPlaceListener()) {
+            EventBridgeStats.increment("skippedEvents");
+            return;
+        }
         Entity entity = event.getEntity();
         if (entity instanceof ServerPlayerBridge playerEntity) {
             Player player = playerEntity.bridge$getBukkitEntity();
@@ -85,6 +103,7 @@ public class BlockPlaceEventDispatcher {
                         player,
                         !event.isCanceled()
                 );
+                EventBridgeStats.increment("forwardedEvents");
                 placeEvent.setCancelled(event.isCanceled());
                 Bukkit.getPluginManager().callEvent(placeEvent);
                 event.setCanceled(placeEvent.isCancelled() || !placeEvent.canBuild());
