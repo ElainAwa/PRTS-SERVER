@@ -1,5 +1,6 @@
 package io.izzel.arclight.common.mixin.optimization.general;
 
+import io.izzel.arclight.common.bridge.optimization.IRawClassInstanceMultiMap;
 import io.izzel.arclight.common.mod.compat.ModIds;
 import io.izzel.arclight.common.mod.mixins.annotation.LoadIfMod;
 import net.minecraft.util.ClassInstanceMultiMap;
@@ -20,7 +21,7 @@ import java.util.Map;
 
 @Mixin(ClassInstanceMultiMap.class)
 @LoadIfMod(modid = {ModIds.LITHIUM, ModIds.CANARY, ModIds.RADIUM, ModIds.RECRUITS}, condition = LoadIfMod.ModCondition.ABSENT)
-public class ClassInstanceMultiMapMixin<T> {
+public class ClassInstanceMultiMapMixin<T> implements IRawClassInstanceMultiMap<T> {
 
     // @formatter:off
     @Shadow @Final private Class<T> baseClass;
@@ -105,20 +106,31 @@ public class ClassInstanceMultiMapMixin<T> {
      */
     @Overwrite
     public <S> Collection<S> find(Class<S> p_219790_1_) {
-        if (p_219790_1_ == baseClass) {
-            return (Collection<S>) Collections.unmodifiableCollection(allInstances);
+        return (Collection<S>) Collections.unmodifiableCollection(this.prts$rawFind(p_219790_1_));
+    }
+
+    @Override
+    public List<T> prts$rawAllInstances() {
+        return this.allInstances;
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public <S> List<S> prts$rawFind(Class<S> p_219790_1_) {
+        if (p_219790_1_ == this.baseClass) {
+            return (List<S>) this.allInstances;
         }
-        if (byClass == null) {
+        if (this.byClass == null) {
             return Collections.emptyList();
         }
-        Collection<T> collection = this.byClass.get(p_219790_1_);
+        List<T> collection = this.byClass.get(p_219790_1_);
         if (collection == null) {
             collection = this.createList(p_219790_1_);
         }
-        return (Collection<S>) Collections.unmodifiableCollection(collection);
+        return (List<S>) collection;
     }
 
-    private <S> Collection<T> createList(Class<S> p_219790_1_) {
+    private <S> List<T> createList(Class<S> p_219790_1_) {
         if (!this.baseClass.isAssignableFrom(p_219790_1_)) {
             throw new IllegalArgumentException("Don't know how to search for " + p_219790_1_);
         } else {

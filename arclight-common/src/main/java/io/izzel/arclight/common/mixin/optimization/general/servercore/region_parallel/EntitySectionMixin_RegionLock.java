@@ -6,6 +6,7 @@
 package io.izzel.arclight.common.mixin.optimization.general.servercore.region_parallel;
 
 import io.izzel.arclight.common.bridge.optimization.ISectionLock;
+import io.izzel.arclight.common.mod.server.ArclightServer;
 import net.minecraft.util.ClassInstanceMultiMap;
 import net.minecraft.world.level.entity.EntitySection;
 import org.spongepowered.asm.mixin.Mixin;
@@ -22,7 +23,8 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
  * Per-section element write lock (mixin-injected per-instance field): uncontended
  * within a region, arbitrates only cross-region writes and main-thread spawns.
  * Read traversal snapshots under the read lock so a main-thread remove does not
- * cause a CME on a region worker iterating the section.
+ * cause a CME on a region worker iterating the section. The primary thread keeps
+ * vanilla direct iteration and avoids per-section ArrayList snapshots.
  *
  * <p>Implements {@link ISectionLock} so the spatial index (EntitySectionMixin_SpatialIndex /
  * EntityMixin_SectionIndexRebome) shares the same lock — index writes must be serialized
@@ -37,6 +39,11 @@ public abstract class EntitySectionMixin_RegionLock implements ISectionLock {
     @Override
     public ReentrantReadWriteLock arclight$getSectionLock() {
         return this.arclight$sectionLock;
+    }
+
+    @Unique
+    private static boolean arclight$canUseDirectIteration() {
+        return ArclightServer.isPrimaryThread();
     }
 
     @Redirect(method = "add(Lnet/minecraft/world/level/entity/EntityAccess;)V",
@@ -67,6 +74,9 @@ public abstract class EntitySectionMixin_RegionLock implements ISectionLock {
         at = @At(value = "INVOKE", target = "Lnet/minecraft/util/ClassInstanceMultiMap;iterator()Ljava/util/Iterator;"))
     @SuppressWarnings("rawtypes")
     private Iterator arclight$sectionEntitiesSnapshot(ClassInstanceMultiMap storage) {
+        if (arclight$canUseDirectIteration()) {
+            return storage.iterator();
+        }
         this.arclight$sectionLock.readLock().lock();
         try {
             return new ArrayList(storage).iterator();
@@ -92,6 +102,9 @@ public abstract class EntitySectionMixin_RegionLock implements ISectionLock {
         at = @At(value = "INVOKE", target = "Ljava/util/Collection;iterator()Ljava/util/Iterator;"))
     @SuppressWarnings("rawtypes")
     private Iterator arclight$sectionTypedEntitiesSnapshot(Collection entities) {
+        if (arclight$canUseDirectIteration()) {
+            return entities.iterator();
+        }
         this.arclight$sectionLock.readLock().lock();
         try {
             return new ArrayList(entities).iterator();

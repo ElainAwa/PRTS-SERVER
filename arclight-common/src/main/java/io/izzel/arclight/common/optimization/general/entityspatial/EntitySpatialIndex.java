@@ -31,7 +31,7 @@ import java.util.List;
  * the indexed output is identical to the vanilla linear scan (order, no duplicates — one cell per
  * entity; self-inclusion is handled at the Level lambda layer and is untouched).
  *
- * <p><b>Typed queries</b> ({@link #query(EntityTypeTest, AABB, AbortableIterationConsumer, Iterable)}):
+ * <p><b>Typed queries</b> ({@link #query(EntityTypeTest, AABB, AbortableIterationConsumer, List)}):
  * instead of maintaining a class x cell composite bucket map (audit §5.4 sketch), we iterate the
  * vanilla per-class collection — obtained via {@code ClassInstanceMultiMap.find(getBaseClass())},
  * which is exact by construction (same lazy list, same order, same IllegalArgumentException on
@@ -135,13 +135,13 @@ public final class EntitySpatialIndex<T extends EntityAccess> {
      *       cell check would be pure overhead, so run the plain vanilla loop (exact vanilla cost).</li>
      *   <li>{@code >= STORAGE_SKIP_MIN_CELLS}: storage-skip iteration — members whose bounding-box
      *       center cell is not covered are skipped (the inflate guarantee makes the skip exact, see
-     *       {@link #query(EntityTypeTest, AABB, AbortableIterationConsumer, Iterable)}); vanilla
+     *       {@link #query(EntityTypeTest, AABB, AbortableIterationConsumer, List)}); vanilla
      *       order, no allocation, no sort.</li>
      *   <li>below: very selective queries — bucket gather + seq sort of the small candidate set.</li>
      * </ul>
      */
     public AbortableIterationConsumer.Continuation query(AABB bounds, AbortableIterationConsumer<? super T> consumer,
-                                                         Iterable<? extends T> storage) {
+                                                         List<? extends T> storage) {
         boolean[] xs = CellMath.coveredCells(bounds.minX - CellMath.QUERY_INFLATE, bounds.maxX + CellMath.QUERY_INFLATE);
         boolean[] ys = CellMath.coveredCells(bounds.minY - CellMath.QUERY_INFLATE, bounds.maxY + CellMath.QUERY_INFLATE);
         boolean[] zs = CellMath.coveredCells(bounds.minZ - CellMath.QUERY_INFLATE, bounds.maxZ + CellMath.QUERY_INFLATE);
@@ -150,7 +150,8 @@ public final class EntitySpatialIndex<T extends EntityAccess> {
             if (covered >= STORAGE_SKIP_HIGH_CELLS) {
                 // box covers most of the section: cell checks are overhead, plain vanilla loop
                 EntitySpatialIndexStats.increment("vanillaOrderQueries");
-                for (T entity : storage) {
+                for (int i = 0; i < storage.size(); i++) {
+                    T entity = storage.get(i);
                     if (entity.getBoundingBox().intersects(bounds)
                             && consumer.accept(entity).shouldAbort()) {
                         return AbortableIterationConsumer.Continuation.ABORT;
@@ -161,7 +162,8 @@ public final class EntitySpatialIndex<T extends EntityAccess> {
             if (covered >= STORAGE_SKIP_MIN_CELLS) {
                 int skipped = 0;
                 boolean aborted = false;
-                for (T entity : storage) {
+                for (int i = 0; i < storage.size(); i++) {
+                    T entity = storage.get(i);
                     if (!isCellCovered(xs, ys, zs, entity)) {
                         skipped++;
                         continue;
@@ -214,7 +216,7 @@ public final class EntitySpatialIndex<T extends EntityAccess> {
     /**
      * Typed query (entityspatial phase 2, audit §5.4): same inflate/covered-cell rule as
      * {@link #query(AABB, AbortableIterationConsumer)}, but iterating the vanilla per-class
-     * collection {@code classCollection} (from {@code ClassInstanceMultiMap.find(getBaseClass())},
+     * collection {@code classCollection} (from the raw class list exposed by the section storage,
      * under the section write lock by the caller) and skipping members whose bounding-box center
      * cell is not covered. The {@code tryCast} filter is applied per member exactly like vanilla
      * ({@code forExactClass} tests need it even inside the class collection), so results, order
@@ -224,7 +226,7 @@ public final class EntitySpatialIndex<T extends EntityAccess> {
     @SuppressWarnings("unchecked")
     public <U extends T> AbortableIterationConsumer.Continuation query(EntityTypeTest<T, U> test, AABB bounds,
                                                                       AbortableIterationConsumer<? super U> consumer,
-                                                                      Iterable<? extends T> classCollection) {
+                                                                      List<? extends T> classCollection) {
         boolean[] xs = CellMath.coveredCells(bounds.minX - CellMath.QUERY_INFLATE, bounds.maxX + CellMath.QUERY_INFLATE);
         boolean[] ys = CellMath.coveredCells(bounds.minY - CellMath.QUERY_INFLATE, bounds.maxY + CellMath.QUERY_INFLATE);
         boolean[] zs = CellMath.coveredCells(bounds.minZ - CellMath.QUERY_INFLATE, bounds.maxZ + CellMath.QUERY_INFLATE);
@@ -232,7 +234,8 @@ public final class EntitySpatialIndex<T extends EntityAccess> {
         int scanned = 0;
         int skipped = 0;
         boolean aborted = false;
-        for (T entity : classCollection) {
+        for (int i = 0; i < classCollection.size(); i++) {
+            T entity = classCollection.get(i);
             scanned++;
             U u = test.tryCast(entity);
             if (u == null) {
