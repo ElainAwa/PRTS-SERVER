@@ -7,6 +7,7 @@ package io.izzel.arclight.common.mixin.optimization.general.entityspatial;
 
 import io.izzel.arclight.common.bridge.optimization.IEntitySectionHolder;
 import io.izzel.arclight.common.bridge.optimization.IEntitySpatialIndex;
+import io.izzel.arclight.common.bridge.optimization.IRawClassInstanceMultiMap;
 import io.izzel.arclight.common.bridge.optimization.ISectionLock;
 import io.izzel.arclight.common.compat.prts.PRTSFeaturesConfig;
 import io.izzel.arclight.common.mod.compat.ModIds;
@@ -25,7 +26,7 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 
-import java.util.Collection;
+import java.util.List;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -85,7 +86,8 @@ public abstract class EntitySectionMixin_SpatialIndex implements IEntitySpatialI
         }
         ((ISectionLock) this).arclight$getSectionLock().readLock().lock();
         try {
-            cir.setReturnValue(index.query(bounds, consumer, this.storage));
+            cir.setReturnValue(index.query(bounds, consumer,
+                ((IRawClassInstanceMultiMap<EntityAccess>) (Object) this.storage).prts$rawAllInstances()));
             EntitySpatialIndexStats.increment("indexedQueries");
         } finally {
             ((ISectionLock) this).arclight$getSectionLock().readLock().unlock();
@@ -109,10 +111,11 @@ public abstract class EntitySectionMixin_SpatialIndex implements IEntitySpatialI
         }
         // find may lazily create the per-class list (writes byClass) — same write-lock discipline
         // as the vanilla path's redirect in EntitySectionMixin_RegionLock.
-        Collection<? extends EntityAccess> classCollection;
+        List<? extends EntityAccess> classCollection;
         ((ISectionLock) this).arclight$getSectionLock().writeLock().lock();
         try {
-            classCollection = this.storage.find(test.getBaseClass());
+            classCollection = ((IRawClassInstanceMultiMap<EntityAccess>) (Object) this.storage)
+                .prts$rawFind(test.getBaseClass());
         } finally {
             ((ISectionLock) this).arclight$getSectionLock().writeLock().unlock();
         }
