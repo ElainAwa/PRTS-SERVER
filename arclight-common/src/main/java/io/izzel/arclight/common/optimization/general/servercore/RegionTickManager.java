@@ -475,7 +475,11 @@ public final class RegionTickManager {
         if (matchesAnyConfiguredPrefix(c, PRTSFeaturesConfig.mainThreadEntityAllow)) {
             return false;
         }
-        // 3) 种子前缀：v0.35 沉淀的手工知识，作为学习器的初始规则
+        // 3) worker 任意异常安全阀：本会话永久回主线程
+        if (EntityAffinity.isUnsafe(c.getName())) {
+            return true;
+        }
+        // 4) 种子前缀：v0.35 沉淀的手工知识，作为学习器的初始规则
         Boolean seeded = MAIN_THREAD_ENTITY_CACHE.get(c);
         if (seeded == null) {
             seeded = matchesAnyPrefix(c, MAIN_THREAD_ENTITY_PREFIXES);
@@ -484,7 +488,7 @@ public final class RegionTickManager {
         if (seeded) {
             return true;
         }
-        // 4) 运行时学习：Phase 2 违规窗口阈值路由（下 tick 起生效）
+        // 5) 运行时学习：Phase 2 违规窗口超额路由（下 tick 起生效）
         if (!"auto".equals(PRTSFeaturesConfig.mainThreadRouting)) {
             return false;
         }
@@ -903,7 +907,8 @@ public final class RegionTickManager {
         if (!((ServerChunkCacheRegionBridge) level.getChunkSource()).arclight$hasLiveChunk(chunkPos.x, chunkPos.z)) {
             return;
         }
-        CURRENT_ENTITY_CLASS.set(entity.getClass().getName());
+        String className = entity.getClass().getName();
+        CURRENT_ENTITY_CLASS.set(className);
         try {
             tickEntitySafely(level, entity);
         } catch (AccessViolation violation) {
@@ -911,6 +916,12 @@ public final class RegionTickManager {
             // 绝不让单个 mod 的违规升级为并行会话失败。
             LOGGER.debug("[region-tick] worker access violation swallowed for {}: {}",
                     violation.ownerClassName(), violation.getMessage());
+        } catch (Throwable t) {
+            // 任何异常都不允许从实体并行会话冒泡成服务器崩溃：
+            // 该实体类本会话永久降级回主线程（含非世界访问类的 mod 竞态）。
+            EntityAffinity.markUnsafe(className);
+            LOGGER.error("[region-tick] entity worker tick failed for {}: {}",
+                    className, t.toString());
         } finally {
             CURRENT_ENTITY_CLASS.remove();
         }
