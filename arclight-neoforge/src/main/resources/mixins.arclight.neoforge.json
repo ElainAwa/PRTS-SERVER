@@ -21,6 +21,7 @@
     "bukkit.MaterialMixin_NeoForge",
     "bukkit.StandardMessengerMixin_NeoForge",
     "compat.connector.CommandNodeMixin",
+    "compat.tacz.TaczRespawnPacketHandlerMixin",
     "core.commands.CommandsMixin_NeoForge",
     "core.world.level.material.LavaFluidMixin_NeoForge",
     "core.server.network.ServerCommonPacketListenerImplMixin_NeoForge",
