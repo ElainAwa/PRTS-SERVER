@@ -7,7 +7,6 @@ package io.izzel.arclight.common.mixin.optimization.general.poi;
 
 import io.izzel.arclight.common.bridge.optimization.ISectionPresence;
 import io.izzel.arclight.common.compat.prts.PRTSFeaturesConfig;
-import it.unimi.dsi.fastutil.longs.Long2LongOpenHashMap;
 import net.minecraft.core.SectionPos;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.LevelHeightAccessor;
@@ -21,6 +20,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Per-chunk POI-section presence mask for {@code SectionStorage} (audit doc §阶段5·5.1).
@@ -45,7 +45,7 @@ public abstract class SectionStorageMixin_Presence implements ISectionPresence {
 
     /** chunkLong → bitmask of present section y levels; entry present = chunk known. */
     @Unique
-    private final Long2LongOpenHashMap prts$chunkPresence = new Long2LongOpenHashMap();
+    private final ConcurrentHashMap<Long, Long> prts$chunkPresence = new ConcurrentHashMap<>();
 
     @Shadow
     @Final
@@ -63,13 +63,12 @@ public abstract class SectionStorageMixin_Presence implements ISectionPresence {
             return;
         }
         long chunkLong = ChunkPos.asLong(SectionPos.x(sectionKey), SectionPos.z(sectionKey));
-        long mask = this.prts$chunkPresence.get(chunkLong);
         int bit = SectionPos.y(sectionKey) - this.levelHeightAccessor.getMinSection();
         if (bit >= 0 && bit < Long.SIZE) {
-            this.prts$chunkPresence.put(chunkLong, mask | (1L << bit));
+            this.prts$chunkPresence.merge(chunkLong, 1L << bit, (oldMask, newBit) -> oldMask | newBit);
         } else {
             // out-of-range section: mark known without a bit (still exact: no bit for out-of-range y)
-            this.prts$chunkPresence.put(chunkLong, mask);
+            this.prts$chunkPresence.putIfAbsent(chunkLong, 0L);
         }
     }
 
@@ -89,7 +88,7 @@ public abstract class SectionStorageMixin_Presence implements ISectionPresence {
 
     @Override
     public long arclight$presentMask(long chunkLong) {
-        return this.prts$chunkPresence.get(chunkLong);
+        return this.prts$chunkPresence.getOrDefault(chunkLong, 0L);
     }
 
     @Override
