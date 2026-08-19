@@ -16,6 +16,7 @@ import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import io.izzel.arclight.common.optimization.general.servercore.AsyncPathfindingManager;
 import io.izzel.arclight.common.optimization.general.servercore.EventBusStats;
 import io.izzel.arclight.common.optimization.general.servercore.BlockEntityAffinity;
+import io.izzel.arclight.common.optimization.general.servercore.EntityAffinity;
 import io.izzel.arclight.common.optimization.general.servercore.BlockEntityTickStats;
 import io.izzel.arclight.common.optimization.general.servercore.RegionTickManager;
 import io.izzel.arclight.common.optimization.general.servercore.ServerCoreConfig;
@@ -130,6 +131,10 @@ public class ServerCoreCommands {
                     AsyncPathfindingManager.statusText()
             ), source.getServer()));
 
+            component.append(Formatter.parse("\n<dark_gray>» <c:#primary>VillagerPathBudget: <c:#secondary>%s".formatted(
+                    io.izzel.arclight.common.optimization.general.servercore.VillagerPathBudget.statusText()
+            ), source.getServer()));
+
             component.append(Formatter.parse("\n<dark_gray>» <c:#primary>Journal: <c:#secondary>%s".formatted(
                     RegionTickManager.journalStatusText(source.getServer())
             ), source.getServer()));
@@ -144,6 +149,10 @@ public class ServerCoreCommands {
 
             component.append(Formatter.parse("\n<dark_gray>» <c:#primary>BEPolicy: <c:#secondary>%s".formatted(
                     BlockEntityAffinity.statusText()
+            ), source.getServer()));
+
+            component.append(Formatter.parse("\n<dark_gray>» <c:#primary>EntityPolicy: <c:#secondary>%s".formatted(
+                    EntityAffinity.statusText()
             ), source.getServer()));
             return component;
         }, false);

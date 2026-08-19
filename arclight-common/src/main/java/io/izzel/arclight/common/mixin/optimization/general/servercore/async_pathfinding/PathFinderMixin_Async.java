@@ -89,6 +89,12 @@ public abstract class PathFinderMixin_Async {
         // bucket at the next session start (AsyncPathfindingManager.drainRegion).
         if (serverThread) {
             AsyncPathfindingManager.drainIfNeeded(tick);
+            // Server thread can read the live world safely; avoid paying the async snapshot cost here.
+            // Worker threads still use immutable snapshots before submitting A* to the async pool.
+            if (!dimensionWorker && !regionWorker) {
+                access.arclight$clearPathKeep();
+                return; // vanilla A* on main thread
+            }
         }
         if (!AsyncPathfindingManager.canSubmit()) {
             // 队列饱和：跳过本次寻路（下 tick 重试），同步 A* 回退会拖垮 region worker TPS。

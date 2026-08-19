@@ -25,6 +25,8 @@
     "servercore.biome_lookups.NaturalSpawnerMixin",
     "servercore.async_pathfinding.PathNavigationMixin",
     "servercore.async_pathfinding.PathFinderMixin_Async",
+    "servercore.async_pathfinding.AcquirePoiMixin_VillagerPathBudget",
+    "servercore.async_pathfinding.MoveToTargetSinkMixin_VillagerPathBudget",
     "servercore.async_pathfinding.PathNavigationRegionMixin",
     "servercore.async_pathfinding.MinecraftServerMixin_AsyncDrain",
     "servercore.ChunkMapMixin_GenerationBudget",
