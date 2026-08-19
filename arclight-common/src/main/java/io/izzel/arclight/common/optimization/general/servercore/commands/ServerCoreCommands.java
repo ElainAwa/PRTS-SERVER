@@ -131,6 +131,10 @@ public class ServerCoreCommands {
                     AsyncPathfindingManager.statusText()
             ), source.getServer()));
 
+            component.append(Formatter.parse("\n<dark_gray>» <c:#primary>VillagerPathBudget: <c:#secondary>%s".formatted(
+                    io.izzel.arclight.common.optimization.general.servercore.VillagerPathBudget.statusText()
+            ), source.getServer()));
+
             component.append(Formatter.parse("\n<dark_gray>» <c:#primary>Journal: <c:#secondary>%s".formatted(
                     RegionTickManager.journalStatusText(source.getServer())
             ), source.getServer()));

@@ -437,6 +437,7 @@ public final class RegionTickManager {
             boolean colony = entity.getClass().getName().startsWith("com.minecolonies.");
             long entityStart = colony ? Util.getNanos() : 0L;
             try {
+                VillagerPathBudget.enterRoutedEntityTick();
                 tickEntitySafely(level, entity);
                 STATS.increment("entities.mainThread");
                 if (colony) {
@@ -446,6 +447,8 @@ public final class RegionTickManager {
             } catch (Throwable t) {
                 LOGGER.error("[region-tick] main-thread entity tick failed at {}: {}",
                         entity.blockPosition(), t.toString());
+            } finally {
+                VillagerPathBudget.exitRoutedEntityTick();
             }
         }
         STATS.record("entities.mainThreadMs", Util.getNanos() - start);

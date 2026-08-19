@@ -65,6 +65,8 @@ public class PRTSFeaturesConfig {
     public static boolean parallelColonyPhaseStagger;
     /** 殖民地 NPC 工作 AI 执行间隔（tick）。原版固定 5；2-60 可调。 */
     public static int colonyNpcWorkInterval;
+    /** 村民主线程 POI / 单目标寻路预算（每 tick；0 = 关闭）。 */
+    public static int villagerPoiPathBudget;
     /** 殖民地管理器 ServerTick 事件里的 getAllColonies 快照缓存（默认关；测试服 A/B 后定默认）。 */
     public static boolean colonyManagerTickCacheEnabled;
     /** 殖民地列表快照的 TTL（tick）；过期自动重建，create/delete 路径立即失效。 */
@@ -238,6 +240,7 @@ public class PRTSFeaturesConfig {
         colonyNpcWorkInterval = Math.max(1, Math.min(60, config.getInt("parallel.colony-npc-work-interval", 5)));
         colonyManagerTickCacheEnabled = config.getBoolean("parallel.colony-manager-tick-cache-enabled", true);
         colonyManagerTickCacheInterval = Math.max(1, Math.min(120, config.getInt("parallel.colony-manager-tick-cache-interval", 20)));
+        villagerPoiPathBudget = Math.max(0, config.getInt("parallel.villager-poi-path-budget", 0));
         chunkDemandPerTick = config.getInt("parallel.chunk-demand-per-tick", 50);
         // 非正数会使需求 drain 永久不执行（budget <= 0），退回默认值。
         if (chunkDemandPerTick < 1) chunkDemandPerTick = 50;
@@ -300,9 +303,9 @@ public class PRTSFeaturesConfig {
         }
         createTrackLazySpread = config.getBoolean("parallel.create-track-lazy-spread", false);
         createTrackLazyChunkBlocks = Math.max(8, Math.min(512, config.getInt("parallel.create-track-lazy-chunk-blocks", 64)));
-        LOGGER.info("parallel be-policy allow={} force={} parallelEnabled={} trackLazySpread={} chunk={}",
+        LOGGER.info("parallel be-policy allow={} force={} parallelEnabled={} trackLazySpread={} chunk={} villagerPoiBudget={}",
                 beParallelAllow, beMainThreadForce, regionBlockEntityParallel,
-                createTrackLazySpread, createTrackLazyChunkBlocks);
+                createTrackLazySpread, createTrackLazyChunkBlocks, villagerPoiPathBudget);
         reliableChunkSave = config.getBoolean("reliable-chunk-save.enabled", false);
         journalIntervalSeconds = config.getLong("reliable-chunk-save.interval-seconds", 30);
         journalChunksPerTick = config.getInt("reliable-chunk-save.chunks-per-tick", 50);
@@ -554,6 +557,7 @@ public class PRTSFeaturesConfig {
                   be-main-thread-force: ["create:track", "lootr:lootr_chest"] # BE 三档：强制主线程类型（尖峰/跨区依赖）
                   create-track-lazy-spread: false   # Create 长轨道假轨光栅化分摊（默认关）
                   create-track-lazy-chunk-blocks: 64 # 分摊时单连接每 tick 最多栅格块数
+                  villager-poi-path-budget: 0       # 村民主线程 POI/单目标寻路预算（0=关闭）
 
                 # 可靠区块保存（WAL 预写日志，默认关）
                 reliable-chunk-save:
