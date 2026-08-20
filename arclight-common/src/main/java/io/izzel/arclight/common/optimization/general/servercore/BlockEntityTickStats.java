@@ -28,16 +28,29 @@ public final class BlockEntityTickStats {
     private BlockEntityTickStats() {
     }
 
-    public static void record(String typeKey, long nanos, BlockPos pos) {
+    /**
+     * Records one BE tick's wall time. Returns true when this tick set a new max,
+     * signalling the caller to follow up with {@link #recordMaxPos} — so the hot path
+     * never evaluates the (megamorphic) getPos() unless a new peak was actually hit.
+     */
+    public static boolean record(String typeKey, long nanos) {
         TypeStats stats = TYPES.computeIfAbsent(typeKey, ignored -> new TypeStats());
         stats.nanos.add(nanos);
         stats.ticks.increment();
         long prev = stats.maxNanos.get();
-        while (nanos > prev && !stats.maxNanos.compareAndSet(prev, nanos)) {
+        while (nanos > prev) {
+            if (stats.maxNanos.compareAndSet(prev, nanos)) {
+                return true;
+            }
             prev = stats.maxNanos.get();
         }
-        // 只有刷新最大值才做字符串化，避免每个 BE tick 都分配 BlockPos.toString。
-        if (nanos >= stats.maxNanos.get()) {
+        return false;
+    }
+
+    /** Records the position of a BE that just set a new max tick time (cold path only). */
+    public static void recordMaxPos(String typeKey, BlockPos pos) {
+        TypeStats stats = TYPES.get(typeKey);
+        if (stats != null) {
             stats.maxPos.set(String.valueOf(pos));
         }
     }

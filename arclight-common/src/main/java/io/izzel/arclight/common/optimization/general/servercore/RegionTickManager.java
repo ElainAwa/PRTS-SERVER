@@ -449,7 +449,10 @@ public final class RegionTickManager {
                 LOGGER.error("[region-tick] main-thread block entity tick failed at {}: {}",
                         be.getBlockPos(), t.toString());
             } finally {
-                BlockEntityTickStats.record(blockEntityTypeKey(be), Util.getNanos() - start, be.getBlockPos());
+                String beType = blockEntityTypeKey(be);
+                if (BlockEntityTickStats.record(beType, Util.getNanos() - start)) {
+                    BlockEntityTickStats.recordMaxPos(beType, be.getBlockPos());
+                }
             }
         }
     }
@@ -483,7 +486,10 @@ public final class RegionTickManager {
                 LOGGER.error("[region-tick] main-thread block entity tick failed at {}: {}",
                         ticker.getPos(), t.toString());
             } finally {
-                BlockEntityTickStats.record(blockEntityTypeKey(ticker), Util.getNanos() - start, ticker.getPos());
+                String teType = blockEntityTypeKey(ticker);
+                if (BlockEntityTickStats.record(teType, Util.getNanos() - start)) {
+                    BlockEntityTickStats.recordMaxPos(teType, ticker.getPos());
+                }
             }
         }
     }
@@ -817,7 +823,9 @@ public final class RegionTickManager {
                     LOGGER.error("[region-tick] BE worker tick failed for {} at {}: {}",
                             typeKey, te.getPos(), t.toString());
                 } finally {
-                    BlockEntityTickStats.record(typeKey, Util.getNanos() - start, te.getPos());
+                    if (BlockEntityTickStats.record(typeKey, Util.getNanos() - start)) {
+                        BlockEntityTickStats.recordMaxPos(typeKey, te.getPos());
+                    }
                     CURRENT_ENTITY_CLASS.remove();
                 }
             }
