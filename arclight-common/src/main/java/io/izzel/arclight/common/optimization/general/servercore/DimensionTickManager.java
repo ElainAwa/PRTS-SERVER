@@ -146,6 +146,8 @@ public final class DimensionTickManager {
             }
             startNanos[i] = Util.getNanos();
             PRE.fire(level, hasTimeLeft);
+            // B4: 在 belt BE tick 之前应用延迟的 passenger 注册，保证 counter 及时刷新
+            RegionTickManager.drainBeltPassengers(level);
             RegionTickManager.drainMainThreadBlockEntities(level);
             ((io.izzel.arclight.common.bridge.core.world.server.ServerChunkCacheDemandBridge)
                     (Object) level.getChunkSource()).arclight$drainChunkDemands();

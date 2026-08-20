@@ -99,6 +99,9 @@ public class PRTSFeaturesConfig {
     /** MAIN_ONLY_READ 是否计入 auto-route 窗口。worker 读 BE 恒返回 null（vanilla 语义），
      *  默认 true = 保持现有行为；false = 只按写路由（读为 null-安全降级，不路由）。 */
     public static boolean routeOnRead;
+    /** B4: worker 上实体撞 Create 传送带时把 passenger 注册延迟到主线程执行，
+     *  使 villager 等回并行的实体仍能被传送带运输。默认 false（配合 route-on-read=false 使用）。 */
+    public static boolean beltPassengerDefer;
     /** 强制主线程 tick 的类名/前缀（优先级最高）。 */
     public static List<String> mainThreadEntityForce;
     /** 强制不路由的类名/前缀（危险调试用，覆盖学习与种子）。 */
@@ -290,6 +293,7 @@ public class PRTSFeaturesConfig {
         routeThreshold = Math.max(0, config.getInt("parallel.route-threshold", 5));
         routeWindowTicks = Math.max(20, config.getLong("parallel.route-window-ticks", 2400));
         routeOnRead = config.getBoolean("parallel.route-on-read", true);
+        beltPassengerDefer = config.getBoolean("parallel.belt-passenger-defer", false);
         mainThreadEntityForce = new ArrayList<>(config.getStringList("parallel.main-thread-entity-force"));
         mainThreadEntityAllow = new ArrayList<>(config.getStringList("parallel.main-thread-entity-allow"));
         persistLearnedRoutes = config.getBoolean("parallel.persist-learned-routes", false);
@@ -556,6 +560,7 @@ public class PRTSFeaturesConfig {
                   route-threshold: 5               # 窗口内 MAIN_ONLY 违规次数即路由主线程（0=禁用学习；灰度后从 2 调宽）
                   route-window-ticks: 2400         # 违规学习窗口（tick，2400=2分钟）
                   route-on-read: true              # MAIN_ONLY_READ 是否计入路由（worker 读 BE 恒 null；false=只按写路由）
+                  belt-passenger-defer: false      # worker 实体撞传送带时 passenger 注册延迟到主线程（配合 route-on-read=false）
                   main-thread-entity-force: []     # 强制主线程 tick 的类名/前缀
                   main-thread-entity-allow: []     # 强制不路由的类名/前缀（危险调试用）
                   persist-learned-routes: false    # 停机时把学到的路由写回配置（仅实体类，最多 200 条）

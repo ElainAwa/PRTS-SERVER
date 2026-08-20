@@ -87,6 +87,82 @@ public final class RegionTickManager {
     /** 主线程实体判定缓存（类名前缀走查超类链）。 */
     private static final ConcurrentHashMap<Class<?>, Boolean> MAIN_THREAD_ENTITY_CACHE = new ConcurrentHashMap<>();
 
+    /**
+     * B4: worker 上实体撞传送带时，把"注册/刷新 belt passenger"延迟到主线程执行
+     * （worker 上 getBlockEntity 恒 null，无法直接操作 belt BE 的非并发 passengers map）。
+     * 队列存中立类型；实际 Create BE 操作由 {@link BeltPassengerApplier} 在主线程完成，
+     * 使本核心类不直接依赖 Create（无 Create 时 applier 为 null，drain 为空转）。
+     */
+    private static final Map<ServerLevel, LinkedBlockingQueue<BeltPassengerReg>> BELT_PASSENGER_REGS =
+            java.util.Collections.synchronizedMap(new WeakHashMap<>());
+
+    /** 单维度队列上限，防止异常堆积；超过丢弃最旧（运输条目每 tick 重发，丢弃无害）。 */
+    private static final int BELT_PASSENGER_MAX = 4096;
+
+    /** worker 捕获的一次 belt passenger 注册请求（纯中立值）。 */
+    public record BeltPassengerReg(Entity entity, net.minecraft.core.BlockPos pos,
+                                   net.minecraft.world.level.block.state.BlockState state) {
+    }
+
+    /** 主线程执行 Create belt passenger 注册的插件式回调（由 Create-compat mixin 注册）。 */
+    public interface BeltPassengerApplier {
+        void apply(ServerLevel level, Entity entity, net.minecraft.core.BlockPos pos,
+                   net.minecraft.world.level.block.state.BlockState state);
+    }
+
+    private static volatile BeltPassengerApplier beltPassengerApplier;
+
+    /** Create-compat 侧在类初始化时注册主线程 belt passenger 应用逻辑。 */
+    public static void setBeltPassengerApplier(BeltPassengerApplier applier) {
+        beltPassengerApplier = applier;
+    }
+
+    /** worker 调用：把 belt passenger 注册请求排到本维度主线程队列（applier 未注册则忽略）。 */
+    public static void queueBeltPassenger(ServerLevel level, Entity entity,
+                                          net.minecraft.core.BlockPos pos,
+                                          net.minecraft.world.level.block.state.BlockState state) {
+        if (beltPassengerApplier == null) {
+            return;
+        }
+        LinkedBlockingQueue<BeltPassengerReg> queue;
+        synchronized (BELT_PASSENGER_REGS) {
+            queue = BELT_PASSENGER_REGS.computeIfAbsent(level, k -> new LinkedBlockingQueue<>());
+        }
+        while (queue.size() >= BELT_PASSENGER_MAX) {
+            queue.poll();
+        }
+        queue.add(new BeltPassengerReg(entity, pos.immutable(), state));
+    }
+
+    /** 主线程 PRE 阶段调用：在 belt BE tick 之前应用本维度排队的 passenger 注册。 */
+    public static void drainBeltPassengers(ServerLevel level) {
+        BeltPassengerApplier applier = beltPassengerApplier;
+        LinkedBlockingQueue<BeltPassengerReg> queue;
+        synchronized (BELT_PASSENGER_REGS) {
+            queue = BELT_PASSENGER_REGS.remove(level);
+        }
+        if (queue == null || applier == null) {
+            return;
+        }
+        java.util.List<BeltPassengerReg> batch = new ArrayList<>();
+        queue.drainTo(batch);
+        for (BeltPassengerReg reg : batch) {
+            Entity entity = reg.entity();
+            if (entity == null || entity.isRemoved() || entity.level() != level) {
+                continue;
+            }
+            net.minecraft.world.level.ChunkPos cp = new net.minecraft.world.level.ChunkPos(reg.pos());
+            if (!((ServerChunkCacheRegionBridge) level.getChunkSource()).arclight$hasLiveChunk(cp.x, cp.z)) {
+                continue;
+            }
+            try {
+                applier.apply(level, entity, reg.pos(), reg.state());
+            } catch (Throwable t) {
+                LOGGER.warn("[region-tick] belt passenger apply failed at {}: {}", reg.pos(), t.toString());
+            }
+        }
+    }
+
     // 需求峰值 = 无玩家维度数 × REGION_COUNT。实测 4 维度 × N=8 = 32 个 region 任务，
     // 旧上限 16 + SynchronousQueue + AbortPolicy 会 RejectedExecutionException 崩服
     // （crash-2026-08-16_11.16.50-server.txt）。上限按 4 维度 × N=16 预留 64；
