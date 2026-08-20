@@ -29,6 +29,7 @@ public final class RoutedDrainStats {
     private static volatile long lastEntities;
     private static volatile long lastTotalNanos;
     private static volatile long lastMaxNanos;
+    private static volatile int lastQueueDepth;  // S2.9.1: queue size before drainTo
 
     private RoutedDrainStats() {
     }
@@ -39,6 +40,12 @@ public final class RoutedDrainStats {
         private long entities;
         private long totalNanos;
         private long maxNanos;
+        private int queueDepth;  // S2.9.1: set before drain loop starts
+
+        /** Records the queue depth before this drain pass starts (S2.9.1 telemetry). */
+        public void setQueueDepth(int depth) {
+            this.queueDepth = depth;
+        }
 
         /** Records one entity tick: class label, its routed reason, and its duration. */
         public void record(String className, String reason, long nanos) {
@@ -75,9 +82,12 @@ public final class RoutedDrainStats {
             lastEntities = entities;
             lastTotalNanos = totalNanos;
             lastMaxNanos = maxNanos;
+            lastQueueDepth = queueDepth;
             perClass.clear();
             entities = 0;
             totalNanos = 0;
+            maxNanos = 0;
+            queueDepth = 0;
             maxNanos = 0;
         }
     }
@@ -131,7 +141,8 @@ public final class RoutedDrainStats {
         StringBuilder sb = new StringBuilder();
         sb.append("lastEntities=").append(lastEntities)
                 .append(" lastTotalMs=").append(fmt(total / 1_000_000.0))
-                .append(" lastMaxMs=").append(fmt(lastMaxNanos / 1_000_000.0));
+                .append(" lastMaxMs=").append(fmt(lastMaxNanos / 1_000_000.0))
+                .append(" queueDepth=").append(lastQueueDepth);  // S2.9.1: queue size before drain
         List<Map.Entry<String, ClassAgg>> rows = new ArrayList<>(GLOBAL.entrySet());
         rows.sort((a, b) -> Long.compare(b.getValue().totalNanos.sum(), a.getValue().totalNanos.sum()));
         int shown = 0;

@@ -238,6 +238,7 @@ public final class RegionTickManager {
         final ConcurrentLinkedQueue<TickingBlockEntity>[] teTickQueues;
         volatile long appliedTick = -1L;
         volatile int[] lastEntityDist;
+        volatile long[] lastRegionTimingNanos;  // S2.9.1: per-region tick time (last entity session)
         // Auto-scale per-dimension counters (only overworld drives the decision).
         int lowPeriods = 0;
         long lastEvalTick = -1L;
@@ -250,6 +251,7 @@ public final class RegionTickManager {
             this.blockTickQueues = newQueues(n);
             this.teTickQueues = newQueues(n);
             this.lastEntityDist = new int[n];
+            this.lastRegionTimingNanos = new long[n];
         }
 
         @SuppressWarnings("unchecked")
@@ -514,8 +516,10 @@ public final class RegionTickManager {
         }
         long start = Util.getNanos();
         java.util.Collection<Entity> batch = new ArrayList<>();
+        int queueDepth = queue.size();  // S2.9.1: capture before drainTo
         queue.drainTo(batch);
         RoutedDrainStats.Accumulator acc = MAIN_DRAIN_ACC;
+        acc.setQueueDepth(queueDepth);
         for (Entity entity : batch) {
             Class<?> cls = entity.getClass();
             boolean colony = cls.getName().startsWith("com.minecolonies.");
@@ -959,6 +963,7 @@ public final class RegionTickManager {
     /** Submits one worker per region, drains the given phase work, waits for all. */
     private static void runWorkers(ServerLevel level, boolean applyNow, IntConsumer work) {
         IN_REGION_TICK.set(true);
+        long[] regionTimings = new long[REGION_COUNT];  // S2.9.1: per-region timing
         try {
             CountDownLatch latch = new CountDownLatch(REGION_COUNT);
             AtomicReference<Throwable> failure = new AtomicReference<>();
@@ -985,7 +990,9 @@ public final class RegionTickManager {
                             // Apply this region's async pathfinding results on the region
                             // worker before ticking, same-thread with entity ticks.
                             AsyncPathfindingManager.drainRegion(region, level.getGameTime());
+                            long regionWorkStart = Util.getNanos();  // S2.9.1: time just the work phase
                             work.accept(region);
+                            regionTimings[region] = Util.getNanos() - regionWorkStart;
                             STATS.record("region" + region, Util.getNanos() - start);
                         } catch (Throwable t) {
                             failure.compareAndSet(null, t);
@@ -1001,6 +1008,8 @@ public final class RegionTickManager {
                     latch.countDown();
                 }
             }
+            // S2.9.1: measure barrier wait (main thread blocked for slowest region)
+            long barrierStart = Util.getNanos();
             try {
                 if (!latch.await(PRTSFeaturesConfig.barrierTimeoutMs, TimeUnit.MILLISECONDS)) {
                     throw new RuntimeException(DimensionTickManager.barrierTimeoutDump("region"));
@@ -1009,6 +1018,8 @@ public final class RegionTickManager {
                 Thread.currentThread().interrupt();
                 throw new RuntimeException("Interrupted while waiting for region ticks", e);
             }
+            long barrierWaitNanos = Util.getNanos() - barrierStart;
+            STATS.record("barrier.wait.ms", barrierWaitNanos / 1_000_000L);
 
             Throwable failure0 = failure.get();
             if (failure0 != null) {
@@ -1017,6 +1028,8 @@ public final class RegionTickManager {
             drainScheduleTasks();
             STATS.tick(level.getServer() == null ? 0 : level.getServer().getTickCount());
             EventBusStats.tickIfNeeded(level.getServer() == null ? 0 : level.getServer().getTickCount());
+            // S2.9.1: save per-region timing for status display
+            state(level).lastRegionTimingNanos = regionTimings;
         } finally {
             IN_REGION_TICK.set(false);
         }
@@ -1101,6 +1114,38 @@ public final class RegionTickManager {
             return "no overworld";
         }
         return state(overworld).journal.statusText();
+    }
+
+    /** S2.9.1: Per-region load distribution for /servercore status (overworld, last entity session). */
+    public static String regionLoadStatusText(net.minecraft.server.MinecraftServer server) {
+        ServerLevel overworld = server != null ? server.overworld() : null;
+        if (overworld == null || !regionEnabled()) {
+            return "n/a";
+        }
+        DimensionState st = state(overworld);
+        int[] dist = st.lastEntityDist;
+        long[] timings = st.lastRegionTimingNanos;
+        if (dist == null || timings == null) {
+            return "no data";
+        }
+        StringBuilder sb = new StringBuilder();
+        int maxRegion = 0;
+        long maxTime = 0;
+        for (int i = 0; i < REGION_COUNT; i++) {
+            if (timings[i] > maxTime) {
+                maxTime = timings[i];
+                maxRegion = i;
+            }
+        }
+        for (int i = 0; i < REGION_COUNT; i++) {
+            if (i > 0) sb.append(", ");
+            sb.append("r").append(i).append(":").append(dist[i]).append("ent/")
+                    .append(timings[i] / 1_000_000L).append("ms");
+            if (i == maxRegion) {
+                sb.append("(MAX)");
+            }
+        }
+        return sb.toString();
     }
 
     private static String blockEntityTypeKey(TickingBlockEntity ticker) {
