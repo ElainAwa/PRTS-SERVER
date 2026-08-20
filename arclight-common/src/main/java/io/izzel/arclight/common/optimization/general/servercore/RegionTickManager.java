@@ -433,9 +433,11 @@ public final class RegionTickManager {
         long start = Util.getNanos();
         java.util.Collection<Entity> batch = new ArrayList<>();
         queue.drainTo(batch);
+        RoutedDrainStats.Accumulator acc = MAIN_DRAIN_ACC;
         for (Entity entity : batch) {
-            boolean colony = entity.getClass().getName().startsWith("com.minecolonies.");
-            long entityStart = colony ? Util.getNanos() : 0L;
+            Class<?> cls = entity.getClass();
+            boolean colony = cls.getName().startsWith("com.minecolonies.");
+            long entityStart = Util.getNanos();
             try {
                 VillagerPathBudget.enterRoutedEntityTick();
                 tickEntitySafely(level, entity);
@@ -449,9 +451,30 @@ public final class RegionTickManager {
                         entity.blockPosition(), t.toString());
             } finally {
                 VillagerPathBudget.exitRoutedEntityTick();
+                DrainClassInfo info = drainClassInfo(cls);
+                acc.record(info.name, info.reason, Util.getNanos() - entityStart);
             }
         }
+        acc.flush();
         STATS.record("entities.mainThreadMs", Util.getNanos() - start);
+    }
+
+    /** Cached class label + routed reason for drain telemetry (avoids per-tick getName/classify). */
+    private record DrainClassInfo(String name, String reason) {
+    }
+
+    private static final ConcurrentHashMap<Class<?>, DrainClassInfo> DRAIN_CLASS_INFO = new ConcurrentHashMap<>();
+
+    /** Reused per-pass accumulator; drain runs on the main thread only. */
+    private static final RoutedDrainStats.Accumulator MAIN_DRAIN_ACC = new RoutedDrainStats.Accumulator();
+
+    private static DrainClassInfo drainClassInfo(Class<?> cls) {
+        DrainClassInfo info = DRAIN_CLASS_INFO.get(cls);
+        if (info == null) {
+            info = new DrainClassInfo(cls.getName().intern(), routedReason(cls));
+            DRAIN_CLASS_INFO.put(cls, info);
+        }
+        return info;
     }
 
     /**
@@ -497,6 +520,31 @@ public final class RegionTickManager {
         }
         long tick = entity.level().getServer() != null ? entity.level().getServer().getTickCount() : 0L;
         return ClassAffinityLedger.shouldRouteMainThread(c.getName(), tick);
+    }
+
+    /**
+     * Read-only classification of why an entity class is routed to the main thread
+     * (S2.9 P0 telemetry). Mirrors {@link #needsMainThreadTick} precedence without
+     * side effects; returns a short stable label for attribution.
+     */
+    public static String routedReason(Class<?> c) {
+        if (matchesAnyConfiguredPrefix(c, PRTSFeaturesConfig.mainThreadEntityForce)) {
+            return "force";
+        }
+        if (EntityAffinity.isUnsafe(c.getName())) {
+            return "unsafe";
+        }
+        Boolean seeded = MAIN_THREAD_ENTITY_CACHE.get(c);
+        if (seeded == null) {
+            seeded = matchesAnyPrefix(c, MAIN_THREAD_ENTITY_PREFIXES);
+        }
+        if (Boolean.TRUE.equals(seeded)) {
+            return "seed";
+        }
+        if ("auto".equals(PRTSFeaturesConfig.mainThreadRouting)) {
+            return "auto-ledger";
+        }
+        return "other";
     }
 
     /** 沿类继承链匹配任意前缀（Entity 自身为止）。 */

@@ -30,6 +30,7 @@
     "servercore.async_pathfinding.PathNavigationRegionMixin",
     "servercore.async_pathfinding.MinecraftServerMixin_AsyncDrain",
     "servercore.ChunkMapMixin_GenerationBudget",
+    "servercore.ChunkMapMixin_GenerationStat",
     "servercore.ServerWatchdogMixin_BarrierAware",
     "servercore.SmartBlockEntityMixin_MainThreadInit",
     "servercore.compat.VoxelNeighborhoodStateMixin_Sable",

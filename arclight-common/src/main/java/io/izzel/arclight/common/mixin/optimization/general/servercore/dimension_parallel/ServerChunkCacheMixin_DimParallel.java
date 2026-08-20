@@ -211,6 +211,7 @@ public abstract class ServerChunkCacheMixin_DimParallel implements io.izzel.arcl
         }
         int budget = ChunkDemandQueue.maxPerTick;
         int loaded = 0;
+        long start = System.nanoTime();
         ChunkPos pos;
         while (loaded < budget && (pos = ChunkDemandQueue.poll(this.level)) != null) {
             ChunkAccess chunk = this.level.getChunk(pos.x, pos.z, ChunkStatus.FULL, false);
@@ -224,6 +225,7 @@ public abstract class ServerChunkCacheMixin_DimParallel implements io.izzel.arcl
                 loaded++;
             }
         }
+        io.izzel.arclight.common.optimization.general.servercore.ChunkLoadStats.installPass(loaded, System.nanoTime() - start);
         ChunkDemandQueue.afterDrain(this.level);
     }
 

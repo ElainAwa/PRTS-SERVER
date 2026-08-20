@@ -88,6 +88,7 @@ public final class ChunkDemandQueue {
             }
         }
         if (!SEEN.add(key)) {
+            ChunkLoadStats.demandDeduped();
             return;
         }
         while (true) {
@@ -95,6 +96,7 @@ public final class ChunkDemandQueue {
             if (pending >= MAX_PENDING) {
                 SEEN.remove(key);
                 DROPPED.incrementAndGet();
+                ChunkLoadStats.demandDropped();
                 return;
             }
             if (PENDING_COUNT.compareAndSet(pending, pending + 1)) {
@@ -103,14 +105,19 @@ public final class ChunkDemandQueue {
         }
         PENDING.computeIfAbsent(level, ignored -> new ConcurrentLinkedQueue<>()).add(new Demand(key, new ChunkPos(x, z)));
         QUEUED.incrementAndGet();
+        ChunkLoadStats.demandSubmitted();
     }
 
     /** 有界等待 chunk 生成完成（毫秒）；超时返回 null（调用方降级空壳）。 */
     public static ChunkAccess await(ServerLevel level, int x, int z, CompletableFuture<ChunkAccess> future, long timeoutMs) {
+        long start = System.nanoTime();
         try {
-            return future.get(timeoutMs, TimeUnit.MILLISECONDS);
+            ChunkAccess result = future.get(timeoutMs, TimeUnit.MILLISECONDS);
+            ChunkLoadStats.waitCompleted(System.nanoTime() - start);
+            return result;
         } catch (TimeoutException e) {
             removeWaiter(new DemandKey(level, ChunkPos.asLong(x, z)), future);
+            ChunkLoadStats.waitTimeout();
             return null;
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -133,6 +140,7 @@ public final class ChunkDemandQueue {
         }
         SEEN.remove(key);
         COMPLETED.incrementAndGet();
+        ChunkLoadStats.fullCompleted();
     }
 
     /** 当前 ServerLevel 的主线程 drain 取需求；无则返回 null。 */
@@ -147,6 +155,7 @@ public final class ChunkDemandQueue {
             return null;
         }
         PENDING_COUNT.decrementAndGet();
+        ChunkLoadStats.demandPolled();
         return demand.pos();
     }
 

@@ -50,6 +50,16 @@ public final class WorldAccessGuard {
     private static final LongAdder TOTAL_WRITES = new LongAdder();
     private static final ConcurrentHashMap<String, Long> LAST_WARN_NANOS = new ConcurrentHashMap<>();
 
+    /** [诊断] 若非空，owner 类名含该子串的 MAIN_ONLY 违规抓一次调用栈（每 owner 一次）。 */
+    private static volatile String traceClass = "";
+    private static final ConcurrentHashMap<String, Boolean> TRACED = new ConcurrentHashMap<>();
+
+    /** Sets the diagnostic stack-trace target substring (empty disables). */
+    public static void setTraceClass(String substr) {
+        traceClass = substr == null ? "" : substr;
+        TRACED.clear();
+    }
+
     private WorldAccessGuard() {
     }
 
@@ -121,6 +131,7 @@ public final class WorldAccessGuard {
                 TOTAL_WRITES.increment();
             }
             maybeLog(owner, kind, pos);
+            maybeTrace(owner, kind, pos);
             if (policy == ThreadPolicy.ENFORCE && RegionTickManager.isRegionWorker()) {
                 // Dimension workers run whole ServerLevel ticks and have no per-entity
                 // catch wrapper; enforce throws only on region workers, which do.
@@ -139,6 +150,24 @@ public final class WorldAccessGuard {
                         Thread.currentThread().getName(), TOTAL_READS.sum(), TOTAL_WRITES.sum());
             }
         }
+    }
+
+    /** [诊断] 抓一次匹配 owner 的调用栈，定位 mod behavior；每 owner 只抓一次。 */
+    private static void maybeTrace(String owner, AccessKind kind, BlockPos pos) {
+        String target = traceClass;
+        if (target.isEmpty() || owner == null || !owner.contains(target)) {
+            return;
+        }
+        if (TRACED.putIfAbsent(owner, Boolean.TRUE) != null) {
+            return;
+        }
+        StringBuilder sb = new StringBuilder("[thread-policy-trace] ").append(kind.name().toLowerCase(Locale.ROOT))
+                .append(" by ").append(owner).append(" at ").append(pos)
+                .append(" on ").append(Thread.currentThread().getName());
+        for (StackTraceElement el : Thread.currentThread().getStackTrace()) {
+            sb.append("\n    at ").append(el);
+        }
+        LOGGER.warn(sb.toString());
     }
 
     /** One-line status for /servercore status. */

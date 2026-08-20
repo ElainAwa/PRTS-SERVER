@@ -32,6 +32,8 @@ public final class ClassAffinityLedger {
 
     private static volatile int routeThreshold = 2;
     private static volatile long routeWindowTicks = 2400;
+    /** Whether MAIN_ONLY_READ feeds the auto-route window (worker reads return null anyway). */
+    private static volatile boolean routeOnRead = true;
 
     private static final ConcurrentHashMap<String, Entry> ENTRIES = new ConcurrentHashMap<>();
 
@@ -39,9 +41,10 @@ public final class ClassAffinityLedger {
     }
 
     /** Applies configuration from prts-features.yml; called once during startup. */
-    public static void applyConfig(int threshold, long windowTicks) {
+    public static void applyConfig(int threshold, long windowTicks, boolean routeOnReadFlag) {
         routeThreshold = Math.max(0, threshold);
         routeWindowTicks = Math.max(20, windowTicks);
+        routeOnRead = routeOnReadFlag;
     }
 
     public static int routeThreshold() {
@@ -66,7 +69,11 @@ public final class ClassAffinityLedger {
         switch (kind) {
             case MAIN_ONLY_READ -> {
                 entry.mainOnlyReads++;
-                entry.recordViolation(tick);
+                // worker Level.getBlockEntity 恒返回 null（vanilla 语义），读为 null-安全降级。
+                // routeOnRead=false 时不喂 auto-route 窗口，避免因纯只读把实体类误路由主线程。
+                if (routeOnRead) {
+                    entry.recordViolation(tick);
+                }
             }
             case MAIN_ONLY_WRITE -> {
                 entry.mainOnlyWrites++;

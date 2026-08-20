@@ -88,12 +88,17 @@ public class PRTSFeaturesConfig {
     public static ThreadPolicy threadPolicy;
     /** 违规日志每分钟每类限流条数（>0）。 */
     public static int violationLogPerMinute;
+    /** [诊断] MAIN_ONLY 违规调用栈追踪：owner 类名含该子串时抓一次栈（空=关闭，默认关）。 */
+    public static String threadPolicyTraceClass;
     /** 自动路由：auto（违规学习）/ manual（只认前缀种子 + force/allow 列表）。 */
     public static String mainThreadRouting;
     /** 时间窗内 MAIN_ONLY 违规达到该次数即把实体类路由主线程（0 = 禁用学习）。 */
     public static int routeThreshold;
     /** 违规学习窗口（tick，默认 2400 = 2 分钟）。 */
     public static long routeWindowTicks;
+    /** MAIN_ONLY_READ 是否计入 auto-route 窗口。worker 读 BE 恒返回 null（vanilla 语义），
+     *  默认 true = 保持现有行为；false = 只按写路由（读为 null-安全降级，不路由）。 */
+    public static boolean routeOnRead;
     /** 强制主线程 tick 的类名/前缀（优先级最高）。 */
     public static List<String> mainThreadEntityForce;
     /** 强制不路由的类名/前缀（危险调试用，覆盖学习与种子）。 */
@@ -274,7 +279,9 @@ public class PRTSFeaturesConfig {
             LOGGER.warn("parallel.thread-policy=enforce is for test-server debugging only; violations will abort the offending entity tick");
         }
         violationLogPerMinute = Math.max(1, config.getInt("parallel.violation-log-per-minute", 20));
+        threadPolicyTraceClass = config.getString("parallel.thread-policy-trace-class", "").trim();
         WorldAccessGuard.applyConfig(threadPolicy, violationLogPerMinute);
+        WorldAccessGuard.setTraceClass(threadPolicyTraceClass);
         mainThreadRouting = config.getString("parallel.main-thread-routing", "auto").trim().toLowerCase(java.util.Locale.ROOT);
         if (!"auto".equals(mainThreadRouting) && !"manual".equals(mainThreadRouting)) {
             LOGGER.warn("parallel.main-thread-routing={} is invalid; falling back to auto", mainThreadRouting);
@@ -282,10 +289,11 @@ public class PRTSFeaturesConfig {
         }
         routeThreshold = Math.max(0, config.getInt("parallel.route-threshold", 5));
         routeWindowTicks = Math.max(20, config.getLong("parallel.route-window-ticks", 2400));
+        routeOnRead = config.getBoolean("parallel.route-on-read", true);
         mainThreadEntityForce = new ArrayList<>(config.getStringList("parallel.main-thread-entity-force"));
         mainThreadEntityAllow = new ArrayList<>(config.getStringList("parallel.main-thread-entity-allow"));
         persistLearnedRoutes = config.getBoolean("parallel.persist-learned-routes", false);
-        ClassAffinityLedger.applyConfig(routeThreshold, routeWindowTicks);
+        ClassAffinityLedger.applyConfig(routeThreshold, routeWindowTicks, routeOnRead);
         LOGGER.info("parallel main-thread-routing={} threshold={} window={} ticks force={} allow={} persist={}",
                 mainThreadRouting, routeThreshold, routeWindowTicks,
                 mainThreadEntityForce.size(), mainThreadEntityAllow.size(), persistLearnedRoutes);
@@ -547,6 +555,7 @@ public class PRTSFeaturesConfig {
                   main-thread-routing: auto        # auto 违规学习 / manual 只认种子列表
                   route-threshold: 5               # 窗口内 MAIN_ONLY 违规次数即路由主线程（0=禁用学习；灰度后从 2 调宽）
                   route-window-ticks: 2400         # 违规学习窗口（tick，2400=2分钟）
+                  route-on-read: true              # MAIN_ONLY_READ 是否计入路由（worker 读 BE 恒 null；false=只按写路由）
                   main-thread-entity-force: []     # 强制主线程 tick 的类名/前缀
                   main-thread-entity-allow: []     # 强制不路由的类名/前缀（危险调试用）
                   persist-learned-routes: false    # 停机时把学到的路由写回配置（仅实体类，最多 200 条）

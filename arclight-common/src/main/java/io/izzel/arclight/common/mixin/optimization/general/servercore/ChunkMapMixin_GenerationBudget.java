@@ -51,7 +51,6 @@ public abstract class ChunkMapMixin_GenerationBudget {
         if (!overBudget && !overWindow) {
             return;
         }
-        int pending = this.pendingGenerationTasks.size();
         ci.cancel();
         int submitted = 0;
         Iterator<ChunkGenerationTask> it = this.pendingGenerationTasks.iterator();

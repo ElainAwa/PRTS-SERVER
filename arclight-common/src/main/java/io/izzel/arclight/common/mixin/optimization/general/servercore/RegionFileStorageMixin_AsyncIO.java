@@ -74,6 +74,7 @@ public abstract class RegionFileStorageMixin_AsyncIO {
             return;
         }
         try {
+            long start = System.nanoTime();
             CompoundTag result = pool().submit(() -> {
                 IN_POOL.set(true);
                 try {
@@ -85,6 +86,7 @@ public abstract class RegionFileStorageMixin_AsyncIO {
                     IN_POOL.set(false);
                 }
             }).get();
+            io.izzel.arclight.common.optimization.general.servercore.ChunkLoadStats.regionRead(System.nanoTime() - start);
             cir.setReturnValue(result);
             cir.cancel();
         } catch (RejectedExecutionException e) {

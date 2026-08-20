@@ -143,6 +143,14 @@ public class ServerCoreCommands {
                     PRTSFeaturesConfig.determinismMode ? "on (barrier-global)" : "off (region-local)"
             ), source.getServer()));
 
+            component.append(Formatter.parse("\n<dark_gray>» <c:#primary>ChunkLoading: <c:#secondary>%s".formatted(
+                    io.izzel.arclight.common.optimization.general.servercore.ChunkLoadStats.statusText()
+            ), source.getServer()));
+
+            component.append(Formatter.parse("\n<dark_gray>» <c:#primary>RoutedDrain: <c:#secondary>%s".formatted(
+                    io.izzel.arclight.common.optimization.general.servercore.RoutedDrainStats.statusText(12)
+            ), source.getServer()));
+
             component.append(Formatter.parse("\n<dark_gray>» <c:#primary>BlockEntityTicks: <c:#secondary>%s".formatted(
                     BlockEntityTickStats.statusText(6)
             ), source.getServer()));
