@@ -377,9 +377,7 @@ public class PRTSFeaturesConfig {
     /** S3: Persist learned routes to independent JSON file (replaces old YAML append logic). */
     public static void persistLearnedRoutes() {
         try {
-            org.bukkit.craftbukkit.v.CraftServer craft = (org.bukkit.craftbukkit.v.CraftServer) org.bukkit.Bukkit.getServer();
-            java.io.File serverDir = craft.getServer().getServerDirectory().toFile();
-            io.izzel.arclight.common.optimization.general.servercore.ownership.LearnedRoutePersistence.saveOnShutdown(serverDir);
+            io.izzel.arclight.common.optimization.general.servercore.ownership.LearnedRoutePersistence.saveOnShutdown();
         } catch (Exception e) {
             LOGGER.error("persist-learned-routes failed", e);
         }

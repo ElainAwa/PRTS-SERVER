@@ -32,11 +32,11 @@ public final class LearnedRoutePersistence {
     }
 
     /** 启动时加载 learned-routes.json 并恢复到 ClassAffinityLedger。 */
-    public static void loadOnStartup(File serverDir) {
+    public static void loadOnStartup() {
         if (!PRTSFeaturesConfig.persistLearnedRoutes) {
             return;
         }
-        File file = new File(serverDir, PRTSFeaturesConfig.learnedRoutesFile);
+        File file = new File(PRTSFeaturesConfig.learnedRoutesFile);
         if (!file.exists()) {
             LOGGER.info("[learned-routes] No persisted routes found at {}", file.getAbsolutePath());
             return;
@@ -63,7 +63,7 @@ public final class LearnedRoutePersistence {
     }
 
     /** 关服时保存 learned routes 到 JSON 文件。 */
-    public static void saveOnShutdown(File serverDir) {
+    public static void saveOnShutdown() {
         if (!PRTSFeaturesConfig.persistLearnedRoutes) {
             return;
         }
@@ -78,7 +78,7 @@ public final class LearnedRoutePersistence {
             LOGGER.warn("[learned-routes] Snapshot has {} routes, limiting to {}", routes.size(), limit);
             routes = routes.subList(0, limit);
         }
-        File file = new File(serverDir, PRTSFeaturesConfig.learnedRoutesFile);
+        File file = new File(PRTSFeaturesConfig.learnedRoutesFile);
         file.getParentFile().mkdirs();
         try (FileWriter writer = new FileWriter(file)) {
             JsonObject root = new JsonObject();
