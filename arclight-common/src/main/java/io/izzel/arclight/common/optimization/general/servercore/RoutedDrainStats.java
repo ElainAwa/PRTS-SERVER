@@ -30,6 +30,7 @@ public final class RoutedDrainStats {
     private static volatile long lastTotalNanos;
     private static volatile long lastMaxNanos;
     private static volatile int lastQueueDepth;  // S2.9.1: queue size before drainTo
+    private static volatile int lastProcessed;   // S2.9.2: actually processed (may be < queueDepth if batched)
 
     private RoutedDrainStats() {
     }
@@ -83,6 +84,7 @@ public final class RoutedDrainStats {
             lastTotalNanos = totalNanos;
             lastMaxNanos = maxNanos;
             lastQueueDepth = queueDepth;
+            lastProcessed = (int) entities;  // S2.9.2: track processed count
             perClass.clear();
             entities = 0;
             totalNanos = 0;
@@ -142,7 +144,8 @@ public final class RoutedDrainStats {
         sb.append("lastEntities=").append(lastEntities)
                 .append(" lastTotalMs=").append(fmt(total / 1_000_000.0))
                 .append(" lastMaxMs=").append(fmt(lastMaxNanos / 1_000_000.0))
-                .append(" queueDepth=").append(lastQueueDepth);  // S2.9.1: queue size before drain
+                .append(" queueDepth=").append(lastQueueDepth)
+                .append(" processed=").append(lastProcessed);  // S2.9.2: show batching effect
         List<Map.Entry<String, ClassAgg>> rows = new ArrayList<>(GLOBAL.entrySet());
         rows.sort((a, b) -> Long.compare(b.getValue().totalNanos.sum(), a.getValue().totalNanos.sum()));
         int shown = 0;

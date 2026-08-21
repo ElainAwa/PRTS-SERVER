@@ -505,22 +505,39 @@ public final class RegionTickManager {
         queue.add(entity);
     }
 
-    /** 主线程 POST 阶段调用：执行本维度排队的主线程实体 tick。 */
+    /** 主线程 POST 阶段调用：执行本维度排队的主线程实体 tick。S2.9.2: 支持分批。 */
     public static void drainMainThreadEntityTicks(ServerLevel level) {
         LinkedBlockingQueue<Entity> queue;
         synchronized (MAIN_THREAD_ENTITY_TICKS) {
-            queue = MAIN_THREAD_ENTITY_TICKS.remove(level);
-        }
-        if (queue == null) {
-            return;
+            queue = MAIN_THREAD_ENTITY_TICKS.get(level);  // S2.9.2: get (not remove), persist queue
+            if (queue == null) {
+                return;
+            }
         }
         long start = Util.getNanos();
-        java.util.Collection<Entity> batch = new ArrayList<>();
-        int queueDepth = queue.size();  // S2.9.1: capture before drainTo
-        queue.drainTo(batch);
+        int queueDepth = queue.size();  // S2.9.1: capture before drain
+        int budget = PRTSFeaturesConfig.mainThreadEntityDrainBudget;
+        boolean batched = budget > 0;
+        int processed = 0;
+        int skippedExpired = 0;
+
         RoutedDrainStats.Accumulator acc = MAIN_DRAIN_ACC;
         acc.setQueueDepth(queueDepth);
-        for (Entity entity : batch) {
+
+        // S2.9.2: poll loop with budget cap (or unbounded if budget=0)
+        Entity entity;
+        while ((entity = queue.poll()) != null) {
+            if (batched && processed >= budget) {
+                // Budget exhausted; put back and stop (re-offer to front is not atomic, but queue.offer is fine)
+                queue.offer(entity);
+                break;
+            }
+            // S2.9.2: entity expiry validation (remove if invalid, don't tick)
+            if (entity.isRemoved() || entity.level() != level) {
+                skippedExpired++;
+                continue;
+            }
+
             Class<?> cls = entity.getClass();
             boolean colony = cls.getName().startsWith("com.minecolonies.");
             long entityStart = Util.getNanos();
@@ -540,9 +557,13 @@ public final class RegionTickManager {
                 DrainClassInfo info = drainClassInfo(cls);
                 acc.record(info.name, info.reason, Util.getNanos() - entityStart);
             }
+            processed++;
         }
         acc.flush();
         STATS.record("entities.mainThreadMs", Util.getNanos() - start);
+        if (skippedExpired > 0) {
+            STATS.add("entities.mainThreadExpired", skippedExpired);
+        }
     }
 
     /** Cached class label + routed reason for drain telemetry (avoids per-tick getName/classify). */

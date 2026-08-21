@@ -67,6 +67,8 @@ public class PRTSFeaturesConfig {
     public static int colonyNpcWorkInterval;
     /** 村民主线程 POI / 单目标寻路预算（每 tick；0 = 关闭）。 */
     public static int villagerPoiPathBudget;
+    /** S2.9.2: 主线程 routed entity drain 每 tick 处理上限（0 = 不分批，全量 drain）。 */
+    public static int mainThreadEntityDrainBudget;
     /** 殖民地管理器 ServerTick 事件里的 getAllColonies 快照缓存（默认关；测试服 A/B 后定默认）。 */
     public static boolean colonyManagerTickCacheEnabled;
     /** 殖民地列表快照的 TTL（tick）；过期自动重建，create/delete 路径立即失效。 */
@@ -249,6 +251,7 @@ public class PRTSFeaturesConfig {
         colonyManagerTickCacheEnabled = config.getBoolean("parallel.colony-manager-tick-cache-enabled", true);
         colonyManagerTickCacheInterval = Math.max(1, Math.min(120, config.getInt("parallel.colony-manager-tick-cache-interval", 20)));
         villagerPoiPathBudget = Math.max(0, config.getInt("parallel.villager-poi-path-budget", 0));
+        mainThreadEntityDrainBudget = Math.max(0, config.getInt("parallel.main-thread-entity-drain-budget", 0));
         chunkDemandPerTick = config.getInt("parallel.chunk-demand-per-tick", 50);
         // 非正数会使需求 drain 永久不执行（budget <= 0），退回默认值。
         if (chunkDemandPerTick < 1) chunkDemandPerTick = 50;
