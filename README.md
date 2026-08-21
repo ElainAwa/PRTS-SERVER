@@ -46,37 +46,59 @@ Runtime violation detection (worker calls main-thread-only APIs like `getBlockEn
 
 ```yaml
 parallel:
-  pathfinding-async: true
-  dimension-parallel: true
-  region-parallel: true
-  region-count: 4                # 2/4/8/16
-  region-auto-scale: true
-  
-  # ThreadPolicy
-  main-thread-routing: "auto"    # auto=learning mode, stats=observe only
-  route-threshold: 5             # violations to trigger routing in window
-  route-window-ticks: 2400       # sliding window (2 minutes)
-  
-  # Route learning persistence
-  persist-learned-routes: true
-  learned-routes-file: "config/prts-learned-routes.json"
-  learned-routes-limit: 200
-  
-  # Probation self-healing
-  route-probation-enabled: true
-  route-probation-ticks: 12000   # 10 minutes
-  route-probation-max-violations: 2
-  
-  # Routed entity drain batching
-  main-thread-entity-drain-budget: 0  # 0=off
-  
-  # Villager POI path budget
-  villager-poi-path-budget: 0    # 0=unlimited, 4-8 recommended
+  # ---- Parallel engine ----
+  pathfinding-async: true        # Async pathfinding: mob/villager pathfinding on worker threads
+  dimension-parallel: true       # Dimension parallelism: each dimension ticks on its own thread
+  region-parallel: true          # Region parallelism: non-player entities tick in parallel chunks
+  region-count: 4                # Region count (2/4/8/16, default 4); more regions = more parallelism but more cross-region cost
+  region-auto-scale: true        # Auto load balancing: adjust region count by overworld load
 
-generation-tasks-per-tick: 50
-chunkgen-inflight-limit: 128
-barrier-watchdog-aware: true
-barrier-timeout-ms: 120000
+  # ---- ThreadPolicy auto-learning ----
+  # When a worker thread calls main-thread-only APIs (getBlockEntity/setBlock etc),
+  # a violation is recorded. Classes exceeding the threshold are auto-routed to the
+  # main thread to avoid cross-thread access races.
+  main-thread-routing: "auto"    # auto=learning mode (auto-route violating classes); stats=count only (observe)
+  route-threshold: 5             # Violations to trigger routing within the window (lower = more sensitive)
+  route-window-ticks: 2400       # Violation window size (ticks, 2400 = 2 minutes)
+  route-on-read: true            # Whether MAIN_ONLY_READ counts toward the window; false=only writes route (reads are null-safe)
+
+  # ---- Route learning persistence ----
+  # Auto-learned routes (classes routed to the main thread) are lost on restart by default.
+  # When enabled, they persist to an independent JSON file and are restored on startup.
+  persist-learned-routes: true   # Enable route persistence (write/read JSON)
+  learned-routes-file: "config/prts-learned-routes.json"  # Persistence file path
+  learned-routes-limit: 200      # Max persisted class count (prevents file bloat)
+
+  # ---- Probation self-healing ----
+  # Auto-routed classes may have been temporarily unsafe; keeping them on the main
+  # thread forever wastes parallelism. When enabled, periodically test the class on
+  # a region worker: no violations clears the route, violations extend the interval.
+  route-probation-enabled: true  # Enable self-healing test ticks
+  route-probation-ticks: 12000   # Test interval (ticks, 12000 = 10 minutes)
+  route-probation-max-violations: 2  # Classes with more historical violations skip testing (high-risk)
+
+  # ---- Routed entity drain batching ----
+  # The main-thread routed entity queue is fully drained per tick by default; many
+  # entities can stretch a single tick. When enabled, at most N entities tick per
+  # tick and the rest carry over, smoothing main-thread pressure.
+  main-thread-entity-drain-budget: 0  # Max entities per tick (0 = unlimited)
+
+  # ---- Villager POI path budget ----
+  # Main-thread-routed villagers claim jobs/pathfind expensively; limit per-tick
+  # pathfinding work here.
+  villager-poi-path-budget: 0    # Pathfinding budget per tick (0 = unlimited; 4-8 if lagging)
+
+# ---- Chunk generation peak shaving ----
+# Many chunks generating at once (teleport/forceload) can saturate the generation
+# pool and stall the main thread.
+generation-tasks-per-tick: 50    # Max generation tasks submitted per tick (0 = unlimited)
+chunkgen-inflight-limit: 128     # Max submissions per 2s rolling window (prevents generation spikes)
+
+# ---- Barrier robustness ----
+# Parallel tick uses a barrier to wait for all regions; avoid watchdog false-kills
+# and deadlocks.
+barrier-watchdog-aware: true     # Pause watchdog timer while waiting in barrier (prevent false kill)
+barrier-timeout-ms: 120000       # Barrier stall timeout (ms); dumps all threads and crashes instead of hanging
 ```
 
 ## Build & Deploy
