@@ -89,12 +89,13 @@ public abstract class PathFinderMixin_Async {
         // bucket at the next session start (AsyncPathfindingManager.drainRegion).
         if (serverThread) {
             AsyncPathfindingManager.drainIfNeeded(tick);
-            // Server thread can read the live world safely; avoid paying the async snapshot cost here.
-            // Worker threads still use immutable snapshots before submitting A* to the async pool.
-            if (!dimensionWorker && !regionWorker) {
+            // S2.5 P1: 主线程单目标移动寻路也可异步（配置开启时），
+            // 否则被路由到主线程的 villager 每次都在主线程同步跑 A*。
+            if (!PRTSFeaturesConfig.mainThreadPathAsync) {
                 access.arclight$clearPathKeep();
-                return; // vanilla A* on main thread
+                return; // vanilla A* on main thread (default)
             }
+            // 开启时继续走下方 snapshot + submit 逻辑（主队列结果由 drainIfNeeded 应用）。
         }
         if (!AsyncPathfindingManager.canSubmit()) {
             // 队列饱和：跳过本次寻路（下 tick 重试），同步 A* 回退会拖垮 region worker TPS。

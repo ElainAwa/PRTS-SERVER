@@ -69,6 +69,8 @@ public class PRTSFeaturesConfig {
     public static int villagerPoiPathBudget;
     /** S2.9.2: 主线程 routed entity drain 每 tick 处理上限（0 = 不分批，全量 drain）。 */
     public static int mainThreadEntityDrainBudget;
+    /** S2.5 P1: 主线程单目标移动寻路异步化（routed villager 主线程 A* 削峰；默认关）。 */
+    public static boolean mainThreadPathAsync;
     /** S3.1: learned routes JSON 文件路径。 */
     public static String learnedRoutesFile;
     /** S3.1: 最多持久化的 learned routes 数量。 */
@@ -261,6 +263,7 @@ public class PRTSFeaturesConfig {
         colonyManagerTickCacheEnabled = config.getBoolean("parallel.colony-manager-tick-cache-enabled", true);
         colonyManagerTickCacheInterval = Math.max(1, Math.min(120, config.getInt("parallel.colony-manager-tick-cache-interval", 20)));
         villagerPoiPathBudget = Math.max(0, config.getInt("parallel.villager-poi-path-budget", 0));
+        mainThreadPathAsync = config.getBoolean("parallel.main-thread-path-async", false);
         mainThreadEntityDrainBudget = Math.max(0, config.getInt("parallel.main-thread-entity-drain-budget", 0));
         persistLearnedRoutes = config.getBoolean("parallel.persist-learned-routes", false);
         learnedRoutesFile = config.getString("parallel.learned-routes-file", "config/prts-learned-routes.json");
