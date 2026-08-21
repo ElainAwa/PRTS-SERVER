@@ -1,15 +1,12 @@
-# PRTS-Multithreading — Minecraft 1.21.1 Multi-threaded Parallel Server
+# PRTS-Multithreading — Minecraft 1.21.1 / NeoForge (Multi-threaded Parallel Branch)
 
 **[中文文档](./README_zh.md) · [English](./README.md)**
 
-> [!NOTE]
-> PRTS is a fork of [Arclight](https://github.com/IzzelAliz/Arclight) → [Luminara](https://github.com/CraftAmethyst/Luminara), focused on multi-threaded parallelism and production stability. This branch `1.21.1-Multithreading` is the experimental parallel engine development track, now in **long-term maintenance and continuous optimization phase**.
+> PRTS is a fork of [Arclight](https://github.com/IzzelAliz/Arclight) → [Luminara](https://github.com/CraftAmethyst/Luminara). This branch `1.21.1-Multithreading` is the experimental multi-threaded parallel engine development track.
 
-## Core Features
+## Parallel Engine
 
-### 🚀 Multi-threaded Parallel Engine
-
-Splits single-threaded world tick into parallel execution, reducing lag under heavy load:
+Splits single-threaded world tick into multi-threaded execution:
 
 - **Async Pathfinding** (`pathfinding-async`): Mob/villager pathfinding runs on worker threads
 - **Dimension Parallel** (`dimension-parallel`): Overworld/Nether/End tick in separate threads
@@ -18,43 +15,30 @@ Splits single-threaded world tick into parallel execution, reducing lag under he
   - Auto load balancing (`region-auto-scale`)
   - Players stay on main thread (containers/menus/events)
 
-**Production Validated**: Stable on 100+ mods heavy modpack, 20-40% TPS improvement.
+### ThreadPolicy Auto-learning
 
-### 🛡️ Thread Safety Guarantees
+Runtime violation detection (worker calls main-thread-only APIs like `getBlockEntity`/`setBlock`), auto-routes unsafe classes to main thread:
 
-- **ThreadPolicy Auto-learning**: Runtime violation detection, auto-routes unsafe classes to main thread
-  - Sliding window violation stats (2400 ticks window, 5 violations trigger routing)
-  - Route learning persistence (`config/prts-learned-routes.json`)
-  - Bidirectional Probation: Auto-heals by testing on worker, clears routing on success
-- **World Access Guard**: Main-thread-only APIs (getBlockEntity/setBlock) log violations on worker
-- **Entity/BE Safety Valve**: Worker exception → permanent main-thread fallback, no server crash
+- Sliding window stats (default 2400 ticks window, 5 violations trigger routing)
+- Route learning persistence (`config/prts-learned-routes.json`, load on startup / save on shutdown)
+- Bidirectional Probation: auto-routed classes periodically tested on worker, restore parallel on success (exponential backoff 2x/4x/8x)
+- Safety valve: worker exception → permanent main-thread fallback
 
-### ⚡ Performance Optimizations
+### Chunk Generation Peak Shaving
 
-**Chunk Generation Peak Shaving**
-- Submission budget (`generation-tasks-per-tick: 50`): Prevents generation storm mailbox overload
-- Rolling window throttle (`chunkgen-inflight-limit: 128`): Teleport spike 1.5-2.3s → ~430ms
+- Submission budget (`generation-tasks-per-tick: 50`)
+- Rolling window throttle (`chunkgen-inflight-limit: 128`)
+- Teleport spike: 1.5-2.3s → ~430ms
 
-**Barrier Robustness**
-- Watchdog-aware: Parallel wait doesn't trigger false timeout
-- Timeout diagnostics (`barrier-timeout-ms: 120000`): Dumps state and crashes on deadlock
+### Barrier Robustness
 
-**Entity Tick Optimization**
-- Routed entity drain batching: Main thread queue batch consumption prevents blocking
-- Villager POI path budget: Main thread claim throttle (`villager-poi-path-budget`)
+- Watchdog-aware: parallel wait doesn't trigger false timeout
+- Timeout diagnostics (`barrier-timeout-ms: 120000`): dumps state and crashes on deadlock
 
-**Create Mod Compat**
-- Track lazy-spread: Rasterize across ticks, avoid first-load freeze
-- Belt passenger deferred registration: Prevent worker race causing contraption self-destruct
+### Create Mod Compat
 
-### 📊 Observability
-
-`/servercore status` real-time monitoring:
-- ThreadPolicy violation stats, auto-routed class list
-- Probation telemetry (attempts/success/failed)
-- Chunk load/drain queue depth
-- Barrier wait time, per-region load
-- BE/entity tick hotspot analysis
+- Track lazy-spread: rasterize across ticks
+- Belt passenger deferred registration: prevent worker race
 
 ## Configuration
 
@@ -62,87 +46,61 @@ Splits single-threaded world tick into parallel execution, reducing lag under he
 
 ```yaml
 parallel:
-  pathfinding-async: true        # Async pathfinding
-  dimension-parallel: true       # Dimension parallelism
-  region-parallel: true          # Region parallelism
-  region-count: 4                # Region count (2/4/8/16, default 4)
-  region-auto-scale: true        # Auto load balancing
+  pathfinding-async: true
+  dimension-parallel: true
+  region-parallel: true
+  region-count: 4                # 2/4/8/16
+  region-auto-scale: true
   
-  # ThreadPolicy auto-learning
+  # ThreadPolicy
   main-thread-routing: "auto"    # auto=learning mode, stats=observe only
-  route-threshold: 5             # Violations to trigger routing in window
-  route-window-ticks: 2400       # Sliding window size (2 minutes)
+  route-threshold: 5             # violations to trigger routing in window
+  route-window-ticks: 2400       # sliding window (2 minutes)
   
   # Route learning persistence (v1.0.37+)
-  persist-learned-routes: true   # Enable persistence
+  persist-learned-routes: true
   learned-routes-file: "config/prts-learned-routes.json"
-  learned-routes-limit: 200      # Max persisted class count
+  learned-routes-limit: 200
   
   # Probation self-healing (v1.0.37+)
-  route-probation-enabled: true  # Enable bidirectional probation
-  route-probation-ticks: 12000   # Attempt interval (10 minutes)
-  route-probation-max-violations: 2  # Historical violation filter
+  route-probation-enabled: true
+  route-probation-ticks: 12000   # 10 minutes
+  route-probation-max-violations: 2
   
-  # Routed entity drain batching
-  main-thread-entity-drain-budget: 0  # Per-tick consumption budget (0=off)
+  # Routed entity drain batching (v1.0.37+)
+  main-thread-entity-drain-budget: 0  # 0=off
   
   # Villager POI path budget
-  villager-poi-path-budget: 0    # Main thread claim budget (0=unlimited, 4-8 recommended)
+  villager-poi-path-budget: 0    # 0=unlimited, 4-8 recommended
 
-# Chunk generation peak shaving
-generation-tasks-per-tick: 50    # Per-tick submission cap
-chunkgen-inflight-limit: 128     # Rolling window throttle
-
-# Barrier robustness
-barrier-watchdog-aware: true     # Watchdog awareness
-barrier-timeout-ms: 120000       # Crash timeout (2 minutes)
+generation-tasks-per-tick: 50
+chunkgen-inflight-limit: 128
+barrier-watchdog-aware: true
+barrier-timeout-ms: 120000
 ```
-
-> **Config Separation**: `prts-features.yml` manages PRTS original features; `config/servercore.yml` manages ServerCore (Spigot/Paper port) features.
 
 ## Build & Deploy
 
-**Requirements**
-- JDK 21
-- Gradle 8.13+
+**Requirements**: JDK 21
 
-**Build**
+**Build**:
 ```bash
 ./gradlew --no-daemon :bootstrap:neoforgeJar
 ```
 
-**Deploy**
-1. Copy `build/libs/PRTS-neoforge-1.21.1-<version>-Multithreading.jar` to server root
-2. Start server (embedded common.jar auto-extracts on content change, no manual `.arclight` cleanup)
+**Deploy**: Copy `build/libs/PRTS-neoforge-1.21.1-<version>-Multithreading.jar` to server root, start server.
 
-**Download**
-- [GitHub Releases](https://github.com/ElainAwa/PRTS-SERVER/releases)
-- Latest: [v1.0.37](https://github.com/ElainAwa/PRTS-SERVER/releases/tag/v1.0.37)
+**Download**: [GitHub Releases](https://github.com/ElainAwa/PRTS-SERVER/releases)
 
 ## Latest Updates
 
 ### v1.0.37 (2026-08-21)
 
-**S2.9 Routed Entity Drain Optimization**
-- Enhanced telemetry: drain queue depth, barrier wait, per-region load
-- Drain batching: `main-thread-entity-drain-budget` config prevents queue blocking
-
-**S3.1 Route Learning Persistence**
-- Independent JSON file: `config/prts-learned-routes.json`
-- Auto-load on startup, save on shutdown
-- Entry refactoring: `routed` → AtomicBoolean, added `learnedTick` field
-
-**S3.2 Bidirectional Probation (Self-healing)**
-- Auto-routed classes periodically tested on worker, restore parallel on success
-- Exponential backoff (2x/4x/8x, max 1h)
-- ThreadLocal isolation: probation violations don't pollute formal window
-- Telemetry: `/servercore status` shows attempts/success/failed
-
-**Fixes**
-- B4: Belt passenger deferred registration (prevent Create contraption self-destruct)
-- getPos optimization: Skip redundant calls on hot path
-
-Full Changelog at [Releases](https://github.com/ElainAwa/PRTS-SERVER/releases).
+- **S2.9 routed entity drain optimization**: Main thread queue unbounded `while(poll())` drags tick time. Added telemetry (drain queueDepth/barrier wait/per-region load) and batching (`main-thread-entity-drain-budget` config, default 0=off).
+- **S3.1 route learning persistence**: auto-routed classes lost on restart. Entry refactoring (`routed` → AtomicBoolean, added `learnedTick` field), independent JSON file (`config/prts-learned-routes.json`), load on startup + save on shutdown.
+- **S3.2 bidirectional Probation**: auto-routed classes lose parallel benefit permanently. Periodic worker test (default 12000 ticks), `clearRouted()` on success, exponential backoff on failure (2x/4x/8x). ThreadLocal isolation, telemetry exposes attempts/success/failed.
+- **B4 belt passenger fix**: Create belt `tick()` registers passengers on worker, `addPassenger` throws cross-thread NBT assertion causing contraption self-destruct. Deferred to main thread.
+- **getPos optimization**: BE tick stats hot path calls `getPos()` creating new BlockPos each time. Changed to only call on new max.
 
 ## Other Features
 
@@ -156,8 +114,4 @@ Identical to main branch `1.21.1` (ServerCore port, entity tracking, chunk savin
 
 - [Arclight](https://github.com/IzzelAliz/Arclight) - Original Hybrid server
 - [Luminara](https://github.com/CraftAmethyst/Luminara) - Upstream fork
-- [ServerCore](https://github.com/Wesley1808/ServerCore) - Spigot/Paper optimization port source
-
----
-
-**Maintainer**: [ElainAwa](https://github.com/ElainAwa) | **Issues**: [GitHub Issues](https://github.com/ElainAwa/PRTS-SERVER/issues)
+- [ServerCore](https://github.com/Wesley1808/ServerCore) - Optimization port source
