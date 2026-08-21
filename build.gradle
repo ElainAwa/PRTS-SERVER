@@ -11,7 +11,7 @@ allprojects {
     apply plugin: 'java'
 
     group 'io.izzel.arclight'
-    version '1.0.36-Multithreading'
+    version '1.0.37-Multithreading'
 
     def getGitHash = { ->
         def stdout = new ByteArrayOutputStream()
