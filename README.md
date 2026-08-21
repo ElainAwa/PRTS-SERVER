@@ -46,59 +46,41 @@ Runtime violation detection (worker calls main-thread-only APIs like `getBlockEn
 
 ```yaml
 parallel:
-  # ---- Parallel engine ----
-  pathfinding-async: true        # Async pathfinding: mob/villager pathfinding on worker threads
-  dimension-parallel: true       # Dimension parallelism: each dimension ticks on its own thread
-  region-parallel: true          # Region parallelism: non-player entities tick in parallel chunks
-  region-count: 4                # Region count (2/4/8/16, default 4); more regions = more parallelism but more cross-region cost
-  region-auto-scale: true        # Auto load balancing: adjust region count by overworld load
+  pathfinding-async: true        # Async pathfinding on worker threads
+  dimension-parallel: true       # Each dimension ticks on its own thread
+  region-parallel: true          # Non-player entities tick in parallel chunk stripes
+  region-count: 4                # Region count (2/4/8/16)
+  region-auto-scale: true        # Auto-adjust region count by load
 
-  # ---- ThreadPolicy auto-learning ----
-  # When a worker thread calls main-thread-only APIs (getBlockEntity/setBlock etc),
-  # a violation is recorded. Classes exceeding the threshold are auto-routed to the
-  # main thread to avoid cross-thread access races.
-  main-thread-routing: "auto"    # auto=learning mode (auto-route violating classes); stats=count only (observe)
-  route-threshold: 5             # Violations to trigger routing within the window (lower = more sensitive)
-  route-window-ticks: 2400       # Violation window size (ticks, 2400 = 2 minutes)
-  route-on-read: true            # Whether MAIN_ONLY_READ counts toward the window; false=only writes route (reads are null-safe)
+  # ThreadPolicy: auto-routes entity classes that call main-thread-only APIs on workers
+  main-thread-routing: "auto"    # auto=auto-route; stats=count only
+  route-threshold: 5             # Violations to trigger routing in window
+  route-window-ticks: 2400       # Violation window (ticks, 2400 = 2 min)
+  route-on-read: true            # Whether read violations count; false=writes only
 
-  # ---- Route learning persistence ----
-  # Auto-learned routes (classes routed to the main thread) are lost on restart by default.
-  # When enabled, they persist to an independent JSON file and are restored on startup.
-  persist-learned-routes: true   # Enable route persistence (write/read JSON)
-  learned-routes-file: "config/prts-learned-routes.json"  # Persistence file path
-  learned-routes-limit: 200      # Max persisted class count (prevents file bloat)
+  # Route persistence: learned routes saved to JSON, restored on restart
+  persist-learned-routes: true   # Enable persistence
+  learned-routes-file: "config/prts-learned-routes.json"
+  learned-routes-limit: 200      # Max persisted classes
 
-  # ---- Probation self-healing ----
-  # Auto-routed classes may have been temporarily unsafe; keeping them on the main
-  # thread forever wastes parallelism. When enabled, periodically test the class on
-  # a region worker: no violations clears the route, violations extend the interval.
-  route-probation-enabled: true  # Enable self-healing test ticks
-  route-probation-ticks: 12000   # Test interval (ticks, 12000 = 10 minutes)
-  route-probation-max-violations: 2  # Classes with more historical violations skip testing (high-risk)
+  # Probation self-healing: routed classes retested on worker, cleared on no violation
+  route-probation-enabled: true  # Enable self-healing
+  route-probation-ticks: 12000   # Test interval (ticks)
+  route-probation-max-violations: 2  # Skip testing above this violation count
 
-  # ---- Routed entity drain batching ----
-  # The main-thread routed entity queue is fully drained per tick by default; many
-  # entities can stretch a single tick. When enabled, at most N entities tick per
-  # tick and the rest carry over, smoothing main-thread pressure.
-  main-thread-entity-drain-budget: 0  # Max entities per tick (0 = unlimited)
+  # Routed entity drain batching: cap main-thread routed entity ticks per tick
+  main-thread-entity-drain-budget: 0  # Max per tick (0 = unlimited)
 
-  # ---- Villager POI path budget ----
-  # Main-thread-routed villagers claim jobs/pathfind expensively; limit per-tick
-  # pathfinding work here.
-  villager-poi-path-budget: 0    # Pathfinding budget per tick (0 = unlimited; 4-8 if lagging)
+  # Villager POI path budget: limit main-thread villager pathfinding
+  villager-poi-path-budget: 0    # Per-tick budget (0 = unlimited, try 4-8 if lagging)
 
-# ---- Chunk generation peak shaving ----
-# Many chunks generating at once (teleport/forceload) can saturate the generation
-# pool and stall the main thread.
-generation-tasks-per-tick: 50    # Max generation tasks submitted per tick (0 = unlimited)
-chunkgen-inflight-limit: 128     # Max submissions per 2s rolling window (prevents generation spikes)
+# Chunk generation peak shaving
+generation-tasks-per-tick: 50    # Max generation tasks submitted per tick
+chunkgen-inflight-limit: 128     # Max submissions per 2s window
 
-# ---- Barrier robustness ----
-# Parallel tick uses a barrier to wait for all regions; avoid watchdog false-kills
-# and deadlocks.
-barrier-watchdog-aware: true     # Pause watchdog timer while waiting in barrier (prevent false kill)
-barrier-timeout-ms: 120000       # Barrier stall timeout (ms); dumps all threads and crashes instead of hanging
+# Barrier robustness
+barrier-watchdog-aware: true     # Pause watchdog while in barrier, prevent false kill
+barrier-timeout-ms: 120000       # Barrier stall timeout (ms)
 ```
 
 ## Build & Deploy
