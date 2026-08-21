@@ -626,7 +626,12 @@ public final class RegionTickManager {
             return false;
         }
         long tick = entity.level().getServer() != null ? entity.level().getServer().getTickCount() : 0L;
-        return ClassAffinityLedger.shouldRouteMainThread(c.getName(), tick);
+        String className = c.getName();
+        // S3.2: probation - override routed flag temporarily to test on worker
+        if (ClassAffinityLedger.shouldProbation(className, tick)) {
+            return false;  // Send to worker for probation tick
+        }
+        return ClassAffinityLedger.shouldRouteMainThread(className, tick);
     }
 
     /**
@@ -1078,6 +1083,12 @@ public final class RegionTickManager {
         }
         String className = entity.getClass().getName();
         CURRENT_ENTITY_CLASS.set(className);
+        // S3.2: Check if this tick is a probation attempt
+        long tick = level.getServer() != null ? level.getServer().getTickCount() : 0L;
+        boolean isProbation = ClassAffinityLedger.shouldProbation(className, tick);
+        if (isProbation) {
+            ClassAffinityLedger.enterProbation(className);
+        }
         try {
             tickEntitySafely(level, entity);
         } catch (AccessViolation violation) {
@@ -1093,6 +1104,15 @@ public final class RegionTickManager {
                     className, t.toString());
         } finally {
             CURRENT_ENTITY_CLASS.remove();
+            // S3.2: Exit probation and check result
+            if (isProbation) {
+                boolean hadViolation = ClassAffinityLedger.exitProbation(className);
+                if (hadViolation) {
+                    ClassAffinityLedger.probationFailed(className, tick);
+                } else {
+                    ClassAffinityLedger.clearRouted(className, tick);
+                }
+            }
         }
     }
 

@@ -127,6 +127,10 @@ public class ServerCoreCommands {
                     WorldAccessGuard.statusText()
             ), source.getServer()));
 
+            component.append(Formatter.parse("\n<dark_gray>» <c:#primary>Probation: <c:#secondary>%s".formatted(
+                    io.izzel.arclight.common.optimization.general.servercore.ownership.ClassAffinityLedger.probationStatusText()
+            ), source.getServer()));
+
             component.append(Formatter.parse("\n<dark_gray>» <c:#primary>AsyncPathfinding: <c:#secondary>%s".formatted(
                     AsyncPathfindingManager.statusText()
             ), source.getServer()));

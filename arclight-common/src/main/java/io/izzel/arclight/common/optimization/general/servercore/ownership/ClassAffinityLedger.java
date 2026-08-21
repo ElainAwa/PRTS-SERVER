@@ -37,6 +37,14 @@ public final class ClassAffinityLedger {
 
     private static final ConcurrentHashMap<String, Entry> ENTRIES = new ConcurrentHashMap<>();
 
+    /** S3.2: ThreadLocal flag for probation mode - violations during probation don't count as formal violations. */
+    private static final ThreadLocal<String> PROBATION_CLASS = ThreadLocal.withInitial(() -> null);
+
+    /** S3.2: Probation telemetry counters. */
+    private static final java.util.concurrent.atomic.AtomicInteger PROBATION_ATTEMPTS = new java.util.concurrent.atomic.AtomicInteger(0);
+    private static final java.util.concurrent.atomic.AtomicInteger PROBATION_SUCCESS = new java.util.concurrent.atomic.AtomicInteger(0);
+    private static final java.util.concurrent.atomic.AtomicInteger PROBATION_FAILED = new java.util.concurrent.atomic.AtomicInteger(0);
+
     private ClassAffinityLedger() {
     }
 
@@ -66,6 +74,12 @@ public final class ClassAffinityLedger {
         if (attributable) {
             entry.attributable = true;
         }
+        // S3.2: probation mode - violations don't count as formal violations
+        boolean probationMode = isProbationMode(className);
+        if (probationMode) {
+            entry.probationViolations++;
+            return;  // Don't record as formal violation
+        }
         switch (kind) {
             case MAIN_ONLY_READ -> {
                 entry.mainOnlyReads++;
@@ -84,8 +98,11 @@ public final class ClassAffinityLedger {
         }
         if (entry.attributable && !entry.routed.get() && routeThreshold > 0 && entry.violationsInWindow(tick) >= routeThreshold) {
             synchronized (entry) {
-                if (entry.routed.compareAndSet(false, true)) {  // S3: atomic CAS
-                    entry.learnedTick = tick;  // S3: record when auto-learned
+                if (entry.routed.compareAndSet(false, true)) {  // S3.1: atomic CAS
+                    entry.learnedTick = tick;  // S3.1: record when auto-learned
+                    // S3.2: schedule first probation attempt
+                    entry.probationEndTick = tick + io.izzel.arclight.common.compat.prts.PRTSFeaturesConfig.routeProbationTicks;
+                    entry.probationBackoff = 1;
                     LOGGER.info("[thread-policy] auto-route {} to the main thread after {} window violations (threshold={}, window={} ticks)",
                             className, entry.windowViolations, routeThreshold, routeWindowTicks);
                 }
@@ -181,16 +198,111 @@ public final class ClassAffinityLedger {
         return routes;
     }
 
-    /** S3: Restore a learned route from persistence (called on server start). */
+    /** S3.1: Restore a learned route from persistence (called on server start). */
     public static void restoreLearnedRoute(String className, long learnedTick) {
         Entry entry = ENTRIES.computeIfAbsent(className, k -> new Entry());
         entry.routed.set(true);
         entry.learnedTick = learnedTick;
         entry.attributable = true;  // Assume learned routes are attributable
+        // S3.2: Schedule first probation attempt after startup
+        entry.probationEndTick = learnedTick + io.izzel.arclight.common.compat.prts.PRTSFeaturesConfig.routeProbationTicks;
+        entry.probationBackoff = 1;
     }
 
-    /** S3: Data class for JSON serialization of learned routes. */
+    /** S3.2: Data class for JSON serialization of learned routes. */
     public static record LearnedRoute(String className, int violations, long learnedTick) {
+    }
+
+    /** S3.2: Check if a class should undergo probation this tick. */
+    public static boolean shouldProbation(String className, long tick) {
+        if (!io.izzel.arclight.common.compat.prts.PRTSFeaturesConfig.routeProbationEnabled) {
+            return false;
+        }
+        Entry entry = ENTRIES.get(className);
+        if (entry == null || !entry.routed.get() || entry.learnedTick <= 0) {
+            return false;  // Not auto-learned or not routed
+        }
+        if (entry.probationEndTick < 0 || tick < entry.probationEndTick) {
+            return false;  // Probation not scheduled or not yet due
+        }
+        int totalViolations = entry.mainOnlyReads + entry.mainOnlyWrites;
+        int maxViolations = io.izzel.arclight.common.compat.prts.PRTSFeaturesConfig.routeProbationMaxViolations;
+        if (totalViolations > maxViolations) {
+            return false;  // Too many historical violations, do not probation
+        }
+        return true;
+    }
+
+    /** S3.2: Enter probation mode for a class (called before worker tick). */
+    public static void enterProbation(String className) {
+        PROBATION_CLASS.set(className);
+        PROBATION_ATTEMPTS.incrementAndGet();
+    }
+
+    /** S3.2: Exit probation mode and return whether any violation occurred. */
+    public static boolean exitProbation(String className) {
+        String probationClass = PROBATION_CLASS.get();
+        PROBATION_CLASS.remove();
+        if (probationClass == null || !probationClass.equals(className)) {
+            return false;  // Not in probation or class mismatch
+        }
+        Entry entry = ENTRIES.get(className);
+        if (entry == null) {
+            return false;  // No violations recorded
+        }
+        // Check if probation window had violations
+        boolean hadViolation = entry.probationViolations > 0;
+        entry.probationViolations = 0;  // Reset for next probation
+        return hadViolation;
+    }
+
+    /** S3.2: Check if current thread is in probation mode for given class. */
+    private static boolean isProbationMode(String className) {
+        String probationClass = PROBATION_CLASS.get();
+        return probationClass != null && probationClass.equals(className);
+    }
+
+    /** S3.2: Clear routed flag after successful probation (concurrent-safe). */
+    public static boolean clearRouted(String className, long tick) {
+        Entry entry = ENTRIES.get(className);
+        if (entry == null) {
+            return false;
+        }
+        if (entry.routed.compareAndSet(true, false)) {
+            entry.learnedTick = -1L;  // Clear learned marker
+            entry.probationEndTick = -1L;  // Clear probation schedule
+            PROBATION_SUCCESS.incrementAndGet();
+            LOGGER.info("[thread-policy] probation success: {} cleared routed flag, restored to parallel", className);
+            return true;
+        }
+        return false;
+    }
+
+    /** S3.2: Probation failed, extend backoff and reschedule. */
+    public static void probationFailed(String className, long tick) {
+        Entry entry = ENTRIES.get(className);
+        if (entry == null) {
+            return;
+        }
+        int maxBackoff = io.izzel.arclight.common.compat.prts.PRTSFeaturesConfig.routeProbationTicks > 0
+                ? Math.max(1, 72000 / io.izzel.arclight.common.compat.prts.PRTSFeaturesConfig.routeProbationTicks)  // 1h / interval
+                : 6;
+        entry.probationBackoff = Math.min(entry.probationBackoff * 2, maxBackoff);
+        entry.probationEndTick = tick + io.izzel.arclight.common.compat.prts.PRTSFeaturesConfig.routeProbationTicks * entry.probationBackoff;
+        PROBATION_FAILED.incrementAndGet();
+        LOGGER.info("[thread-policy] probation failed: {} reschedule in {}x interval (backoff={})", 
+                className, entry.probationBackoff, entry.probationBackoff);
+    }
+
+    /** S3.2: Probation status text for /servercore status. */
+    public static String probationStatusText() {
+        if (!io.izzel.arclight.common.compat.prts.PRTSFeaturesConfig.routeProbationEnabled) {
+            return "disabled";
+        }
+        int attempts = PROBATION_ATTEMPTS.get();
+        int success = PROBATION_SUCCESS.get();
+        int failed = PROBATION_FAILED.get();
+        return String.format("attempts=%d success=%d failed=%d", attempts, success, failed);
     }
 
     private static final class Entry {
@@ -201,7 +313,10 @@ public final class ClassAffinityLedger {
 
         volatile boolean attributable;
         final java.util.concurrent.atomic.AtomicBoolean routed = new java.util.concurrent.atomic.AtomicBoolean(false);  // S3: concurrent-safe
-        volatile long learnedTick = -1L;  // S3: tick when routed was first set (-1 = manual force/not learned)
+        volatile long learnedTick = -1L;  // S3.1: tick when routed was first set (-1 = manual force/not learned)
+        volatile long probationEndTick = -1L;  // S3.2: next probation attempt tick (-1 = not scheduled)
+        volatile int probationBackoff = 1;  // S3.2: backoff multiplier (1/2/4/8..., max = probationMaxBackoff)
+        volatile int probationViolations = 0;  // S3.2: violations during current probation tick (reset before each probation)
         long windowStartTick = -1L;
         int windowViolations;
 

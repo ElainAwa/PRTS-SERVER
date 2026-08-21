@@ -69,10 +69,16 @@ public class PRTSFeaturesConfig {
     public static int villagerPoiPathBudget;
     /** S2.9.2: 主线程 routed entity drain 每 tick 处理上限（0 = 不分批，全量 drain）。 */
     public static int mainThreadEntityDrainBudget;
-    /** S3: learned routes JSON 文件路径。 */
+    /** S3.1: learned routes JSON 文件路径。 */
     public static String learnedRoutesFile;
-    /** S3: 最多持久化的 learned routes 数量。 */
+    /** S3.1: 最多持久化的 learned routes 数量。 */
     public static int learnedRoutesLimit;
+    /** S3.2: 启用双向 probation（自动路由类定期试跑 worker，无违规则解除路由）。 */
+    public static boolean routeProbationEnabled;
+    /** S3.2: probation 间隔（tick）。 */
+    public static int routeProbationTicks;
+    /** S3.2: 允许 probation 的最大历史违规数（超过此值的类不做 probation）。 */
+    public static int routeProbationMaxViolations;
     /** 殖民地管理器 ServerTick 事件里的 getAllColonies 快照缓存（默认关；测试服 A/B 后定默认）。 */
     public static boolean colonyManagerTickCacheEnabled;
     /** 殖民地列表快照的 TTL（tick）；过期自动重建，create/delete 路径立即失效。 */
@@ -259,6 +265,9 @@ public class PRTSFeaturesConfig {
         persistLearnedRoutes = config.getBoolean("parallel.persist-learned-routes", false);
         learnedRoutesFile = config.getString("parallel.learned-routes-file", "config/prts-learned-routes.json");
         learnedRoutesLimit = Math.max(1, config.getInt("parallel.learned-routes-limit", 200));
+        routeProbationEnabled = config.getBoolean("parallel.route-probation-enabled", false);
+        routeProbationTicks = Math.max(100, config.getInt("parallel.route-probation-ticks", 12000));
+        routeProbationMaxViolations = Math.max(0, config.getInt("parallel.route-probation-max-violations", 2));
         chunkDemandPerTick = config.getInt("parallel.chunk-demand-per-tick", 50);
         // 非正数会使需求 drain 永久不执行（budget <= 0），退回默认值。
         if (chunkDemandPerTick < 1) chunkDemandPerTick = 50;
