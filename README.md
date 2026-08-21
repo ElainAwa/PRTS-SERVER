@@ -57,17 +57,17 @@ parallel:
   route-threshold: 5             # violations to trigger routing in window
   route-window-ticks: 2400       # sliding window (2 minutes)
   
-  # Route learning persistence (v1.0.37+)
+  # Route learning persistence
   persist-learned-routes: true
   learned-routes-file: "config/prts-learned-routes.json"
   learned-routes-limit: 200
   
-  # Probation self-healing (v1.0.37+)
+  # Probation self-healing
   route-probation-enabled: true
   route-probation-ticks: 12000   # 10 minutes
   route-probation-max-violations: 2
   
-  # Routed entity drain batching (v1.0.37+)
+  # Routed entity drain batching
   main-thread-entity-drain-budget: 0  # 0=off
   
   # Villager POI path budget
@@ -88,19 +88,9 @@ barrier-timeout-ms: 120000
 ./gradlew --no-daemon :bootstrap:neoforgeJar
 ```
 
-**Deploy**: Copy `build/libs/PRTS-neoforge-1.21.1-<version>-Multithreading.jar` to server root, start server.
+**Deploy**: Copy `build/libs/PRTS-neoforge-1.21.1-*-Multithreading.jar` to server root, start server.
 
 **Download**: [GitHub Releases](https://github.com/ElainAwa/PRTS-SERVER/releases)
-
-## Latest Updates
-
-### v1.0.37 (2026-08-21)
-
-- **S2.9 routed entity drain optimization**: Main thread queue unbounded `while(poll())` drags tick time. Added telemetry (drain queueDepth/barrier wait/per-region load) and batching (`main-thread-entity-drain-budget` config, default 0=off).
-- **S3.1 route learning persistence**: auto-routed classes lost on restart. Entry refactoring (`routed` → AtomicBoolean, added `learnedTick` field), independent JSON file (`config/prts-learned-routes.json`), load on startup + save on shutdown.
-- **S3.2 bidirectional Probation**: auto-routed classes lose parallel benefit permanently. Periodic worker test (default 12000 ticks), `clearRouted()` on success, exponential backoff on failure (2x/4x/8x). ThreadLocal isolation, telemetry exposes attempts/success/failed.
-- **B4 belt passenger fix**: Create belt `tick()` registers passengers on worker, `addPassenger` throws cross-thread NBT assertion causing contraption self-destruct. Deferred to main thread.
-- **getPos optimization**: BE tick stats hot path calls `getPos()` creating new BlockPos each time. Changed to only call on new max.
 
 ## Other Features
 
