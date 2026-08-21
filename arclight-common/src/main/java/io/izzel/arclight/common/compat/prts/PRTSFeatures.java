@@ -26,6 +26,9 @@ public class PRTSFeatures {
 
     public static void start() {
         PRTSFeaturesConfig.init();
+        io.izzel.arclight.common.optimization.general.servercore.ownership.LearnedRoutePersistence.loadOnStartup(
+            ((CraftServer) Bukkit.getServer()).getServer().getServerDirectory().toFile()
+        );  // S3: 启动时加载 learned routes
         EntityClear.start();
         WatchMohist.start();
         registerCommands();

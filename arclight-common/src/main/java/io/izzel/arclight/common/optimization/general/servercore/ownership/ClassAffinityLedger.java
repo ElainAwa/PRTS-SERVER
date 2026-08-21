@@ -82,10 +82,10 @@ public final class ClassAffinityLedger {
             case CROSS_READ -> entry.crossReads++;
             case JOURNAL_WRITE -> entry.journalWrites++;
         }
-        if (entry.attributable && !entry.routed && routeThreshold > 0 && entry.violationsInWindow(tick) >= routeThreshold) {
+        if (entry.attributable && !entry.routed.get() && routeThreshold > 0 && entry.violationsInWindow(tick) >= routeThreshold) {
             synchronized (entry) {
-                if (!entry.routed) {
-                    entry.routed = true;
+                if (entry.routed.compareAndSet(false, true)) {  // S3: atomic CAS
+                    entry.learnedTick = tick;  // S3: record when auto-learned
                     LOGGER.info("[thread-policy] auto-route {} to the main thread after {} window violations (threshold={}, window={} ticks)",
                             className, entry.windowViolations, routeThreshold, routeWindowTicks);
                 }
@@ -105,7 +105,7 @@ public final class ClassAffinityLedger {
         if (entry == null) {
             return false;
         }
-        return entry.routed || entry.violationsInWindow(tick) >= routeThreshold;
+        return entry.routed.get() || entry.violationsInWindow(tick) >= routeThreshold;
     }
 
     /** Number of classes currently routed to the main thread. */
@@ -117,7 +117,7 @@ public final class ClassAffinityLedger {
     public static int routedCount(String prefix) {
         int n = 0;
         for (Map.Entry<String, Entry> e : ENTRIES.entrySet()) {
-            if (e.getValue().routed && (prefix == null || e.getKey().startsWith(prefix))) {
+            if (e.getValue().routed.get() && (prefix == null || e.getKey().startsWith(prefix))) {
                 n++;
             }
         }
@@ -128,7 +128,7 @@ public final class ClassAffinityLedger {
     public static List<String> routedClassNames() {
         List<String> names = new ArrayList<>();
         for (Map.Entry<String, Entry> e : ENTRIES.entrySet()) {
-            if (e.getValue().routed && e.getValue().attributable
+            if (e.getValue().routed.get() && e.getValue().attributable
                     && !e.getKey().startsWith("block-entity:")) {
                 names.add(e.getKey());
             }
@@ -153,7 +153,7 @@ public final class ClassAffinityLedger {
             if (shown > 0) {
                 sb.append(", ");
             }
-            if (e.getValue().routed) {
+            if (e.getValue().routed.get()) {
                 sb.append('*');
             }
             sb.append(e.getKey()).append(" R=").append(e.getValue().mainOnlyReads)
@@ -165,6 +165,34 @@ public final class ClassAffinityLedger {
         return sb.toString();
     }
 
+    /** S3: Snapshot all auto-learned routes (routed=true && learnedTick>0, exclude manual force). */
+    public static List<LearnedRoute> snapshotLearnedRoutes() {
+        List<LearnedRoute> routes = new ArrayList<>();
+        for (Map.Entry<String, Entry> e : ENTRIES.entrySet()) {
+            Entry entry = e.getValue();
+            if (entry.routed.get() && entry.learnedTick > 0 && entry.attributable) {
+                routes.add(new LearnedRoute(
+                    e.getKey(),
+                    entry.mainOnlyReads + entry.mainOnlyWrites,
+                    entry.learnedTick
+                ));
+            }
+        }
+        return routes;
+    }
+
+    /** S3: Restore a learned route from persistence (called on server start). */
+    public static void restoreLearnedRoute(String className, long learnedTick) {
+        Entry entry = ENTRIES.computeIfAbsent(className, k -> new Entry());
+        entry.routed.set(true);
+        entry.learnedTick = learnedTick;
+        entry.attributable = true;  // Assume learned routes are attributable
+    }
+
+    /** S3: Data class for JSON serialization of learned routes. */
+    public static record LearnedRoute(String className, int violations, long learnedTick) {
+    }
+
     private static final class Entry {
         int mainOnlyReads;
         int mainOnlyWrites;
@@ -172,7 +200,8 @@ public final class ClassAffinityLedger {
         int journalWrites;
 
         volatile boolean attributable;
-        volatile boolean routed;
+        final java.util.concurrent.atomic.AtomicBoolean routed = new java.util.concurrent.atomic.AtomicBoolean(false);  // S3: concurrent-safe
+        volatile long learnedTick = -1L;  // S3: tick when routed was first set (-1 = manual force/not learned)
         long windowStartTick = -1L;
         int windowViolations;
 

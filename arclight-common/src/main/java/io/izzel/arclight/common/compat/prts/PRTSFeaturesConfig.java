@@ -69,6 +69,10 @@ public class PRTSFeaturesConfig {
     public static int villagerPoiPathBudget;
     /** S2.9.2: 主线程 routed entity drain 每 tick 处理上限（0 = 不分批，全量 drain）。 */
     public static int mainThreadEntityDrainBudget;
+    /** S3: learned routes JSON 文件路径。 */
+    public static String learnedRoutesFile;
+    /** S3: 最多持久化的 learned routes 数量。 */
+    public static int learnedRoutesLimit;
     /** 殖民地管理器 ServerTick 事件里的 getAllColonies 快照缓存（默认关；测试服 A/B 后定默认）。 */
     public static boolean colonyManagerTickCacheEnabled;
     /** 殖民地列表快照的 TTL（tick）；过期自动重建，create/delete 路径立即失效。 */
@@ -252,6 +256,9 @@ public class PRTSFeaturesConfig {
         colonyManagerTickCacheInterval = Math.max(1, Math.min(120, config.getInt("parallel.colony-manager-tick-cache-interval", 20)));
         villagerPoiPathBudget = Math.max(0, config.getInt("parallel.villager-poi-path-budget", 0));
         mainThreadEntityDrainBudget = Math.max(0, config.getInt("parallel.main-thread-entity-drain-budget", 0));
+        persistLearnedRoutes = config.getBoolean("parallel.persist-learned-routes", false);
+        learnedRoutesFile = config.getString("parallel.learned-routes-file", "config/prts-learned-routes.json");
+        learnedRoutesLimit = Math.max(1, config.getInt("parallel.learned-routes-limit", 200));
         chunkDemandPerTick = config.getInt("parallel.chunk-demand-per-tick", 50);
         // 非正数会使需求 drain 永久不执行（budget <= 0），退回默认值。
         if (chunkDemandPerTick < 1) chunkDemandPerTick = 50;
@@ -367,109 +374,14 @@ public class PRTSFeaturesConfig {
                 eventShortcircuitEntityTickEnabled, eventShortcircuitNeighborNotifyEnabled);
     }
 
-    /** Appends this session's learned entity routes to prts-features.yml without rewriting user content. */
+    /** S3: Persist learned routes to independent JSON file (replaces old YAML append logic). */
     public static void persistLearnedRoutes() {
-        if (!persistLearnedRoutes) {
-            return;
-        }
-        List<String> learned = ClassAffinityLedger.routedClassNames();
-        if (learned.isEmpty()) {
-            LOGGER.info("persist-learned-routes has no learned entity classes to persist");
-            return;
-        }
-        File file = new File("prts-features.yml");
-        if (!file.isFile()) {
-            LOGGER.warn("persist-learned-routes cannot write missing config: {}", file.getAbsolutePath());
-            return;
-        }
         try {
-            String text = Files.readString(file.toPath(), StandardCharsets.UTF_8);
-            String newline = text.contains("\r\n") ? "\r\n" : "\n";
-            List<String> lines = new ArrayList<>(Arrays.asList(text.split("\\r?\\n", -1)));
-            int forceIndex = -1;
-            String forceIndent = "";
-            for (int i = 0; i < lines.size(); i++) {
-                String line = lines.get(i).strip();
-                if (line.startsWith("main-thread-entity-force:")) {
-                    forceIndex = i;
-                    forceIndent = lines.get(i).substring(0, lines.get(i).indexOf(lines.get(i).strip()));
-                    break;
-                }
-            }
-
-            Set<String> existing = new LinkedHashSet<>();
-            int insertAt;
-            String entryIndent;
-            if (forceIndex >= 0) {
-                String forceLine = lines.get(forceIndex);
-                int colon = forceLine.indexOf(':');
-                existing.addAll(parseInlineList(forceLine.substring(colon + 1)));
-                int cursor = forceIndex + 1;
-                while (cursor < lines.size()) {
-                    String raw = lines.get(cursor);
-                    String stripped = raw.strip();
-                    if (raw.isBlank()) {
-                        cursor++;
-                        continue;
-                    }
-                    int indent = raw.length() - raw.stripLeading().length();
-                    if (indent <= forceIndent.length()) {
-                        break;
-                    }
-                    if (stripped.startsWith("-")) {
-                        existing.add(stripped.substring(1).strip());
-                    }
-                    cursor++;
-                }
-                insertAt = cursor;
-                entryIndent = forceIndent + "  ";
-                if (forceLine.substring(colon + 1).strip().startsWith("[")) {
-                    lines.set(forceIndex, forceIndent + "main-thread-entity-force:");
-                }
-            } else {
-                int parallelIndex = -1;
-                String parallelIndent = "";
-                for (int i = 0; i < lines.size(); i++) {
-                    if (lines.get(i).strip().equals("parallel:")) {
-                        parallelIndex = i;
-                        parallelIndent = lines.get(i).substring(0, lines.get(i).indexOf(lines.get(i).strip()));
-                        break;
-                    }
-                }
-                entryIndent = (parallelIndent.isEmpty() ? "" : parallelIndent + "  ") + "  ";
-                if (parallelIndex >= 0) {
-                    insertAt = parallelIndex + 1;
-                } else {
-                    insertAt = lines.size();
-                }
-                lines.add(insertAt++, entryIndent.substring(0, Math.max(0, entryIndent.length() - 2)) + "main-thread-entity-force:");
-            }
-
-            String learnedTag = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm").format(LocalDateTime.now());
-            List<String> additions = new ArrayList<>();
-            int added = 0;
-            for (String name : learned) {
-                if (added >= 200 || existing.contains(name) || !name.matches("[A-Za-z0-9_.$]+")) {
-                    continue;
-                }
-                additions.add(entryIndent + "# learned " + learnedTag);
-                additions.add(entryIndent + "- " + name);
-                existing.add(name);
-                added++;
-            }
-            lines.addAll(insertAt, additions);
-
-            Path target = file.toPath();
-            Path temp = target.resolveSibling(file.getName() + ".tmp");
-            Files.writeString(temp, String.join(newline, lines) + newline, StandardCharsets.UTF_8);
-            try {
-                Files.move(temp, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
-            } catch (AtomicMoveNotSupportedException ignored) {
-                Files.move(temp, target, StandardCopyOption.REPLACE_EXISTING);
-            }
-            LOGGER.info("persist-learned-routes persisted {} learned entity classes", added);
-        } catch (IOException e) {
-            LOGGER.warn("persist-learned-routes failed to update prts-features.yml", e);
+            org.bukkit.craftbukkit.v.CraftServer craft = (org.bukkit.craftbukkit.v.CraftServer) org.bukkit.Bukkit.getServer();
+            java.io.File serverDir = craft.getServer().getServerDirectory().toFile();
+            io.izzel.arclight.common.optimization.general.servercore.ownership.LearnedRoutePersistence.saveOnShutdown(serverDir);
+        } catch (Exception e) {
+            LOGGER.error("persist-learned-routes failed", e);
         }
     }
 
