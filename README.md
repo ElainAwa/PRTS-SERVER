@@ -40,6 +40,31 @@ Runtime violation detection (worker calls main-thread-only APIs like `getBlockEn
 - Track lazy-spread: rasterize across ticks
 - Belt passenger deferred registration: prevent worker race
 
+## Future Plans
+
+Directions under planning, not yet implemented or enabled by default. All new parallel capabilities land with conservative defaults and are validated with reproducible synthetic load and production gray rollout before any default change.
+
+### Chunk Loading Multithreading
+
+- **Lighting threading**: move the lighting engine off the main thread onto a dedicated thread. Today only a per-tick propagation budget exists, which spreads large light updates across ticks but keeps the work on the main thread.
+- **Player-distance-priority chunk scheduling**: schedule chunk load demands by distance to players instead of a first-in-first-out queue, reducing wait time after login, teleport or random teleport.
+- **Long-term: parallel chunk state machine**: rework the vanilla chunk status chain (disk read, generation, installation) to run stages on worker threads, referencing the C2ME project's design. This requires changes to the NeoForge chunk state machine and related event timing; it will be developed and validated on a separate branch before merge.
+
+### Region Parallel Engine Evolution
+
+- **Uneven stripes**: entities are currently divided into fixed-width chunk stripes; plan to size regions by actual load to reduce whole-tick barrier waits caused by a single overloaded region.
+- **Cross-region access observation & value snapshots**: measure cross-region read/write frequency and hot values, snapshot high-frequency read-only values per task to reduce cross-region read overhead and the share of entities auto-routed back to the main thread.
+- **Authoritative region copies (long-term)**: maintain an authoritative copy of each region's data to remove cross-region read races. This has data-copy cost, and will only be evaluated after cross-region access measurement is in place.
+- **Deterministic total ordering (optional switch)**: apply cross-region writes in a fixed global order, off by default, as a debugging tool for concurrency issues.
+
+### Block Entity Parallelism Gray Rollout
+
+- Gradually allow more block entity types to tick on worker threads, starting with container-like types observed to be hot in production. Block entity ticks currently stay on the main thread by default, with only a small allowlist on workers.
+
+### Synthetic Load & Capacity Validation
+
+- Keep using reproducible synthetic loads (large-scale pathfinding entities, chunk generation bursts, continuous item flow) to measure the benefit of parallel execution before any production shadow rollout.
+
 ## Configuration
 
 `prts-features.yml` (server root):
