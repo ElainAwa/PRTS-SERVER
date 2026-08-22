@@ -84,6 +84,16 @@ public final class RegionTickManager {
     private static final Map<ServerLevel, LinkedBlockingQueue<Entity>> MAIN_THREAD_ENTITY_TICKS =
             java.util.Collections.synchronizedMap(new WeakHashMap<>());
 
+    /**
+     * 并行 worker（region/dimension）上触发的实体新增（mob 掉落、鸡下蛋、投射物、
+     * XP orb、scguns/结构刷怪等 addFreshEntity → addEntity 全链）按维度排队，
+     * 由主线程在 barrier 后真正 addEntity。直接在工作线程执行会被 Cupboard 等
+     * 第三方 mixin 当作 offthread add 再补一次，造成同 UUID 实体重复入册
+     * （生产 08-22 实测 237 次 "UUID of added entity already exists"）。
+     */
+    private static final Map<ServerLevel, LinkedBlockingQueue<Entity>> MAIN_THREAD_ENTITY_ADDS =
+            java.util.Collections.synchronizedMap(new WeakHashMap<>());
+
     /** 主线程实体判定缓存（类名前缀走查超类链）。 */
     private static final ConcurrentHashMap<Class<?>, Boolean> MAIN_THREAD_ENTITY_CACHE = new ConcurrentHashMap<>();
 
@@ -277,6 +287,9 @@ public final class RegionTickManager {
             .timer("entities.mainThreadMs")
             .counter("colony.ticks")
             .timer("colony.ms")
+            .counter("entities.addDeferred")
+            .counter("entities.addMainDrained")
+            .counter("entities.addExpired")
             .build();
 
     private RegionTickManager() {
@@ -563,6 +576,56 @@ public final class RegionTickManager {
         STATS.record("entities.mainThreadMs", Util.getNanos() - start);
         if (skippedExpired > 0) {
             STATS.add("entities.mainThreadExpired", skippedExpired);
+        }
+    }
+
+    /**
+     * 并行 worker（region/dimension）调用：把实体新增排队到本维度主线程队列。
+     * 只排队不执行 —— addEntity 必须在主线程落地，否则第三方 mixin（Cupboard 等）
+     * 会按 offthread add 处理并补跑一次，造成同 UUID 实体重复入册。
+     */
+    public static void queueMainThreadEntityAdd(Entity entity) {
+        if (entity.level() instanceof ServerLevel level) {
+            LinkedBlockingQueue<Entity> queue;
+            synchronized (MAIN_THREAD_ENTITY_ADDS) {
+                queue = MAIN_THREAD_ENTITY_ADDS.computeIfAbsent(level, k -> new LinkedBlockingQueue<>());
+            }
+            queue.add(entity);
+            STATS.increment("entities.addDeferred");
+        }
+    }
+
+    /**
+     * 主线程调用：真正执行 worker 排队的实体新增。
+     * 调用点：区域调度在主线程完成后的 runWorkers 尾部；维度 worker 场景由
+     * {@link DimensionTickManager} POST 阶段按维度调用。
+     */
+    public static void drainMainThreadEntityAdds(ServerLevel level) {
+        LinkedBlockingQueue<Entity> queue;
+        synchronized (MAIN_THREAD_ENTITY_ADDS) {
+            queue = MAIN_THREAD_ENTITY_ADDS.get(level);
+        }
+        if (queue == null) {
+            return;
+        }
+        Entity entity;
+        while ((entity = queue.poll()) != null) {
+            // 排队窗口内实体可能已被移除/换维度（与 entity tick drain 同款过期校验）
+            if (entity.isRemoved() || entity.level() != level) {
+                STATS.increment("entities.addExpired");
+                continue;
+            }
+            // 关服窗口的残留直接丢弃，避免向关闭中的 level 追加实体
+            if (level.getServer() == null || !level.getServer().isRunning()) {
+                STATS.increment("entities.addExpired");
+                continue;
+            }
+            // addEntity 是 private，public 入口为 addFreshEntity；主线程路径会再走
+            // Bukkit 实体新增事件（DEFAULT 原因），与 vanilla addFreshEntity 语义一致。
+            if (!level.addFreshEntity(entity)) {
+                LOGGER.debug("[region-tick] main-thread deferred entity add rejected: {}", entity);
+            }
+            STATS.increment("entities.addMainDrained");
         }
     }
 
@@ -1051,6 +1114,12 @@ public final class RegionTickManager {
             if (failure0 != null) {
                 throw new RuntimeException("Exception ticking on region thread", failure0);
             }
+            // 区域调度线程是主线程时（有玩家维度的 region 并行），worker 排队的实体新增
+            // 立刻在主线程落地、同 tick 可见；维度 worker 调度的场景（无玩家维度）由
+            // DimensionTickManager POST 阶段统一 drain。
+            if (level.getServer() != null && level.getServer().isSameThread()) {
+                drainMainThreadEntityAdds(level);
+            }
             drainScheduleTasks();
             STATS.tick(level.getServer() == null ? 0 : level.getServer().getTickCount());
             EventBusStats.tickIfNeeded(level.getServer() == null ? 0 : level.getServer().getTickCount());
@@ -1155,6 +1224,14 @@ public final class RegionTickManager {
             return "no overworld";
         }
         return state(overworld).journal.statusText();
+    }
+
+    /** worker 实体新增排队遥测：deferred=排队数 drained=主线程落地数 expired=过期丢弃数。 */
+    public static String entityAddStatusText() {
+        return "deferred=%d drained=%d expired=%d".formatted(
+                STATS.counterSum("entities.addDeferred"),
+                STATS.counterSum("entities.addMainDrained"),
+                STATS.counterSum("entities.addExpired"));
     }
 
     /** S2.9.1: Per-region load distribution for /servercore status (overworld, last entity session). */

@@ -213,6 +213,9 @@ public final class DimensionTickManager {
             // 4. Post phase (main thread) + perWorldTickTimes in vanilla format.
             for (int i = 0; i < n; i++) {
                 ServerLevel level = units[i].level();
+                // worker 触发的实体新增（掉落/蛋/投射物/XP）必须在主线程 addEntity，
+                // 排在所有 drain 之前，让同 tick 后续逻辑能看见新实体。
+                RegionTickManager.drainMainThreadEntityAdds(level);
                 // 维度 worker 收集的方块实体 tick 在主线程执行（BE tick 依赖主线程 Bukkit API）
                 RegionTickManager.drainMainThreadBlockEntityTicks(level);
                 // 维度 worker 收集的装置实体 tick 在主线程执行（getBlockEntity 非主线程固定为 null）
