@@ -4,6 +4,8 @@
 
 > PRTS 是 [Arclight](https://github.com/IzzelAliz/Arclight) → [Luminara](https://github.com/CraftAmethyst/Luminara) 的 fork，本分支 `1.21.1-Multithreading` 为多线程并行引擎开发分支。
 
+> ⚠ 本项目当前全部为 vibecoding 开发，开发人员不足，项目推进缓慢。有兴趣参与多线程服务端开发请联系：QQ 3031917948 / Telegram [t.me/Mon3trQAQ](https://t.me/Mon3trQAQ)
+
 ## 并行引擎
 
 将单线程世界 tick 拆分为多线程执行：

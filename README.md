@@ -4,6 +4,8 @@
 
 > PRTS is a fork of [Arclight](https://github.com/IzzelAliz/Arclight) → [Luminara](https://github.com/CraftAmethyst/Luminara). This branch `1.21.1-Multithreading` is the experimental multi-threaded parallel engine development track.
 
+> ⚠ This project is currently developed entirely via vibecoding. With a small team, progress is slow. If you're interested in joining multi-threaded server development, contact: QQ 3031917948 / Telegram [t.me/Mon3trQAQ](https://t.me/Mon3trQAQ)
+
 ## Parallel Engine
 
 Splits single-threaded world tick into multi-threaded execution:
