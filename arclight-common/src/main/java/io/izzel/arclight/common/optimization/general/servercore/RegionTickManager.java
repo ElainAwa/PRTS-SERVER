@@ -41,6 +41,7 @@ import java.lang.invoke.MethodHandles;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.WeakHashMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -1378,10 +1379,21 @@ public final class RegionTickManager {
         return true;
     }
 
+    /** Redstone family tracked by the cross-write telemetry, keyed by registry id. */
+    private static final Set<ResourceLocation> REDSTONE_KEYS = Set.of(
+            BuiltInRegistries.BLOCK.getKey(Blocks.REDSTONE_WIRE),
+            BuiltInRegistries.BLOCK.getKey(Blocks.REPEATER),
+            BuiltInRegistries.BLOCK.getKey(Blocks.COMPARATOR),
+            BuiltInRegistries.BLOCK.getKey(Blocks.REDSTONE_TORCH),
+            BuiltInRegistries.BLOCK.getKey(Blocks.REDSTONE_BLOCK),
+            BuiltInRegistries.BLOCK.getKey(Blocks.OBSERVER),
+            BuiltInRegistries.BLOCK.getKey(Blocks.TARGET),
+            BuiltInRegistries.BLOCK.getKey(Blocks.DAYLIGHT_DETECTOR));
+
+    /** Registry-key comparison: instance equality breaks when a mod swaps the registry entry. */
     private static boolean isRedstone(Block block) {
-        return block == Blocks.REDSTONE_WIRE || block == Blocks.REPEATER || block == Blocks.COMPARATOR
-                || block == Blocks.REDSTONE_TORCH || block == Blocks.REDSTONE_BLOCK || block == Blocks.OBSERVER
-                || block == Blocks.TARGET || block == Blocks.DAYLIGHT_DETECTOR;
+        ResourceLocation key = BuiltInRegistries.BLOCK.getKey(block);
+        return key != null && REDSTONE_KEYS.contains(key);
     }
 
     /** One-line cross-write journal status for /servercore status (overworld). */
