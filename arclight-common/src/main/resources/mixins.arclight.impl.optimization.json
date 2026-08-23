@@ -40,6 +40,7 @@
     "servercore.compat.AbstractEntityCitizenMixin_ColonyPhase",
     "servercore.compat.ColonyManagerMixin_ServerTickCache",
     "servercore.compat.EntityCitizenMixin_MainThreadDeath",
+    "servercore.compat.UnlockableRecipesMixin_LoginSync",
     "servercore.ownership.LevelMixin_OwnershipGuard",
     "servercore.ownership.ServerLevelMixin_OwnershipGuard",
     "servercore.ServerChunkCacheMixin_ChunkDemandDrain",

@@ -29,6 +29,12 @@ dependencies {
     // 编译期引用 MineColonies 市民基类（相位错峰 mixin 的 target 校验；运行期不依赖）
     compileOnly files('libs/minecolonies-1.1.1294-1.21.1-snapshot.jar')
 
+    // 编译期引用 unlockable_recipes 登录配方同步（进服时向全体广播配方包导致 JEI
+    // 全量重建冻结客户端；mixin 改为只发进服者。运行期不依赖，@LoadIfMod 条件加载）
+    compileOnly files('libs/unlockable_recipes-0.1.1.jar')
+    // PlayerLoggedInEvent 超类 Event 在 neoforge-bus 里，universal 包不内嵌 bus 类
+    compileOnly files('libs/bus-8.0.5.jar')
+
     implementation libs.izzel.tools
     implementation libs.arclight.api
     implementation libs.mixin.tools
