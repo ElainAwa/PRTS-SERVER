@@ -5,6 +5,7 @@
 
 package io.izzel.arclight.common.mixin.optimization.general.servercore.ownership;
 
+import io.izzel.arclight.common.optimization.general.servercore.ownership.CrossRefProbe;
 import io.izzel.arclight.common.optimization.general.servercore.ownership.WorldAccessGuard;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.Entity;
@@ -31,7 +32,9 @@ public abstract class LevelMixin_OwnershipGuard {
     @Inject(method = "getBlockEntity(Lnet/minecraft/core/BlockPos;)Lnet/minecraft/world/level/block/entity/BlockEntity;",
             at = @At("HEAD"))
     private void arclight$guardGetBlockEntity(BlockPos pos, CallbackInfoReturnable<BlockEntity> cir) {
-        WorldAccessGuard.checkMainOnlyRead((Level) (Object) this, pos);
+        Level level = (Level) (Object) this;
+        WorldAccessGuard.checkMainOnlyRead(level, pos);
+        CrossRefProbe.recordGetBlockEntity(level, pos);
     }
 
     @Inject(method = "getEntities(Lnet/minecraft/world/entity/Entity;Lnet/minecraft/world/phys/AABB;Ljava/util/function/Predicate;)Ljava/util/List;",

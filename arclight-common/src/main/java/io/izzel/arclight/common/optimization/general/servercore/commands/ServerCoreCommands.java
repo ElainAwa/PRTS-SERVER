@@ -22,6 +22,7 @@ import io.izzel.arclight.common.optimization.general.servercore.RegionTickManage
 import io.izzel.arclight.common.optimization.general.servercore.ServerCoreConfig;
 import io.izzel.arclight.common.optimization.general.servercore.dynamic.DynamicManager;
 import io.izzel.arclight.common.optimization.general.servercore.dynamic.DynamicSetting;
+import io.izzel.arclight.common.optimization.general.servercore.ownership.CrossRefProbe;
 import io.izzel.arclight.common.optimization.general.servercore.ownership.WorldAccessGuard;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
@@ -47,6 +48,7 @@ public class ServerCoreCommands {
 
         node.then(reloadConfig());
         node.then(settings());
+        node.then(crossref());
 
         if (ServerCoreConfig.commands().statusCommandEnabled()) {
             node.then(literal("status").executes(ctx -> getStatus(ctx.getSource())));
@@ -98,6 +100,26 @@ public class ServerCoreCommands {
         return Command.SINGLE_SUCCESS;
     }
 
+    private static LiteralArgumentBuilder<CommandSourceStack> crossref() {
+        var cmd = literal("crossref").requires(Permission.require("command.config", 2));
+        cmd.executes(ctx -> getCrossRef(ctx.getSource(), 10));
+        cmd.then(argument("count", integer(1, 50))
+                .executes(ctx -> getCrossRef(ctx.getSource(), getInteger(ctx, "count"))));
+        cmd.then(literal("reset").executes(ctx -> {
+            CrossRefProbe.reset();
+            ctx.getSource().sendSuccess(() -> Component.literal("CrossRef probe state reset.").withStyle(ChatFormatting.GREEN), false);
+            return Command.SINGLE_SUCCESS;
+        }));
+        return cmd;
+    }
+
+    private static int getCrossRef(CommandSourceStack source, int limit) {
+        long tick = source.getServer().getTickCount();
+        java.util.List<String> lines = CrossRefProbe.report(tick, limit);
+        source.sendSuccess(() -> Component.literal("=== CrossRef Probe ===\n" + String.join("\n", lines)), false);
+        return Command.SINGLE_SUCCESS;
+    }
+
     private static int getStatus(CommandSourceStack source) {
         CommandConfig config = ServerCoreConfig.commands();
         source.sendSuccess(() -> {
@@ -125,6 +147,10 @@ public class ServerCoreCommands {
 
             component.append(Formatter.parse("\n<dark_gray>» <c:#primary>ThreadPolicy: <c:#secondary>%s".formatted(
                     WorldAccessGuard.statusText()
+            ), source.getServer()));
+
+            component.append(Formatter.parse("\n<dark_gray>» <c:#primary>CrossRef: <c:#secondary>%s".formatted(
+                    CrossRefProbe.statusText()
             ), source.getServer()));
 
             component.append(Formatter.parse("\n<dark_gray>» <c:#primary>Probation: <c:#secondary>%s".formatted(
