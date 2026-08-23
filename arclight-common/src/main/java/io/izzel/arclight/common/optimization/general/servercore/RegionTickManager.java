@@ -308,21 +308,46 @@ public final class RegionTickManager {
         CONFIGURED.set(true);
     }
 
-    /** Rebuilds the per-region queues for a new region count (startup only). */
+    /**
+     * Rebuilds queues for a new region count and RESETS the mapping table to equal split.
+     * Rebalance must NEVER call this (it would overwrite an uneven table); use
+     * {@link #rebuildDimensionStates()} instead.
+     */
     static synchronized void reconfigure(int n) {
         REGION_COUNT = n;
         // N=16 时把条纹宽从 8 扩到 16，保证每区仍为整数条 chunk 列（N<=8 保持 8，行为不变）。
         RegionLevel.setStripeWidth(n);
+        RegionLevel.resetToEqualMapping();
         for (int i = 0; i < n; i++) {
             STATS.ensureTimer("region" + i);
             STATS.ensureGroupMember("entities", "region" + i);
         }
         STATS.ensureGroupMember("entities", "mainThread");
-        // Rebuild queues for every already-seen dimension. reconfigure runs on the
-        // main thread after workers have latched, so no worker holds a stale array.
-        DIMENSION_STATES.forEach((level, st) -> DIMENSION_STATES.put(level, new DimensionState(n)));
+        // Rebuild queues for every already-seen dimension (flushes pending journal first).
+        rebuildDimensionStates();
+        // Rebalance warm-up: fresh timers are zero, so an immediate evaluation would
+        // treat noise as imbalance; wait one full interval after every reconfigure.
+        reconfigureMillis = System.currentTimeMillis();
         LOGGER.info("[region-tick] region parallelism reconfigured: count={} (perRegion={} chunks/region)",
                 n, RegionLevel.STRIPE_WIDTH / n);
+    }
+
+    /**
+     * Rebuilds per-dimension queues WITHOUT touching the region count or mapping table
+     * (rebalance path). Flushes every dimension's pending journal on the main thread first,
+     * reusing the normal apply path (applyAll) so droppedUnloaded/failed semantics stay identical.
+     */
+    static synchronized void rebuildDimensionStates() {
+        // 守卫：必须在主线程安全窗执行；worker session 内 setBlock 会被拦截入队，
+        // 若在 worker 上跑 flush 会递归自我喂队列（等价于 assert !isRegionWorker()）。
+        if (isRegionWorker()) {
+            LOGGER.error("[region-tick] rebuildDimensionStates called on a region worker; refusing to avoid recursive journal enqueue");
+            return;
+        }
+        for (ServerLevel level : DIMENSION_STATES.keySet()) {
+            state(level).journal.applyAll(level);
+        }
+        DIMENSION_STATES.replaceAll((level, st) -> new DimensionState(REGION_COUNT));
     }
 
     /**
@@ -387,6 +412,145 @@ public final class RegionTickManager {
             AsyncPathfindingManager.reconfigureRegions(target);
             LOGGER.info("[region-tick] auto-scale: {} -> {} reason={}", n, target, reason);
         }
+    }
+
+    // S4 rebalance cadence snapshot (overworld-driven; independent from auto-scale counters).
+    private static long lastRebalanceEvalTick = -1L;
+    private static long reconfigureMillis = 0L;
+    private static boolean lastRebalanceDenseSkipLogged = false;
+
+    /**
+     * S4 uneven-stripes: moves one boundary group from the highest-load region to the
+     * lowest-load adjacent region. Runs AFTER {@link #evaluateAutoScale} at the same
+     * tickChildren RETURN window; the caller skips this round when auto-scale changed the count.
+     */
+    public static void evaluateRebalance(net.minecraft.server.MinecraftServer server) {
+        if (!regionEnabled() || !PRTSFeaturesConfig.unevenStripes) {
+            return;
+        }
+        int regionCount = regionCount();
+        if (regionCount < 2) {
+            return;
+        }
+        // Gate: per-region width already at the lower bound -> no group can be moved.
+        // S4 is movable only for N in {2,4} (N=8/16 give width=1 group/region).
+        int stripeWidth = RegionLevel.stripeWidth();
+        if (stripeWidth / regionCount <= PRTSFeaturesConfig.rebalanceMinGroups) {
+            if (!lastRebalanceDenseSkipLogged) {
+                LOGGER.info("[region-tick] rebalance: skipped, regions too dense (width={} groups/region)",
+                        stripeWidth / regionCount);
+                lastRebalanceDenseSkipLogged = true;
+            }
+            return;
+        }
+        lastRebalanceDenseSkipLogged = false;
+        long now = server.getTickCount();
+        long intervalTicks = PRTSFeaturesConfig.rebalanceIntervalSeconds * 20L;
+        if (lastRebalanceEvalTick >= 0 && now - lastRebalanceEvalTick < intervalTicks) {
+            return;
+        }
+        // Warm-up gate: skip the first interval right after reconfigure (boot/auto-scale),
+        // when timing samples are sparse and idle noise looks like an imbalance.
+        if (System.currentTimeMillis() - reconfigureMillis < PRTSFeaturesConfig.rebalanceIntervalSeconds * 1000L) {
+            return;
+        }
+        lastRebalanceEvalTick = now;
+        // width[] computed on demand from the mapping table (no cached state).
+        int[] widths = RegionLevel.regionWidths();
+        double[] avgMs = new double[regionCount];
+        double[] norms = new double[regionCount];
+        for (int i = 0; i < regionCount; i++) {
+            avgMs[i] = STATS.avgMillis("region" + i);
+            norms[i] = widths[i] > 0 ? avgMs[i] / widths[i] : 0.0;
+        }
+        int H = -1;
+        int L = -1;
+        for (int i = 0; i < regionCount; i++) {
+            if (widths[i] <= 0) {
+                continue;
+            }
+            if (H < 0 || norms[i] > norms[H]) {
+                H = i;
+            }
+            if (L < 0 || norms[i] < norms[L]) {
+                L = i;
+            }
+        }
+        if (H < 0 || L < 0 || H == L) {
+            return;
+        }
+        // Data sufficiency: a zero minimum means an unsampled region, which would
+        // pass the ratio gate with any noise; wait for real measurements instead.
+        if (norms[L] <= 0.0) {
+            return;
+        }
+        if (norms[H] <= norms[L] * PRTSFeaturesConfig.rebalanceImbalanceRatio) {
+            return;
+        }
+        int[] table = RegionLevel.mappingSnapshot();
+        if (table == null) {
+            return;
+        }
+        int bestGroup = pickRebalanceGroup(table, widths, avgMs, norms, H, L, stripeWidth);
+        if (bestGroup < 0) {
+            return;
+        }
+        table[bestGroup] = L;
+        RegionLevel.applyMapping(table);
+        rebuildDimensionStates();
+        LOGGER.info("[region-tick] rebalance: move group={} r{} -> r{} normMax={} normMin={} widths={} note: cross.transfer spike expected next window",
+                bestGroup, H, L, String.format("%.1f", norms[H]), String.format("%.1f", norms[L]),
+                java.util.Arrays.toString(widths));
+    }
+
+    /**
+     * Picks the H-region endpoint group whose move to L shrinks the normalized gap most.
+     * Returns -1 when no candidate passes the reject conditions or shrinks the gap.
+     */
+    private static int pickRebalanceGroup(int[] table, int[] widths, double[] avgMs, double[] norms,
+                                          int H, int L, int stripeWidth) {
+        int minGroups = PRTSFeaturesConfig.rebalanceMinGroups;
+        // Reject 1: H must keep at least minGroups after giving one group away.
+        if (widths[H] - 1 < minGroups) {
+            return -1;
+        }
+        double bestGap = Math.abs(norms[H] - norms[L]);
+        double perGroupH = avgMs[H] / widths[H];
+        int bestGroup = -1;
+        for (int g = 0; g < stripeWidth; g++) {
+            if (table[g] != H) {
+                continue;
+            }
+            int left = table[Math.floorMod(g - 1, stripeWidth)];
+            int right = table[Math.floorMod(g + 1, stripeWidth)];
+            boolean leftOut = left != H;
+            boolean rightOut = right != H;
+            // Endpoint: exactly one neighbor lies outside H (segment interior or isolated group skipped).
+            if (leftOut == rightOut) {
+                continue;
+            }
+            int outerRegion = leftOut ? left : right;
+            // Reject 2: outer neighbor must be L (keeps contiguous segments, adds no new boundary).
+            if (outerRegion != L) {
+                continue;
+            }
+            // Prediction (3.2.5): raw-ms add/subtract, then compare the normalized gap.
+            double newMsH = avgMs[H] - perGroupH;
+            double newMsL = avgMs[L] + perGroupH;
+            int newWidthH = widths[H] - 1;
+            int newWidthL = widths[L] + 1;
+            if (newWidthH <= 0) {
+                continue;
+            }
+            double gapAfter = Math.abs(newMsH / newWidthH - newMsL / newWidthL);
+            // Only move if the prediction strictly shrinks the current normalized gap.
+            if (gapAfter >= bestGap) {
+                continue;
+            }
+            bestGap = gapAfter;
+            bestGroup = g;
+        }
+        return bestGroup;
     }
 
     /** True on a region tick worker thread. */
@@ -790,12 +954,15 @@ public final class RegionTickManager {
         }
     }
 
-    /** True if the column is inside a region's 1-chunk boundary band. */
+    /** True if the column sits in a boundary group (neighboring group belongs to a different region). */
     private static boolean isBoundaryColumn(BlockPos pos) {
         int chunkX = pos.getX() >> 4;
-        int group = Math.floorMod(chunkX, RegionLevel.STRIPE_WIDTH);
-        int perRegion = RegionLevel.STRIPE_WIDTH / regionCount();
-        return group % perRegion == perRegion - 1 || group % perRegion == 0;
+        int width = RegionLevel.stripeWidth();
+        int group = Math.floorMod(chunkX, width);
+        int regionId = RegionLevel.regionIdOfGroup(group);
+        int leftRegion = RegionLevel.regionIdOfGroup(Math.floorMod(group - 1, width));
+        int rightRegion = RegionLevel.regionIdOfGroup(Math.floorMod(group + 1, width));
+        return regionId != leftRegion || regionId != rightRegion;
     }
 
     /** Collects a due scheduled block tick into the owning region's queue. */
@@ -1247,6 +1414,9 @@ public final class RegionTickManager {
             return "no data";
         }
         StringBuilder sb = new StringBuilder();
+        int[] widths = RegionLevel.regionWidths();
+        sb.append("stripes=").append(PRTSFeaturesConfig.unevenStripes ? "uneven" : "equal")
+                .append(" widths=").append(java.util.Arrays.toString(widths)).append(" | ");
         int maxRegion = 0;
         long maxTime = 0;
         for (int i = 0; i < REGION_COUNT; i++) {
@@ -1258,7 +1428,7 @@ public final class RegionTickManager {
         for (int i = 0; i < REGION_COUNT; i++) {
             if (i > 0) sb.append(", ");
             sb.append("r").append(i).append(":").append(dist[i]).append("ent/")
-                    .append(timings[i] / 1_000_000L).append("ms");
+                    .append(timings[i] / 1_000_000L).append("ms(w=").append(widths[i]).append(")");
             if (i == maxRegion) {
                 sb.append("(MAX)");
             }

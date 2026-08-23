@@ -98,6 +98,12 @@ public class PRTSFeaturesConfig {
     public static int regionScaleMin;
     public static int regionScaleMax;
     public static double regionScaleCrossReadRatio;
+    /** S4 不等宽条带：组内边界重平衡总开关（默认关）。 */
+    public static boolean unevenStripes;
+    public static long rebalanceIntervalSeconds;
+    public static int rebalanceMaxMoves;
+    public static int rebalanceMinGroups;
+    public static double rebalanceImbalanceRatio;
     /** worker 世界访问策略：off（关闭）/ stats（只统计，默认）/ enforce（测服定位用）。 */
     public static ThreadPolicy threadPolicy;
     /** 违规日志每分钟每类限流条数（>0）。 */
@@ -289,6 +295,11 @@ public class PRTSFeaturesConfig {
         regionScaleMax = clampPower(config.getInt("parallel.region-scale-max", 8), 2, 16);
         if (regionScaleMin > regionScaleMax) regionScaleMin = regionScaleMax;
         regionScaleCrossReadRatio = Math.max(0.0, config.getDouble("parallel.region-scale-cross-read-ratio", 0.05));
+        unevenStripes = config.getBoolean("parallel.uneven-stripes", false);
+        rebalanceIntervalSeconds = config.getLong("parallel.rebalance-interval-seconds", 300);
+        rebalanceMaxMoves = Math.max(1, config.getInt("parallel.rebalance-max-moves", 1));
+        rebalanceMinGroups = Math.max(1, config.getInt("parallel.rebalance-min-groups", 1));
+        rebalanceImbalanceRatio = Math.max(1.0, config.getDouble("parallel.rebalance-imbalance-ratio", 2.0));
         // worker 世界访问策略：解析失败/未知值回退 stats（只统计不拦截，生产安全）。
         // YAML 会把裸写的 off/on 解析成布尔值，这里先还原成字符串再交给 ThreadPolicy。
         Object threadPolicyValue = config.get("parallel.thread-policy", "stats");
@@ -479,6 +490,11 @@ public class PRTSFeaturesConfig {
                   region-scale-min: 2
                   region-scale-max: 8
                   region-scale-cross-read-ratio: 0.05
+                  uneven-stripes: false              # S4 不等宽条带：高负载区让出边界组给低负载相邻区（默认关）
+                  rebalance-interval-seconds: 300    # 重平衡评估周期（与 auto-scale 同窗）
+                  rebalance-max-moves: 1             # 单轮最多移动边界组数（v1 恒 1）
+                  rebalance-min-groups: 1            # 移动后每区最少组数（N≥8 时区宽=1 组自动跳过）
+                  rebalance-imbalance-ratio: 2.0     # norm(H) > norm(L)*ratio 才重平衡（归一化口径，防抖）
                   thread-policy: stats             # worker 世界访问策略: off/stats/enforce（生产用 stats）
                   violation-log-per-minute: 20     # 违规日志每分钟每类限流条数
                   main-thread-routing: auto        # auto 违规学习 / manual 只认种子列表
