@@ -20,6 +20,10 @@ public final class ChunkLoadStats {
     private static final LongAdder DEMAND_DEDUPED = new LongAdder();
     private static final LongAdder DEMAND_DROPPED = new LongAdder();
     private static final LongAdder DEMAND_POLLED = new LongAdder();
+    /** S2.75 P0-b：按优先级桶统计的消费数（0=最近玩家 → 3=最远/未知）。 */
+    private static final LongAdder[] BUCKET_POLLED = {new LongAdder(), new LongAdder(), new LongAdder(), new LongAdder()};
+    /** 饿死兜底（队头超龄优先消费）触发次数。 */
+    private static final LongAdder STARVED_POLLED = new LongAdder();
     private static final LongAdder FULL_COMPLETED = new LongAdder();
     private static final LongAdder WAIT_TIMEOUT = new LongAdder();
     private static final LongAdder GENERATION_SUBMITTED = new LongAdder();
@@ -49,6 +53,19 @@ public final class ChunkLoadStats {
 
     public static void demandPolled() {
         DEMAND_POLLED.increment();
+    }
+
+    /** 优先级开启时按桶记录消费（同时计入总 polled）。 */
+    public static void demandBucketPolled(int bucket) {
+        DEMAND_POLLED.increment();
+        if (bucket >= 0 && bucket < BUCKET_POLLED.length) {
+            BUCKET_POLLED[bucket].increment();
+        }
+    }
+
+    /** 饿死兜底路径触发：低桶队头超龄被优先消费。 */
+    public static void demandStarved() {
+        STARVED_POLLED.increment();
     }
 
     public static void fullCompleted() {
@@ -87,6 +104,9 @@ public final class ChunkLoadStats {
                 + " deduped=" + DEMAND_DEDUPED.sum()
                 + " dropped=" + DEMAND_DROPPED.sum()
                 + " polled=" + DEMAND_POLLED.sum()
+                + " buckets=" + BUCKET_POLLED[0].sum() + "/" + BUCKET_POLLED[1].sum()
+                + "/" + BUCKET_POLLED[2].sum() + "/" + BUCKET_POLLED[3].sum()
+                + " starved=" + STARVED_POLLED.sum()
                 + " completed=" + FULL_COMPLETED.sum()
                 + " genSubmitted=" + GENERATION_SUBMITTED.sum()
                 + " waitTimeout=" + WAIT_TIMEOUT.sum()

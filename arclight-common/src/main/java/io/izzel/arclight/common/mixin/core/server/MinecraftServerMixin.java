@@ -6,6 +6,7 @@ import io.izzel.arclight.common.bridge.bukkit.CraftServerBridge;
 import io.izzel.arclight.common.bridge.core.command.CommandSourceBridge;
 import io.izzel.arclight.common.bridge.core.server.MinecraftServerBridge;
 import io.izzel.arclight.common.compat.prts.PRTSFeatures;
+import io.izzel.arclight.common.compat.prts.PRTSFeaturesConfig;
 import io.izzel.arclight.common.bridge.core.world.level.WorldBridge;
 import io.izzel.arclight.common.mod.ArclightConstants;
 import io.izzel.arclight.common.mod.mixins.annotation.TransformAccess;
@@ -250,6 +251,12 @@ public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<T
         } else {
             return iterator;
         }
+    }
+
+    @Inject(method = "createLevels", at = @At("HEAD"))
+    private void arclight$loadPrtsConfigBeforeLevels(ChunkProgressListener p_240787_1_, CallbackInfo ci) {
+        // 主维度 ChunkMap 在本方法内构造，光照线程等开关必须先于世界加载就绪（幂等，start() 再调直接跳过）。
+        PRTSFeaturesConfig.init();
     }
 
     @Inject(method = "createLevels", at = @At("RETURN"))

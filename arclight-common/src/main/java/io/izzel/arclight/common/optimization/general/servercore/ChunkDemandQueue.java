@@ -7,6 +7,7 @@ package io.izzel.arclight.common.optimization.general.servercore;
 
 import net.minecraft.server.level.ChunkMap;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.chunk.ChunkAccess;
 import net.minecraft.world.level.chunk.status.ChunkStatus;
@@ -27,6 +28,12 @@ import java.util.concurrent.atomic.AtomicLong;
  * 统一异步 Chunk 需求调度（v03）：所有线程的 chunk 生成请求改为异步提交——
  * 未就绪时注册等待 future 并返回空壳占位，主线程 tick / worldgen 完成生成后
  * 经 completeChunk 通知所有等待者（详见 docs/parallel-chunk-demand-scheduling-v01.md 附录 A）。
+ *
+ * <p>S2.75 P0-b（默认关，{@code parallel.chunk-demand-player-priority}）：按提交时到最近玩家
+ * 的切比雪夫距离分 4 桶优先消费（≤ 8 / ≤32 / ≤128 / 其余）。距离为提交时快照，玩家移动后
+ * 已排队需求不重排（新需求按新位置分桶，尾部自然跟上）；低桶队头超过 {@code starveNanos}
+ * 即优先消费，保证有界等待（防高桶风暴饿死远端需求）。线程安全：分桶计算只在主线程
+ * 读 {@code ServerLevel.players()}（{@code isSameThread()} 显式判定），非主线程提交一律落桶3。
  */
 public final class ChunkDemandQueue {
 
@@ -35,11 +42,17 @@ public final class ChunkDemandQueue {
     /** 主线程 tick 处理的 chunk 需求上限（配置 parallel.chunk-demand-per-tick）。 */
     public static volatile int maxPerTick = 50;
 
+    /** S2.75 P0-b：玩家距离优先级开关（配置 parallel.chunk-demand-player-priority）。 */
+    public static volatile boolean playerPriorityEnabled = false;
+
+    /** 低桶队头超过该时长即优先消费（饿死兜底；配置 parallel.chunk-demand-starve-ticks 换算）。 */
+    public static volatile long starveNanos = 600L * 50_000_000L;
+
     /** 硬性上限：超过则丢弃需求，防止队列无界增长导致 OOM。 */
     private static final int MAX_PENDING = 1024;
 
-    /** 待加载需求按 ServerLevel 隔离，防止同坐标跨维度被错误消费。 */
-    private static final ConcurrentHashMap<ServerLevel, ConcurrentLinkedQueue<Demand>> PENDING = new ConcurrentHashMap<>();
+    /** 待加载需求按 ServerLevel 隔离，防止同坐标跨维度被错误消费；开启优先级时每级 4 桶。 */
+    private static final ConcurrentHashMap<ServerLevel, BucketQueues> PENDING = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap.KeySetView<DemandKey, Boolean> SEEN = ConcurrentHashMap.newKeySet();
 
     /** 等待 future 注册表：维度与 chunk 坐标 → 等待者，生成完成后统一 complete。 */
@@ -103,9 +116,36 @@ public final class ChunkDemandQueue {
                 break;
             }
         }
-        PENDING.computeIfAbsent(level, ignored -> new ConcurrentLinkedQueue<>()).add(new Demand(key, new ChunkPos(x, z)));
+        PENDING.computeIfAbsent(level, ignored -> new BucketQueues())
+                .add(new Demand(key, new ChunkPos(x, z), assignBucket(level, x, z), System.nanoTime()));
         QUEUED.incrementAndGet();
         ChunkLoadStats.demandSubmitted();
+    }
+
+    /**
+     * 分桶（0=最近 → 3=最远/未知）。只有主线程才读 players() 算真实距离；
+     * worker 线程提交（或优先级关闭）一律落桶3，避免跨线程读玩家列表。
+     */
+    private static int assignBucket(ServerLevel level, int x, int z) {
+        if (!playerPriorityEnabled || !level.getServer().isSameThread()) {
+            return 3;
+        }
+        int min = Integer.MAX_VALUE;
+        for (ServerPlayer player : level.players()) {
+            int dx = Math.abs(Math.floorDiv(player.getBlockX(), 16) - x);
+            int dz = Math.abs(Math.floorDiv(player.getBlockZ(), 16) - z);
+            int dist = Math.max(dx, dz);
+            if (dist < min) {
+                min = dist;
+            }
+            if (min <= 8) {
+                break;
+            }
+        }
+        if (min <= 8) return 0;
+        if (min <= 32) return 1;
+        if (min <= 128) return 2;
+        return 3;
     }
 
     /** 有界等待 chunk 生成完成（毫秒）；超时返回 null（调用方降级空壳）。 */
@@ -145,26 +185,55 @@ public final class ChunkDemandQueue {
 
     /** 当前 ServerLevel 的主线程 drain 取需求；无则返回 null。 */
     public static ChunkPos poll(ServerLevel level) {
-        ConcurrentLinkedQueue<Demand> pending = PENDING.get(level);
-        if (pending == null) {
+        BucketQueues queues = PENDING.get(level);
+        if (queues == null) {
             return null;
         }
-        Demand demand = pending.poll();
+        Demand demand;
+        if (playerPriorityEnabled) {
+            // 饿死兜底：低桶队头超龄即优先消费（有界等待）；仅主线程调用，peek+poll 无并发问题。
+            demand = null;
+            long now = System.nanoTime();
+            for (int b = 1; b <= 3 && demand == null; b++) {
+                Demand head = queues.buckets[b].peek();
+                if (head != null && now - head.submittedAtNanos() >= starveNanos) {
+                    demand = queues.buckets[b].poll();
+                    if (demand != null) {
+                        ChunkLoadStats.demandStarved();
+                    }
+                }
+            }
+            if (demand == null) {
+                for (int b = 0; b <= 3 && demand == null; b++) {
+                    demand = queues.buckets[b].poll();
+                }
+            }
+            if (demand != null) {
+                ChunkLoadStats.demandBucketPolled(demand.bucket());
+            }
+        } else {
+            // 关闭时只使用桶0，行为与改造前纯 FIFO 逐位一致。
+            demand = queues.buckets[0].poll();
+            if (demand != null) {
+                ChunkLoadStats.demandPolled();
+            }
+        }
         if (demand == null) {
-            PENDING.remove(level, pending);
+            if (queues.isEmpty()) {
+                PENDING.remove(level, queues);
+            }
             return null;
         }
         PENDING_COUNT.decrementAndGet();
-        ChunkLoadStats.demandPolled();
         return demand.pos();
     }
 
     /** drain 结束后调用：当前 ServerLevel 队列清空时重置其去重记录。 */
     public static void afterDrain(ServerLevel level) {
-        ConcurrentLinkedQueue<Demand> pending = PENDING.get(level);
-        if (pending == null || pending.isEmpty()) {
-            if (pending != null) {
-                PENDING.remove(level, pending);
+        BucketQueues queues = PENDING.get(level);
+        if (queues == null || queues.isEmpty()) {
+            if (queues != null) {
+                PENDING.remove(level, queues);
             }
             SEEN.removeIf(key -> key.level() == level);
         }
@@ -186,6 +255,31 @@ public final class ChunkDemandQueue {
     private record DemandKey(ServerLevel level, long chunkPos) {
     }
 
-    private record Demand(DemandKey key, ChunkPos pos) {
+    private record Demand(DemandKey key, ChunkPos pos, int bucket, long submittedAtNanos) {
+    }
+
+    /** 每 ServerLevel 的 4 桶队列（关闭优先级时只用桶0）。 */
+    @SuppressWarnings("unchecked")
+    private static final class BucketQueues {
+        private final ConcurrentLinkedQueue<Demand>[] buckets = new ConcurrentLinkedQueue[4];
+
+        BucketQueues() {
+            for (int i = 0; i < 4; i++) {
+                buckets[i] = new ConcurrentLinkedQueue<>();
+            }
+        }
+
+        void add(Demand demand) {
+            buckets[demand.bucket()].add(demand);
+        }
+
+        boolean isEmpty() {
+            for (ConcurrentLinkedQueue<Demand> bucket : buckets) {
+                if (!bucket.isEmpty()) {
+                    return false;
+                }
+            }
+            return true;
+        }
     }
 }

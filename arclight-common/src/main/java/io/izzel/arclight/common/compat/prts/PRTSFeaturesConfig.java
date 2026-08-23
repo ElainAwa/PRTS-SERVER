@@ -89,6 +89,10 @@ public class PRTSFeaturesConfig {
     public static boolean eventBusTelemetryEnabled;
     /** 主线程每 tick 处理的 chunk 需求上限（统一需求调度，默认 50）。 */
     public static int chunkDemandPerTick;
+    /** S2.75 P0-b: chunk 需求玩家距离优先级（分 4 桶优先消费，默认关）。 */
+    public static boolean chunkDemandPlayerPriority;
+    /** 低优先级桶队头超龄即优先消费的阈值（tick，饿死兜底）。 */
+    public static int chunkDemandStarveTicks;
     /** 动态区域自动扩容：按负载周期性地调整区域数。 */
     public static boolean regionAutoScale;
     public static long regionScaleIntervalSeconds;
@@ -172,6 +176,9 @@ public class PRTSFeaturesConfig {
     public static int lightBudgetPerTick;
     /** 采集光照队列长度/耗时进 AsyncTaskStats（[light-engine] 日志）。 */
     public static boolean lightTelemetryEnabled;
+    /** S2.75 P0-a: 独立光照线程——light 邮箱 + 任务排序器迁出共享后台池，
+     *  隔离光照传播与 worldgen 线程池争抢（每维度一个守护线程，默认关）。 */
+    public static boolean lightThreadEnabled;
 
     // Entity spatial index - EntitySection 内懒 4×4×4 子格索引（默认开，2026-08-16 真机 A/B 验证）。
     // 加速纯空间 AABB 查询（getEntities(AABB)）与 typed 查询（getEntitiesOfClass 等，二期：
@@ -238,7 +245,15 @@ public class PRTSFeaturesConfig {
     /** P2-3 刷怪事件短路：MobSpawnEvent.PositionCheck / MobDespawnEvent 无监听器时跳过构造与派发（内联原版判定结果）。 */
     public static boolean eventShortcircuitMobSpawnEnabled;
 
+    /** 幂等守卫：主维度 ChunkMap 在 createLevels HEAD 就需要本配置，
+     *  早加载后 PRTSFeatures.start() 再次调用直接跳过。 */
+    private static boolean initialized;
+
     public static void init() {
+        if (initialized) {
+            return;
+        }
+        initialized = true;
         File file = new File("prts-features.yml");
         if (!file.exists()) {
             writeDefaultConfig(file);
@@ -278,9 +293,14 @@ public class PRTSFeaturesConfig {
         routeProbationTicks = Math.max(100, config.getInt("parallel.route-probation-ticks", 12000));
         routeProbationMaxViolations = Math.max(0, config.getInt("parallel.route-probation-max-violations", 2));
         chunkDemandPerTick = config.getInt("parallel.chunk-demand-per-tick", 50);
-        // 非正数会使需求 drain 永久不执行（budget <= 0），退回默认值。
+        // 非正数会让需求 drain 永久不执行（budget <= 0），退回默认值。
         if (chunkDemandPerTick < 1) chunkDemandPerTick = 50;
         io.izzel.arclight.common.optimization.general.servercore.ChunkDemandQueue.maxPerTick = chunkDemandPerTick;
+        chunkDemandPlayerPriority = config.getBoolean("parallel.chunk-demand-player-priority", false);
+        chunkDemandStarveTicks = Math.max(20, config.getInt("parallel.chunk-demand-starve-ticks", 600));
+        io.izzel.arclight.common.optimization.general.servercore.ChunkDemandQueue.playerPriorityEnabled = chunkDemandPlayerPriority;
+        io.izzel.arclight.common.optimization.general.servercore.ChunkDemandQueue.starveNanos = chunkDemandStarveTicks * 50_000_000L;
+        LOGGER.info("parallel chunk-demand priority={} starve={} ticks", chunkDemandPlayerPriority, chunkDemandStarveTicks);
         int count = config.getInt("parallel.region-count", 4);
         if (count < 2) count = 2;
         if (count > 16) count = 16;
@@ -365,6 +385,7 @@ public class PRTSFeaturesConfig {
         lightBudgetPerTick = config.getInt("lighting.budget-per-tick", 100000);
         if (lightBudgetPerTick < 0) lightBudgetPerTick = 0;
         lightTelemetryEnabled = config.getBoolean("lighting.telemetry-enabled", true);
+        lightThreadEnabled = config.getBoolean("lighting.threaded", false);
         entitySpatialIndexEnabled = config.getBoolean("entity-spatial-index.enabled", true);
         entitySpatialIndexMinSectionSize = config.getInt("entity-spatial-index.min-section-size", 16);
         if (entitySpatialIndexMinSectionSize < 4) entitySpatialIndexMinSectionSize = 4;
@@ -481,6 +502,8 @@ public class PRTSFeaturesConfig {
                   colony-manager-tick-cache-enabled: true  # 殖民地 ServerTick 事件 getAllColonies 快照缓存（A/B：minecolonies 主线程自耗时 -60%）
                   colony-manager-tick-cache-interval: 20   # 快照 TTL tick（1-120；create/delete 立即失效）
                   chunk-demand-per-tick: 50           # 主线程每 tick 处理的 chunk 需求上限（统一需求调度）
+                  chunk-demand-player-priority: false # chunk 需求玩家距离优先级：按提交时距最近玩家分 4 桶优先消费（默认关）
+                  chunk-demand-starve-ticks: 600      # 低优先级桶队头超龄即优先消费（饿死兜底，仅 priority 开启时生效）
                   region-count: 4                    # 区域数（2/4/8/16；16 时条纹宽自动扩到 16）
                   region-auto-scale: true            # 按负载自动调整区域数
                   region-scale-interval-seconds: 300
@@ -535,6 +558,7 @@ public class PRTSFeaturesConfig {
                   budget-enabled: true               # 每 tick 光照传播预算开关
                   budget-per-tick: 100000            # 每 tick 最多传播的方块数（默认保守，只拦风暴；按 [light-engine] 日志调）
                   telemetry-enabled: true            # 采集队列长度/耗时进 [light-engine] 日志
+                  threaded: false                    # 独立光照线程：光邮箱+任务排序器迁出共享后台池（默认关；开启后每维度一个守护线程）
 
                 # 实体空间索引：EntitySection 内懒 4×4×4 子格索引（默认开）
                 # 加速纯空间 AABB 查询（getEntities(AABB)）与 typed 查询（getEntitiesOfClass 等，

@@ -118,6 +118,8 @@
     "neighbor.LevelMixin_NeighborUpdateCircuitBreaker",
     "neighbor.TeslaCoilBlockEntityMixin_SetWorkingThrottle",
     "lightengine.LightEngineMixin_LightBudget",
+    "lightthread.ChunkMapMixin_LightThread",
+    "lightthread.ThreadedLevelLightEngineMixin_LightThread",
     "entityspatial.EntitySectionMixin_SpatialIndex",
     "entityspatial.EntityMixin_SectionIndexRebome",
     "poi.SectionStorageMixin_Presence",
