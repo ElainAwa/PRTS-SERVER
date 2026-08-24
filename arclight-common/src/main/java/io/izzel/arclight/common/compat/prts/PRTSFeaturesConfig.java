@@ -142,6 +142,8 @@ public class PRTSFeaturesConfig {
     public static boolean journalLwwDedup;
     /** 跨区写 journal 每维度每 tick 提交上限（超出丢弃计 budgetDropped，下 tick 调用方自然重提；0=不限，默认 512）。 */
     public static int journalMaxPerTick;
+    /** 串行回退路径（红石网络优化 mod 在位）的方块 tick：在维度 worker 上执行时延迟到主线程 POST（默认开；关=回到 inline worker 旧行为）。 */
+    public static boolean blockTickMainThreadWhenSerialized;
     /** read-your-writes overlay 总开关（默认关，仅预留接口，未接入方块读路径）。 */
     public static boolean journalReadBack;
     /** 确定性模式：跨区 journal 按区域序在主调度线程统一应用（默认关）。 */
@@ -371,6 +373,8 @@ public class PRTSFeaturesConfig {
         journalMaxPerTick = Math.max(0, config.getInt("parallel.journal-max-per-tick", 512));
         LOGGER.info("parallel journal lww-dedup={} max-per-tick={} max-per-region={}",
                 journalLwwDedup, journalMaxPerTick, journalMaxPerRegion);
+        blockTickMainThreadWhenSerialized = config.getBoolean("parallel.block-tick-main-thread-when-serialized", true);
+        LOGGER.info("parallel block-tick-main-thread-when-serialized={}", blockTickMainThreadWhenSerialized);
         journalReadBack = config.getBoolean("parallel.journal-read-back", false);
         determinismMode = config.getBoolean("parallel.determinism-mode", false);
         beParallelAllow = new ArrayList<>(config.getStringList("parallel.be-parallel-allow"));
@@ -546,6 +550,7 @@ public class PRTSFeaturesConfig {
                   main-thread-entity-force: []     # 强制主线程 tick 的类名/前缀
                   main-thread-entity-allow: []     # 强制不路由的类名/前缀（危险调试用）
                   persist-learned-routes: false    # 停机时把学到的路由写回配置（仅实体类，最多 200 条）
+                  block-tick-main-thread-when-serialized: true # 串行回退路径的方块 tick 在 worker 上时延迟到主线程 POST（默认开）
                   journal-max-per-region: 4096     # 跨区写 journal 每区域队列上限（最旧丢弃）
                   journal-lww-dedup: true          # 同 pos 未应用条目 LWW 合并（重试风暴主防线，默认开）
                   journal-max-per-tick: 512        # 每维度每 tick 提交上限（超出丢弃计 budgetDropped，0=不限）

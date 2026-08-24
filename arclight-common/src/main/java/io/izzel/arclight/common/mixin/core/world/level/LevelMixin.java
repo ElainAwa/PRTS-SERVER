@@ -9,6 +9,7 @@ import io.izzel.arclight.common.mod.mixins.annotation.TransformAccess;
 import io.izzel.arclight.common.mod.server.world.ArclightWorldConfig;
 import io.izzel.arclight.common.mod.util.ArclightCaptures;
 import io.izzel.arclight.common.mod.util.DistValidate;
+import io.izzel.arclight.common.optimization.general.servercore.LevelMainThreadAccess;
 import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
@@ -61,7 +62,7 @@ import java.util.Map;
 import java.util.function.Supplier;
 
 @Mixin(Level.class)
-public abstract class LevelMixin implements WorldBridge, LevelAccessor, LevelWriter {
+public abstract class LevelMixin implements WorldBridge, LevelAccessor, LevelWriter, LevelMainThreadAccess {
 
     // @formatter:off
     @Shadow @Nullable public BlockEntity getBlockEntity(BlockPos pos) { return null; }

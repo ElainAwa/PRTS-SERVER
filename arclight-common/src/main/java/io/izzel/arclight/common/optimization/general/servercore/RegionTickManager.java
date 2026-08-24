@@ -81,6 +81,10 @@ public final class RegionTickManager {
     private static final Map<ServerLevel, LinkedBlockingQueue<TickingBlockEntity>> MAIN_THREAD_TE_TICKS =
             java.util.Collections.synchronizedMap(new WeakHashMap<>());
 
+    /** 维度 worker 上收集、延迟到主线程 POST 执行的方块 tick（BE 依赖逻辑在 worker 上读不到方块实体），按维度分队列。 */
+    private static final Map<ServerLevel, LinkedBlockingQueue<BlockTick>> MAIN_THREAD_BLOCK_TICKS =
+            java.util.Collections.synchronizedMap(new WeakHashMap<>());
+
     /** 维度并行期间收集、由主线程统一执行的实体 tick（Create 装置实体），按维度分队列。 */
     private static final Map<ServerLevel, LinkedBlockingQueue<Entity>> MAIN_THREAD_ENTITY_TICKS =
             java.util.Collections.synchronizedMap(new WeakHashMap<>());
@@ -288,7 +292,7 @@ public final class RegionTickManager {
             .intervalTicks(600)
             .counter("ticks")
             .group("cross", "block", "redstone", "redstoneBoundary", "transfer", "read")
-            .group("update", "blockTicks", "teTicks", "applied", "teMainTicks")
+            .group("update", "blockTicks", "teTicks", "applied", "teMainTicks", "blockTicksMain")
             .group("journal", "lwwMerged", "budgetDropped")
             .timer("entities.mainThreadMs")
             .counter("colony.ticks")
@@ -638,6 +642,36 @@ public final class RegionTickManager {
                 if (BlockEntityTickStats.record(beType, Util.getNanos() - start)) {
                     BlockEntityTickStats.recordMaxPos(beType, be.getBlockPos());
                 }
+            }
+        }
+    }
+
+    /** 维度 worker 调用：把方块 tick 排到本维度的主线程队列（worker 上 getBlockEntity 恒 null，BE 依赖逻辑失效）。 */
+    public static void queueMainThreadBlockTick(ServerLevel level, BlockPos pos, Block block) {
+        LinkedBlockingQueue<BlockTick> queue;
+        synchronized (MAIN_THREAD_BLOCK_TICKS) {
+            queue = MAIN_THREAD_BLOCK_TICKS.computeIfAbsent(level, k -> new LinkedBlockingQueue<>());
+        }
+        queue.add(new BlockTick(pos, block));
+    }
+
+    /** 主线程 POST 阶段调用：执行本维度排队的主线程方块 tick。 */
+    public static void drainMainThreadBlockTicks(ServerLevel level) {
+        LinkedBlockingQueue<BlockTick> queue;
+        synchronized (MAIN_THREAD_BLOCK_TICKS) {
+            queue = MAIN_THREAD_BLOCK_TICKS.remove(level);
+        }
+        if (queue == null) {
+            return;
+        }
+        BlockTick bt;
+        while ((bt = queue.poll()) != null) {
+            try {
+                ((ServerLevelRegionBlockTickAccess) level).arclight$tickBlock(bt.pos(), bt.block());
+                STATS.increment("update.blockTicksMain");
+            } catch (Throwable t) {
+                LOGGER.error("[region-tick] main-thread block tick failed at {}: {}",
+                        bt.pos(), t.toString());
             }
         }
     }
@@ -1061,11 +1095,19 @@ public final class RegionTickManager {
         }
         if (serializeBlockTicksForMods()) {
             // 红石网络类优化 mod（alternate_current）的连线图非线程安全：
-            // 并行方块 tick 会撕裂网络节点引用，此处回退当前线程串行（每维度单线程）
+            // 并行方块 tick 会撕裂网络节点引用，此处回退串行（每维度单线程）。
+            // 当前线程为主线程时 inline 执行（BE 可用）；在维度 worker 上时
+            // getBlockEntity 恒 null（比较器等 BE 依赖逻辑失效），延迟到主线程 POST 执行。
+            boolean deferToMainThread = PRTSFeaturesConfig.blockTickMainThreadWhenSerialized
+                    && Thread.currentThread() != ((LevelMainThreadAccess) level).arclight$getMainThread();
             for (int r = 0; r < st.blockTickQueues.length; r++) {
                 BlockTick bt;
                 while ((bt = st.blockTickQueues[r].poll()) != null) {
-                    ((ServerLevelRegionBlockTickAccess) level).arclight$tickBlock(bt.pos(), bt.block());
+                    if (deferToMainThread) {
+                        queueMainThreadBlockTick(level, bt.pos(), bt.block());
+                    } else {
+                        ((ServerLevelRegionBlockTickAccess) level).arclight$tickBlock(bt.pos(), bt.block());
+                    }
                 }
             }
             if (applyNow) {
