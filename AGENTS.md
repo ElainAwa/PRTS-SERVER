@@ -24,7 +24,7 @@ PRTS 是 Arclight → Luminara 的 fork，本分支为**多线程并行引擎**�
 
 ### 任务速查
 
-- **修 bug** → 按 `.cage/workflow.md` 状态机：登记 → 取证 → 定位 → 根因 → 修复 → 验证；复现非必经步骤，优先用用户日志，无日志按描述从代码推断，仍不定论才启动测试服自跑。
+- **修 bug / 优化** → 按 `.cage/workflow.md` 状态机：登记 → 取证 → 定位 → 根因 → 修复 → 验证；方案定稿后归档 `docs/scheme/`，冒烟测试前保存记忆，冒烟后总对比并归档 `docs/summary/`（方案 / 性能对比 / 优点 / 缺点 / 未完成 / 已完成）。复现非必经步骤，优先用用户日志，无日志按描述从代码推断，仍不定论才启动测试服自跑。
 - **用户丢监测文件（文件夹 / zip）** → 按 `.cage/capture.md`：先读 `capture.json` 定触发原因，`sparkprofile` 用 `scripts/spark_quick.py` 解析，结论逐条带证据并按 P0 / P1 / P2 排序。
 - **性能分析** → spark 归因先剔 idle 再算 self；同口径对比（交叉 A/B、预热、取中位）后才能下结论。
 - **放代码** → 优化放 `optimization/<名>/`（平铺，模组直接用模组名），mixin 放 `mixin/optimization/<名>/` 成对；正确性兼容放 `compat/<mod>/`。详见 `.cage/code.md` §2。
