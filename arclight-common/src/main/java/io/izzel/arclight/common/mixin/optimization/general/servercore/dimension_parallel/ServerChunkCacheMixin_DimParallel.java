@@ -198,6 +198,12 @@ public abstract class ServerChunkCacheMixin_DimParallel implements io.izzel.arcl
         return arclight$existingChunkRead(x, z);
     }
 
+    /** 提交异步加载需求（与 getChunk miss 行为一致：仅入队，主线程 tick 消费）。 */
+    @Override
+    public void arclight$submitChunkDemand(int x, int z) {
+        ChunkDemandQueue.submit(this.level, this.chunkMap, x, z, false);
+    }
+
     /**
      * 主线程 drain 的落地实现：按配额消费需求，非阻塞触发生成（required=false，
      * 不等待完成）。成功后写入 lastChunk 环形缓存供 vanilla getChunkNow 使用

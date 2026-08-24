@@ -17,4 +17,7 @@ public interface ServerChunkCacheRegionBridge {
 
     /** worker 安全的区块读取（快照读优先，updating 兜底）；无活区块返回 null。 */
     ChunkAccess arclight$getChunkForRead(int x, int z);
+
+    /** 提交异步 chunk 加载需求（与 getChunk miss 同一条 ChunkDemandQueue 路径，不阻塞）。 */
+    void arclight$submitChunkDemand(int x, int z);
 }

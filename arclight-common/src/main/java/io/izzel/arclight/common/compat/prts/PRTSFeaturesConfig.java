@@ -127,6 +127,8 @@ public class PRTSFeaturesConfig {
     public static boolean crossrefProbe;
     /** 值快照：探针命中容器类方块实体时读时复制，做影子验证（默认关）。 */
     public static boolean crossrefValueSnapshot;
+    /** 影子快照单条缓存（证伪实验，默认关）：需同时开 crossref-value-snapshot 才有影子流量，否则无效果。 */
+    public static boolean crossrefSnapshotCache;
     /** B4: worker 上实体撞 Create 传送带时把 passenger 注册延迟到主线程执行，
      *  使 villager 等回并行的实体仍能被传送带运输。默认 false（配合 route-on-read=false 使用）。 */
     public static boolean beltPassengerDefer;
@@ -363,8 +365,9 @@ public class PRTSFeaturesConfig {
         ClassAffinityLedger.applyConfig(routeThreshold, routeWindowTicks, routeOnRead);
         crossrefProbe = config.getBoolean("parallel.crossref-probe", false);
         crossrefValueSnapshot = config.getBoolean("parallel.crossref-value-snapshot", false);
-        io.izzel.arclight.common.optimization.general.servercore.ownership.CrossRefProbe.applyConfig(crossrefProbe, crossrefValueSnapshot);
-        LOGGER.info("parallel crossref-probe={} value-snapshot={}", crossrefProbe, crossrefValueSnapshot);
+        crossrefSnapshotCache = config.getBoolean("parallel.crossref-snapshot-cache", false);
+        io.izzel.arclight.common.optimization.general.servercore.ownership.CrossRefProbe.applyConfig(crossrefProbe, crossrefValueSnapshot, crossrefSnapshotCache);
+        LOGGER.info("parallel crossref-probe={} value-snapshot={} snapshot-cache={}", crossrefProbe, crossrefValueSnapshot, crossrefSnapshotCache);
         LOGGER.info("parallel main-thread-routing={} threshold={} window={} ticks force={} allow={} persist={}",
                 mainThreadRouting, routeThreshold, routeWindowTicks,
                 mainThreadEntityForce.size(), mainThreadEntityAllow.size(), persistLearnedRoutes);
@@ -546,6 +549,7 @@ public class PRTSFeaturesConfig {
                   route-on-read: true              # MAIN_ONLY_READ 是否计入路由（worker 读 BE 恒 null；false=只按写路由）
                   crossref-probe: false              # 跨区引用探针：采样 worker 方块实体访问并分桶（默认关）
                   crossref-value-snapshot: false      # 值快照：探针命中容器类时读时复制做影子验证（默认关）
+                  crossref-snapshot-cache: false      # 影子快照单条缓存（证伪实验，默认关；依赖 crossref-value-snapshot: true）
                   belt-passenger-defer: false      # worker 实体撞传送带时 passenger 注册延迟到主线程（配合 route-on-read=false）
                   main-thread-entity-force: []     # 强制主线程 tick 的类名/前缀
                   main-thread-entity-allow: []     # 强制不路由的类名/前缀（危险调试用）

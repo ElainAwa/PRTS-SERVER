@@ -34,9 +34,11 @@ public final class CrossRefProbe {
     private CrossRefProbe() {
     }
 
-    public static void applyConfig(boolean probe, boolean snapshot) {
+    public static void applyConfig(boolean probe, boolean snapshot, boolean snapshotCache) {
         enabled = probe;
         snapshotEnabled = snapshot;
+        // 缓存实验键依赖影子流量（来源于值快照路径），只开 cache 不开 snapshot 时无效果。
+        BlockEntitySnapshotAdapter.setCacheEnabled(snapshotCache);
     }
 
     public static boolean enabled() {
@@ -63,7 +65,7 @@ public final class CrossRefProbe {
         Entry entry = ENTRIES.computeIfAbsent(owner, k -> new Entry(tick));
         entry.record(tick, cross, pos);
         if (snapshotEnabled && entry.claimShadowSample(tick)) {
-            BlockEntitySnapshotAdapter.shadow(level, pos);
+            BlockEntitySnapshotAdapter.shadow(level, pos, owner);
         }
     }
 
@@ -87,6 +89,7 @@ public final class CrossRefProbe {
     public static List<String> report(long currentTick, int limit) {
         List<String> lines = new ArrayList<>();
         lines.add(BlockEntitySnapshotAdapter.statsText() + " | last=" + BlockEntitySnapshotAdapter.lastSummary());
+        lines.add(BlockEntitySnapshotAdapter.candidatesText());
         List<Map.Entry<String, Entry>> sorted = new ArrayList<>(ENTRIES.entrySet());
         sorted.sort((a, b) -> Long.compare(b.getValue().total.sum(), a.getValue().total.sum()));
         int n = Math.min(limit, sorted.size());
