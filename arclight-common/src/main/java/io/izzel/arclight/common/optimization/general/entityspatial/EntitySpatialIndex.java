@@ -16,8 +16,8 @@ import java.util.List;
 
 /**
  * Lazily-built 4x4x4 sub-grid spatial index for one {@code EntitySection}, accelerating pure
- * AABB queries ({@code EntitySection.getEntities(AABB, consumer)}) and, as of entityspatial
- * phase 2 (audit doc §5.4), typed queries ({@code EntitySection.getEntities(EntityTypeTest, ...)}).
+ * AABB queries ({@code EntitySection.getEntities(AABB, consumer)}) and typed queries
+ * ({@code EntitySection.getEntities(EntityTypeTest, ...)}).
  *
  * <p>Each entity is assigned to a single cell by its {@code blockPosition()} low bits (4 blocks
  * per cell). Queries inflate the box by {@link CellMath#QUERY_INFLATE} and scan only covered
@@ -32,7 +32,7 @@ import java.util.List;
  * entity; self-inclusion is handled at the Level lambda layer and is untouched).
  *
  * <p><b>Typed queries</b> ({@link #query(EntityTypeTest, AABB, AbortableIterationConsumer, List)}):
- * instead of maintaining a class x cell composite bucket map (audit §5.4 sketch), we iterate the
+ * instead of maintaining a class x cell composite bucket map, we iterate the
  * vanilla per-class collection — obtained via {@code ClassInstanceMultiMap.find(getBaseClass())},
  * which is exact by construction (same lazy list, same order, same IllegalArgumentException on
  * invalid classes) — and skip members whose bounding-box center cell is outside the covered
@@ -41,7 +41,7 @@ import java.util.List;
  * costs one cell computation + mask check per class member and saves the {@code intersects} test
  * (and consumer accept) for out-of-range members; it is never worse than the vanilla typed scan,
  * and it keeps the vanilla class-collection order without sorting. The per-cell class buckets of
- * the audit sketch would only save the instanceof tryCast on foreign candidates — negligible
+ * a composite bucket map would only save the instanceof tryCast on foreign candidates — negligible
  * against the maintenance cost they would impose on every add/remove/rebome.
  *
  * <p>All mutation/query methods must be called under the owning section's lock (see
@@ -214,7 +214,7 @@ public final class EntitySpatialIndex<T extends EntityAccess> {
     }
 
     /**
-     * Typed query (entityspatial phase 2, audit §5.4): same inflate/covered-cell rule as
+     * Typed query: same inflate/covered-cell rule as
      * {@link #query(AABB, AbortableIterationConsumer)}, but iterating the vanilla per-class
      * collection {@code classCollection} (from the raw class list exposed by the section storage,
      * under the section write lock by the caller) and skipping members whose bounding-box center

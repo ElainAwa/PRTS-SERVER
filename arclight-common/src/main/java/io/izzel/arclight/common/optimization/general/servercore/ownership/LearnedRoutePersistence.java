@@ -20,7 +20,7 @@ import java.time.Instant;
 import java.util.List;
 
 /**
- * S3 阶段 1: 路由学习持久化 JSON 读写。
+ * 路由学习持久化 JSON 读写。
  * 将 ClassAffinityLedger 的 auto-learned routes 序列化到独立 JSON 文件，
  * 启动时加载恢复，避免与用户手工 force 列表混淆。
  */

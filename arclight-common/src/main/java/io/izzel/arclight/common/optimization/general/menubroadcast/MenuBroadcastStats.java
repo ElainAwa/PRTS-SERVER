@@ -9,7 +9,7 @@ import io.izzel.arclight.common.optimization.general.AsyncTaskStats;
 import org.apache.logging.log4j.LogManager;
 
 /**
- * Container-menu broadcast telemetry (audit doc §阶段5·5.6), prefix {@code [menu-broadcast]}.
+ * Container-menu broadcast telemetry, prefix {@code [menu-broadcast]}.
  * Written from {@code AbstractContainerMenu.broadcastChanges} on the main thread (thread-safe
  * counters), summarized via {@link #tick(long)}.
  */

@@ -14,7 +14,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
- * Read-only worldgen submission counter (S2.75 P0). Records every generation task
+ * Read-only worldgen submission counter. Records every generation task
  * submission regardless of whether the generation budget gate is active, so
  * {@code ChunkLoading genSubmitted}/{@code genSubmitMs} reflect real generation
  * pressure even under the default configuration.

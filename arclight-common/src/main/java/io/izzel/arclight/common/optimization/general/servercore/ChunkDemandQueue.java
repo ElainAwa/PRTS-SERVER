@@ -25,15 +25,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * 统一异步 Chunk 需求调度（v03）：所有线程的 chunk 生成请求改为异步提交——
- * 未就绪时注册等待 future 并返回空壳占位，主线程 tick / worldgen 完成生成后
- * 经 completeChunk 通知所有等待者（详见 docs/parallel-chunk-demand-scheduling-v01.md 附录 A）。
- *
- * <p>S2.75 P0-b（默认关，{@code parallel.chunk-demand-player-priority}）：按提交时到最近玩家
- * 的切比雪夫距离分 4 桶优先消费（≤ 8 / ≤32 / ≤128 / 其余）。距离为提交时快照，玩家移动后
- * 已排队需求不重排（新需求按新位置分桶，尾部自然跟上）；低桶队头超过 {@code starveNanos}
- * 即优先消费，保证有界等待（防高桶风暴饿死远端需求）。线程安全：分桶计算只在主线程
- * 读 {@code ServerLevel.players()}（{@code isSameThread()} 显式判定），非主线程提交一律落桶3。
+ * 统一异步 Chunk 需求调度：所有线程的 chunk 生成请求异步提交，未就绪时注册等待 future 并返回空壳占位，
+ * 生成完成后经 completeChunk 通知等待者；支持按提交时到最近玩家距离分 4 桶优先消费（默认关，
+ * {@code parallel.chunk-demand-player-priority}），低桶队头超龄优先消费防饿死。
  */
 public final class ChunkDemandQueue {
 
@@ -42,7 +36,7 @@ public final class ChunkDemandQueue {
     /** 主线程 tick 处理的 chunk 需求上限（配置 parallel.chunk-demand-per-tick）。 */
     public static volatile int maxPerTick = 50;
 
-    /** S2.75 P0-b：玩家距离优先级开关（配置 parallel.chunk-demand-player-priority）。 */
+    /** 玩家距离优先级开关（配置 parallel.chunk-demand-player-priority）。 */
     public static volatile boolean playerPriorityEnabled = false;
 
     /** 低桶队头超过该时长即优先消费（饿死兜底；配置 parallel.chunk-demand-starve-ticks 换算）。 */

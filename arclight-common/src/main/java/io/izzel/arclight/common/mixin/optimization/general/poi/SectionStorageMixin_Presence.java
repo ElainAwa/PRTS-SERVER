@@ -23,7 +23,7 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Per-chunk POI-section presence mask for {@code SectionStorage} (audit doc §阶段5·5.1).
+ * Per-chunk POI-section presence mask for {@code SectionStorage}.
  *
  * <p><b>Why</b>: vanilla 1.21.1 {@code PoiManager.getInChunk} walks every vertical section of
  * every chunk in the query square ({@code IntStream.range(minSection, maxSection)} →

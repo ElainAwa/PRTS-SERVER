@@ -67,7 +67,7 @@ public abstract class PersistentEntitySectionManagerMixin<T extends EntityAccess
         if (arclight$fireEvent) {
             ServerLevel level = ((EntityStorage) permanentStorage).level;
             List<Entity> entities = list.stream().map(entity -> (Entity) entity).collect(Collectors.toList());
-            // PRTS dimension parallelism (P2): Bukkit events must fire on the main thread;
+            // Dimension parallelism: Bukkit events must fire on the main thread;
             // defer when the entity unload happens inside a dimension tick worker.
             if (DimensionTickManager.isDimensionTickThread()) {
                 DimensionTickManager.enqueueEntitiesEvent(level, new ChunkPos(pos), entities, true);
@@ -91,7 +91,7 @@ public abstract class PersistentEntitySectionManagerMixin<T extends EntityAccess
     private void arclight$fireLoad(CallbackInfo ci, ChunkEntities<T> chunkEntities) {
         List<Entity> entities = getEntities(chunkEntities.getPos());
         ServerLevel level = ((EntityStorage) permanentStorage).level;
-        // PRTS dimension parallelism (P2): Bukkit events must fire on the main thread;
+        // Dimension parallelism: Bukkit events must fire on the main thread;
         // defer when the entity load happens inside a dimension tick worker.
         if (DimensionTickManager.isDimensionTickThread()) {
             DimensionTickManager.enqueueEntitiesEvent(level, chunkEntities.getPos(), entities, false);

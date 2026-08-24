@@ -24,7 +24,7 @@ import java.util.function.Predicate;
 import java.util.stream.Stream;
 
 /**
- * POI query fast path (audit doc §阶段5·5.1): {@code PoiManager.getInChunk} skips chunks known
+ * POI query fast path: {@code PoiManager.getInChunk} skips chunks known
  * to have no POI and iterates only present vertical sections for chunks that do.
  *
  * <p>Vanilla 1.21.1 {@code PoiSection} already buckets records by {@code PoiType}, so the

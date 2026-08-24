@@ -89,7 +89,7 @@ public abstract class PathFinderMixin_Async {
         // bucket at the next session start (AsyncPathfindingManager.drainRegion).
         if (serverThread) {
             AsyncPathfindingManager.drainIfNeeded(tick);
-            // S2.5 P1: 主线程单目标移动寻路也可异步（配置开启时），
+            // 主线程单目标移动寻路也可异步（配置开启时），
             // 否则被路由到主线程的 villager 每次都在主线程同步跑 A*。
             if (!PRTSFeaturesConfig.mainThreadPathAsync) {
                 access.arclight$clearPathKeep();

@@ -24,7 +24,7 @@ public final class EventBridgeStats {
             .counter("dispatcherRegister")     // gate 0→1: dispatcher put on the Forge bus
             .counter("dispatcherUnregister")   // gate 1→0: dispatcher removed from the bus
             .counter("forwardedEvents")        // bridge fully forwarded (listeners present)
-            .counter("skippedEvents")          // P0-2 precheck: no listeners -> construction skipped
+            .counter("skippedEvents")          // precheck: no listeners -> construction skipped
             .counter("capturedOnly")           // BlockBreak dispatcher: capture-chain only (no BlockBreakEvent listeners)
             .build();
 

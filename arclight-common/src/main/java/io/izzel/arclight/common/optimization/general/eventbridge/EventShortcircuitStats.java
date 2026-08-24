@@ -27,12 +27,12 @@ public final class EventShortcircuitStats {
             .counter("forwardedPre")       // EntityTickEvent.Pre fired (listeners present)
             .counter("forwardedPost")      // EntityTickEvent.Post fired (listeners present)
             .counter("neighborNotifySkipped") // NeighborNotifyEvent not fired (no listeners)
-            .counter("skippedBlockForm")      // P1-2: BlockFormEvent/EntityBlockFormEvent skipped (no listeners)
-            .counter("forwardedBlockForm")    // P1-2: BlockFormEvent/EntityBlockFormEvent fired (listeners present)
-            .counter("spawnPositionSkipped")  // P2-3: MobSpawnEvent.PositionCheck skipped, vanilla rules inlined
-            .counter("spawnPositionForwarded") // P2-3: PositionCheck fired (listeners present)
-            .counter("despawnSkipped")        // P2-3: MobDespawnEvent skipped, vanilla despawn continues
-            .counter("despawnForwarded")      // P2-3: MobDespawnEvent fired (listeners present)
+            .counter("skippedBlockForm")      // BlockFormEvent/EntityBlockFormEvent skipped (no listeners)
+            .counter("forwardedBlockForm")    // BlockFormEvent/EntityBlockFormEvent fired (listeners present)
+            .counter("spawnPositionSkipped")  // MobSpawnEvent.PositionCheck skipped, vanilla rules inlined
+            .counter("spawnPositionForwarded") // PositionCheck fired (listeners present)
+            .counter("despawnSkipped")        // MobDespawnEvent skipped, vanilla despawn continues
+            .counter("despawnForwarded")      // MobDespawnEvent fired (listeners present)
             .build();
 
     private EventShortcircuitStats() {

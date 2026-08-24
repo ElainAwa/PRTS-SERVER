@@ -9,7 +9,7 @@ import io.izzel.arclight.common.optimization.general.AsyncTaskStats;
 import org.apache.logging.log4j.LogManager;
 
 /**
- * Collision batch telemetry (audit doc §阶段5·5.2), prefix {@code [collision-batch]}.
+ * Collision batch telemetry, prefix {@code [collision-batch]}.
  * Written from the collide hot path (thread-safe counters), summarized from the main thread
  * via {@link #tick(long)}.
  */

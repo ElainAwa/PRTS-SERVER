@@ -17,7 +17,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * Region auto-scale entry: evaluates region load at the RETURN of
  * {@code MinecraftServer.tickChildren}, when all workers have latched back — the
  * safe window for {@link RegionTickManager#reconfigure}. No-op when the feature is
- * disabled. S4 uneven-stripes rebalance runs right after auto-scale at the same
+ * disabled. Uneven-stripes rebalance runs right after auto-scale at the same
  * window and skips the round when auto-scale changed the region count.
  */
 @Mixin(MinecraftServer.class)

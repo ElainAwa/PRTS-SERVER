@@ -25,7 +25,7 @@ import java.util.concurrent.atomic.LongAdder;
  * thread is a parallel tick worker and what to do under the configured policy.
  *
  * <p>Production default is {@link ThreadPolicy#STATS}: record and rate-limited
- * logging only, identical world behavior to v1.0.35.
+ * logging only, identical world behavior to the unguarded path.
  */
 public final class WorldAccessGuard {
 

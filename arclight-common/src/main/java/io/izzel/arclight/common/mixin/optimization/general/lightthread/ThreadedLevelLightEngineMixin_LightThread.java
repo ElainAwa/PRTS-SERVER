@@ -19,7 +19,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
- * S2.75 P0-a 光照线程化的配套补跑：light 任务 lambda（{@code runUpdate()} 后清
+ * 光照线程化的配套补跑：light 任务 lambda（{@code runUpdate()} 后清
  * {@code scheduled} 标志）执行完 RETURN 处再调一次 {@code tryScheduleUpdate()}，
  * 让光线程一次任务后连续消费存量工作，减少邮箱反复唤醒的开销。
  *

@@ -14,7 +14,7 @@ import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 
 /**
- * On-demand registration gate for the Forge event bridge (plan 2026-08-17 P0-1).
+ * On-demand registration gate for the Forge event bridge.
  *
  * <p>Each bridge dispatcher (registered by the platform layer through
  * {@link #registerGate(Class[])}) declares a "gate set" of Bukkit event classes it
@@ -53,7 +53,7 @@ public final class EventBridgeRegistry {
     private static final List<List<HandlerList>> GATES = new ArrayList<>();
     private static final List<Boolean> LAST_STATE = new ArrayList<>();
 
-    /** Class → static HandlerList resolution cache (P1-2 direct call sites use this). */
+    /** Class → static HandlerList resolution cache (direct call sites use this). */
     private static final ConcurrentMap<Class<? extends Event>, HandlerList> HANDLER_LISTS = new ConcurrentHashMap<>();
 
     private EventBridgeRegistry() {

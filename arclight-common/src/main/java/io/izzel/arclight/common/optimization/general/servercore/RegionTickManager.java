@@ -249,7 +249,11 @@ public final class RegionTickManager {
         final ConcurrentLinkedQueue<TickingBlockEntity>[] teTickQueues;
         volatile long appliedTick = -1L;
         volatile int[] lastEntityDist;
-        volatile long[] lastRegionTimingNanos;  // S2.9.1: per-region tick time (last entity session)
+        volatile long[] lastRegionTimingNanos;  // per-region tick time (last entity session)
+        // Per-tick submit budget breaker: submissions beyond journal-max-per-tick are
+        // dropped (counted, not queued); callers naturally retry next tick.
+        volatile long budgetTick = -1L;
+        final java.util.concurrent.atomic.LongAdder budgetUsed = new java.util.concurrent.atomic.LongAdder();
         // Auto-scale per-dimension counters (only overworld drives the decision).
         int lowPeriods = 0;
         long lastEvalTick = -1L;
@@ -258,7 +262,7 @@ public final class RegionTickManager {
 
         DimensionState(int n) {
             this.entityQueues = newQueues(n);
-            this.journal = new WorldWriteJournal(n, PRTSFeaturesConfig.journalMaxPerRegion);
+            this.journal = new WorldWriteJournal(n, PRTSFeaturesConfig.journalMaxPerRegion, PRTSFeaturesConfig.journalLwwDedup);
             this.blockTickQueues = newQueues(n);
             this.teTickQueues = newQueues(n);
             this.lastEntityDist = new int[n];
@@ -285,6 +289,7 @@ public final class RegionTickManager {
             .counter("ticks")
             .group("cross", "block", "redstone", "redstoneBoundary", "transfer", "read")
             .group("update", "blockTicks", "teTicks", "applied", "teMainTicks")
+            .group("journal", "lwwMerged", "budgetDropped")
             .timer("entities.mainThreadMs")
             .counter("colony.ticks")
             .timer("colony.ms")
@@ -415,13 +420,13 @@ public final class RegionTickManager {
         }
     }
 
-    // S4 rebalance cadence snapshot (overworld-driven; independent from auto-scale counters).
+    // Rebalance cadence snapshot (overworld-driven; independent from auto-scale counters).
     private static long lastRebalanceEvalTick = -1L;
     private static long reconfigureMillis = 0L;
     private static boolean lastRebalanceDenseSkipLogged = false;
 
     /**
-     * S4 uneven-stripes: moves one boundary group from the highest-load region to the
+     * Uneven-stripes rebalance: moves one boundary group from the highest-load region to the
      * lowest-load adjacent region. Runs AFTER {@link #evaluateAutoScale} at the same
      * tickChildren RETURN window; the caller skips this round when auto-scale changed the count.
      */
@@ -434,7 +439,7 @@ public final class RegionTickManager {
             return;
         }
         // Gate: per-region width already at the lower bound -> no group can be moved.
-        // S4 is movable only for N in {2,4} (N=8/16 give width=1 group/region).
+        // Movable only for N in {2,4} (N=8/16 give width=1 group/region).
         int stripeWidth = RegionLevel.stripeWidth();
         if (stripeWidth / regionCount <= PRTSFeaturesConfig.rebalanceMinGroups) {
             if (!lastRebalanceDenseSkipLogged) {
@@ -683,17 +688,17 @@ public final class RegionTickManager {
         queue.add(entity);
     }
 
-    /** 主线程 POST 阶段调用：执行本维度排队的主线程实体 tick。S2.9.2: 支持分批。 */
+    /** 主线程 POST 阶段调用：执行本维度排队的主线程实体 tick，支持分批。 */
     public static void drainMainThreadEntityTicks(ServerLevel level) {
         LinkedBlockingQueue<Entity> queue;
         synchronized (MAIN_THREAD_ENTITY_TICKS) {
-            queue = MAIN_THREAD_ENTITY_TICKS.get(level);  // S2.9.2: get (not remove), persist queue
+            queue = MAIN_THREAD_ENTITY_TICKS.get(level);  // get (not remove), persist queue
             if (queue == null) {
                 return;
             }
         }
         long start = Util.getNanos();
-        int queueDepth = queue.size();  // S2.9.1: capture before drain
+        int queueDepth = queue.size();  // capture before drain
         int budget = PRTSFeaturesConfig.mainThreadEntityDrainBudget;
         boolean batched = budget > 0;
         int processed = 0;
@@ -702,7 +707,7 @@ public final class RegionTickManager {
         RoutedDrainStats.Accumulator acc = MAIN_DRAIN_ACC;
         acc.setQueueDepth(queueDepth);
 
-        // S2.9.2: poll loop with budget cap (or unbounded if budget=0)
+        // Poll loop with budget cap (or unbounded if budget=0)
         Entity entity;
         while ((entity = queue.poll()) != null) {
             if (batched && processed >= budget) {
@@ -710,7 +715,7 @@ public final class RegionTickManager {
                 queue.offer(entity);
                 break;
             }
-            // S2.9.2: entity expiry validation (remove if invalid, don't tick)
+            // Entity expiry validation (remove if invalid, don't tick)
             if (entity.isRemoved() || entity.level() != level) {
                 skippedExpired++;
                 continue;
@@ -840,7 +845,7 @@ public final class RegionTickManager {
         if (EntityAffinity.isUnsafe(c.getName())) {
             return true;
         }
-        // 4) 种子前缀：v0.35 沉淀的手工知识，作为学习器的初始规则
+        // 4) 种子前缀：人工沉淀的主线程实体知识，作为学习器的初始规则
         Boolean seeded = MAIN_THREAD_ENTITY_CACHE.get(c);
         if (seeded == null) {
             seeded = matchesAnyPrefix(c, MAIN_THREAD_ENTITY_PREFIXES);
@@ -849,13 +854,13 @@ public final class RegionTickManager {
         if (seeded) {
             return true;
         }
-        // 5) 运行时学习：Phase 2 违规窗口超额路由（下 tick 起生效）
+        // 5) 运行时学习：违规窗口超额路由（下 tick 起生效）
         if (!"auto".equals(PRTSFeaturesConfig.mainThreadRouting)) {
             return false;
         }
         long tick = entity.level().getServer() != null ? entity.level().getServer().getTickCount() : 0L;
         String className = c.getName();
-        // S3.2: probation - override routed flag temporarily to test on worker
+        // Probation: override routed flag temporarily to test on worker
         if (ClassAffinityLedger.shouldProbation(className, tick)) {
             return false;  // Send to worker for probation tick
         }
@@ -864,7 +869,7 @@ public final class RegionTickManager {
 
     /**
      * Read-only classification of why an entity class is routed to the main thread
-     * (S2.9 P0 telemetry). Mirrors {@link #needsMainThreadTick} precedence without
+     * (attribution telemetry). Mirrors {@link #needsMainThreadTick} precedence without
      * side effects; returns a short stable label for attribution.
      */
     public static String routedReason(Class<?> c) {
@@ -945,7 +950,27 @@ public final class RegionTickManager {
         if (source == null || source.isEmpty()) {
             source = Thread.currentThread().getName();
         }
-        state(level).journal.submit(target, new WorldWriteJournal.Entry(pos, state, flags, tick, source));
+        DimensionState st = state(level);
+        // Budget breaker: cap per-dimension submissions per tick; dropped entries are
+        // retried by the caller next tick (the mixin returns false either way).
+        int budget = PRTSFeaturesConfig.journalMaxPerTick;
+        if (budget > 0) {
+            if (st.budgetTick != tick) {
+                synchronized (st) {
+                    if (st.budgetTick != tick) {
+                        st.budgetTick = tick;
+                        st.budgetUsed.reset();
+                    }
+                }
+            }
+            if (st.budgetUsed.sum() >= budget) {
+                st.journal.recordBudgetDrop();
+                STATS.increment("journal.budgetDropped");
+                return;
+            }
+            st.budgetUsed.increment();
+        }
+        st.journal.submit(target, new WorldWriteJournal.Entry(pos, state, flags, tick, source));
         STATS.increment("cross.block");
         if (isRedstone(state.getBlock())) {
             STATS.increment("cross.redstone");
@@ -953,6 +978,11 @@ public final class RegionTickManager {
                 STATS.increment("cross.redstoneBoundary");
             }
         }
+    }
+
+    /** LWW merge telemetry hook, called from WorldWriteJournal.submit under the queue lock. */
+    static void noteJournalLwwMerge() {
+        STATS.increment("journal.lwwMerged");
     }
 
     /** True if the column sits in a boundary group (neighboring group belongs to a different region). */
@@ -1220,7 +1250,7 @@ public final class RegionTickManager {
     /** Submits one worker per region, drains the given phase work, waits for all. */
     private static void runWorkers(ServerLevel level, boolean applyNow, IntConsumer work) {
         IN_REGION_TICK.set(true);
-        long[] regionTimings = new long[REGION_COUNT];  // S2.9.1: per-region timing
+        long[] regionTimings = new long[REGION_COUNT];  // per-region timing
         try {
             CountDownLatch latch = new CountDownLatch(REGION_COUNT);
             AtomicReference<Throwable> failure = new AtomicReference<>();
@@ -1247,7 +1277,7 @@ public final class RegionTickManager {
                             // Apply this region's async pathfinding results on the region
                             // worker before ticking, same-thread with entity ticks.
                             AsyncPathfindingManager.drainRegion(region, level.getGameTime());
-                            long regionWorkStart = Util.getNanos();  // S2.9.1: time just the work phase
+                            long regionWorkStart = Util.getNanos();  // time just the work phase
                             work.accept(region);
                             regionTimings[region] = Util.getNanos() - regionWorkStart;
                             STATS.record("region" + region, Util.getNanos() - start);
@@ -1265,7 +1295,7 @@ public final class RegionTickManager {
                     latch.countDown();
                 }
             }
-            // S2.9.1: measure barrier wait (main thread blocked for slowest region)
+            // Measure barrier wait (main thread blocked for slowest region)
             long barrierStart = Util.getNanos();
             try {
                 if (!latch.await(PRTSFeaturesConfig.barrierTimeoutMs, TimeUnit.MILLISECONDS)) {
@@ -1291,7 +1321,7 @@ public final class RegionTickManager {
             drainScheduleTasks();
             STATS.tick(level.getServer() == null ? 0 : level.getServer().getTickCount());
             EventBusStats.tickIfNeeded(level.getServer() == null ? 0 : level.getServer().getTickCount());
-            // S2.9.1: save per-region timing for status display
+            // Save per-region timing for status display
             state(level).lastRegionTimingNanos = regionTimings;
         } finally {
             IN_REGION_TICK.set(false);
@@ -1320,7 +1350,7 @@ public final class RegionTickManager {
         }
         String className = entity.getClass().getName();
         CURRENT_ENTITY_CLASS.set(className);
-        // S3.2: Check if this tick is a probation attempt
+        // Check if this tick is a probation attempt
         long tick = level.getServer() != null ? level.getServer().getTickCount() : 0L;
         boolean isProbation = ClassAffinityLedger.shouldProbation(className, tick);
         if (isProbation) {
@@ -1341,7 +1371,7 @@ public final class RegionTickManager {
                     className, t.toString());
         } finally {
             CURRENT_ENTITY_CLASS.remove();
-            // S3.2: Exit probation and check result
+            // Exit probation and check result
             if (isProbation) {
                 boolean hadViolation = ClassAffinityLedger.exitProbation(className);
                 if (hadViolation) {
@@ -1413,7 +1443,7 @@ public final class RegionTickManager {
                 STATS.counterSum("entities.addExpired"));
     }
 
-    /** S2.9.1: Per-region load distribution for /servercore status (overworld, last entity session). */
+    /** Per-region load distribution for /servercore status (overworld, last entity session). */
     public static String regionLoadStatusText(net.minecraft.server.MinecraftServer server) {
         ServerLevel overworld = server != null ? server.overworld() : null;
         if (overworld == null || !regionEnabled()) {

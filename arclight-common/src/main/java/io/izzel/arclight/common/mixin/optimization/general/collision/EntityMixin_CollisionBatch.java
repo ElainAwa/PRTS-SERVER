@@ -27,7 +27,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import java.util.List;
 
 /**
- * Collision shape collection batching (audit doc §阶段5·5.2): cache the block-shape collection
+ * Collision shape collection batching: cache the block-shape collection
  * of the first {@code collectColliders} call inside one {@code collide} frame and serve the
  * step-up branch from it, fetching only the vertical delta cap above the cached region.
  *

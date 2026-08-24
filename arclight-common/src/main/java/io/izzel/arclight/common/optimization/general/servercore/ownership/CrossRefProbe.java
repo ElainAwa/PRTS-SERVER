@@ -18,7 +18,7 @@ import java.util.concurrent.atomic.LongAdder;
 
 /**
  * Samples getBlockEntity accesses on region/dimension workers, bucketing each
- * caller (owner) into cross-region vs within-region hits to scope S6 shim design.
+ * caller (owner) into cross-region vs within-region hits to scope shim design.
  * Its on/off state is independent of the ownership guard's thread policy.
  */
 public final class CrossRefProbe {

@@ -35,7 +35,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 /**
- * S2.75 P0-a 光照线程化：把 light 任务邮箱与任务排序器的执行器从共享后台池
+ * 光照线程化：把 light 任务邮箱与任务排序器的执行器从共享后台池
  * （{@code Util.backgroundExecutor()}，worldgen 任务同池）迁到每维度独立单线程，
  * 隔离光照传播与世界生成的线程池争抢（默认关，配置 {@code lighting.threaded}）。
  *

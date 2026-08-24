@@ -27,7 +27,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * re-evaluation runs on the main thread inside the same call stack (a plugin enable /
  * disable / reload). The dispatcher registration that follows is synchronous, which
  * makes the "listener registered but dispatcher not yet on the bus" window
- * unreachable (plan §4.3 mitigation).</p>
+ * unreachable.</p>
  */
 @Mixin(value = HandlerList.class, remap = false)
 public abstract class HandlerListMixin_EventBridge {

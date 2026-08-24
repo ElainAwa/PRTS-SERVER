@@ -26,7 +26,7 @@ public class PRTSFeatures {
 
     public static void start() {
         PRTSFeaturesConfig.init();
-        io.izzel.arclight.common.optimization.general.servercore.ownership.LearnedRoutePersistence.loadOnStartup();  // S3: 启动时加载 learned routes
+        io.izzel.arclight.common.optimization.general.servercore.ownership.LearnedRoutePersistence.loadOnStartup();  // 启动时加载 learned routes
         EntityClear.start();
         WatchMohist.start();
         registerCommands();

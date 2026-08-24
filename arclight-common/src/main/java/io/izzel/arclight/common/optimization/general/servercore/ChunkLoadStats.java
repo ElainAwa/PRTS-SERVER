@@ -10,7 +10,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.LongAdder;
 
 /**
- * Read-only instrumentation for the chunk-load pipeline (S2.75 P0). Records where
+ * Read-only instrumentation for the chunk-load pipeline. Records where
  * time and volume go across demand queueing, main-thread install, worldgen submit,
  * and async region I/O, without changing any threading or lifecycle behaviour.
  */
@@ -20,7 +20,7 @@ public final class ChunkLoadStats {
     private static final LongAdder DEMAND_DEDUPED = new LongAdder();
     private static final LongAdder DEMAND_DROPPED = new LongAdder();
     private static final LongAdder DEMAND_POLLED = new LongAdder();
-    /** S2.75 P0-b：按优先级桶统计的消费数（0=最近玩家 → 3=最远/未知）。 */
+    /** 按优先级桶统计的消费数（0=最近玩家 → 3=最远/未知）。 */
     private static final LongAdder[] BUCKET_POLLED = {new LongAdder(), new LongAdder(), new LongAdder(), new LongAdder()};
     /** 饿死兜底（队头超龄优先消费）触发次数。 */
     private static final LongAdder STARVED_POLLED = new LongAdder();

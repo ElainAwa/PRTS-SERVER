@@ -9,7 +9,7 @@ import io.izzel.arclight.common.optimization.general.AsyncTaskStats;
 import org.apache.logging.log4j.LogManager;
 
 /**
- * POI query fast-path telemetry (audit doc §阶段5·5.1), prefix {@code [poi-query]}.
+ * POI query fast-path telemetry, prefix {@code [poi-query]}.
  * Written from query/load paths (thread-safe counters), summarized from the main thread
  * via {@link #tick(long)}.
  */

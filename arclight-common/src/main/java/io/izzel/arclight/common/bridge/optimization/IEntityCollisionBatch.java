@@ -8,7 +8,7 @@ package io.izzel.arclight.common.bridge.optimization;
 import io.izzel.arclight.common.optimization.general.collision.CollisionBatch;
 
 /**
- * Per-entity collision batch holder (audit doc §阶段5·5.2). Implemented by
+ * Per-entity collision batch holder. Implemented by
  * {@code EntityMixin_CollisionBatch}; the batch lives only for the duration of one
  * {@code Entity.collide} frame and is null outside of it.
  */

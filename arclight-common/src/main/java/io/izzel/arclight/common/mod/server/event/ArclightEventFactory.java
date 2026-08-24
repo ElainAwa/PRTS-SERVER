@@ -90,12 +90,12 @@ public abstract class ArclightEventFactory {
             return null;
         }
 
-        // P1-2 direct call-site precheck (plan 2026-08-17 §七, A-11): this is the shared
+        // Direct call-site precheck: this is the shared
         // funnel for the 8 callBlockFormEvent call sites (Liquid/Lava/ConcretePowder/
         // ServerLevel/SnowGolem/ReplaceBlock/ReplaceDisk/LivingEntity/CraftEventFactory).
         // BlockFormEvent / EntityBlockFormEvent fire into the Bukkit side (not the Forge
         // bus), so the precheck is against the Bukkit HandlerList — an O(1) volatile array
-        // read (same as the P0-2 dispatcher prechecks). Every verified caller guards the
+        // read (same as the dispatcher prechecks). Every verified caller guards the
         // result with `event != null && event.isCancelled()`, so returning null when no
         // plugin listens is observationally identical to firing into an empty bus (zero
         // construction + zero dispatch). The worldgen suppression above is preserved.

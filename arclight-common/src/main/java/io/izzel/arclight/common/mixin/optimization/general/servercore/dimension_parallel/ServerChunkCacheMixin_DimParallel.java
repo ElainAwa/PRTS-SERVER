@@ -103,7 +103,7 @@ public abstract class ServerChunkCacheMixin_DimParallel implements io.izzel.arcl
     }
 
     /**
-     * v03 统一异步调度：并行开启时拦截所有 getChunk（含主线程），未就绪不再进入
+     * 统一异步调度：并行开启时拦截所有 getChunk（含主线程），未就绪不再进入
      * 原版生成管线（避免 applyStep/completeFuture 竞争自旋）——注册需求 + 等待
      * future，required 有界等待 50ms，超时返回空壳；生成完成经 completeChunk 通知。
      */

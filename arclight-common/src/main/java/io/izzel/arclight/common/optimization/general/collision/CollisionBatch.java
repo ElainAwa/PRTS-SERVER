@@ -12,8 +12,7 @@ import net.minecraft.world.phys.shapes.VoxelShape;
 import java.util.List;
 
 /**
- * One {@code Entity.collide} frame's worth of pre-collected collision shapes (audit doc
- * §阶段5·5.2).
+ * One {@code Entity.collide} frame's worth of pre-collected collision shapes.
  *
  * <p>Vanilla 1.21.1 already collects block shapes once ({@code collideBoundingBox} →
  * {@code collectColliders}) and clips per axis, but the step-up branch of {@code collide}

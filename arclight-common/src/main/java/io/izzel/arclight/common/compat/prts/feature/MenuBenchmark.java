@@ -3,7 +3,7 @@
  * Copyright (c) 2024-2026 ElainAwa
  *
  * Synthetic container-menu broadcast benchmark for the menu-broadcast precheck
- * (audit doc §阶段5·5.6, P3). Driven by {@code /prtsfeatures menubench}.
+ * Driven by {@code /prtsfeatures menubench}.
  */
 
 package io.izzel.arclight.common.compat.prts.feature;

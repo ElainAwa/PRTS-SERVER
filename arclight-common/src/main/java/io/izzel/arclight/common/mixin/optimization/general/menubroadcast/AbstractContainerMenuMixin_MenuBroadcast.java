@@ -23,7 +23,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import java.util.List;
 
 /**
- * Container-menu broadcast all-equal precheck (audit doc §阶段5·5.6): skip the whole vanilla
+ * Container-menu broadcast all-equal precheck: skip the whole vanilla
  * {@code broadcastChanges} loop when nothing changed since the last broadcast.
  *
  * <p>Vanilla 1.21.1 {@code broadcastChanges} walks <em>every</em> slot once per tick per open
@@ -50,7 +50,7 @@ import java.util.List;
  *   <li><b>No stale state</b>: the data-slot snapshot is refreshed whenever the vanilla path
  *       runs (RETURN), and lazily resized; {@code suppressRemoteUpdates} (client bulk-update
  *       window) defers to vanilla entirely.</li>
- *   <li><b>Config-gated</b>: {@code menu-broadcast.enabled} (default off — P3 "measure first",
+ *   <li><b>Config-gated</b>: {@code menu-broadcast.enabled} (default off — "measure first",
  *       enable after a production profile shows broadcast cost), telemetry via
  *       {@code [menu-broadcast]}.</li>
  * </ul>

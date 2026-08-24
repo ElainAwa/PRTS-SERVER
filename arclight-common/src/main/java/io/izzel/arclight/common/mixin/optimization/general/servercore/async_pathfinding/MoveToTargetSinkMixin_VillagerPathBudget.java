@@ -52,7 +52,7 @@ public abstract class MoveToTargetSinkMixin_VillagerPathBudget {
     @Inject(method = "tryComputePath", at = @At("RETURN"))
     private void arclight$finishMovePath(Mob mob, WalkTarget walkTarget, long gameTime, CallbackInfoReturnable<Boolean> cir) {
         VillagerPathBudget.finish(mob);
-        // S2.5 P1: 异步提交时 createPath 返回 null（结果下 tick 才到），vanilla 会误写
+        // 异步提交时 createPath 返回 null（结果下 tick 才到），vanilla 会误写
         // CANT_REACH_WALK_TARGET_SINCE 标记，导致行为异常一 tick。pending 时擦掉。
         if (!cir.getReturnValue() && mob.getNavigation() instanceof io.izzel.arclight.common.optimization.general.servercore.PathNavigationAccess access
                 && access.arclight$isAsyncPending()) {

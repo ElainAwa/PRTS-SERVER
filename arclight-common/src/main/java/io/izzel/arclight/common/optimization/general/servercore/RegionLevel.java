@@ -21,7 +21,7 @@ public final class RegionLevel {
     /** Chunk-column stripe width. 8 for N<=8, grows to N for N=16 (default behavior unchanged). */
     static volatile int STRIPE_WIDTH = 8;
 
-    // S4 不等宽条带：group -> regionId 映射表。缺省等分时与除法逐位一致；
+    // 不等宽条带：group -> regionId 映射表。缺省等分时与除法逐位一致；
     // 仅在主线程安全窗内整体替换引用（volatile 写），regionId 读不可变数组内容，无锁无竞态。
     private static volatile int[] groupRegion;
 

@@ -67,19 +67,19 @@ public class PRTSFeaturesConfig {
     public static int colonyNpcWorkInterval;
     /** 村民主线程 POI / 单目标寻路预算（每 tick；0 = 关闭）。 */
     public static int villagerPoiPathBudget;
-    /** S2.9.2: 主线程 routed entity drain 每 tick 处理上限（0 = 不分批，全量 drain）。 */
+    /** 主线程 routed entity drain 每 tick 处理上限（0 = 不分批，全量 drain）。 */
     public static int mainThreadEntityDrainBudget;
-    /** S2.5 P1: 主线程单目标移动寻路异步化（routed villager 主线程 A* 削峰；默认关）。 */
+    /** 主线程单目标移动寻路异步化（routed villager 主线程 A* 削峰；默认关）。 */
     public static boolean mainThreadPathAsync;
-    /** S3.1: learned routes JSON 文件路径。 */
+    /** learned routes JSON 文件路径。 */
     public static String learnedRoutesFile;
-    /** S3.1: 最多持久化的 learned routes 数量。 */
+    /** 最多持久化的 learned routes 数量。 */
     public static int learnedRoutesLimit;
-    /** S3.2: 启用双向 probation（自动路由类定期试跑 worker，无违规则解除路由）。 */
+    /** 启用双向 probation（自动路由类定期试跑 worker，无违规则解除路由）。 */
     public static boolean routeProbationEnabled;
-    /** S3.2: probation 间隔（tick）。 */
+    /** probation 间隔（tick）。 */
     public static int routeProbationTicks;
-    /** S3.2: 允许 probation 的最大历史违规数（超过此值的类不做 probation）。 */
+    /** 允许 probation 的最大历史违规数（超过此值的类不做 probation）。 */
     public static int routeProbationMaxViolations;
     /** 殖民地管理器 ServerTick 事件里的 getAllColonies 快照缓存（默认关；测试服 A/B 后定默认）。 */
     public static boolean colonyManagerTickCacheEnabled;
@@ -89,7 +89,7 @@ public class PRTSFeaturesConfig {
     public static boolean eventBusTelemetryEnabled;
     /** 主线程每 tick 处理的 chunk 需求上限（统一需求调度，默认 50）。 */
     public static int chunkDemandPerTick;
-    /** S2.75 P0-b: chunk 需求玩家距离优先级（分 4 桶优先消费，默认关）。 */
+    /** chunk 需求玩家距离优先级（分 4 桶优先消费，默认关）。 */
     public static boolean chunkDemandPlayerPriority;
     /** 低优先级桶队头超龄即优先消费的阈值（tick，饿死兜底）。 */
     public static int chunkDemandStarveTicks;
@@ -102,7 +102,7 @@ public class PRTSFeaturesConfig {
     public static int regionScaleMin;
     public static int regionScaleMax;
     public static double regionScaleCrossReadRatio;
-    /** S4 不等宽条带：组内边界重平衡总开关（默认关）。 */
+    /** 不等宽条带：组内边界重平衡总开关（默认关）。 */
     public static boolean unevenStripes;
     public static long rebalanceIntervalSeconds;
     public static int rebalanceMaxMoves;
@@ -138,6 +138,10 @@ public class PRTSFeaturesConfig {
     public static boolean persistLearnedRoutes;
     /** 跨区写 journal 每区域队列上限（最旧条目丢弃，默认 4096）。 */
     public static int journalMaxPerRegion;
+    /** 跨区写 journal LWW 去重——同 pos 未应用条目合并为最新一条（默认开；关=逐条排队旧行为）。 */
+    public static boolean journalLwwDedup;
+    /** 跨区写 journal 每维度每 tick 提交上限（超出丢弃计 budgetDropped，下 tick 调用方自然重提；0=不限，默认 512）。 */
+    public static int journalMaxPerTick;
     /** read-your-writes overlay 总开关（默认关，仅预留接口，未接入方块读路径）。 */
     public static boolean journalReadBack;
     /** 确定性模式：跨区 journal 按区域序在主调度线程统一应用（默认关）。 */
@@ -180,7 +184,7 @@ public class PRTSFeaturesConfig {
     public static int lightBudgetPerTick;
     /** 采集光照队列长度/耗时进 AsyncTaskStats（[light-engine] 日志）。 */
     public static boolean lightTelemetryEnabled;
-    /** S2.75 P0-a: 独立光照线程——light 邮箱 + 任务排序器迁出共享后台池，
+    /** 独立光照线程——light 邮箱 + 任务排序器迁出共享后台池，
      *  隔离光照传播与 worldgen 线程池争抢（每维度一个守护线程，默认关）。 */
     public static boolean lightThreadEnabled;
 
@@ -211,24 +215,24 @@ public class PRTSFeaturesConfig {
     /** 采集命中/增量/全量计数进 AsyncTaskStats（[collision-batch] 日志）。 */
     public static boolean collisionBatchTelemetryEnabled;
 
-    // Menu broadcast precheck - AbstractContainerMenu.broadcastChanges 全等预检短路（P3，默认关）。
+    // Menu broadcast precheck - AbstractContainerMenu.broadcastChanges 全等预检短路（默认关）。
     // 1.21.1 的 broadcastChanges 每 tick 对每个打开菜单全量遍历所有槽位：每槽 getItem +
     // requireNonNull + memoize lambda 分配，随后 triggerSlotListeners/synchronizeSlotToRemote
     // 内部都做 lastSlots diff（无变化时纯浪费，但 lambda 已分配）。本优化在 HEAD 用与原版
     // 逐条等价的判定（lastSlots/remoteCarried/dataSlots 值缓存）预检：全部相等 = 原版循环
     // 必然无动作，直接跳过整个循环。语义逐位一致（预检不是脏槽跟踪，是全量 diff 的提前
-    // 等价物——mod 直写容器同样被同一 diff 捕获，零漏检）。默认关：P3 定位「先实测归因」，
+    // 等价物——mod 直写容器同样被同一 diff 捕获，零漏检）。默认关：定位「先实测归因」，
     // 生产服 spark 确认 broadcastChanges 子树占比后再开。
     public static boolean menuBroadcastEnabled;
     /** 采集短路/全量/槽位检查数进 AsyncTaskStats（[menu-broadcast] 日志）。 */
     public static boolean menuBroadcastTelemetryEnabled;
 
-    // Event bridge on-demand registration (P0-1, 2026-08-17 计划稿 §四).
+    // Event bridge on-demand registration.
     // Arclight 的 5 个 Forge 桥 dispatcher 从「启动时无条件注册」改为按「有插件在听对应
     // Bukkit 事件」按需注册/注销（SimplePluginManager 注册/注销路径挂钩，0→1 注册、1→0
     // 注销）。无插件监听的服务器上 Forge 事件照发、mod 监听器照收，只是桥自己的监听器
     // 不在总线上——桥开销（CraftBlock/事件构造 + 空派发 + 回写）整块归零。
-    // P0-2 防御层：dispatcher 入口 O(1) 空监听器预检（HandlerList 空则跳过构造+派发）。
+    // 防御层：dispatcher 入口 O(1) 空监听器预检（HandlerList 空则跳过构造+派发）。
     // 兼容红线：事件数量与时机零变化（只动 Arclight 自己的监听器是否在总线）。
     public static boolean eventBridgeOnDemandEnabled;
     /** 恢复 mod 加载期常驻注册（顺序敏感场景的逃生门）。 */
@@ -236,7 +240,7 @@ public class PRTSFeaturesConfig {
     /** 采集转发/跳过/注册注销计数进 [event-bridge] 日志。 */
     public static boolean eventBridgeTelemetryEnabled;
 
-    // Event short-circuit (P1-3/P1-4, 2026-08-17 计划稿 §8.5).
+    // Event short-circuit.
     // EntityTickEvent（每实体每 tick ×2，频率之王）与 NeighborNotifyEvent（结果被丢弃）
     // 在无监听器时短路掉事件构造与 post——零语义风险（无监听器 = Pre 恒未取消 = tick 照跑；
     // onNeighborNotify 的 isCanceled 结果原代码直接丢弃）。
@@ -244,9 +248,9 @@ public class PRTSFeaturesConfig {
     public static boolean eventShortcircuitNeighborNotifyEnabled;
     /** 采集短路/转发计数进 [event-shortcircuit] 日志。 */
     public static boolean eventShortcircuitTelemetryEnabled;
-    /** P1-2 直接调用点短路：callBlockFormEvent（BlockFormEvent/EntityBlockFormEvent）无监听器时返回 null。 */
+    /** 直接调用点短路：callBlockFormEvent（BlockFormEvent/EntityBlockFormEvent）无监听器时返回 null。 */
     public static boolean eventShortcircuitBlockFormEnabled;
-    /** P2-3 刷怪事件短路：MobSpawnEvent.PositionCheck / MobDespawnEvent 无监听器时跳过构造与派发（内联原版判定结果）。 */
+    /** 刷怪事件短路：MobSpawnEvent.PositionCheck / MobDespawnEvent 无监听器时跳过构造与派发（内联原版判定结果）。 */
     public static boolean eventShortcircuitMobSpawnEnabled;
 
     /** 幂等守卫：主维度 ChunkMap 在 createLevels HEAD 就需要本配置，
@@ -363,12 +367,16 @@ public class PRTSFeaturesConfig {
                 mainThreadRouting, routeThreshold, routeWindowTicks,
                 mainThreadEntityForce.size(), mainThreadEntityAllow.size(), persistLearnedRoutes);
         journalMaxPerRegion = Math.max(16, config.getInt("parallel.journal-max-per-region", 4096));
+        journalLwwDedup = config.getBoolean("parallel.journal-lww-dedup", true);
+        journalMaxPerTick = Math.max(0, config.getInt("parallel.journal-max-per-tick", 512));
+        LOGGER.info("parallel journal lww-dedup={} max-per-tick={} max-per-region={}",
+                journalLwwDedup, journalMaxPerTick, journalMaxPerRegion);
         journalReadBack = config.getBoolean("parallel.journal-read-back", false);
         determinismMode = config.getBoolean("parallel.determinism-mode", false);
         beParallelAllow = new ArrayList<>(config.getStringList("parallel.be-parallel-allow"));
         beMainThreadForce = new ArrayList<>(config.getStringList("parallel.be-main-thread-force"));
         if (beMainThreadForce.isEmpty()) {
-            // spike 实测：create:track 单次 tick 最大 342ms（列车图全局计算），铁主线程。
+            // 实测：create:track 单次 tick 最大 342ms（列车图全局计算），铁主线程。
             beMainThreadForce.add("create:track");
             // 灰度实测：lootr:lootr_chest 在 worker 上复现 ReportedException
             // （08-16 13:18），安全阀兜住后永久 unsafe——默认直接锁主线程。
@@ -426,7 +434,7 @@ public class PRTSFeaturesConfig {
                 eventShortcircuitEntityTickEnabled, eventShortcircuitNeighborNotifyEnabled);
     }
 
-    /** S3: Persist learned routes to independent JSON file (replaces old YAML append logic). */
+    /** Persist learned routes to independent JSON file (replaces old YAML append logic). */
     public static void persistLearnedRoutes() {
         try {
             io.izzel.arclight.common.optimization.general.servercore.ownership.LearnedRoutePersistence.saveOnShutdown();
@@ -539,6 +547,8 @@ public class PRTSFeaturesConfig {
                   main-thread-entity-allow: []     # 强制不路由的类名/前缀（危险调试用）
                   persist-learned-routes: false    # 停机时把学到的路由写回配置（仅实体类，最多 200 条）
                   journal-max-per-region: 4096     # 跨区写 journal 每区域队列上限（最旧丢弃）
+                  journal-lww-dedup: true          # 同 pos 未应用条目 LWW 合并（重试风暴主防线，默认开）
+                  journal-max-per-tick: 512        # 每维度每 tick 提交上限（超出丢弃计 budgetDropped，0=不限）
                   journal-read-back: false         # read-your-writes overlay（预留接口，默认关）
                   determinism-mode: false           # 确定性模式：跨区 journal 按区域序在调度线程统一应用（默认关）
                   be-parallel-allow: []            # BE 三档：允许 region worker tick 的类型（registry key 或前缀*）

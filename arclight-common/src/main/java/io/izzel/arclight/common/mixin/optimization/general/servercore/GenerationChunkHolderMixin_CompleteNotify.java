@@ -20,7 +20,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
  * 生成完成通知：chunk 状态推进完成后唤醒所有等待该 chunk 的异步调用方
- * （v03 统一异步调度的回调桥）。
+ * （统一异步调度的回调桥）。
  */
 @Mixin(GenerationChunkHolder.class)
 public abstract class GenerationChunkHolderMixin_CompleteNotify {

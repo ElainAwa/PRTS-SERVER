@@ -12,38 +12,41 @@ import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.block.state.BlockState;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.LongAdder;
 
 /**
- * Cross-region world-write journal. Region workers submit block writes that land
- * outside their authoritative region; the owning region's worker applies them at
- * the start of its next session.
- *
- * <p>Bounds and observability: each per-region queue has a hard cap (oldest entry
- * dropped), entries are discarded when their target chunk is no longer live, and
- * submitted/applied/dropped counters feed /servercore status.</p>
+ * Cross-region world-write journal: workers submit block writes outside their region;
+ * the owning region's worker applies them next tick. Queues are bounded (oldest dropped),
+ * entries targeting unloaded chunks are discarded; with LWW dedup, repeated writes to the
+ * same pending pos collapse to the newest entry before application (last-write-wins).
  */
 public final class WorldWriteJournal {
 
     public record Entry(BlockPos pos, BlockState state, int flags, long submitTick, String sourceClass) {
     }
 
-    private final ConcurrentLinkedQueue<Entry>[] queues;
+    /** lwwDedup on: LinkedHashMap<BlockPos, Entry> (pos-keyed, insertion-ordered); off: ConcurrentLinkedQueue<Entry>. */
+    private final Object[] queues;
+    private final boolean lwwDedup;
     private final int maxPerRegion;
     private final LongAdder submitted = new LongAdder();
     private final LongAdder applied = new LongAdder();
     private final LongAdder droppedOverflow = new LongAdder();
     private final LongAdder droppedUnloaded = new LongAdder();
     private final LongAdder failed = new LongAdder();
+    private final LongAdder lwwMerged = new LongAdder();
+    private final LongAdder budgetDropped = new LongAdder();
 
     @SuppressWarnings("unchecked")
-    public WorldWriteJournal(int regionCount, int maxPerRegion) {
+    public WorldWriteJournal(int regionCount, int maxPerRegion, boolean lwwDedup) {
         this.maxPerRegion = Math.max(16, maxPerRegion);
-        this.queues = new ConcurrentLinkedQueue[Math.max(1, regionCount)];
+        this.lwwDedup = lwwDedup;
+        this.queues = new Object[Math.max(1, regionCount)];
         for (int i = 0; i < this.queues.length; i++) {
-            this.queues[i] = new ConcurrentLinkedQueue<>();
+            this.queues[i] = lwwDedup ? new LinkedHashMap<BlockPos, Entry>() : new ConcurrentLinkedQueue<Entry>();
         }
     }
 
@@ -51,13 +54,31 @@ public final class WorldWriteJournal {
         if (regionId < 0 || regionId >= this.queues.length) {
             return false;
         }
-        ConcurrentLinkedQueue<Entry> queue = this.queues[regionId];
-        synchronized (queue) {
-            if (queue.size() >= this.maxPerRegion) {
-                queue.poll();
-                this.droppedOverflow.increment();
+        if (this.lwwDedup) {
+            @SuppressWarnings("unchecked")
+            LinkedHashMap<BlockPos, Entry> map = (LinkedHashMap<BlockPos, Entry>) this.queues[regionId];
+            synchronized (map) {
+                if (map.size() >= this.maxPerRegion) {
+                    map.remove(map.keySet().iterator().next());
+                    this.droppedOverflow.increment();
+                }
+                // Same-pos pending entry collapses to the newest write (LWW, pre-apply).
+                if (map.remove(entry.pos()) != null) {
+                    this.lwwMerged.increment();
+                    RegionTickManager.noteJournalLwwMerge();
+                }
+                map.put(entry.pos(), entry);
             }
-            queue.add(entry);
+        } else {
+            @SuppressWarnings("unchecked")
+            ConcurrentLinkedQueue<Entry> queue = (ConcurrentLinkedQueue<Entry>) this.queues[regionId];
+            synchronized (queue) {
+                if (queue.size() >= this.maxPerRegion) {
+                    queue.poll();
+                    this.droppedOverflow.increment();
+                }
+                queue.add(entry);
+            }
         }
         this.submitted.increment();
         return true;
@@ -68,16 +89,32 @@ public final class WorldWriteJournal {
         if (regionId < 0 || regionId >= this.queues.length) {
             return 0;
         }
-        ConcurrentLinkedQueue<Entry> queue = this.queues[regionId];
-        List<Entry> batch = new ArrayList<>();
-        synchronized (queue) {
-            Entry entry;
-            while ((entry = queue.poll()) != null) {
-                batch.add(entry);
+        List<Entry> batch;
+        if (this.lwwDedup) {
+            @SuppressWarnings("unchecked")
+            LinkedHashMap<BlockPos, Entry> map = (LinkedHashMap<BlockPos, Entry>) this.queues[regionId];
+            synchronized (map) {
+                if (map.isEmpty()) {
+                    return 0;
+                }
+                // Snapshot + clear under the same lock: the batch is dequeued, so any
+                // concurrent submit starts a fresh entry instead of merging into it.
+                batch = new ArrayList<>(map.values());
+                map.clear();
             }
-        }
-        if (batch.isEmpty()) {
-            return 0;
+        } else {
+            @SuppressWarnings("unchecked")
+            ConcurrentLinkedQueue<Entry> queue = (ConcurrentLinkedQueue<Entry>) this.queues[regionId];
+            batch = new ArrayList<>();
+            synchronized (queue) {
+                Entry entry;
+                while ((entry = queue.poll()) != null) {
+                    batch.add(entry);
+                }
+            }
+            if (batch.isEmpty()) {
+                return 0;
+            }
         }
         int appliedNow = 0;
         for (Entry entry : batch) {
@@ -107,9 +144,11 @@ public final class WorldWriteJournal {
     }
 
     public boolean isEmpty() {
-        for (ConcurrentLinkedQueue<Entry> queue : this.queues) {
-            if (!queue.isEmpty()) {
-                return false;
+        for (Object queue : this.queues) {
+            synchronized (queue) {
+                if (this.lwwDedup ? !((LinkedHashMap<?, ?>) queue).isEmpty() : !((ConcurrentLinkedQueue<?>) queue).isEmpty()) {
+                    return false;
+                }
             }
         }
         return true;
@@ -121,26 +160,40 @@ public final class WorldWriteJournal {
         }
         // Read-your-writes interface (not wired into the block-read path yet; the
         // parallel.journal-read-back option keeps it opt-in for a future mod-level
-        // integration). Linear scan is acceptable because callers are expected to
-        // enable it only for small queues / specific mods.
-        for (Entry entry : this.queues[regionId]) {
-            if (entry.pos().equals(pos)) {
-                return true;
+        // integration). Small bounded queues keep the scan cheap.
+        Object queue = this.queues[regionId];
+        synchronized (queue) {
+            if (this.lwwDedup) {
+                return ((LinkedHashMap<?, ?>) queue).containsKey(pos);
+            }
+            for (Entry entry : (ConcurrentLinkedQueue<Entry>) queue) {
+                if (entry.pos().equals(pos)) {
+                    return true;
+                }
             }
         }
         return false;
     }
 
+    /** Per-tick submit budget breaker feed; counted here so status stays one line. */
+    public void recordBudgetDrop() {
+        this.budgetDropped.increment();
+    }
+
     public String statusText() {
         long pending = 0;
-        for (ConcurrentLinkedQueue<Entry> queue : this.queues) {
-            pending += queue.size();
+        for (Object queue : this.queues) {
+            synchronized (queue) {
+                pending += this.lwwDedup ? ((LinkedHashMap<?, ?>) queue).size() : ((ConcurrentLinkedQueue<?>) queue).size();
+            }
         }
         return "pending=" + pending
                 + " submitted=" + this.submitted.sum()
                 + " applied=" + this.applied.sum()
                 + " droppedOverflow=" + this.droppedOverflow.sum()
                 + " droppedUnloaded=" + this.droppedUnloaded.sum()
-                + " failed=" + this.failed.sum();
+                + " failed=" + this.failed.sum()
+                + " lwwMerged=" + this.lwwMerged.sum()
+                + " budgetDropped=" + this.budgetDropped.sum();
     }
 }

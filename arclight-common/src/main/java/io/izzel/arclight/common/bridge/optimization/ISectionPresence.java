@@ -6,8 +6,8 @@
 package io.izzel.arclight.common.bridge.optimization;
 
 /**
- * Per-chunk POI-section presence tracking for {@code SectionStorage} subclasses (audit doc
- * §阶段5·5.1). Implemented by {@code SectionStorageMixin_Presence}; consumed by
+ * Per-chunk POI-section presence tracking for {@code SectionStorage} subclasses.
+ * Implemented by {@code SectionStorageMixin_Presence}; consumed by
  * {@code PoiManagerMixin_QueryFastPath}.
  *
  * <p>Vanilla 1.21.1 keeps every touched column in {@code storage} forever (loaded sections are

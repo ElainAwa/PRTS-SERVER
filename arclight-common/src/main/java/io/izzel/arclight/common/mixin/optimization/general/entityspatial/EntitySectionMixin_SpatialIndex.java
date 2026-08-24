@@ -33,10 +33,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
- * Lazily-built 4x4x4 sub-grid spatial index on {@code EntitySection} (audit doc §1.3 / §三.B P2):
+ * Lazily-built 4x4x4 sub-grid spatial index on {@code EntitySection}:
  * pure AABB queries ({@code getEntities(AABB, ...)}) go through covered-cell buckets; typed
  * queries ({@code getEntities(EntityTypeTest, ...)}) use the same covered-cell rule as a
- * pre-filter over the vanilla per-class collection (entityspatial phase 2, audit §5.4).
+ * pre-filter over the vanilla per-class collection.
  *
  * <p>Compatibility guarantees:
  * <ul>
