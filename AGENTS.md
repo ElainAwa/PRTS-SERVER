@@ -21,9 +21,12 @@ PRTS 是 Arclight → Luminara 的 fork，本分支为**多线程并行引擎**�
 4. `.cage/code.md` — 代码守则、目录放置、配置、提交规范
 5. `.cage/capture.md` — 监测文件（抓包）处理流程
 6. `.cage/scripts/` — 工具脚本（spark 解析 / RCON / 冒烟 / 字节码抓取）
+7. `.cage/concurrency.md` — 异步 vs 多线程概念判定（`[ASYNC-VS-THREADS]`：需求词义裁决与利弊对照）
+8. `.cage/glossary.md` — 术语表（BEPolicy / Journal / drain / cross.read 等专有词标准义，定义以源码为准）
 
 ### 任务速查
 
+- **开工前检查分支**（红线 15）：`git branch --show-current` 为 `1.21.1-Multithreading` 时，提醒用户切换分支并终止工作，不继续。
 - **修 bug / 优化** → 按 `.cage/workflow.md` 状态机：登记 → 取证 → 定位 → 根因 → 修复 → 验证；方案定稿后归档 `docs/scheme/`，冒烟测试前保存记忆，冒烟后总对比并归档 `docs/summary/`（方案 / 性能对比 / 优点 / 缺点 / 未完成 / 已完成）。复现非必经步骤，优先用用户日志，无日志按描述从代码推断，仍不定论才启动测试服自跑。
 - **用户丢监测文件（文件夹 / zip）** → 按 `.cage/capture.md`：先读 `capture.json` 定触发原因，`sparkprofile` 用 `scripts/spark_quick.py` 解析，结论逐条带证据并按 P0 / P1 / P2 排序。
 - **性能分析** → spark 归因先剔 idle 再算 self；同口径对比（交叉 A/B、预热、取中位）后才能下结论。

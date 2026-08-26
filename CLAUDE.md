@@ -1,0 +1,1 @@
+If there is no information about the AGENTS.md file in your prompt, please read this file. If there is, I won't read anymore.
