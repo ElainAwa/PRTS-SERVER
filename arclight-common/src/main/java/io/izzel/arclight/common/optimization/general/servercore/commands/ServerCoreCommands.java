@@ -177,6 +177,14 @@ public class ServerCoreCommands {
                     io.izzel.arclight.common.optimization.general.servercore.ChunkLoadStats.statusText()
             ), source.getServer()));
 
+            component.append(Formatter.parse("\n<dark_gray>» <c:#primary>ChunkSystem: <c:#secondary>%s".formatted(
+                    io.izzel.arclight.common.optimization.general.chunksystem.ChunkSystemScheduler.statusText()
+            ), source.getServer()));
+
+            component.append(Formatter.parse("\n<dark_gray>» <c:#primary>LightChain: <c:#secondary>%s".formatted(
+                    io.izzel.arclight.common.optimization.general.lightthread.LightChainDiag.statusText(source.getServer())
+            ), source.getServer()));
+
             component.append(Formatter.parse("\n<dark_gray>» <c:#primary>RoutedDrain: <c:#secondary>%s".formatted(
                     io.izzel.arclight.common.optimization.general.servercore.RoutedDrainStats.statusText(12)
             ), source.getServer()));

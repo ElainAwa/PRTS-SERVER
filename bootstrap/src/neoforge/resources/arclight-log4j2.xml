@@ -59,7 +59,9 @@
             </Policies>
             <DefaultRolloverStrategy max="5" fileIndex="min"/>
         </RollingRandomAccessFile>
-        <Async name="Async">
+        <!-- blocking=false：队列满时丢弃并 WARN（log4j status），生产者（含区块生成/主线程）永不因日志阻塞。
+             背景：M1 chunk-system 验收抓到的三线程死锁（生成 worker 阻塞在 queue.put ↔ dispatcher 慢 IO 持文件锁）。 -->
+        <Async name="Async" blocking="false" bufferSize="262144">
             <AppenderRef ref="Console" level="${sys:forge.logging.console.level:-info}"/>
             <AppenderRef ref="ServerGuiConsole" level="${sys:forge.logging.console.level:-info}"/>
             <AppenderRef ref="File" level="${sys:forge.logging.file.level:-info}"/>
@@ -71,6 +73,10 @@
         <Logger level="${sys:forge.logging.mojang.level:-info}" name="com.mojang"/>
         <Logger level="${sys:forge.logging.mojang.level:-info}" name="net.minecraft"/>
         <Logger level="${sys:forge.logging.classtransformer.level:-info}" name="cpw.mods.modlauncher.ClassTransformer"/>
+        <!-- M1 chunk-system 验收实锤：Root=all 下 mod 热路径 DEBUG 日志灌满 AsyncAppender 阻塞队列，
+             生产者（含区块生成 worker）阻塞在 queue.put，与主线程同步加载构成死锁。
+             对已知热路径 debug 刷屏的包收敛到 INFO（排查时可改回 debug）。 -->
+        <Logger level="info" name="createstructuresarise"/>
         <Root level="all">
             <AppenderRef ref="Async"/>
         </Root>

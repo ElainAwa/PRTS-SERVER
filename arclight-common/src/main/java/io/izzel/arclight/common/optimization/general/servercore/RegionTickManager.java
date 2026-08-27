@@ -300,6 +300,9 @@ public final class RegionTickManager {
             .counter("entities.addDeferred")
             .counter("entities.addMainDrained")
             .counter("entities.addExpired")
+            .counter("schedule.drainRollover")
+            .timer("schedule.drainMs")
+            .gauge("schedule.backlog")
             .build();
 
     private RegionTickManager() {
@@ -1062,9 +1065,17 @@ public final class RegionTickManager {
         SCHEDULE_TASKS.add(new ScheduleTask(owner, tick));
     }
 
-    /** Applies deferred scheduling tasks on the main thread after a region session. */
+    /** Applies deferred scheduling tasks on the main thread after a region session.
+     *
+     * <p>限时 drain：风暴期（成批新生块灌入计划 tick，液体扩散回环）积压可达数十万级，
+     * 无界清空会把维度 tick 线程卡死数分钟直至屏障超时崩溃（2026-08-25 纯净服风暴实测）。
+     * 按时间预算分批落地，剩余顺延下一 tick；ScheduledTick 触发时刻为绝对 gameTime，
+     * 晚落地几 tick 只会让少数计划 tick 略晚触发，与原版高负载下的延迟行为同向。 */
     @SuppressWarnings({"rawtypes", "unchecked"})
     private static void drainScheduleTasks() {
+        long start = Util.getNanos();
+        long deadline = start + PRTSFeaturesConfig.scheduleDrainBudgetMs * 1_000_000L;
+        int drained = 0;
         ScheduleTask task;
         while ((task = SCHEDULE_TASKS.poll()) != null) {
             try {
@@ -1072,7 +1083,15 @@ public final class RegionTickManager {
             } catch (Throwable t) {
                 LOGGER.warn("[region-tick] deferred schedule failed: {}", t.toString());
             }
+            drained++;
+            // 每 1024 个检查一次预算，摊薄 nanoTime 开销
+            if ((drained & 0x3FF) == 0 && Util.getNanos() >= deadline) {
+                STATS.increment("schedule.drainRollover");
+                break;
+            }
         }
+        STATS.record("schedule.drainMs", Util.getNanos() - start);
+        STATS.setGauge("schedule.backlog", SCHEDULE_TASKS.size());
     }
 
     /** Session 1: runs collected scheduled block ticks on region workers (per-tick gate for cross-region updates). */

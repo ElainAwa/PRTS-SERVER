@@ -180,6 +180,13 @@ public class PRTSFeaturesConfig {
     public static boolean barrierWatchdogAware;
     /** Barrier await timeout ms; on expiry dump all threads and crash with a report. */
     public static long barrierTimeoutMs;
+    /**
+     * 每次 {@code drainScheduleTasks} 的时间预算（毫秒）。风暴期新生块大量灌入计划
+     * tick（液体扩散回环）时，无界清空会卡死维度 tick 线程直到屏障超时崩溃；
+     * 超限部分顺延下一 tick 的 drain（ScheduledTick 的绝对触发时刻不变，最多少数
+     * tick 晚落地几 tick，与原版高负载下的延迟行为同向）。
+     */
+    public static long scheduleDrainBudgetMs;
 
     // Lighting - per-tick light propagation budget + telemetry (PRTS 光照预算化).
     // 限制每 tick 光照传播工作量，风暴时超出部分顺延下一 tick（最终光照一致，只是延迟）。
@@ -191,6 +198,38 @@ public class PRTSFeaturesConfig {
     /** 独立光照线程——light 邮箱 + 任务排序器迁出共享后台池，
      *  隔离光照传播与 worldgen 线程池争抢（每维度一个守护线程，默认关）。 */
     public static boolean lightThreadEnabled;
+
+    /** 区块系统调度器（M1：FlowSched 精简移植驱动原版生成 future 链，默认关；启动期生效，改值需重启）。 */
+    public static boolean chunkSystemSchedulerEnabled;
+    /** 调度器 worker 线程数（仅调度层；M1 默认 1 保持原版串行语义，M2 起随状态机重写放开）。 */
+    public static int chunkSystemSchedulerWorkers;
+    /** 调度器锁域半径（区块数；0=仅中心块，1=3×3，2=5×5）。feature 阶段存在跨区块写，
+     *  实测写半径达 2（= ChunkStatus.FULL 累计生成半径），半径 &lt; 2 会触发并发写/死锁。 */
+    public static int chunkSystemSchedulerLockRadius;
+    /** 两阶段锁域拆分（阶段二）：features 前步骤只锁中心块（原版声明写半径均为 0，
+     *  邻块读由 future 依赖链保序），进入 FEATURES 层前一次性暂停换 5×5 锁续跑。
+     *  目的：把锁串行限制在 features 段，恢复前段并行度。默认关，测服灰度。 */
+    public static boolean chunkSystemSchedulerSplitStages;
+    /** 依赖门控（阶段四）：挂起时收集当前层全部未完成 future，全完成后才重新入队，
+     *  消除原版「尾 future 完成即唤醒→层内未就绪立即再挂起」的空转往返。默认关，测服灰度。 */
+    public static boolean chunkSystemSchedulerDepGating;
+    /** 区块系统状态机（M2.1）：细粒度「单区块×单状态」任务图替代 M1 的整任务驱动。
+     *  任务依赖边运行时直接读 ChunkPyramid 各步 directDependencies（与 WorldGenRegion
+     *  读合法性检查同表），锁半径按 M2.0-2 审计表（FEATURES ±2 / STRUCTURE_STARTS ±1 /
+     *  其余中心块）。优先级高于 chunk-system-scheduler.enabled（两者同开时本项生效）。
+     *  启动期生效（早于 createLevels），改值需重启；默认关。 */
+    public static boolean chunkSystemEnabled;
+    /** 主线程边界 fail-fast 守卫（M2.2 四件套 ①）：ServerChunkCache.tick/save 等维度级事务
+     *  非属主线程（服务器主线程 ∪ 维度事件循环 ∪ region worker）调用即抛异常定位违约链。
+     *  仅在 chunk-system-enabled 下生效；默认开。 */
+    public static boolean chunkSystemFailFastGuards;
+    /** IO 反序列化移出主线程（M2.2 IO 线程模型）：ChunkSerializer.read 段从
+     *  thenApplyAsync(mainThreadExecutor) 改投调度器最低优先级档，配套事件捕获延迟队列。
+     *  仅在 chunk-system-enabled 下生效；启动期语义（读盘路径），默认开。 */
+    public static boolean chunkAsyncIoEnabled;
+    /** World.random 跨线程检测模式（M2.2 四件套 ④）：warn=限流日志+回退（默认）、
+     *  throw=抛异常、其他=不装装饰器。仅在 chunk-system-enabled 下生效。 */
+    public static String worldgenRandomCheck;
 
     // Entity spatial index - EntitySection 内懒 4×4×4 子格索引（默认开，2026-08-16 真机 A/B 验证）。
     // 加速纯空间 AABB 查询（getEntities(AABB)）与 typed 查询（getEntitiesOfClass 等，二期：
@@ -404,11 +443,22 @@ public class PRTSFeaturesConfig {
         barrierWatchdogAware = config.getBoolean("barrier-watchdog-aware", true);
         barrierTimeoutMs = config.getLong("barrier-timeout-ms", 120000L);
         if (barrierTimeoutMs < 1000L) barrierTimeoutMs = 120000L;
+        scheduleDrainBudgetMs = config.getLong("schedule-drain-budget-ms", 8L);
+        if (scheduleDrainBudgetMs < 1L) scheduleDrainBudgetMs = 8L;
         lightBudgetEnabled = config.getBoolean("lighting.budget-enabled", true);
         lightBudgetPerTick = config.getInt("lighting.budget-per-tick", 100000);
         if (lightBudgetPerTick < 0) lightBudgetPerTick = 0;
         lightTelemetryEnabled = config.getBoolean("lighting.telemetry-enabled", true);
         lightThreadEnabled = config.getBoolean("lighting.threaded", false);
+        chunkSystemSchedulerEnabled = config.getBoolean("parallel.chunk-system-scheduler.enabled", false);
+        chunkSystemSchedulerWorkers = Math.max(1, config.getInt("parallel.chunk-system-scheduler.workers", 1));
+        chunkSystemSchedulerLockRadius = Math.max(0, Math.min(2, config.getInt("parallel.chunk-system-scheduler.lock-radius", 2)));
+        chunkSystemSchedulerSplitStages = config.getBoolean("parallel.chunk-system-scheduler.split-stages", false);
+        chunkSystemSchedulerDepGating = config.getBoolean("parallel.chunk-system-scheduler.dep-gating", false);
+        chunkSystemEnabled = config.getBoolean("parallel.chunk-system-enabled", false);
+        chunkSystemFailFastGuards = config.getBoolean("parallel.chunk-system-fail-fast-guards", true);
+        chunkAsyncIoEnabled = config.getBoolean("parallel.chunk-async-io-enabled", true);
+        worldgenRandomCheck = config.getString("parallel.worldgen-random-check", "warn");
         entitySpatialIndexEnabled = config.getBoolean("entity-spatial-index.enabled", true);
         entitySpatialIndexMinSectionSize = config.getInt("entity-spatial-index.min-section-size", 16);
         if (entitySpatialIndexMinSectionSize < 4) entitySpatialIndexMinSectionSize = 4;
@@ -527,6 +577,14 @@ public class PRTSFeaturesConfig {
                   chunk-demand-per-tick: 50           # 主线程每 tick 处理的 chunk 需求上限（统一需求调度）
                   chunk-demand-player-priority: false # chunk 需求玩家距离优先级：按提交时距最近玩家分 4 桶优先消费（默认关）
                   chunk-demand-starve-ticks: 600      # 低优先级桶队头超龄即优先消费（饿死兜底，仅 priority 开启时生效）
+                  chunk-system-scheduler:            # 区块系统调度器 M1：FlowSched 移植驱动原版生成 future 链（启动期生效，改值需重启）
+                    enabled: false                   # 总开关（关=原版 worldgen 邮箱 FIFO，逐位一致）
+                    workers: 1                       # worker 线程数（M1 固定 1 保串行语义；状态机重写后放开）
+                    split-stages: false              # 两阶段锁域拆分：features 前只锁中心块，FEATURES 层前换 5×5 锁（默认关）
+                  chunk-system-enabled: false        # 区块系统状态机 M2.1：单区块×单状态细粒度任务图（优先于上方 M1 开关；启动期生效）
+                  chunk-system-fail-fast-guards: true # M2.2 主线程边界 fail-fast 守卫（仅 chunk-system-enabled 下生效）
+                  chunk-async-io-enabled: true       # M2.2 IO 反序列化移出主线程（调度器最低优先级档，仅 chunk-system-enabled 下生效）
+                  worldgen-random-check: warn        # M2.2 World.random 跨线程检测：warn/throw/off（仅 chunk-system-enabled 下生效）
                   region-count: 4                    # 区域数（2/4/8/16；16 时条纹宽自动扩到 16）
                   region-auto-scale: true            # 按负载自动调整区域数
                   region-scale-interval-seconds: 300

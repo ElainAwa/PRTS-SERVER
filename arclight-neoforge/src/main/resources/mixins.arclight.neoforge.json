@@ -85,6 +85,7 @@
     "neoforge.items.SidedInvWrapperAccessor",
     "neoforge.items.VanillaInventoryCodeHooksMixin",
     "optimization.general.activationrange.entity.ItemEntityMixin_ActivationRange_NeoForge",
+    "optimization.general.chunksystem.BlockMixin_ThreadLocalCapturedDrops",
     "eventbridge.ServerLevelMixin_EntityTickShortcircuit",
     "eventbridge.LevelMixin_NeighborNotifyShortcircuit",
     "eventbridge.ServerLevelMixin_NeighborNotifyShortcircuit",

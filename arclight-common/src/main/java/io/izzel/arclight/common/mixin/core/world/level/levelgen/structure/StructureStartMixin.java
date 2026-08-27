@@ -64,7 +64,13 @@ public class StructureStartMixin implements StructureStartBridge {
                 transformerAccess.setHandle(p_226851_);
                 transformerAccess.setStructureTransformer(new CraftStructureTransformer(arclight$cause, p_226851_, p_226852_, structure, p_226855_, p_226856_));
                 for (StructurePiece piece : pieces) {
-                    piece.postProcess(transformerAccess, p_226852_, p_226853_, p_226854_, p_226855_, p_226856_, blockpos1);
+                    // M3 线程安全包（照搬清单 3，PRTS 口径）：piece 实例跨多块共享，
+                    // M2 并行 FEATURES 下同一 piece 可被多个任务同时 postProcess，
+                    // 而原版实现含共享字段读写（hasPlacedChest/templatePosition 等）。
+                    // 按 piece 监视器串行化：原版单线程语义逐位恢复，跨 piece 并行不受影响。
+                    synchronized (piece) {
+                        piece.postProcess(transformerAccess, p_226852_, p_226853_, p_226854_, p_226855_, p_226856_, blockpos1);
+                    }
                 }
                 transformerAccess.getStructureTransformer().discard();
             }

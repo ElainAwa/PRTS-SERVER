@@ -15,7 +15,6 @@ import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import io.izzel.arclight.common.compat.prts.PRTSFeaturesConfig;
 import net.minecraft.server.level.ChunkMap;
-import net.minecraft.server.level.ChunkTaskPriorityQueueSorter;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.thread.ProcessorMailbox;
 import org.apache.logging.log4j.LogManager;
@@ -27,7 +26,6 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -45,6 +43,10 @@ import java.util.concurrent.TimeUnit;
  *
  * <p>生命周期：线程池随 ChunkMap 实例创建（每维度一个），{@link #close()} 时 shutdown；
  * 与 C2ME 单实例共享池不同，避免多维度关闭时序互相影响。
+ *
+ * <p>注意：排序器自身邮箱留在原版共享后台池不迁移（2026-08-26 钉死：此前“突发风暴冻结”
+ * 实为风暴脚本 forceload 441>256 上限被整拒的幻影现场，非单线程互等；按最保守口径
+ * 回归原版布局，仅 light 任务邮箱走独立线程）。
  */
 @Mixin(ChunkMap.class)
 public abstract class ChunkMapMixin_LightThread {
@@ -77,18 +79,6 @@ public abstract class ChunkMapMixin_LightThread {
         LogManager.getLogger("PRTS-LightThread").info("[light-thread] dedicated light executor created for {} (thread=\"{} - Light\")",
                 this.level.dimension().location(), this.level.dimension().location().toString().replace(':', '_'));
         return original.call(pool, name);
-    }
-
-    @WrapOperation(method = "<init>", at = @At(
-            value = "NEW",
-            target = "(Ljava/util/List;Ljava/util/concurrent/Executor;I)Lnet/minecraft/server/level/ChunkTaskPriorityQueueSorter;"))
-    private ChunkTaskPriorityQueueSorter prts$redirectSorterExecutor(List<?> mailboxes, Executor executor, int maxQueueSize, Operation<ChunkTaskPriorityQueueSorter> original) {
-        // 排序器只负责把消息分发到三个邮箱（各自在自己的执行器上跑），
-        // 分发循环迁到 light 线程，避免 worldgen 风暴积压分发导致光照消息饥饿。
-        if (this.prts$lightExecutor == null) {
-            return original.call(mailboxes, executor, maxQueueSize);
-        }
-        return original.call(mailboxes, this.prts$lightExecutor, maxQueueSize);
     }
 
     @Inject(method = "close", at = @At("TAIL"))
