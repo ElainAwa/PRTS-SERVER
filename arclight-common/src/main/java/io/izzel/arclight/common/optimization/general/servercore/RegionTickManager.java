@@ -1071,7 +1071,8 @@ public final class RegionTickManager {
 
     /** True when the region-parallel feature is enabled (PRTS prts-features.yml). */
     public static boolean regionEnabled() {
-        return PRTSFeaturesConfig.parallelRegion;
+        // A7: 整服熔断激活时退原版串行(region 各阶段按 false 走 vanilla 路径)。
+        return PRTSFeaturesConfig.parallelRegion && !DimensionTickManager.isFaultFallback();
     }
 
     /** True when a region worker is about to write a block outside its own region. */
@@ -1613,6 +1614,7 @@ public final class RegionTickManager {
         if (PRTSFeaturesConfig.barrierTimeoutAction == PRTSFeaturesConfig.BarrierTimeoutAction.CRASH) {
             return false;
         }
+        DimensionTickManager.onHardTimeout("region");
         REGION_HARD_TIMEOUTS.incrementAndGet();
         DimensionTickManager.barrierTimeoutDump("region");
         LOGGER.error("[PRTS-Barrier] region hard timeout with degrade action: marking {} degraded, "

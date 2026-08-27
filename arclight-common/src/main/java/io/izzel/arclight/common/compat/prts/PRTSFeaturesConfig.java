@@ -103,6 +103,8 @@ public class PRTSFeaturesConfig {
     public static int chunkPrefetchTimeoutTicks;
     /** A5: processQueue 按需唤醒（marshal 请求在 tick 间及时服务；纯延迟优化，默认开）。 */
     public static boolean processQueueWake;
+    /** A7: 整服熔断（默认关）：连续 3 次 barrier 硬超时后,整个并行引擎退原版串行(重启恢复)。 */
+    public static boolean onFaultFallbackVanilla;
     /** 动态区域自动扩容：按负载周期性地调整区域数。 */
     public static boolean regionAutoScale;
     public static long regionScaleIntervalSeconds;
@@ -389,6 +391,7 @@ public class PRTSFeaturesConfig {
         LOGGER.info("chunk-prefetch enabled={} depth={} interval={} timeout={}",
                 chunkPrefetchEnabled, chunkPrefetchDepth, chunkPrefetchIntervalTicks, chunkPrefetchTimeoutTicks);
         processQueueWake = config.getBoolean("parallel.process-queue-wake", true);
+        onFaultFallbackVanilla = config.getBoolean("parallel.on-fault-fallback-vanilla", false);
         int count = config.getInt("parallel.region-count", 4);
         if (count < 2) count = 2;
         if (count > 16) count = 16;
@@ -685,6 +688,7 @@ public class PRTSFeaturesConfig {
                   main-wasted-ms-telemetry: false   # 量化 barrier 等待 vs join 后主线程工作（players/localTicks）的重叠上界（纯遥测）
                   barrier-timeout-action: degrade    # A1': 硬超时行为 crash|degrade（degrade=ERROR+dump+该维度转主线程串行+自动恢复；crash=原崩服行为）
                   process-queue-wake: true           # A5: processQueue 按需唤醒（marshal 请求 tick 间及时服务；纯延迟优化）
+                  on-fault-fallback-vanilla: false    # A7: 整服熔断——连续 3 次 barrier 硬超时后退原版串行（重启恢复；默认关）
                   barrier-timeout-recover-ticks: 6000 # A1': degraded 自动恢复并行所需的连续正常 tick
 
                 # 可靠区块保存（WAL 预写日志，默认关）

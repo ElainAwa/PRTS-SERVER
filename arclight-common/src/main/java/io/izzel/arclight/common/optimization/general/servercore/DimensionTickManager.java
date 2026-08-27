@@ -77,6 +77,42 @@ public final class DimensionTickManager {
     private static final Map<ResourceKey<Level>, AtomicInteger> DEGRADED_DIMENSIONS = new ConcurrentHashMap<>();
     private static final AtomicInteger HARD_TIMEOUTS = new AtomicInteger();
 
+    // A7: 整服熔断。连续 3 次 barrier 硬超时(跨维度/region 累加)触发:全部维度主线程串行 +
+    // region 并行全关(on-fault-fallback-vanilla 开启时);重启恢复,不做自动恢复。
+    private static final AtomicInteger CONSECUTIVE_HARD_TIMEOUTS = new AtomicInteger();
+    private static volatile boolean FAULT_FALLBACK = false;
+    private static volatile String FAULT_FALLBACK_REASON = "";
+
+    /** A7: 整服熔断是否激活(regionEnabled() 与 parallelTick 都查询)。 */
+    public static boolean isFaultFallback() {
+        return FAULT_FALLBACK;
+    }
+
+    static String faultFallbackText() {
+        return FAULT_FALLBACK ? "ON(" + FAULT_FALLBACK_REASON + ")" : "off";
+    }
+
+    /** A7: 每次硬超时(维度/region)调用;累计达阈值触发整服熔断。 */
+    static void onHardTimeout(String where) {
+        HARD_TIMEOUTS.incrementAndGet();
+        if (FAULT_FALLBACK || !PRTSFeaturesConfig.onFaultFallbackVanilla) {
+            return;
+        }
+        int n = CONSECUTIVE_HARD_TIMEOUTS.incrementAndGet();
+        if (n >= 3) {
+            FAULT_FALLBACK = true;
+            FAULT_FALLBACK_REASON = "3 consecutive barrier hard timeouts (last: " + where + ")";
+            LOGGER.error("[PRTS-Barrier] FAULT FALLBACK ACTIVATED: {}", FAULT_FALLBACK_REASON);
+        }
+    }
+
+    /** 每 tick 开始调用:清零连续超时计数(未超时的 tick 即打断连续性)。 */
+    private static void resetHardTimeoutStreak() {
+        if (!FAULT_FALLBACK) {
+            CONSECUTIVE_HARD_TIMEOUTS.set(0);
+        }
+    }
+
     static boolean isDegradedDimension(ResourceKey<Level> dim) {
         return DEGRADED_DIMENSIONS.containsKey(dim);
     }
@@ -106,6 +142,7 @@ public final class DimensionTickManager {
         degraded.append(']');
         return "hardTimeouts=" + HARD_TIMEOUTS.get() + " degraded=" + degraded
                 + " action=" + PRTSFeaturesConfig.barrierTimeoutAction.name().toLowerCase()
+                + " faultFallback=" + faultFallbackText()
                 + " | region: " + RegionTickManager.regionBarrierStatusText();
     }
 
@@ -230,8 +267,21 @@ public final class DimensionTickManager {
         //    keep vanilla single-thread semantics for player tick (container menus,
         //    network packets, Bukkit player events); playerless dimensions run on
         //    workers behind a per-tick barrier.
+        resetHardTimeoutStreak();
         IN_DIMENSION_TICK.set(true);
         try {
+            // A7: 整服熔断——所有维度主线程串行 tick(vanilla 语义,无 worker/barrier)。
+            if (FAULT_FALLBACK) {
+                for (int i = 0; i < n; i++) {
+                    try {
+                        units[i].tick(hasTimeLeft);
+                    } catch (Throwable t) {
+                        LOGGER.error("[PRTS-Barrier] fault-fallback serial tick failed for {}: {}",
+                                units[i].level().dimension().location(), t.toString());
+                    }
+                }
+                return;
+            }
             java.util.ArrayList<ParallelTickUnit> playerless = new java.util.ArrayList<>();
             java.util.ArrayList<ParallelTickUnit> withPlayers = new java.util.ArrayList<>();
             for (int i = 0; i < n; i++) {
@@ -402,7 +452,7 @@ public final class DimensionTickManager {
         if (PRTSFeaturesConfig.barrierTimeoutAction == PRTSFeaturesConfig.BarrierTimeoutAction.CRASH) {
             return false;
         }
-        HARD_TIMEOUTS.incrementAndGet();
+        onHardTimeout(where);
         barrierTimeoutDump(where);
         LOGGER.error("[PRTS-Barrier] hard timeout ({}) with degrade action: marking {} dimension(s) degraded, "
                 + "waiting one more window before giving up", where, playerlessDims.size());
