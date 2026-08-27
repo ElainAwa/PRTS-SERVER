@@ -281,6 +281,14 @@ public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<T
         }
     }
 
+    /** A5: park 唤醒后立即服务 marshal 队列(worker 的 Waitable.get() 不再等下一 tick)。 */
+    @Inject(method = "waitUntilNextTick", at = @At("RETURN"))
+    private void arclight$drainQueuedTasksOnWake(CallbackInfo ci) {
+        if (PRTSFeaturesConfig.processQueueWake && !processQueue.isEmpty()) {
+            this.bridge$drainQueuedTasks();
+        }
+    }
+
     /**
      * @author ElainAwa
      * @reason haveTime is called from every poll/shouldRun loop per tick; the
@@ -547,6 +555,11 @@ public abstract class MinecraftServerMixin extends ReentrantBlockableEventLoop<T
     @Override
     public void bridge$queuedProcess(Runnable runnable) {
         processQueue.add(runnable);
+        // A5: 唤醒主线程 park,使 marshal 请求(chat/kick 的 Waitable)在 tick 间及时服务,
+        // 延迟从 ≤50ms(tickChildren HEAD 排空)降到 ≈0。
+        if (PRTSFeaturesConfig.processQueueWake) {
+            this.execute(() -> { });
+        }
     }
 
     public CommandSender getBukkitSender(CommandSourceStack wrapper) {
