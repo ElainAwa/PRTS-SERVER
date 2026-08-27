@@ -158,6 +158,16 @@ public class PRTSFeaturesConfig {
     public static boolean barrierWatchdogAware;
     /** Barrier await timeout ms; on expiry dump all threads and crash with a report. */
     public static long barrierTimeoutMs;
+    // B 组 barrier 软降级(时间切片 join, docs/2026-08-27-region-parallel-barrier-idle-fix.md §2)。
+    // 主线程该 tick 已超预算(落后)时,把 barrier 等待从 barrierTimeoutMs 改为本 tick 剩余预算
+    // (target - elapsed,下限 10ms),超时的 region 本轮降级:其未达成的 work 取出即丢弃
+    // (计 barrier.droppedWork),存活实体下一 tick 由 dispatch 重新入队恰好 tick 一次。
+    // 默认关(§7 逐个开):开启会改变低 TPS 时的 tick 完整性,必须靠 droppedRegion 遥测对比后再留用。
+    public static boolean barrierSoftDegrade;
+    /** B:整 tick 目标预算 ms;elapsed &gt; 该值才激活软降级(0 = 永不激活)。 */
+    public static int barrierTargetMs;
+    /** §1.1:量化 barrier 等待与 join 后主线程工作(players/localTicks)的重叠空间(纯遥测,默认关)。 */
+    public static boolean mainWastedMsTelemetry;
 
     // Lighting - per-tick light propagation budget + telemetry (PRTS 光照预算化).
     // 限制每 tick 光照传播工作量，风暴时超出部分顺延下一 tick（最终光照一致，只是延迟）。
@@ -350,6 +360,12 @@ public class PRTSFeaturesConfig {
         barrierWatchdogAware = config.getBoolean("barrier-watchdog-aware", true);
         barrierTimeoutMs = config.getLong("barrier-timeout-ms", 120000L);
         if (barrierTimeoutMs < 1000L) barrierTimeoutMs = 120000L;
+        // B 组:barrier 软降级(时间切片 join)。默认关——改动 tick 完整性语义,须遥测对比后逐个开。
+        barrierSoftDegrade = config.getBoolean("parallel.barrier-soft-degrade", false);
+        barrierTargetMs = Math.max(0, config.getInt("parallel.barrier-target-ms", 50));
+        mainWastedMsTelemetry = config.getBoolean("parallel.main-wasted-ms-telemetry", false);
+        LOGGER.info("parallel barrier-soft-degrade={} target-ms={} main-wasted-ms-telemetry={}",
+                barrierSoftDegrade, barrierTargetMs, mainWastedMsTelemetry);
         lightBudgetEnabled = config.getBoolean("lighting.budget-enabled", true);
         lightBudgetPerTick = config.getInt("lighting.budget-per-tick", 100000);
         if (lightBudgetPerTick < 0) lightBudgetPerTick = 0;
@@ -497,6 +513,9 @@ public class PRTSFeaturesConfig {
                   create-track-lazy-spread: false   # Create 长轨道假轨光栅化分摊（默认关）
                   create-track-lazy-chunk-blocks: 64 # 分摊时单连接每 tick 最多栅格块数
                   villager-poi-path-budget: 0       # 村民主线程 POI/单目标寻路预算（0=关闭）
+                  barrier-soft-degrade: false       # B组:主线程已落后时 barrier 时间切片 join（迟到 region 本轮跳剩余工作,存活实体下 tick 补；默认关,遥测对比后逐个开）
+                  barrier-target-ms: 50             # B组:整 tick 目标预算 ms；elapsed>它才激活软降级（0=永不）
+                  main-wasted-ms-telemetry: false   # 量化 barrier 等待 vs join 后主线程工作（players/localTicks）的重叠上界（纯遥测）
 
                 # 可靠区块保存（WAL 预写日志，默认关）
                 reliable-chunk-save:
