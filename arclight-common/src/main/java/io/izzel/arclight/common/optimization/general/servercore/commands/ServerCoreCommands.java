@@ -154,6 +154,10 @@ public class ServerCoreCommands {
                     DimensionTickManager.barrierStatusText()
             ), source.getServer()));
 
+            component.append(Formatter.parse("\n<dark_gray>» <c:#primary>DimensionTps: <c:#secondary>%s".formatted(
+                    DimensionTickManager.dimensionTpsText()
+            ), source.getServer()));
+
             component.append(Formatter.parse("\n<dark_gray>» <c:#primary>CrossRef: <c:#secondary>%s".formatted(
                     CrossRefProbe.statusText()
             ), source.getServer()));

@@ -109,6 +109,37 @@ public final class DimensionTickManager {
                 + " | region: " + RegionTickManager.regionBarrierStatusText();
     }
 
+    // A13: 每维度 tick 耗时环形缓冲(100 tick),供 status DimensionTps 行换算 TPS。
+    private static final Map<ResourceKey<Level>, long[]> DIM_TICK_TIMES = new ConcurrentHashMap<>();
+
+    /** POST 阶段记录本维度 tick 耗时(nanos),环形 100 槽。 */
+    static void recordDimensionTickTime(ResourceKey<Level> dim, int tickCount, long elapsedNanos) {
+        long[] ring = DIM_TICK_TIMES.computeIfAbsent(dim, k -> new long[100]);
+        ring[tickCount % 100] = elapsedNanos;
+    }
+
+    /** /servercore status DimensionTps 行:每维度 1000/平均 MSPT,无样本显示 20.0。 */
+    public static String dimensionTpsText() {
+        StringBuilder sb = new StringBuilder();
+        DIM_TICK_TIMES.forEach((dim, ring) -> {
+            long sum = 0L;
+            int n = 0;
+            for (long v : ring) {
+                if (v > 0L) {
+                    sum += v;
+                    n++;
+                }
+            }
+            double mspt = n > 0 ? sum / (double) n / 1_000_000.0 : 0.0;
+            double tps = mspt <= 0.0 ? 20.0 : Math.min(20.0, 1000.0 / mspt);
+            if (sb.length() > 0) {
+                sb.append(' ');
+            }
+            sb.append(dim.location().getPath()).append('=').append(String.format("%.1f", tps));
+        });
+        return sb.length() == 0 ? "(no samples)" : sb.toString();
+    }
+
     @FunctionalInterface
     public interface SyncTime {
         void sync(ServerLevel level);
@@ -295,6 +326,7 @@ public final class DimensionTickManager {
                 POST.fire(level, hasTimeLeft);
                 long elapsed = Util.getNanos() - startNanos[i];
                 perWorldTickTimes.computeIfAbsent(level.dimension(), k -> new long[100])[tickCount % 100] = elapsed;
+                recordDimensionTickTime(level.dimension(), tickCount, elapsed);
                 STATS.record(timerName(level.dimension()), elapsed);
             }
 
