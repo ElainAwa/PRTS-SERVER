@@ -52,6 +52,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.IntConsumer;
@@ -218,6 +219,68 @@ public final class RegionTickManager {
         }
     }
 
+    // ===== B 组:barrier 软降级(时间切片 join) =====
+    // 见 docs/2026-08-27-region-parallel-barrier-idle-fix.md §2。主线程每 tick 的 barrier
+    // 等待预算从 barrierTimeoutMs(120s 硬超时)改为:本 tick 剩余预算(target - elapsed,
+    // 下限 10ms),只在本 tick 已超预算(落后)时激活;正常 tick 维持 barrier 完整性。
+    /** 软降级时 barrier 预算下限(文档 §2 "average 下限 10ms";也给有玩家维度一个活性下限)。 */
+    static final int MIN_BARRIER_BUDGET_MS = 10;
+    /** 停止信号发出后,允许迟到 worker 在实体/BE/方块刻边界退出的最大等待。 */
+    static final int BARRIER_WIND_DOWN_MS = 50;
+    /** 主线程该 tick 惰性盖章的起点(首个 barrier 调用时写),不入 private 字段也不依赖 MinecraftServer.haveTime。 */
+    private static final Object TICK_STAMP_LOCK = new Object();
+    private static final AtomicLong STAMPED_SERVER_TICK = new AtomicLong(Long.MIN_VALUE);
+    private static final AtomicLong TICK_START_NANOS = new AtomicLong(0L);
+    /** §1.1:上一个 region barrier 的等待耗时(ms),dispatchAndTick join 后工作用它估重叠上界。 */
+    static volatile long LAST_REGION_BARRIER_WAIT_MS;
+
+    /** B:惰性记录主线程当前服务器 tick 的起点。runWorkers 跨阶段多次调用,同一 tick 只盖章一次。 */
+    private static long stampedTickStartNanos(long serverTick) {
+        if (STAMPED_SERVER_TICK.get() != serverTick) {
+            synchronized (TICK_STAMP_LOCK) {
+                if (STAMPED_SERVER_TICK.get() != serverTick) {
+                    STAMPED_SERVER_TICK.set(serverTick);
+                    TICK_START_NANOS.set(Util.getNanos());
+                }
+            }
+        }
+        return TICK_START_NANOS.get();
+    }
+
+    /**
+     * B:本区域/维度 barrier 的软降级等待预算(ms)。
+     *
+     * <p>正常返回 -1 = 维持完整 barrier(像 barrierTimeoutMs 一样等最慢 region 完成);
+     * 返回 ≥0 = 主线程本 tick 已超预算(落后),以该上限等待,超时则软降级。
+     * 文档 §2.4 激活条件"主线程已落后(ticksBehind&gt;0 或本 phase 已超 budget)"在此以
+     * "elapsed &gt; target"实现为自足代理:不依赖 MinecraftServer.haveTime(private 字段),
+     * 也不依赖维度并行开关是否打开。</p>
+     */
+    static long barrierBudgetMs(MinecraftServer server) {
+        if (server == null) {
+            return -1L;
+        }
+        long targetNs;
+        long targetMs = PRTSFeaturesConfig.barrierTargetMs;
+        if (targetMs <= 0L) {
+            return -1L;  // 目标预算 ≤0 = 永不软降级
+        }
+        targetNs = targetMs * 1_000_000L;
+        long tickStart = stampedTickStartNanos(server.getTickCount());
+        long elapsedNs = Util.getNanos() - tickStart;
+        if (elapsedNs <= targetNs) {
+            return -1L;  // 未超预算,保持 barrier 完整性
+        }
+        long remaining = targetMs - elapsedNs / 1_000_000L;
+        return Math.max(MIN_BARRIER_BUDGET_MS, Math.min(remaining, PRTSFeaturesConfig.barrierTimeoutMs));
+    }
+
+    /** B:本会话软降级门是否已置位(置位后 worker 把队列剩余项取出即丢弃,计 droppedWork)。 */
+    private static boolean degradeStopRequested() {
+        RegionContext ctx = REGION_CONTEXT.get();
+        return ctx != null && ctx.degradeStop().get();
+    }
+
     /** Last-seen region per entity (authority-transfer counter). */
     private static final Map<Entity, Integer> LAST_REGION = java.util.Collections.synchronizedMap(new WeakHashMap<>());
 
@@ -303,6 +366,16 @@ public final class RegionTickManager {
             .counter("schedule.drainRollover")
             .timer("schedule.drainMs")
             .gauge("schedule.backlog")
+            // B 组(2026-08-27 docs/2026-08-27-region-parallel-barrier-idle-fix.md §2):
+            // 主线程超预算时 barrier 时间切片 join:softDegrades = 触发软降级的次数,
+            // lateRegions = 单次软降级时仍未完成的 region 数(droppedRegion 遥测);
+            // droppedWork = 门置位后各区丢弃的未完成 work 项(存活实体下 tick 由 dispatch 重新入队)。
+            .counter("barrier.softDegrades")
+            .counter("barrier.lateRegions")
+            .counter("barrier.droppedWork")
+            // §1.1 低置信遥测:barrier 等待与 join 后主线程工作(players/localTicks)的
+            // 可重叠量上界(max(0, barrierWait - postJoin)),仅 main-wasted-ms-telemetry 开启时记录。
+            .timer("main.wastedMs")
             .build();
 
     private RegionTickManager() {
@@ -1139,6 +1212,12 @@ public final class RegionTickManager {
         runWorkers(level, applyNow, region -> {
             BlockTick bt;
             while ((bt = st.blockTickQueues[region].poll()) != null) {
+                if (RegionTickManager.degradeStopRequested()) {
+                    // B 组软降级:该 region 本轮未达成的方块刻丢弃(计 droppedWork),
+                    // 保证队列底部不被遗留跨 tick——下一 tick 的 vanilla 收集会重新入队。
+                    STATS.increment("barrier.droppedWork");
+                    continue;
+                }
                 ((ServerLevelRegionBlockTickAccess) level).arclight$tickBlock(bt.pos(), bt.block());
             }
         });
@@ -1163,6 +1242,11 @@ public final class RegionTickManager {
         runWorkers(level, applyNow, region -> {
             TickingBlockEntity te;
             while ((te = st.teTickQueues[region].poll()) != null) {
+                if (RegionTickManager.degradeStopRequested()) {
+                    // B 组软降级:该 region 本轮未达成的 BE/方块刻丢弃(计 droppedWork)。
+                    STATS.increment("barrier.droppedWork");
+                    continue;
+                }
                 String typeKey = blockEntityTypeKey(te);
                 CURRENT_ENTITY_CLASS.set("block-entity:" + typeKey);
                 long start = Util.getNanos();
@@ -1250,11 +1334,19 @@ public final class RegionTickManager {
         runWorkers(level, applyNow, region -> {
             Entity entity;
             while ((entity = st.entityQueues[region].poll()) != null) {
+                if (RegionTickManager.degradeStopRequested()) {
+                    // B 组软降级:该 region 本轮未达成的实体刻丢弃(计 droppedWork)。
+                    // 存活的实体下一 tick dispatch 重新入队 → 恰好被 tick 一次(被跳过的是本 tick);
+                    // 已移除的实体直接丢弃。绝不遗留队列底部,否则 dispatch 重复入队会双 tick。
+                    STATS.increment("barrier.droppedWork");
+                    continue;
+                }
                 tickEntity(level, entity);
             }
         });
 
         // 3. Tick players and pickup-interactive entities on the current thread.
+        long postJoinStart = Util.getNanos();  // §1.1: 量化 join 后主线程工作
         for (Entity entity : localTicks) {
             if (!(entity instanceof ServerPlayer)) {
                 // 区块已卸载时跳过：维度 worker 无法补生成，vanilla 此时已移除实体
@@ -1264,6 +1356,13 @@ public final class RegionTickManager {
                 }
             }
             consumer.accept(entity);
+        }
+        if (PRTSFeaturesConfig.mainWastedMsTelemetry) {
+            // §1.1: join 后主线程工作(player + localTicks)的 ms;重叠上界 = max(0, barrierWait - postJoin)。
+            // 只量化不据此改序:player tick 需要看见同 tick region 已提交结果,顺序依赖不可破坏。
+            long postJoinMs = (Util.getNanos() - postJoinStart) / 1_000_000L;
+            long wastedMs = Math.max(0L, LAST_REGION_BARRIER_WAIT_MS - postJoinMs);
+            STATS.record("main.wastedMs", wastedMs * 1_000_000L);
         }
         return true;
     }
@@ -1311,7 +1410,9 @@ public final class RegionTickManager {
     /** Submits one worker per region, drains the given phase work, waits for all. */
     private static void runWorkers(ServerLevel level, boolean applyNow, IntConsumer work) {
         IN_REGION_TICK.set(true);
-        long[] regionTimings = new long[REGION_COUNT];  // per-region timing
+        long[] regionTimings = new long[REGION_COUNT];  // S2.9.1: per-region timing
+        // B 组:本会话软降级门,门置位后 worker 把队列剩余项取出即丢弃(计 barrier.droppedWork)。
+        AtomicBoolean sessionDegrade = new AtomicBoolean(false);
         try {
             CountDownLatch latch = new CountDownLatch(REGION_COUNT);
             AtomicReference<Throwable> failure = new AtomicReference<>();
@@ -1329,7 +1430,7 @@ public final class RegionTickManager {
                 final int region = r;
                 try {
                     REGION_POOL.execute(() -> {
-                        REGION_CONTEXT.set(new RegionContext(region, level));
+                        REGION_CONTEXT.set(new RegionContext(region, level, sessionDegrade));
                         try {
                             long start = Util.getNanos();
                             if (applyLocal) {
@@ -1359,14 +1460,13 @@ public final class RegionTickManager {
             // Measure barrier wait (main thread blocked for slowest region)
             long barrierStart = Util.getNanos();
             try {
-                if (!latch.await(PRTSFeaturesConfig.barrierTimeoutMs, TimeUnit.MILLISECONDS)) {
-                    throw new RuntimeException(DimensionTickManager.barrierTimeoutDump("region"));
-                }
+                awaitRegionBarrier(latch, level, sessionDegrade);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 throw new RuntimeException("Interrupted while waiting for region ticks", e);
             }
             long barrierWaitNanos = Util.getNanos() - barrierStart;
+            LAST_REGION_BARRIER_WAIT_MS = barrierWaitNanos / 1_000_000L;
             STATS.record("barrier.wait.ms", barrierWaitNanos / 1_000_000L);
 
             Throwable failure0 = failure.get();
@@ -1386,6 +1486,54 @@ public final class RegionTickManager {
             state(level).lastRegionTimingNanos = regionTimings;
         } finally {
             IN_REGION_TICK.set(false);
+        }
+    }
+
+    /**
+     * B 组:region barrier 等待(时间切片 join,docs/2026-08-27-region-parallel-barrier-idle-fix.md §2)。
+     *
+     * <p>主线程正常(未超预算)时与旧行为一致:barrierTimeoutMs 硬超时等待最慢 region 完成
+     * (保持 barrier 完整性,同 chunk tick 责任唯一)。已超预算且 soft-degrade 开启时:
+     * <ol>
+     *   <li>以剩余预算等待;超时 = 该 region 未完成 → 记 {@code barrier.softDegrades}/{@code barrier.lateRegions}
+     *       (droppedRegion 遥测),不抛异常;</li>
+     *   <li>置本会话停止门,迟到 region worker 在当前实体/BE/方块刻后把队列剩余项取出即丢弃
+     *       (计 {@code barrier.droppedWork} = 该 region 本轮被跳过的 work)。存活实体下一 tick 由
+     *       dispatch 重新入队 → 恰好被 tick 一次;已移除实体直接丢。绝不遗留队列底部,
+     *       否则 dispatch 重复入队会双 tick——这就是文档 §2 的"丢的是被跳过的那部分 tick",
+     *       与低 TPS 省略 tick 同谱系;</li>
+     *   <li>wind-down 超限仍回硬 barrier-timeout 等待(绝不带着在会话内的 worker 进入下一 phase;
+     *       真卡死仍由 barrierTimeoutDump 兜底)。</li>
+     * </ol>
+     * ENFORCE 语义不破坏:worker 异常仍在 {@code failure} 上抛,软降级只针对"没做完"。</p>
+     */
+    private static void awaitRegionBarrier(CountDownLatch latch, ServerLevel level,
+                                           AtomicBoolean sessionDegrade) throws InterruptedException {
+        MinecraftServer server = level.getServer();
+        long budgetMs = PRTSFeaturesConfig.barrierSoftDegrade ? barrierBudgetMs(server) : -1L;
+        long wallStart = Util.getNanos();
+        if (budgetMs < 0L) {
+            if (!latch.await(PRTSFeaturesConfig.barrierTimeoutMs, TimeUnit.MILLISECONDS)) {
+                throw new RuntimeException(DimensionTickManager.barrierTimeoutDump("region"));
+            }
+            return;
+        }
+        if (latch.await(budgetMs, TimeUnit.MILLISECONDS)) {
+            return;
+        }
+        sessionDegrade.set(true);
+        long late = latch.getCount();
+        STATS.increment("barrier.softDegrades");
+        STATS.add("barrier.lateRegions", late);
+        if (latch.await(BARRIER_WIND_DOWN_MS, TimeUnit.MILLISECONDS)) {
+            return;
+        }
+        LOGGER.warn("[PRTS-Barrier] soft-degrade: {} region(s) not winding down within {}ms "
+                        + "(budget={}ms); awaiting barrier timeout to preserve single-writer semantics",
+                late, BARRIER_WIND_DOWN_MS, budgetMs);
+        long hardRemainingMs = PRTSFeaturesConfig.barrierTimeoutMs - ((Util.getNanos() - wallStart) / 1_000_000L);
+        if (!latch.await(Math.max(1L, hardRemainingMs), TimeUnit.MILLISECONDS)) {
+            throw new RuntimeException(DimensionTickManager.barrierTimeoutDump("region"));
         }
     }
 
@@ -1563,7 +1711,8 @@ public final class RegionTickManager {
     private record BlockTick(BlockPos pos, Block block) {
     }
 
-    private record RegionContext(int regionId, ServerLevel level) {
+    /** 会话内共享的软降级门:region worker 检查到置位后会在实体/BE/方块刻边界退出轮询。 */
+    private record RegionContext(int regionId, ServerLevel level, AtomicBoolean degradeStop) {
     }
 
     @SuppressWarnings("rawtypes")
