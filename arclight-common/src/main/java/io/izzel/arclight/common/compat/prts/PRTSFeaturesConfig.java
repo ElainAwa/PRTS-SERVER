@@ -89,22 +89,28 @@ public class PRTSFeaturesConfig {
     public static boolean eventBusTelemetryEnabled;
     /** 主线程每 tick 处理的 chunk 需求上限（统一需求调度，默认 50）。 */
     public static int chunkDemandPerTick;
-    /** 主线程 chunk 需求排空的最低保证窗口（ms，默认 2）：低 TPS 超预算时仍至少排空该时长，
-     *  防死亡螺旋（区块不加载→实体/光照等区块→tick 更慢→更没预算排空）。0=关闭。 */
+    /** 主线程 chunk 需求排空最低保证窗口（ms，默认 2；0=关闭）：低 TPS 超预算仍至少排空，防死亡螺旋。 */
     public static int chunkDemandMinDrainMs;
     /** chunk 需求玩家距离优先级（分 4 桶优先消费，默认关）。 */
     public static boolean chunkDemandPlayerPriority;
     /** 低优先级桶队头超龄即优先消费的阈值（tick，饿死兜底）。 */
     public static int chunkDemandStarveTicks;
-    /** A3: 玩家方向区块预取（默认关）：按移动方向对视距外 1..depth 投临时 ticket（到期自动回收）。 */
+    /** 玩家方向区块预取（默认关）：按移动方向对视距外投临时 ticket（到期自动回收）。 */
     public static boolean chunkPrefetchEnabled;
+    /** 视距外预取深度（格）。 */
     public static int chunkPrefetchDepth;
+    /** 每玩家预取重算间隔（tick）。 */
     public static int chunkPrefetchIntervalTicks;
+    /** 预取 ticket 存活时长（tick，到期自动回收）。 */
     public static int chunkPrefetchTimeoutTicks;
-    /** A5: processQueue 按需唤醒（marshal 请求在 tick 间及时服务；纯延迟优化，默认开）。 */
+    /** processQueue 按需唤醒（marshal 请求在 tick 间及时服务；纯延迟优化，默认开）。 */
     public static boolean processQueueWake;
-    /** A7: 整服熔断（默认关）：连续 3 次 barrier 硬超时后,整个并行引擎退原版串行(重启恢复)。 */
+    /** 整服熔断（默认关）：连续 3 次 barrier 硬超时后,整个并行引擎退原版串行(重启恢复)。 */
     public static boolean onFaultFallbackVanilla;
+    /** 生物间碰撞开关（默认关）：关闭后生物不阻挡、可重叠穿行；玩家碰撞保留。 */
+    public static boolean mobCollisionEnabled;
+    /** 玩家是否也参与碰撞关闭（谨慎选项，默认关）。 */
+    public static boolean mobCollisionPlayersAffected;
     /** 动态区域自动扩容：按负载周期性地调整区域数。 */
     public static boolean regionAutoScale;
     public static long regionScaleIntervalSeconds;
@@ -209,10 +215,9 @@ public class PRTSFeaturesConfig {
     public static int barrierTargetMs;
     /** §1.1:量化 barrier 等待与 join 后主线程工作(players/localTicks)的重叠空间(纯遥测,默认关)。 */
     public static boolean mainWastedMsTelemetry;
-    // A1': 硬超时行为(barrierTimeoutMs 超时后)。degrade = ERROR+全线程 dump + 该维度/level 标记
-    // degraded(后续主线程串行 tick) + 连续正常 recover-ticks 后自动恢复并行;crash = 原行为崩服。
+    // 硬超时行为(barrierTimeoutMs 超时后):degrade = ERROR+dump + 该维度转主线程串行 + 自动恢复;crash = 崩服。
     public enum BarrierTimeoutAction { CRASH, DEGRADE }
-    /** 硬超时后的行为(默认 degrade:生产求稳,崩服无诊断价值;dump 照记)。 */
+    /** 硬超时后的行为(默认 degrade)。 */
     public static BarrierTimeoutAction barrierTimeoutAction = BarrierTimeoutAction.DEGRADE;
     /** degraded 状态自动恢复并行所需的连续正常 tick 数。 */
     public static int barrierTimeoutRecoverTicks = 6000;
@@ -383,7 +388,7 @@ public class PRTSFeaturesConfig {
         io.izzel.arclight.common.optimization.general.servercore.ChunkDemandQueue.playerPriorityEnabled = chunkDemandPlayerPriority;
         io.izzel.arclight.common.optimization.general.servercore.ChunkDemandQueue.starveNanos = chunkDemandStarveTicks * 50_000_000L;
         LOGGER.info("parallel chunk-demand priority={} starve={} ticks", chunkDemandPlayerPriority, chunkDemandStarveTicks);
-        // A3: 玩家方向区块预取（默认关）。
+        // 玩家方向区块预取（默认关）。
         chunkPrefetchEnabled = config.getBoolean("chunk-prefetch.enabled", false);
         chunkPrefetchDepth = Math.max(1, config.getInt("chunk-prefetch.depth", 6));
         chunkPrefetchIntervalTicks = Math.max(1, config.getInt("chunk-prefetch.interval-ticks", 5));
@@ -392,6 +397,8 @@ public class PRTSFeaturesConfig {
                 chunkPrefetchEnabled, chunkPrefetchDepth, chunkPrefetchIntervalTicks, chunkPrefetchTimeoutTicks);
         processQueueWake = config.getBoolean("parallel.process-queue-wake", true);
         onFaultFallbackVanilla = config.getBoolean("parallel.on-fault-fallback-vanilla", false);
+        mobCollisionEnabled = config.getBoolean("mob-collision.enabled", false);
+        mobCollisionPlayersAffected = config.getBoolean("mob-collision.players-affected", false);
         int count = config.getInt("parallel.region-count", 4);
         if (count < 2) count = 2;
         if (count > 16) count = 16;
@@ -590,6 +597,11 @@ public class PRTSFeaturesConfig {
                   interval-ticks: 5       # 每玩家预取重算间隔
                   timeout-ticks: 200      # ticket 存活 tick（到期自动回收）
 
+                # 生物间碰撞（默认关）：关闭后生物不阻挡、可重叠穿行；玩家碰撞保留
+                mob-collision:
+                  enabled: false
+                  players-affected: false   # true=玩家也参与关闭（全量，谨慎）
+
                 # 物品/怪物清理（默认全关）
                 entity-clear:
                   item:
@@ -686,10 +698,10 @@ public class PRTSFeaturesConfig {
                   barrier-soft-degrade: false       # B组:主线程已落后时 barrier 时间切片 join（迟到 region 本轮跳剩余工作,存活实体下 tick 补；默认关,遥测对比后逐个开）
                   barrier-target-ms: 50             # B组:整 tick 目标预算 ms；elapsed>它才激活软降级（0=永不）
                   main-wasted-ms-telemetry: false   # 量化 barrier 等待 vs join 后主线程工作（players/localTicks）的重叠上界（纯遥测）
-                  barrier-timeout-action: degrade    # A1': 硬超时行为 crash|degrade（degrade=ERROR+dump+该维度转主线程串行+自动恢复；crash=原崩服行为）
-                  process-queue-wake: true           # A5: processQueue 按需唤醒（marshal 请求 tick 间及时服务；纯延迟优化）
-                  on-fault-fallback-vanilla: false    # A7: 整服熔断——连续 3 次 barrier 硬超时后退原版串行（重启恢复；默认关）
-                  barrier-timeout-recover-ticks: 6000 # A1': degraded 自动恢复并行所需的连续正常 tick
+                  barrier-timeout-action: degrade    # 硬超时行为 crash|degrade（degrade=转主线程串行+自动恢复）
+                  process-queue-wake: true           # processQueue 按需唤醒（marshal 请求 tick 间及时服务）
+                  on-fault-fallback-vanilla: false    # 连续 3 次 barrier 硬超时后退原版串行（重启恢复；默认关）
+                  barrier-timeout-recover-ticks: 6000 # degraded 自动恢复并行所需的连续正常 tick
 
                 # 可靠区块保存（WAL 预写日志，默认关）
                 reliable-chunk-save:
