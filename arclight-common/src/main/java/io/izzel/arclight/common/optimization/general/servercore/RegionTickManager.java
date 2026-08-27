@@ -707,9 +707,25 @@ public final class RegionTickManager {
         REGION_CONTEXT.set(new RegionContext(region, level, new AtomicBoolean(false)));
     }
 
-    /** 退出区块环境子任务上下文。 */
+    /** 实体批子任务进入发起 region 的上下文(共享停止门,软降级可 propagate 到批内)。 */
+    public static void enterRegionContext(ServerLevel level, int region, AtomicBoolean degradeStop) {
+        REGION_CONTEXT.set(new RegionContext(region, level, degradeStop));
+    }
+
+    /** 退出区块环境/实体批子任务上下文。 */
     public static void exitRegionContext() {
         REGION_CONTEXT.remove();
+    }
+
+    /** 实体批子任务内的实体 tick 入口(等价 region worker 的 tickEntity)。 */
+    public static void tickEntityInContext(ServerLevel level, Entity entity) {
+        tickEntity(level, entity);
+    }
+
+    /** 当前 region 上下文的停止门(无上下文返回 null)。 */
+    public static AtomicBoolean currentDegradeStop() {
+        RegionContext ctx = REGION_CONTEXT.get();
+        return ctx == null ? null : ctx.degradeStop();
     }
 
     /** Entity class currently ticking on this region worker, or null outside entity ticks. */
@@ -1379,6 +1395,9 @@ public final class RegionTickManager {
             st.appliedTick = gameTime;
         }
         runWorkers(level, applyNow, region -> {
+            AtomicBoolean stopGate = RegionTickManager.currentDegradeStop();
+            EntityBatchScheduler.Batch batch = stopGate != null
+                    ? EntityBatchScheduler.begin(level, region, stopGate) : null;
             Entity entity;
             while ((entity = st.entityQueues[region].poll()) != null) {
                 if (RegionTickManager.degradeStopRequested()) {
@@ -1388,7 +1407,14 @@ public final class RegionTickManager {
                     STATS.increment("barrier.droppedWork");
                     continue;
                 }
+                if (batch != null && EntityBatchScheduler.acceptable(level, entity)) {
+                    batch.add(entity);
+                    continue;
+                }
                 tickEntity(level, entity);
+            }
+            if (batch != null) {
+                batch.flush();
             }
         });
 

@@ -117,6 +117,14 @@ public class PRTSFeaturesConfig {
     public static int chunkEnvThreads;
     /** 区块环境并行 3×3 区块锁（默认开，互斥相邻 chunk 并发写）。 */
     public static boolean chunkEnvLock;
+    /** 实体批并行（默认关）：region worker 实体阶段内扇出到独立子任务池。 */
+    public static boolean entityBatchParallel;
+    /** 实体批并行子任务池大小（0=auto=max(2, CPU-region_count)）。 */
+    public static int entityBatchThreads;
+    /** 实体批并行白名单（显式放行 modded 类，registry key 或前缀*）。 */
+    public static List<String> entityBatchAllow = new ArrayList<>();
+    /** 实体批并行黑名单（强制排除，优先级高于白名单）。 */
+    public static List<String> entityBatchDeny = new ArrayList<>();
     /** 异步传送门（默认关）：worker 上目标维度区块未 FULL 时提交异步加载并延后一 tick。 */
     public static boolean portalAsync;
     /** 动态区域自动扩容：按负载周期性地调整区域数。 */
@@ -411,6 +419,12 @@ public class PRTSFeaturesConfig {
         chunkEnvThreads = Math.max(0, config.getInt("parallel.chunk-env-threads", 0));
         chunkEnvLock = config.getBoolean("parallel.chunk-env-lock", true);
         portalAsync = config.getBoolean("parallel.portal-async", false);
+        entityBatchParallel = config.getBoolean("parallel.entity-batch-parallel", false);
+        entityBatchThreads = Math.max(0, config.getInt("parallel.entity-batch-threads", 0));
+        entityBatchAllow = parseInlineList(config.getString("parallel.entity-batch-allow", "[]"));
+        entityBatchDeny = parseInlineList(config.getString("parallel.entity-batch-deny", "[]"));
+        io.izzel.arclight.common.optimization.general.servercore.EntityBatchScheduler
+                .configure(entityBatchAllow, entityBatchDeny);
         int count = config.getInt("parallel.region-count", 4);
         if (count < 2) count = 2;
         if (count > 16) count = 16;
@@ -717,6 +731,10 @@ public class PRTSFeaturesConfig {
                   chunk-env-threads: 0                # 子任务池大小（0=auto=CPU）
                   chunk-env-lock: true                # 3×3 区块锁：互斥相邻 chunk 并发写（默认开）
                   portal-async: false                  # 异步传送门：worker 上目标区块未 FULL 时提交异步加载并延后一 tick（默认关）
+                  entity-batch-parallel: false          # 实体批并行：region worker 实体阶段扇出到独立子任务池（默认关）
+                  entity-batch-threads: 0               # 批子任务池大小（0=auto=max(2, CPU-region_count)）
+                  entity-batch-allow: []                # 批并行白名单（显式放行 modded 类，registry key 或前缀*）
+                  entity-batch-deny: []                 # 批并行黑名单（强制排除，优先级高于白名单）
                   barrier-timeout-recover-ticks: 6000 # degraded 自动恢复并行所需的连续正常 tick
 
                 # 可靠区块保存（WAL 预写日志，默认关）
