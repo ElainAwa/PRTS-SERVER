@@ -702,6 +702,16 @@ public final class RegionTickManager {
         return ctx != null && ctx.level() == level;
     }
 
+    /** 区块环境子任务进入其所属 region 上下文(跨区写/计划刻/实体新增走既有 worker 路径)。 */
+    public static void enterChunkEnvContext(ServerLevel level, int region) {
+        REGION_CONTEXT.set(new RegionContext(region, level, new AtomicBoolean(false)));
+    }
+
+    /** 退出区块环境子任务上下文。 */
+    public static void exitRegionContext() {
+        REGION_CONTEXT.remove();
+    }
+
     /** Entity class currently ticking on this region worker, or null outside entity ticks. */
     public static String currentEntityClassName() {
         return CURRENT_ENTITY_CLASS.get();

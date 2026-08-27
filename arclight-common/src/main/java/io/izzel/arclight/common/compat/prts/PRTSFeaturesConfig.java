@@ -111,6 +111,12 @@ public class PRTSFeaturesConfig {
     public static boolean mobCollisionEnabled;
     /** 玩家是否也参与碰撞关闭（谨慎选项，默认关）。 */
     public static boolean mobCollisionPlayersAffected;
+    /** 区块环境 tick(随机/流体)并行（默认关）：主线程 tickChunks 扇出到独立子任务池。 */
+    public static boolean chunkEnvParallel;
+    /** 区块环境并行子任务池大小（0=auto=CPU）。 */
+    public static int chunkEnvThreads;
+    /** 区块环境并行 3×3 区块锁（默认开，互斥相邻 chunk 并发写）。 */
+    public static boolean chunkEnvLock;
     /** 动态区域自动扩容：按负载周期性地调整区域数。 */
     public static boolean regionAutoScale;
     public static long regionScaleIntervalSeconds;
@@ -399,6 +405,9 @@ public class PRTSFeaturesConfig {
         onFaultFallbackVanilla = config.getBoolean("parallel.on-fault-fallback-vanilla", false);
         mobCollisionEnabled = config.getBoolean("mob-collision.enabled", false);
         mobCollisionPlayersAffected = config.getBoolean("mob-collision.players-affected", false);
+        chunkEnvParallel = config.getBoolean("parallel.chunk-env-parallel", false);
+        chunkEnvThreads = Math.max(0, config.getInt("parallel.chunk-env-threads", 0));
+        chunkEnvLock = config.getBoolean("parallel.chunk-env-lock", true);
         int count = config.getInt("parallel.region-count", 4);
         if (count < 2) count = 2;
         if (count > 16) count = 16;
@@ -701,6 +710,9 @@ public class PRTSFeaturesConfig {
                   barrier-timeout-action: degrade    # 硬超时行为 crash|degrade（degrade=转主线程串行+自动恢复）
                   process-queue-wake: true           # processQueue 按需唤醒（marshal 请求 tick 间及时服务）
                   on-fault-fallback-vanilla: false    # 连续 3 次 barrier 硬超时后退原版串行（重启恢复；默认关）
+                  chunk-env-parallel: false           # 区块环境 tick(随机/流体)并行：主线程 tickChunks 扇出到独立子任务池（默认关）
+                  chunk-env-threads: 0                # 子任务池大小（0=auto=CPU）
+                  chunk-env-lock: true                # 3×3 区块锁：互斥相邻 chunk 并发写（默认开）
                   barrier-timeout-recover-ticks: 6000 # degraded 自动恢复并行所需的连续正常 tick
 
                 # 可靠区块保存（WAL 预写日志，默认关）

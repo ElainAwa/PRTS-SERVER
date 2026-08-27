@@ -147,6 +147,7 @@
     "menubroadcast.AbstractContainerMenuMixin_MenuBroadcast",
     "eventbridge.HandlerListMixin_EventBridge",
     "neoforgeitems.InvWrapperMixin_NoNull",
+    "servercore.chunk_env.ServerChunkCacheMixin_ChunkEnvParallel",
     "servercore.chunk_prefetch.ServerPlayerMixin_Prefetch",
     "servercore.mob_collision.EntityMixin_MobCollision",
     "servercore.region_parallel.ServerLevelMixin_RegionTick",

@@ -7,9 +7,11 @@ package io.izzel.arclight.common.mixin.optimization.general.servercore.region_pa
 
 import io.izzel.arclight.common.compat.prts.PRTSFeaturesConfig;
 import net.minecraft.world.level.levelgen.LegacyRandomSource;
+import net.minecraft.util.RandomSource;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
@@ -37,6 +39,13 @@ public abstract class LegacyRandomSourceMixin_RegionSafe {
 
     @Inject(method = "next", at = @At("HEAD"), cancellable = true)
     private void arclight$spinCasNext(int bits, CallbackInfoReturnable<Integer> cir) {
+        // 区块环境子任务:使用 per-chunk 派生种子的线程本地随机(分布一致、序列可复现)。
+        RandomSource local = io.izzel.arclight.common.optimization.general.servercore
+                .ChunkEnvParallelScheduler.threadLocalRandom().get();
+        if (local != null) {
+            cir.setReturnValue(arclight$delegateNext((LegacyRandomSource) (Object) local, bits));
+            return;
+        }
         if (PRTSFeaturesConfig.parallelRegion) {
             long i;
             long j;
@@ -46,5 +55,11 @@ public abstract class LegacyRandomSourceMixin_RegionSafe {
             } while (!this.seed.compareAndSet(i, j));
             cir.setReturnValue((int) (j >>> (48 - bits)));
         }
+    }
+
+    /** 同类实例 protected next 委托(本 mixin 的 @Unique 方法并入 LegacyRandomSource 本体)。 */
+    @Unique
+    private int arclight$delegateNext(LegacyRandomSource target, int bits) {
+        return target.next(bits);
     }
 }
