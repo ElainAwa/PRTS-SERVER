@@ -96,6 +96,11 @@ public class PRTSFeaturesConfig {
     public static boolean chunkDemandPlayerPriority;
     /** 低优先级桶队头超龄即优先消费的阈值（tick，饿死兜底）。 */
     public static int chunkDemandStarveTicks;
+    /** A3: 玩家方向区块预取（默认关）：按移动方向对视距外 1..depth 投临时 ticket（到期自动回收）。 */
+    public static boolean chunkPrefetchEnabled;
+    public static int chunkPrefetchDepth;
+    public static int chunkPrefetchIntervalTicks;
+    public static int chunkPrefetchTimeoutTicks;
     /** 动态区域自动扩容：按负载周期性地调整区域数。 */
     public static boolean regionAutoScale;
     public static long regionScaleIntervalSeconds;
@@ -374,6 +379,13 @@ public class PRTSFeaturesConfig {
         io.izzel.arclight.common.optimization.general.servercore.ChunkDemandQueue.playerPriorityEnabled = chunkDemandPlayerPriority;
         io.izzel.arclight.common.optimization.general.servercore.ChunkDemandQueue.starveNanos = chunkDemandStarveTicks * 50_000_000L;
         LOGGER.info("parallel chunk-demand priority={} starve={} ticks", chunkDemandPlayerPriority, chunkDemandStarveTicks);
+        // A3: 玩家方向区块预取（默认关）。
+        chunkPrefetchEnabled = config.getBoolean("chunk-prefetch.enabled", false);
+        chunkPrefetchDepth = Math.max(1, config.getInt("chunk-prefetch.depth", 6));
+        chunkPrefetchIntervalTicks = Math.max(1, config.getInt("chunk-prefetch.interval-ticks", 5));
+        chunkPrefetchTimeoutTicks = Math.max(20, config.getInt("chunk-prefetch.timeout-ticks", 200));
+        LOGGER.info("chunk-prefetch enabled={} depth={} interval={} timeout={}",
+                chunkPrefetchEnabled, chunkPrefetchDepth, chunkPrefetchIntervalTicks, chunkPrefetchTimeoutTicks);
         int count = config.getInt("parallel.region-count", 4);
         if (count < 2) count = 2;
         if (count > 16) count = 16;
@@ -564,6 +576,13 @@ public class PRTSFeaturesConfig {
     private static void writeDefaultConfig(File file) {
         String template = """
                 # PRTS 服务端功能配置（首次运行自动生成；修改后需重启生效）
+
+                # 玩家方向区块预取（默认关）：按移动方向对视距外 1..depth 投临时 ticket（到期自动回收）
+                chunk-prefetch:
+                  enabled: false
+                  depth: 6                # 视距外预取深度（格）
+                  interval-ticks: 5       # 每玩家预取重算间隔
+                  timeout-ticks: 200      # ticket 存活 tick（到期自动回收）
 
                 # 物品/怪物清理（默认全关）
                 entity-clear:
