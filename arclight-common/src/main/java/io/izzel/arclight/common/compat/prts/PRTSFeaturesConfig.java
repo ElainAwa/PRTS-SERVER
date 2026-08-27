@@ -89,6 +89,9 @@ public class PRTSFeaturesConfig {
     public static boolean eventBusTelemetryEnabled;
     /** 主线程每 tick 处理的 chunk 需求上限（统一需求调度，默认 50）。 */
     public static int chunkDemandPerTick;
+    /** 主线程 chunk 需求排空的最低保证窗口（ms，默认 2）：低 TPS 超预算时仍至少排空该时长，
+     *  防死亡螺旋（区块不加载→实体/光照等区块→tick 更慢→更没预算排空）。0=关闭。 */
+    public static int chunkDemandMinDrainMs;
     /** chunk 需求玩家距离优先级（分 4 桶优先消费，默认关）。 */
     public static boolean chunkDemandPlayerPriority;
     /** 低优先级桶队头超龄即优先消费的阈值（tick，饿死兜底）。 */
@@ -364,6 +367,8 @@ public class PRTSFeaturesConfig {
         // 非正数会让需求 drain 永久不执行（budget <= 0），退回默认值。
         if (chunkDemandPerTick < 1) chunkDemandPerTick = 50;
         io.izzel.arclight.common.optimization.general.servercore.ChunkDemandQueue.maxPerTick = chunkDemandPerTick;
+        chunkDemandMinDrainMs = Math.max(0, config.getInt("parallel.chunk-demand-min-drain-ms", 2));
+        io.izzel.arclight.common.optimization.general.servercore.ChunkDemandQueue.minDrainMs = chunkDemandMinDrainMs;
         chunkDemandPlayerPriority = config.getBoolean("parallel.chunk-demand-player-priority", false);
         chunkDemandStarveTicks = Math.max(20, config.getInt("parallel.chunk-demand-starve-ticks", 600));
         io.izzel.arclight.common.optimization.general.servercore.ChunkDemandQueue.playerPriorityEnabled = chunkDemandPlayerPriority;
@@ -604,6 +609,7 @@ public class PRTSFeaturesConfig {
                   colony-manager-tick-cache-enabled: true  # 殖民地 ServerTick 事件 getAllColonies 快照缓存（A/B：minecolonies 主线程自耗时 -60%）
                   colony-manager-tick-cache-interval: 20   # 快照 TTL tick（1-120；create/delete 立即失效）
                   chunk-demand-per-tick: 50           # 主线程每 tick 处理的 chunk 需求上限（统一需求调度）
+                  chunk-demand-min-drain-ms: 2         # 主线程排空最低保证窗口：低 TPS 超预算时仍至少排空该时长（防死亡螺旋；0=关闭）
                   chunk-demand-player-priority: false # chunk 需求玩家距离优先级：按提交时距最近玩家分 4 桶优先消费（默认关）
                   chunk-demand-starve-ticks: 600      # 低优先级桶队头超龄即优先消费（饿死兜底，仅 priority 开启时生效）
                   chunk-system-scheduler:            # 区块系统调度器 M1：FlowSched 移植驱动原版生成 future 链（启动期生效，改值需重启）

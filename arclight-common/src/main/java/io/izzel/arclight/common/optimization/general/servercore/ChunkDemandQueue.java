@@ -36,6 +36,10 @@ public final class ChunkDemandQueue {
     /** 主线程 tick 处理的 chunk 需求上限（配置 parallel.chunk-demand-per-tick）。 */
     public static volatile int maxPerTick = 50;
 
+    /** 主线程排空最低保证窗口 ms（配置 parallel.chunk-demand-min-drain-ms，0=关闭）。
+     *  低 TPS 时预算尽后仍至少排空该时长，防死亡螺旋。 */
+    public static volatile int minDrainMs = 2;
+
     /** 玩家距离优先级开关（配置 parallel.chunk-demand-player-priority）。 */
     public static volatile boolean playerPriorityEnabled = false;
 

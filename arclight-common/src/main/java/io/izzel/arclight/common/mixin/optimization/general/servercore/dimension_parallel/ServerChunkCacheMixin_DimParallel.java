@@ -219,20 +219,41 @@ public abstract class ServerChunkCacheMixin_DimParallel implements io.izzel.arcl
         int loaded = 0;
         long start = System.nanoTime();
         ChunkPos pos;
+        // A2: 常规配额循环。
         while (loaded < budget && (pos = ChunkDemandQueue.poll(this.level)) != null) {
-            ChunkAccess chunk = this.level.getChunk(pos.x, pos.z, ChunkStatus.FULL, false);
-            if (chunk instanceof LevelChunk lc) {
-                long key = ChunkPos.asLong(pos.x, pos.z);
-                // floorMod 处理负 long key（x/z 大时 asLong 高位为负），避免负数槽位越界。
-                int slot = Math.floorMod(key, this.lastChunkPos.length);
-                this.lastChunkPos[slot] = key;
-                this.lastChunkStatus[slot] = ChunkStatus.FULL;
-                this.lastChunk[slot] = lc;
+            if (arclight$loadDemand(pos)) {
                 loaded++;
+            }
+        }
+        // A2: 最低保证窗口——低 TPS 时配额尽后仍至少排空 minDrainMs，
+        // 防死亡螺旋（区块不加载→实体/光照等区块→tick 更慢→更没预算排空）。
+        long minDrainNs = ChunkDemandQueue.minDrainMs * 1_000_000L;
+        if (minDrainNs > 0L && System.nanoTime() - start < minDrainNs) {
+            while (System.nanoTime() - start < minDrainNs
+                    && (pos = ChunkDemandQueue.poll(this.level)) != null) {
+                if (arclight$loadDemand(pos)) {
+                    loaded++;
+                }
             }
         }
         io.izzel.arclight.common.optimization.general.servercore.ChunkLoadStats.installPass(loaded, System.nanoTime() - start);
         ChunkDemandQueue.afterDrain(this.level);
+    }
+
+    /** A2: 消费一个需求坐标并写入 lastChunk 环形缓存；返回是否成功落地为 FULL。 */
+    @Unique
+    private boolean arclight$loadDemand(ChunkPos pos) {
+        ChunkAccess chunk = this.level.getChunk(pos.x, pos.z, ChunkStatus.FULL, false);
+        if (chunk instanceof LevelChunk lc) {
+            long key = ChunkPos.asLong(pos.x, pos.z);
+            // floorMod 处理负 long key（x/z 大时 asLong 高位为负），避免负数槽位越界。
+            int slot = Math.floorMod(key, this.lastChunkPos.length);
+            this.lastChunkPos[slot] = key;
+            this.lastChunkStatus[slot] = ChunkStatus.FULL;
+            this.lastChunk[slot] = lc;
+            return true;
+        }
+        return false;
     }
 
     @Unique
