@@ -117,6 +117,8 @@ public class PRTSFeaturesConfig {
     public static int chunkEnvThreads;
     /** 区块环境并行 3×3 区块锁（默认开，互斥相邻 chunk 并发写）。 */
     public static boolean chunkEnvLock;
+    /** 异步传送门（默认关）：worker 上目标维度区块未 FULL 时提交异步加载并延后一 tick。 */
+    public static boolean portalAsync;
     /** 动态区域自动扩容：按负载周期性地调整区域数。 */
     public static boolean regionAutoScale;
     public static long regionScaleIntervalSeconds;
@@ -408,6 +410,7 @@ public class PRTSFeaturesConfig {
         chunkEnvParallel = config.getBoolean("parallel.chunk-env-parallel", false);
         chunkEnvThreads = Math.max(0, config.getInt("parallel.chunk-env-threads", 0));
         chunkEnvLock = config.getBoolean("parallel.chunk-env-lock", true);
+        portalAsync = config.getBoolean("parallel.portal-async", false);
         int count = config.getInt("parallel.region-count", 4);
         if (count < 2) count = 2;
         if (count > 16) count = 16;
@@ -713,6 +716,7 @@ public class PRTSFeaturesConfig {
                   chunk-env-parallel: false           # 区块环境 tick(随机/流体)并行：主线程 tickChunks 扇出到独立子任务池（默认关）
                   chunk-env-threads: 0                # 子任务池大小（0=auto=CPU）
                   chunk-env-lock: true                # 3×3 区块锁：互斥相邻 chunk 并发写（默认开）
+                  portal-async: false                  # 异步传送门：worker 上目标区块未 FULL 时提交异步加载并延后一 tick（默认关）
                   barrier-timeout-recover-ticks: 6000 # degraded 自动恢复并行所需的连续正常 tick
 
                 # 可靠区块保存（WAL 预写日志，默认关）
