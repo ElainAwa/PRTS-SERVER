@@ -64,6 +64,10 @@ public final class DimensionTickManager {
             .intervalTicks(600)
             .counter("ticks")
             .group("pendingTransfer", "player", "entity", "cancelled", "dropped")
+            // B 组(2026-08-27 docs/2026-08-27-region-parallel-barrier-idle-fix.md §2):
+            // 维度 barrier 软降级遥测:softDegrades = 触发次数,lateUnits = 未完成的 playerless 维度数。
+            .counter("barrier.softDegrades")
+            .counter("barrier.lateUnits")
             .timer("overworld").timer("nether").timer("end").timer("other")
             .build();
 
@@ -170,11 +174,18 @@ public final class DimensionTickManager {
             }
             CountDownLatch latch = new CountDownLatch(playerless.size());
             AtomicReference<Throwable> failure = new AtomicReference<>();
+            // B 组:本会话软降级门,发送后 playerless 维度的 vanilla hasTimeLeft 短路见
+            // awaitDimensionBarrier 说明;仅影响被软降级的维度 worker。
+            AtomicBoolean sessionDegrade = new AtomicBoolean(false);
             for (final ParallelTickUnit unit : playerless) {
                 try {
                     POOL.execute(() -> {
                         try {
-                            unit.tick(hasTimeLeft);
+                            // B 组:软降级时让 vanilla 的 hasTimeLeft 在维度 worker 上短路,
+                            // 让 ServerLevel.tick 的分块刻尽早让出,加快 wind-down。
+                            BooleanSupplier unitTimeLeft =
+                                    () -> !sessionDegrade.get() && hasTimeLeft.getAsBoolean();
+                            unit.tick(unitTimeLeft);
                         } catch (Throwable t) {
                             failure.compareAndSet(null, t);
                         } finally {
@@ -196,9 +207,7 @@ public final class DimensionTickManager {
                 }
             }
             try {
-                if (!latch.await(PRTSFeaturesConfig.barrierTimeoutMs, TimeUnit.MILLISECONDS)) {
-                    throw new RuntimeException(barrierTimeoutDump("dimension"));
-                }
+                awaitDimensionBarrier(latch, server, sessionDegrade);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 throw new RuntimeException("Interrupted while waiting for parallel ticks", e);
@@ -236,6 +245,46 @@ public final class DimensionTickManager {
         }
 
         STATS.tick(tickCount);
+    }
+
+    /**
+     * B 组:维度 barrier 等待(时间切片 join,docs/2026-08-27-region-parallel-barrier-idle-fix.md §2)。
+     *
+     * <p>与 region 侧同款预算制:主线程正常时完整等待(barrierTimeoutMs 硬超时 + dump);
+     * 已超预算且 soft-degrade 开启时以剩余预算等待,超时把 playerless 维度的 hasTimeLeft
+     * 短路并记 {@code barrier.lateUnits}(droppedRegion 遥测)。维度 worker 跑的是整段
+     * ServerLevel.tick,没有像 region 那样可按实体/BE/方块刻退出的合作点,因此 wind-down
+     * 超限后仍须回硬等待——绝不带着在会话内的维度 worker 进入 POST phase(同 chunk tick
+     * 责任唯一不可破坏)。ENFORCE 语义不破坏:worker 异常仍由 {@link #parallelTick} 上抛。</p>
+     */
+    private static void awaitDimensionBarrier(CountDownLatch latch, MinecraftServer server,
+                                              AtomicBoolean sessionDegrade) throws InterruptedException {
+        long budgetMs = PRTSFeaturesConfig.barrierSoftDegrade ? RegionTickManager.barrierBudgetMs(server) : -1L;
+        long wallStart = Util.getNanos();
+        if (budgetMs < 0L) {
+            if (!latch.await(PRTSFeaturesConfig.barrierTimeoutMs, TimeUnit.MILLISECONDS)) {
+                throw new RuntimeException(barrierTimeoutDump("dimension"));
+            }
+            return;
+        }
+        if (latch.await(budgetMs, TimeUnit.MILLISECONDS)) {
+            return;
+        }
+        // 软降级:短路 playerless 维度 worker 的 hasTimeLeft,让其分块刻尽早让出。
+        sessionDegrade.set(true);
+        long late = latch.getCount();
+        STATS.increment("barrier.softDegrades");
+        STATS.add("barrier.lateUnits", late);
+        if (latch.await(RegionTickManager.BARRIER_WIND_DOWN_MS, TimeUnit.MILLISECONDS)) {
+            return;
+        }
+        LOGGER.warn("[PRTS-Barrier] soft-degrade: {} dimension(s) not winding down within {}ms "
+                + "(budget={}ms); awaiting barrier timeout to preserve single-writer semantics",
+                late, RegionTickManager.BARRIER_WIND_DOWN_MS, budgetMs);
+        long hardRemainingMs = PRTSFeaturesConfig.barrierTimeoutMs - ((Util.getNanos() - wallStart) / 1_000_000L);
+        if (!latch.await(Math.max(1L, hardRemainingMs), TimeUnit.MILLISECONDS)) {
+            throw new RuntimeException(barrierTimeoutDump("dimension"));
+        }
     }
 
     /** Barrier timeout diagnostic: dump all threads and return the crash message. */
