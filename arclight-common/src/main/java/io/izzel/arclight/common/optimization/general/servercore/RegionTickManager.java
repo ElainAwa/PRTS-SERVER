@@ -13,6 +13,7 @@ import io.izzel.arclight.common.optimization.general.servercore.ownership.ClassA
 import net.minecraft.Util;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
@@ -24,6 +25,7 @@ import net.minecraft.world.entity.animal.WaterAnimal;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.npc.Npc;
 import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.TickingBlockEntity;
@@ -233,6 +235,40 @@ public final class RegionTickManager {
     private static final AtomicLong TICK_START_NANOS = new AtomicLong(0L);
     /** §1.1:上一个 region barrier 的等待耗时(ms),dispatchAndTick join 后工作用它估重叠上界。 */
     static volatile long LAST_REGION_BARRIER_WAIT_MS;
+
+    // A1': region 硬超时降级跟踪。degraded level 的 region 阶段由主线程串行执行(无 worker)。
+    private static final Map<ResourceKey<Level>, AtomicInteger> DEGRADED_LEVELS = new ConcurrentHashMap<>();
+    private static final AtomicInteger REGION_HARD_TIMEOUTS = new AtomicInteger();
+
+    private static boolean isRegionDegraded(ServerLevel level) {
+        return DEGRADED_LEVELS.containsKey(level.dimension());
+    }
+
+    private static void markRegionDegraded(ServerLevel level) {
+        DEGRADED_LEVELS.computeIfAbsent(level.dimension(), k -> new AtomicInteger()).set(0);
+    }
+
+    /** 串行阶段每 tick 调用:累计正常 tick,达阈值解除降级。 */
+    private static void tickRegionRecovery(ServerLevel level) {
+        AtomicInteger counter = DEGRADED_LEVELS.get(level.dimension());
+        if (counter != null && counter.incrementAndGet() >= PRTSFeaturesConfig.barrierTimeoutRecoverTicks) {
+            DEGRADED_LEVELS.remove(level.dimension(), counter);
+            LOGGER.info("[PRTS-Barrier] level {} recovered from degraded mode", level.dimension().location());
+        }
+    }
+
+    /** /servercore status Barrier 行(region 侧)。 */
+    static String regionBarrierStatusText() {
+        StringBuilder degraded = new StringBuilder("[");
+        for (ResourceKey<Level> dim : DEGRADED_LEVELS.keySet()) {
+            if (degraded.length() > 1) {
+                degraded.append(',');
+            }
+            degraded.append(dim.location());
+        }
+        degraded.append(']');
+        return "hardTimeouts=" + REGION_HARD_TIMEOUTS.get() + " degraded=" + degraded;
+    }
 
     /** B:惰性记录主线程当前服务器 tick 的起点。runWorkers 跨阶段多次调用,同一 tick 只盖章一次。 */
     private static long stampedTickStartNanos(long serverTick) {
@@ -1409,6 +1445,12 @@ public final class RegionTickManager {
 
     /** Submits one worker per region, drains the given phase work, waits for all. */
     private static void runWorkers(ServerLevel level, boolean applyNow, IntConsumer work) {
+        // A1': degraded level 的 region 阶段主线程串行执行(worker 不再参与,无 barrier)。
+        if (isRegionDegraded(level)) {
+            tickRegionRecovery(level);
+            serialRegionPhase(level, applyNow, work);
+            return;
+        }
         IN_REGION_TICK.set(true);
         long[] regionTimings = new long[REGION_COUNT];  // S2.9.1: per-region timing
         // B 组:本会话软降级门,门置位后 worker 把队列剩余项取出即丢弃(计 barrier.droppedWork)。
@@ -1490,6 +1532,27 @@ public final class RegionTickManager {
     }
 
     /**
+     * A1': degraded level 的 region 阶段串行执行(主线程,无 worker/latch/停止门)。
+     * 先统一应用 journal(与 determinismMode 主线程路径一致),再逐 region 串行执行 work;
+     * work 体为纯队列 drain(tickEntity/arclight$tickBlock 均主线程安全,与主线程 drain 共用)。
+     */
+    private static void serialRegionPhase(ServerLevel level, boolean applyNow, IntConsumer work) {
+        try {
+            if (applyNow) {
+                int applied = state(level).journal.applyAll(level);
+                if (applied > 0) {
+                    STATS.add("update.applied", applied);
+                }
+            }
+            for (int r = 0; r < REGION_COUNT; r++) {
+                work.accept(r);
+            }
+        } finally {
+            STATS.tick(level.getServer() == null ? 0 : level.getServer().getTickCount());
+        }
+    }
+
+    /**
      * B 组:region barrier 等待(时间切片 join,docs/2026-08-27-region-parallel-barrier-idle-fix.md §2)。
      *
      * <p>主线程正常(未超预算)时与旧行为一致:barrierTimeoutMs 硬超时等待最慢 region 完成
@@ -1513,7 +1576,7 @@ public final class RegionTickManager {
         long budgetMs = PRTSFeaturesConfig.barrierSoftDegrade ? barrierBudgetMs(server) : -1L;
         long wallStart = Util.getNanos();
         if (budgetMs < 0L) {
-            if (!latch.await(PRTSFeaturesConfig.barrierTimeoutMs, TimeUnit.MILLISECONDS)) {
+            if (!hardAwaitRegion(latch, level, PRTSFeaturesConfig.barrierTimeoutMs)) {
                 throw new RuntimeException(DimensionTickManager.barrierTimeoutDump("region"));
             }
             return;
@@ -1532,9 +1595,30 @@ public final class RegionTickManager {
                         + "(budget={}ms); awaiting barrier timeout to preserve single-writer semantics",
                 late, BARRIER_WIND_DOWN_MS, budgetMs);
         long hardRemainingMs = PRTSFeaturesConfig.barrierTimeoutMs - ((Util.getNanos() - wallStart) / 1_000_000L);
-        if (!latch.await(Math.max(1L, hardRemainingMs), TimeUnit.MILLISECONDS)) {
+        if (!hardAwaitRegion(latch, level, Math.max(1L, hardRemainingMs))) {
             throw new RuntimeException(DimensionTickManager.barrierTimeoutDump("region"));
         }
+    }
+
+    /**
+     * A1': region 硬超时等待 + degrade 处理。返回 true=已完成;false=触发 crash 条件(dump 已记)。
+     * degrade 模式:记 dump 日志 + 标记该 level degraded + 再等一个完整窗口,仍卡死才返回 false
+     * (绝不带着在跑的 region worker 进入下一 phase)。
+     */
+    private static boolean hardAwaitRegion(CountDownLatch latch, ServerLevel level, long waitMs)
+            throws InterruptedException {
+        if (latch.await(waitMs, TimeUnit.MILLISECONDS)) {
+            return true;
+        }
+        if (PRTSFeaturesConfig.barrierTimeoutAction == PRTSFeaturesConfig.BarrierTimeoutAction.CRASH) {
+            return false;
+        }
+        REGION_HARD_TIMEOUTS.incrementAndGet();
+        DimensionTickManager.barrierTimeoutDump("region");
+        LOGGER.error("[PRTS-Barrier] region hard timeout with degrade action: marking {} degraded, "
+                + "waiting one more window before giving up", level.dimension().location());
+        markRegionDegraded(level);
+        return latch.await(PRTSFeaturesConfig.barrierTimeoutMs, TimeUnit.MILLISECONDS);
     }
 
     /** Vanilla forEach consumer semantics, run on the region worker. */

@@ -18,6 +18,7 @@ import io.izzel.arclight.common.optimization.general.servercore.EventBusStats;
 import io.izzel.arclight.common.optimization.general.servercore.BlockEntityAffinity;
 import io.izzel.arclight.common.optimization.general.servercore.EntityAffinity;
 import io.izzel.arclight.common.optimization.general.servercore.BlockEntityTickStats;
+import io.izzel.arclight.common.optimization.general.servercore.DimensionTickManager;
 import io.izzel.arclight.common.optimization.general.servercore.RegionTickManager;
 import io.izzel.arclight.common.optimization.general.servercore.ServerCoreConfig;
 import io.izzel.arclight.common.optimization.general.servercore.dynamic.DynamicManager;
@@ -147,6 +148,10 @@ public class ServerCoreCommands {
 
             component.append(Formatter.parse("\n<dark_gray>» <c:#primary>ThreadPolicy: <c:#secondary>%s".formatted(
                     WorldAccessGuard.statusText()
+            ), source.getServer()));
+
+            component.append(Formatter.parse("\n<dark_gray>» <c:#primary>Barrier: <c:#secondary>%s".formatted(
+                    DimensionTickManager.barrierStatusText()
             ), source.getServer()));
 
             component.append(Formatter.parse("\n<dark_gray>» <c:#primary>CrossRef: <c:#secondary>%s".formatted(

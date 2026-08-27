@@ -25,6 +25,7 @@ import java.lang.management.ThreadInfo;
 import java.lang.ref.WeakReference;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.SynchronousQueue;
@@ -70,6 +71,43 @@ public final class DimensionTickManager {
             .counter("barrier.lateUnits")
             .timer("overworld").timer("nether").timer("end").timer("other")
             .build();
+
+    // A1': 硬超时降级跟踪。degraded 维度不再进 worker 池,由主线程串行 tick,
+    // 连续正常 recover-ticks 后自动恢复并行(crash 模式不启用)。
+    private static final Map<ResourceKey<Level>, AtomicInteger> DEGRADED_DIMENSIONS = new ConcurrentHashMap<>();
+    private static final AtomicInteger HARD_TIMEOUTS = new AtomicInteger();
+
+    static boolean isDegradedDimension(ResourceKey<Level> dim) {
+        return DEGRADED_DIMENSIONS.containsKey(dim);
+    }
+
+    private static void markDegradedDimension(ResourceKey<Level> dim) {
+        DEGRADED_DIMENSIONS.computeIfAbsent(dim, k -> new AtomicInteger()).set(0);
+    }
+
+    /** 串行 tick 期间每 tick 调用:累计正常 tick,达阈值解除降级。 */
+    private static void tickDimensionRecovery(ResourceKey<Level> dim) {
+        AtomicInteger counter = DEGRADED_DIMENSIONS.get(dim);
+        if (counter != null && counter.incrementAndGet() >= PRTSFeaturesConfig.barrierTimeoutRecoverTicks) {
+            DEGRADED_DIMENSIONS.remove(dim, counter);
+            LOGGER.info("[PRTS-Barrier] dimension {} recovered from degraded mode", dim.location());
+        }
+    }
+
+    /** /servercore status Barrier 行(含 region 侧)。 */
+    public static String barrierStatusText() {
+        StringBuilder degraded = new StringBuilder("[");
+        for (ResourceKey<Level> dim : DEGRADED_DIMENSIONS.keySet()) {
+            if (degraded.length() > 1) {
+                degraded.append(',');
+            }
+            degraded.append(dim.location());
+        }
+        degraded.append(']');
+        return "hardTimeouts=" + HARD_TIMEOUTS.get() + " degraded=" + degraded
+                + " action=" + PRTSFeaturesConfig.barrierTimeoutAction.name().toLowerCase()
+                + " | region: " + RegionTickManager.regionBarrierStatusText();
+    }
 
     @FunctionalInterface
     public interface SyncTime {
@@ -172,12 +210,22 @@ public final class DimensionTickManager {
                     withPlayers.add(units[i]);
                 }
             }
-            CountDownLatch latch = new CountDownLatch(playerless.size());
+            // A1': degraded 维度不进 worker 池,主线程串行 tick(计数恢复进度)。
+            java.util.ArrayList<ParallelTickUnit> degraded = new java.util.ArrayList<>();
+            java.util.ArrayList<ParallelTickUnit> parallelDims = new java.util.ArrayList<>();
+            for (ParallelTickUnit unit : playerless) {
+                if (isDegradedDimension(unit.level().dimension())) {
+                    degraded.add(unit);
+                } else {
+                    parallelDims.add(unit);
+                }
+            }
+            CountDownLatch latch = new CountDownLatch(parallelDims.size());
             AtomicReference<Throwable> failure = new AtomicReference<>();
             // B 组:本会话软降级门,发送后 playerless 维度的 vanilla hasTimeLeft 短路见
             // awaitDimensionBarrier 说明;仅影响被软降级的维度 worker。
             AtomicBoolean sessionDegrade = new AtomicBoolean(false);
-            for (final ParallelTickUnit unit : playerless) {
+            for (final ParallelTickUnit unit : parallelDims) {
                 try {
                     POOL.execute(() -> {
                         try {
@@ -206,8 +254,21 @@ public final class DimensionTickManager {
                     failure.compareAndSet(null, t);
                 }
             }
+            // A1': degraded 维度主线程串行 tick(与 withPlayers 同路径,POST drains 正常覆盖)。
+            for (ParallelTickUnit unit : degraded) {
+                try {
+                    tickDimensionRecovery(unit.level().dimension());
+                    unit.tick(hasTimeLeft);
+                } catch (Throwable t) {
+                    failure.compareAndSet(null, t);
+                }
+            }
             try {
-                awaitDimensionBarrier(latch, server, sessionDegrade);
+                java.util.ArrayList<ResourceKey<Level>> dims = new java.util.ArrayList<>(parallelDims.size());
+                for (ParallelTickUnit unit : parallelDims) {
+                    dims.add(unit.level().dimension());
+                }
+                awaitDimensionBarrier(latch, server, sessionDegrade, dims);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 throw new RuntimeException("Interrupted while waiting for parallel ticks", e);
@@ -260,11 +321,12 @@ public final class DimensionTickManager {
      * 责任唯一不可破坏)。ENFORCE 语义不破坏:worker 异常仍由 {@link #parallelTick} 上抛。</p>
      */
     private static void awaitDimensionBarrier(CountDownLatch latch, MinecraftServer server,
-                                              AtomicBoolean sessionDegrade) throws InterruptedException {
+                                              AtomicBoolean sessionDegrade,
+                                              java.util.List<ResourceKey<Level>> playerlessDims) throws InterruptedException {
         long budgetMs = PRTSFeaturesConfig.barrierSoftDegrade ? RegionTickManager.barrierBudgetMs(server) : -1L;
         long wallStart = Util.getNanos();
         if (budgetMs < 0L) {
-            if (!latch.await(PRTSFeaturesConfig.barrierTimeoutMs, TimeUnit.MILLISECONDS)) {
+            if (!hardAwaitDimension(latch, playerlessDims, "dimension")) {
                 throw new RuntimeException(barrierTimeoutDump("dimension"));
             }
             return;
@@ -284,9 +346,38 @@ public final class DimensionTickManager {
                 + "(budget={}ms); awaiting barrier timeout to preserve single-writer semantics",
                 late, RegionTickManager.BARRIER_WIND_DOWN_MS, budgetMs);
         long hardRemainingMs = PRTSFeaturesConfig.barrierTimeoutMs - ((Util.getNanos() - wallStart) / 1_000_000L);
-        if (!latch.await(Math.max(1L, hardRemainingMs), TimeUnit.MILLISECONDS)) {
+        if (!hardAwaitDimension(latch, playerlessDims, "dimension", Math.max(1L, hardRemainingMs))) {
             throw new RuntimeException(barrierTimeoutDump("dimension"));
         }
+    }
+
+    /**
+     * A1': 维度硬超时等待 + degrade 处理。返回 true=已完成;false=触发 crash 条件(dump 已记)。
+     * crash 模式:超时即返回 false(调用方抛 dump 崩服)。
+     * degrade 模式:记 dump 日志 + 标记全部 playerless 维度 degraded + 再等一个完整窗口,
+     * 仍卡死才返回 false——绝不带着在跑的维度 worker 进入 POST phase(单写者语义)。
+     */
+    private static boolean hardAwaitDimension(CountDownLatch latch, java.util.List<ResourceKey<Level>> playerlessDims,
+                                              String where) throws InterruptedException {
+        return hardAwaitDimension(latch, playerlessDims, where, PRTSFeaturesConfig.barrierTimeoutMs);
+    }
+
+    private static boolean hardAwaitDimension(CountDownLatch latch, java.util.List<ResourceKey<Level>> playerlessDims,
+                                              String where, long waitMs) throws InterruptedException {
+        if (latch.await(waitMs, TimeUnit.MILLISECONDS)) {
+            return true;
+        }
+        if (PRTSFeaturesConfig.barrierTimeoutAction == PRTSFeaturesConfig.BarrierTimeoutAction.CRASH) {
+            return false;
+        }
+        HARD_TIMEOUTS.incrementAndGet();
+        barrierTimeoutDump(where);
+        LOGGER.error("[PRTS-Barrier] hard timeout ({}) with degrade action: marking {} dimension(s) degraded, "
+                + "waiting one more window before giving up", where, playerlessDims.size());
+        for (ResourceKey<Level> dim : playerlessDims) {
+            markDegradedDimension(dim);
+        }
+        return latch.await(PRTSFeaturesConfig.barrierTimeoutMs, TimeUnit.MILLISECONDS);
     }
 
     /** Barrier timeout diagnostic: dump all threads and return the crash message. */

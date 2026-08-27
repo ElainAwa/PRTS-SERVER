@@ -197,6 +197,13 @@ public class PRTSFeaturesConfig {
     public static int barrierTargetMs;
     /** §1.1:量化 barrier 等待与 join 后主线程工作(players/localTicks)的重叠空间(纯遥测,默认关)。 */
     public static boolean mainWastedMsTelemetry;
+    // A1': 硬超时行为(barrierTimeoutMs 超时后)。degrade = ERROR+全线程 dump + 该维度/level 标记
+    // degraded(后续主线程串行 tick) + 连续正常 recover-ticks 后自动恢复并行;crash = 原行为崩服。
+    public enum BarrierTimeoutAction { CRASH, DEGRADE }
+    /** 硬超时后的行为(默认 degrade:生产求稳,崩服无诊断价值;dump 照记)。 */
+    public static BarrierTimeoutAction barrierTimeoutAction = BarrierTimeoutAction.DEGRADE;
+    /** degraded 状态自动恢复并行所需的连续正常 tick 数。 */
+    public static int barrierTimeoutRecoverTicks = 6000;
 
     // Lighting - per-tick light propagation budget + telemetry (PRTS 光照预算化).
     // 限制每 tick 光照传播工作量，风暴时超出部分顺延下一 tick（最终光照一致，只是延迟）。
@@ -461,6 +468,12 @@ public class PRTSFeaturesConfig {
         mainWastedMsTelemetry = config.getBoolean("parallel.main-wasted-ms-telemetry", false);
         LOGGER.info("parallel barrier-soft-degrade={} target-ms={} main-wasted-ms-telemetry={}",
                 barrierSoftDegrade, barrierTargetMs, mainWastedMsTelemetry);
+        String barrierTimeoutActionRaw = config.getString("parallel.barrier-timeout-action", "degrade");
+        barrierTimeoutAction = "crash".equalsIgnoreCase(barrierTimeoutActionRaw)
+                ? BarrierTimeoutAction.CRASH : BarrierTimeoutAction.DEGRADE;
+        barrierTimeoutRecoverTicks = Math.max(1, config.getInt("parallel.barrier-timeout-recover-ticks", 6000));
+        LOGGER.info("parallel barrier-timeout-action={} recover-ticks={}",
+                barrierTimeoutAction, barrierTimeoutRecoverTicks);
         lightBudgetEnabled = config.getBoolean("lighting.budget-enabled", true);
         lightBudgetPerTick = config.getInt("lighting.budget-per-tick", 100000);
         if (lightBudgetPerTick < 0) lightBudgetPerTick = 0;
@@ -642,6 +655,8 @@ public class PRTSFeaturesConfig {
                   barrier-soft-degrade: false       # B组:主线程已落后时 barrier 时间切片 join（迟到 region 本轮跳剩余工作,存活实体下 tick 补；默认关,遥测对比后逐个开）
                   barrier-target-ms: 50             # B组:整 tick 目标预算 ms；elapsed>它才激活软降级（0=永不）
                   main-wasted-ms-telemetry: false   # 量化 barrier 等待 vs join 后主线程工作（players/localTicks）的重叠上界（纯遥测）
+                  barrier-timeout-action: degrade    # A1': 硬超时行为 crash|degrade（degrade=ERROR+dump+该维度转主线程串行+自动恢复；crash=原崩服行为）
+                  barrier-timeout-recover-ticks: 6000 # A1': degraded 自动恢复并行所需的连续正常 tick
 
                 # 可靠区块保存（WAL 预写日志，默认关）
                 reliable-chunk-save:
