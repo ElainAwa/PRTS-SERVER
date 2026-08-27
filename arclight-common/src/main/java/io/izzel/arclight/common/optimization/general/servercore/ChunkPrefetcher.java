@@ -20,16 +20,8 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * A3: 玩家方向区块预取（参考 DimensionalRipper ChunkPrefetcher，落 PRTS 语义）。
- *
- * <p>原理：玩家 tick（主线程）按移动方向对视距外 1..depth 格的区块投一个临时 FULL 级
- * ticket，让区块生成提前完成；玩家到达时直接命中缓存。ticket 带 timeout（默认 200 tick）
- * 由 DistanceManager 自动回收，无泄漏；已 FULL 的区块跳过；每玩家每 interval-ticks 才重算。
- * 全流程 try/catch——预取是纯增益，任何异常都不影响玩家 tick。</p>
- *
- * <p>与 PRTS 需求队列的关系：本类只投 vanilla ticket（走原版 DistanceManager 生成管线），
- * 不直接进 ChunkDemandQueue；M2 chunk-system 开启时 ticket 变化同样驱动其需求消费
- * （实现时已核对 ChunkMap ticket 路径）。</p>
+ * 玩家方向区块预取:按移动方向对视距外区块投临时 ticket,使生成提前完成;
+ * ticket 到期自动回收,全流程 try/catch 纯增益。
  */
 public final class ChunkPrefetcher {
 

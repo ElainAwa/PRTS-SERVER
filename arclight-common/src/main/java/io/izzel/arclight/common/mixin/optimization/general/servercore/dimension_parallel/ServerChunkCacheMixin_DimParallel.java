@@ -219,14 +219,13 @@ public abstract class ServerChunkCacheMixin_DimParallel implements io.izzel.arcl
         int loaded = 0;
         long start = System.nanoTime();
         ChunkPos pos;
-        // A2: 常规配额循环。
+        // 常规配额循环。
         while (loaded < budget && (pos = ChunkDemandQueue.poll(this.level)) != null) {
             if (arclight$loadDemand(pos)) {
                 loaded++;
             }
         }
-        // A2: 最低保证窗口——低 TPS 时配额尽后仍至少排空 minDrainMs，
-        // 防死亡螺旋（区块不加载→实体/光照等区块→tick 更慢→更没预算排空）。
+        // 最低保证窗口:配额尽后仍至少排空 minDrainMs,防低 TPS 死亡螺旋。
         long minDrainNs = ChunkDemandQueue.minDrainMs * 1_000_000L;
         if (minDrainNs > 0L && System.nanoTime() - start < minDrainNs) {
             while (System.nanoTime() - start < minDrainNs
@@ -240,7 +239,7 @@ public abstract class ServerChunkCacheMixin_DimParallel implements io.izzel.arcl
         ChunkDemandQueue.afterDrain(this.level);
     }
 
-    /** A2: 消费一个需求坐标并写入 lastChunk 环形缓存；返回是否成功落地为 FULL。 */
+    /** 消费一个需求坐标并写入 lastChunk 环形缓存；返回是否成功落地为 FULL。 */
     @Unique
     private boolean arclight$loadDemand(ChunkPos pos) {
         ChunkAccess chunk = this.level.getChunk(pos.x, pos.z, ChunkStatus.FULL, false);

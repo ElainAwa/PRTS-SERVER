@@ -236,7 +236,7 @@ public final class RegionTickManager {
     /** §1.1:上一个 region barrier 的等待耗时(ms),dispatchAndTick join 后工作用它估重叠上界。 */
     static volatile long LAST_REGION_BARRIER_WAIT_MS;
 
-    // A1': region 硬超时降级跟踪。degraded level 的 region 阶段由主线程串行执行(无 worker)。
+    // region 硬超时降级跟踪:degraded level 的 region 阶段由主线程串行执行(无 worker)。
     private static final Map<ResourceKey<Level>, AtomicInteger> DEGRADED_LEVELS = new ConcurrentHashMap<>();
     private static final AtomicInteger REGION_HARD_TIMEOUTS = new AtomicInteger();
 
@@ -1071,7 +1071,7 @@ public final class RegionTickManager {
 
     /** True when the region-parallel feature is enabled (PRTS prts-features.yml). */
     public static boolean regionEnabled() {
-        // A7: 整服熔断激活时退原版串行(region 各阶段按 false 走 vanilla 路径)。
+        // 整服熔断激活时退原版串行(region 各阶段按 false 走 vanilla 路径)。
         return PRTSFeaturesConfig.parallelRegion && !DimensionTickManager.isFaultFallback();
     }
 
@@ -1446,7 +1446,7 @@ public final class RegionTickManager {
 
     /** Submits one worker per region, drains the given phase work, waits for all. */
     private static void runWorkers(ServerLevel level, boolean applyNow, IntConsumer work) {
-        // A1': degraded level 的 region 阶段主线程串行执行(worker 不再参与,无 barrier)。
+        // degraded level 的 region 阶段主线程串行执行(worker 不再参与,无 barrier)。
         if (isRegionDegraded(level)) {
             tickRegionRecovery(level);
             serialRegionPhase(level, applyNow, work);
@@ -1532,11 +1532,7 @@ public final class RegionTickManager {
         }
     }
 
-    /**
-     * A1': degraded level 的 region 阶段串行执行(主线程,无 worker/latch/停止门)。
-     * 先统一应用 journal(与 determinismMode 主线程路径一致),再逐 region 串行执行 work;
-     * work 体为纯队列 drain(tickEntity/arclight$tickBlock 均主线程安全,与主线程 drain 共用)。
-     */
+    /** degraded level 的 region 阶段串行执行:先应用 journal,再逐 region 执行 work。 */
     private static void serialRegionPhase(ServerLevel level, boolean applyNow, IntConsumer work) {
         try {
             if (applyNow) {
@@ -1601,11 +1597,7 @@ public final class RegionTickManager {
         }
     }
 
-    /**
-     * A1': region 硬超时等待 + degrade 处理。返回 true=已完成;false=触发 crash 条件(dump 已记)。
-     * degrade 模式:记 dump 日志 + 标记该 level degraded + 再等一个完整窗口,仍卡死才返回 false
-     * (绝不带着在跑的 region worker 进入下一 phase)。
-     */
+    /** region 硬超时等待 + degrade 处理;仍卡死返回 false(绝不带着在跑的 worker 进下一 phase)。 */
     private static boolean hardAwaitRegion(CountDownLatch latch, ServerLevel level, long waitMs)
             throws InterruptedException {
         if (latch.await(waitMs, TimeUnit.MILLISECONDS)) {

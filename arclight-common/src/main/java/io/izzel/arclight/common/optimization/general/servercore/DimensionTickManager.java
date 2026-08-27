@@ -72,18 +72,16 @@ public final class DimensionTickManager {
             .timer("overworld").timer("nether").timer("end").timer("other")
             .build();
 
-    // A1': 硬超时降级跟踪。degraded 维度不再进 worker 池,由主线程串行 tick,
-    // 连续正常 recover-ticks 后自动恢复并行(crash 模式不启用)。
+    // 硬超时降级跟踪:degraded 维度由主线程串行 tick,连续正常 recover-ticks 后自动恢复并行。
     private static final Map<ResourceKey<Level>, AtomicInteger> DEGRADED_DIMENSIONS = new ConcurrentHashMap<>();
     private static final AtomicInteger HARD_TIMEOUTS = new AtomicInteger();
 
-    // A7: 整服熔断。连续 3 次 barrier 硬超时(跨维度/region 累加)触发:全部维度主线程串行 +
-    // region 并行全关(on-fault-fallback-vanilla 开启时);重启恢复,不做自动恢复。
+    // 整服熔断:连续 3 次 barrier 硬超时触发,全部维度主线程串行 + region 并行全关(重启恢复)。
     private static final AtomicInteger CONSECUTIVE_HARD_TIMEOUTS = new AtomicInteger();
     private static volatile boolean FAULT_FALLBACK = false;
     private static volatile String FAULT_FALLBACK_REASON = "";
 
-    /** A7: 整服熔断是否激活(regionEnabled() 与 parallelTick 都查询)。 */
+    /** 整服熔断是否激活(regionEnabled() 与 parallelTick 都查询)。 */
     public static boolean isFaultFallback() {
         return FAULT_FALLBACK;
     }
@@ -92,7 +90,7 @@ public final class DimensionTickManager {
         return FAULT_FALLBACK ? "ON(" + FAULT_FALLBACK_REASON + ")" : "off";
     }
 
-    /** A7: 每次硬超时(维度/region)调用;累计达阈值触发整服熔断。 */
+    /** 每次硬超时(维度/region)调用;累计达阈值触发整服熔断。 */
     static void onHardTimeout(String where) {
         HARD_TIMEOUTS.incrementAndGet();
         if (FAULT_FALLBACK || !PRTSFeaturesConfig.onFaultFallbackVanilla) {
@@ -146,7 +144,7 @@ public final class DimensionTickManager {
                 + " | region: " + RegionTickManager.regionBarrierStatusText();
     }
 
-    // A13: 每维度 tick 耗时环形缓冲(100 tick),供 status DimensionTps 行换算 TPS。
+    // 每维度 tick 耗时环形缓冲(100 tick),供 status DimensionTps 行换算 TPS。
     private static final Map<ResourceKey<Level>, long[]> DIM_TICK_TIMES = new ConcurrentHashMap<>();
 
     /** POST 阶段记录本维度 tick 耗时(nanos),环形 100 槽。 */
@@ -270,7 +268,7 @@ public final class DimensionTickManager {
         resetHardTimeoutStreak();
         IN_DIMENSION_TICK.set(true);
         try {
-            // A7: 整服熔断——所有维度主线程串行 tick(vanilla 语义,无 worker/barrier)。
+            // 整服熔断:所有维度主线程串行 tick(vanilla 语义,无 worker/barrier)。
             if (FAULT_FALLBACK) {
                 for (int i = 0; i < n; i++) {
                     try {
@@ -291,7 +289,7 @@ public final class DimensionTickManager {
                     withPlayers.add(units[i]);
                 }
             }
-            // A1': degraded 维度不进 worker 池,主线程串行 tick(计数恢复进度)。
+            // degraded 维度不进 worker 池,主线程串行 tick(计数恢复进度)。
             java.util.ArrayList<ParallelTickUnit> degraded = new java.util.ArrayList<>();
             java.util.ArrayList<ParallelTickUnit> parallelDims = new java.util.ArrayList<>();
             for (ParallelTickUnit unit : playerless) {
@@ -335,7 +333,7 @@ public final class DimensionTickManager {
                     failure.compareAndSet(null, t);
                 }
             }
-            // A1': degraded 维度主线程串行 tick(与 withPlayers 同路径,POST drains 正常覆盖)。
+            // degraded 维度主线程串行 tick(与 withPlayers 同路径,POST drains 正常覆盖)。
             for (ParallelTickUnit unit : degraded) {
                 try {
                     tickDimensionRecovery(unit.level().dimension());
@@ -433,12 +431,7 @@ public final class DimensionTickManager {
         }
     }
 
-    /**
-     * A1': 维度硬超时等待 + degrade 处理。返回 true=已完成;false=触发 crash 条件(dump 已记)。
-     * crash 模式:超时即返回 false(调用方抛 dump 崩服)。
-     * degrade 模式:记 dump 日志 + 标记全部 playerless 维度 degraded + 再等一个完整窗口,
-     * 仍卡死才返回 false——绝不带着在跑的维度 worker 进入 POST phase(单写者语义)。
-     */
+    /** 维度硬超时等待 + degrade 处理;仍卡死返回 false(绝不带着在跑的 worker 进入 POST)。 */
     private static boolean hardAwaitDimension(CountDownLatch latch, java.util.List<ResourceKey<Level>> playerlessDims,
                                               String where) throws InterruptedException {
         return hardAwaitDimension(latch, playerlessDims, where, PRTSFeaturesConfig.barrierTimeoutMs);

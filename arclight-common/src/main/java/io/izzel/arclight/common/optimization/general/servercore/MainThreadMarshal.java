@@ -12,14 +12,8 @@ import org.bukkit.craftbukkit.v.util.Waitable;
 import java.util.concurrent.Callable;
 
 /**
- * A5: 主线程同步 marshal 工具（封装 Arclight 既有的 queuedProcess+Waitable）。
- *
- * <p>用途：worker 线程需要「带返回值的 Bukkit/主线程语义调用」时,把任务投到主线程执行并阻塞等待结果。
- * <b>安全约束</b>:当前 barrier 模型下,维度/region worker 正被主线程 barrier 等待时调用本工具必然死锁
- * (worker 等主线程、主线程等 barrier)——因此在 {@link DimensionTickManager#inDimensionTick()} /
- * {@link RegionTickManager#inRegionTick()} 窗口内调用直接抛异常拒绝。
- * 本工具为未来「playerless 维度自排程 loop 模型」(主线程不再等 barrier)预留;
- * 当前可安全使用的场景:登录/连接线程、区块生成后台线程等不被 barrier 收口的工作线程。</p>
+ * 主线程同步 marshal 工具(封装 queuedProcess+Waitable):worker 需要带返回值的
+ * 主线程语义调用时投到主线程执行并阻塞等待;barrier 窗口内调用直接拒绝(死锁风险)。
  */
 public final class MainThreadMarshal {
 
