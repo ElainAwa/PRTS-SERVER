@@ -128,6 +128,25 @@ public final class RegionTickManager {
         beltPassengerApplier = applier;
     }
 
+    /**
+     * 空车休眠策略（S2.11 §2.16 载具组）：调度层降频钩子。
+     *
+     * <p>由 SBW compat 侧（@LoadIfMod 守卫）在载具实体首次实例化时注册实现；
+     * 无 SBW / 实现未注册时字段恒为 null，dispatch 只付一次 volatile 读——
+     * 对其它模组与 vanilla 实体零行为影响。策略内部只对「静止且无乘客的
+     * 非残骸 SBW 载具」做心跳降频（本 tick 跳过 dispatch，心跳点恢复），
+     * 载具外的实体一律返回 false 原样调度。</p>
+     */
+    public interface VehicleSleepPolicy {
+        boolean shouldSleepVehicle(Entity entity);
+    }
+
+    private static volatile VehicleSleepPolicy vehicleSleepPolicy;
+
+    public static void setVehicleSleepPolicy(VehicleSleepPolicy policy) {
+        vehicleSleepPolicy = policy;
+    }
+
     /** worker 调用：把 belt passenger 注册请求排到本维度主线程队列（applier 未注册则忽略）。 */
     public static void queueBeltPassenger(ServerLevel level, Entity entity,
                                           net.minecraft.core.BlockPos pos,
@@ -353,6 +372,8 @@ public final class RegionTickManager {
             .counter("entities.addDeferred")
             .counter("entities.addMainDrained")
             .counter("entities.addExpired")
+            // 钉 worker 命中数：main-thread-entity-allow 前缀放行的实体 tick 数（S2.11 遥测）
+            .counter("entities.workerPinned")
             // B 组(2026-08-27 docs/2026-08-27-region-parallel-barrier-idle-fix.md §2):
             // 主线程超预算时 barrier 时间切片 join:softDegrades = 触发软降级的次数,
             // lateRegions = 单次软降级时仍未完成的 region 数(droppedRegion 遥测);
@@ -740,8 +761,12 @@ public final class RegionTickManager {
         if (matchesAnyConfiguredPrefix(c, PRTSFeaturesConfig.mainThreadEntityForce)) {
             return true;
         }
-        // 2) allow：显式放行（危险调试用，覆盖种子与学习结果）
+        // 2) allow：显式钉 worker（危险调试用，覆盖种子与学习结果）。
+        //    用途：把已确认可在 worker 安全 tick 的第三方模组实体钉在并行线程，
+        //    防止学习器/安全阀因一次性违规把它们路由回主线程。命中计入遥测
+        //    entities.workerPinned（/servercore status 可观测）。
         if (matchesAnyConfiguredPrefix(c, PRTSFeaturesConfig.mainThreadEntityAllow)) {
+            STATS.increment("entities.workerPinned");
             return false;
         }
         // 3) worker 任意异常安全阀：本会话永久回主线程
@@ -778,6 +803,9 @@ public final class RegionTickManager {
     public static String routedReason(Class<?> c) {
         if (matchesAnyConfiguredPrefix(c, PRTSFeaturesConfig.mainThreadEntityForce)) {
             return "force";
+        }
+        if (matchesAnyConfiguredPrefix(c, PRTSFeaturesConfig.mainThreadEntityAllow)) {
+            return "allow";
         }
         if (EntityAffinity.isUnsafe(c.getName())) {
             return "unsafe";
@@ -1027,6 +1055,12 @@ public final class RegionTickManager {
         list.forEach(entity -> {
             if (entity instanceof ServerPlayer || entity instanceof ItemEntity || entity instanceof ExperienceOrb) {
                 localTicks.add(entity);
+                return;
+            }
+            // 空车休眠（S2.11 §2.16）：插件式策略，未注册（无 SBW）/默认关时只付一次
+            // volatile 读，零行为影响。策略内部仅对静止无乘客的非残骸 SBW 载具心跳降频。
+            VehicleSleepPolicy sleepPolicy = vehicleSleepPolicy;
+            if (sleepPolicy != null && sleepPolicy.shouldSleepVehicle(entity)) {
                 return;
             }
             // 镜像 vanilla WorldServer.tick 实体循环的顺序：shouldDiscardEntity ->
