@@ -133,10 +133,23 @@ public final class ChunkSystemDriver {
         this.centerHolder = genTask.getCenter();
         this.center = this.centerHolder.getPos();
         this.target = genTask.targetStatus;
-        // 预铺目标（STRUCTURE_STARTS）落 56-63 档；其余需求按距离定档
-        this.priority = this.target == ChunkStatus.STRUCTURE_STARTS
-                ? PRTSFeaturesConfig.chunkPrefetchPriority
-                : ChunkSystemScheduler.priorityFor(level, this.center.x, this.center.z);
+        // 预铺目标（STRUCTURE_STARTS）落 56-63 档；其余需求按距离定档。
+        // 视距外预铺区（FULL 目标、距离 > viewDist）倒序定档：远端块先跑
+        // （远端先入走廊但按距离序排最后，链 3-5s 赶不上玩家 7s 到达）。
+        int dist = ChunkSystemScheduler.priorityFor(level, this.center.x, this.center.z);
+        if (this.target == ChunkStatus.FULL) {
+            int viewDist = level.getServer().getPlayerList().getViewDistance();
+            int zoneEnd = viewDist + PRTSFeaturesConfig.chunkPrefetchWindow;
+            if (dist > viewDist && dist <= zoneEnd) {
+                this.priority = zoneEnd - dist + 1;
+            } else {
+                this.priority = dist;
+            }
+        } else {
+            this.priority = this.target == ChunkStatus.STRUCTURE_STARTS
+                    ? PRTSFeaturesConfig.chunkPrefetchPriority
+                    : dist;
+        }
         this.submitNanos = System.nanoTime();
     }
 
