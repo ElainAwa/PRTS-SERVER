@@ -18,7 +18,6 @@ import org.spongepowered.asm.mixin.injection.Constant;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyConstant;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import it.unimi.dsi.fastutil.longs.LongSet;
 
@@ -75,7 +74,7 @@ public abstract class PlayerChunkSenderMixin_ChunkRate {
     }
 
     @Inject(method = "onChunkBatchReceivedByClient", at = @At("RETURN"))
-    private void prts$minDesiredRate(float rate, CallbackInfoReturnable<Float> cir) {
+    private void prts$minDesiredRate(float rate, CallbackInfo ci) {
         if (this.desiredChunksPerTick < MIN_DESIRED_RATE) {
             this.desiredChunksPerTick = MIN_DESIRED_RATE;
         }
