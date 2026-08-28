@@ -124,30 +124,31 @@ public final class ChunkPrefetcher {
             state.dirX = Integer.compare(dx, 0);
             state.dirZ = Integer.compare(dz, 0);
         }
-        if (state.dirX == 0 && state.dirZ == 0) {
-            return; // 尚未跨块，方向不可定
-        }
 
-        // idle 判定（滞回：连续 100 tick 位移<2 块进入；单次位移≥4 块退出）
+        // idle 判定（评审口径修正）：100 tick 窗口内总位移 < 2 块才进入 idle
+        // （即 ≤6.4 m/s 才视为静止；正常飞行 1.25 块/s 一个窗口就超 2 块，绝不误判）。
+        // 单次位移 ≥ 4 块立即退出（滞回防块边界悬停抖振）。
         if (PRTSFeaturesConfig.chunkPrefetchIdleEnabled) {
             if (!state.idle) {
-                if (moved < 2) {
-                    state.idleCandidateTicks += elapsed;
-                    if (state.idleCandidateTicks >= PRTSFeaturesConfig.chunkPrefetchIdleEnterTicks) {
+                state.idleWindowTicks += elapsed;
+                state.idleDistance += moved;
+                if (state.idleWindowTicks >= PRTSFeaturesConfig.chunkPrefetchIdleEnterTicks) {
+                    if (state.idleDistance < 2) {
                         state.idle = true;
-                        state.idleCandidateTicks = 0;
                         IDLE_ENTERS.increment();
                         LOGGER.info("[chunk-prefetch] {} entered idle pre-generation (radius={}, perTick={})",
                                 player.getGameProfile().getName(),
                                 PRTSFeaturesConfig.chunkPrefetchIdleRadius,
                                 PRTSFeaturesConfig.chunkPrefetchIdlePerTick);
                     }
-                } else {
-                    state.idleCandidateTicks = 0;
+                    state.idleWindowTicks = 0;
+                    state.idleDistance = 0;
                 }
             } else if (moved >= PRTSFeaturesConfig.chunkPrefetchIdleExitBlocks) {
                 state.idle = false;
                 state.windowDirty = true; // 立即切回方向性窗口
+                state.idleWindowTicks = 0;
+                state.idleDistance = 0;
                 IDLE_EXITS.increment();
                 LOGGER.info("[chunk-prefetch] {} exited idle (moved {} blocks), back to directional window",
                         player.getGameProfile().getName(), moved);
@@ -176,6 +177,9 @@ public final class ChunkPrefetcher {
         boolean recompute = state.windowDirty
                 || gameTime - state.lastRecomputeGameTime >= PRTSFeaturesConfig.chunkPrefetchWindowRecomputeTicks
                 || (!state.idle && moved >= PRTSFeaturesConfig.chunkPrefetchWindowStep);
+        if (recompute && !state.idle && state.dirX == 0 && state.dirZ == 0) {
+            recompute = false; // 方向未定（idle 关闭且从未跨块）：方向性窗口无法计算
+        }
         if (!recompute) {
             return;
         }
@@ -306,7 +310,10 @@ public final class ChunkPrefetcher {
         long lastLogGameTime;
         boolean firstLog;
         boolean idle;
-        int idleCandidateTicks;
+        /** idle 判定窗口累计 tick（100 tick 内总位移 <2 块才进入）。 */
+        int idleWindowTicks;
+        /** idle 判定窗口累计位移（块）。 */
+        int idleDistance;
         boolean windowDirty;
         /** 当前窗口内已投票坐标。 */
         Set<Long> pending = new HashSet<>();
@@ -325,6 +332,9 @@ public final class ChunkPrefetcher {
             this.lastGameTime = gameTime;
             this.lastRecomputeGameTime = gameTime;
             this.firstLog = true;
+            // 冷启动：登录即进入 idle 环形预铺（落地玩家静止，环 [11,18] 立即铺根；
+            // 一旦快速移动（≥4 块/interval）立即切方向性窗口）。方向未知也不阻塞环形。
+            this.idle = PRTSFeaturesConfig.chunkPrefetchIdleEnabled;
         }
     }
 }
