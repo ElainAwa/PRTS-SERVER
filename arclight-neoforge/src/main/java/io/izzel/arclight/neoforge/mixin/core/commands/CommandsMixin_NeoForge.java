@@ -15,6 +15,7 @@ import org.spongepowered.asm.mixin.Mutable;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.Opcodes;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.util.Map;
@@ -27,8 +28,9 @@ public abstract class CommandsMixin_NeoForge implements CommandsBridge {
     @Mutable @Shadow @Final private CommandDispatcher<CommandSourceStack> dispatcher;
     // @formatter:on
 
-    @Inject(method = "<init>", at = @At(value = "INVOKE", shift = At.Shift.AFTER,
-            target = "Lcom/mojang/brigadier/CommandDispatcher;<init>()V"))
+    @Inject(method = "<init>", at = @At(value = "FIELD", opcode = Opcodes.PUTFIELD,
+            target = "Lnet/minecraft/commands/Commands;dispatcher:Lcom/mojang/brigadier/CommandDispatcher;",
+            shift = At.Shift.AFTER))
     private void arclight$neo$installBukkitDispatcher(CallbackInfo ci) {
         // 根因：common 的 @CreateConstructor 构造器注入点在 super() 之后、字段初始化器之前；
         // NeoForge merged 的 Commands.<init> 把 dispatcher 字段初始化（new CommandDispatcher
