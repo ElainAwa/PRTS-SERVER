@@ -6,12 +6,14 @@
 package io.izzel.arclight.common.optimization.general.servercore;
 
 import io.izzel.arclight.common.compat.prts.PRTSFeaturesConfig;
+import net.minecraft.server.level.ChunkLevel;
 import net.minecraft.server.level.ServerChunkCache;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.level.TicketType;
 import net.minecraft.util.Unit;
 import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.chunk.status.ChunkStatus;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -237,8 +239,15 @@ public final class ChunkPrefetcher {
                 continue; // 本窗口已选
             }
             if (!state.pending.contains(pos.toLong())) {
-                // 新块投 FULL 级票（level 33）：原版自动建生成任务，重复投幂等
-                source.addRegionTicket(ticket(), pos, 0, Unit.INSTANCE);
+                // 梯度分级票：远端浅级（structure_starts）近端深级（FULL），
+                // 浅层链即时完成，窗口并发随层级展开，不全部挤在 FULL 级排队
+                int dist = Math.max(Math.abs(pos.x - chunk.x), Math.abs(pos.z - chunk.z));
+                int zoneEnd = viewDist + PRTSFeaturesConfig.chunkPrefetchWindow;
+                int ticketLevel = Math.max(ChunkLevel.byStatus(ChunkStatus.FULL),
+                        Math.min(ChunkLevel.byStatus(ChunkStatus.STRUCTURE_STARTS),
+                                ChunkLevel.byStatus(ChunkStatus.STRUCTURE_STARTS)
+                                        - (zoneEnd - dist) * 8 / Math.max(1, PRTSFeaturesConfig.chunkPrefetchWindow - 1)));
+                ((PrefetchTicketSink) source).prts$addPrefetchTicket(ticket(), pos, ticketLevel, Unit.INSTANCE);
                 tickets++;
                 TICKETS.increment();
             }
