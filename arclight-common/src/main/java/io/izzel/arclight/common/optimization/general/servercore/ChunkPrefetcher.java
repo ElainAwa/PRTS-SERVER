@@ -186,10 +186,11 @@ public final class ChunkPrefetcher {
             // 平滑限速：预算 = perTick × 距上次重算 tick 数（上限仍受 max-pending 约束）
             budget = PRTSFeaturesConfig.chunkPrefetchIdlePerTick * Math.max(1, sinceRecompute);
         } else {
-            // 方向性窗口：前方 window×window 矩形（深度 [viewDist+1, viewDist+window]）
+            // 方向性走廊：前方 宽×深 矩形（深度 [viewDist+1, viewDist+window]，
+            // 窄走廊控制并发链数量，避免 M2 管线饱和导致链延迟暴涨）
             int from = viewDist + 1;
             int to = viewDist + PRTSFeaturesConfig.chunkPrefetchWindow;
-            int half = PRTSFeaturesConfig.chunkPrefetchWindow / 2;
+            int half = PRTSFeaturesConfig.chunkPrefetchWindowWidth / 2;
             if (state.dirX != 0 && state.dirZ != 0) {
                 for (int k = from; k <= to; k++) {
                     for (int j = from; j <= to; j++) {
