@@ -108,7 +108,7 @@ public class PRTSFeaturesConfig {
     public static int chunkPrefetchIntervalTicks;
     /** 预取 ticket 存活时长（tick，到期自动回收）。 */
     public static int chunkPrefetchTimeoutTicks;
-    /** 预铺窗口边长（区块矩形，v03：STRUCTURE_STARTS 级票，depth 已废弃）。 */
+    /** 预铺窗口边长（区块矩形；depth 已废弃）。 */
     public static int chunkPrefetchWindow;
     /** 窗口重算触发：跨块 ≥ windowStep。 */
     public static int chunkPrefetchWindowStep;
@@ -126,7 +126,7 @@ public class PRTSFeaturesConfig {
     public static int chunkPrefetchIdlePerTick;
     /** 进入 idle：连续 ticks 位移 < 2 块。 */
     public static int chunkPrefetchIdleEnterTicks;
-    /** 退出 idle：单次位移 ≥ exitBlocks 块。 */
+    /** 退出 idle 阈值（保留兼容；现按任意跨块退出）。 */
     public static int chunkPrefetchIdleExitBlocks;
     /** processQueue 按需唤醒（marshal 请求在 tick 间及时服务；纯延迟优化，默认开）。 */
     public static boolean processQueueWake;
@@ -436,7 +436,7 @@ public class PRTSFeaturesConfig {
         chunkPrefetchDepth = Math.max(1, config.getInt("chunk-prefetch.depth", 6));
         chunkPrefetchIntervalTicks = Math.max(1, config.getInt("chunk-prefetch.interval-ticks", 5));
         chunkPrefetchTimeoutTicks = Math.max(20, config.getInt("chunk-prefetch.timeout-ticks", 200));
-        // v03：STRUCTURE_STARTS 级票窗口预铺（depth 废弃保留兼容）。
+        // 窗口预铺（depth 已废弃，保留解析兼容）。
         chunkPrefetchWindow = Math.max(4, config.getInt("chunk-prefetch.window", 16));
         chunkPrefetchWindowStep = Math.max(1, config.getInt("chunk-prefetch.window-step", 2));
         chunkPrefetchWindowRecomputeTicks = Math.max(10, config.getInt("chunk-prefetch.window-recompute-ticks", 40));

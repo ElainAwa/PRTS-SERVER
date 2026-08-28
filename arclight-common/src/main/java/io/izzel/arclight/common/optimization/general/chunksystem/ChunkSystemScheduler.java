@@ -106,8 +106,7 @@ public final class ChunkSystemScheduler {
             throw new IllegalStateException("[chunk-system] submit must be called on the level's main thread");
         }
         ChunkPos pos = task.getCenter().getPos();
-        // v03 分带：STRUCTURE_STARTS 目标 = 预铺（仅预铺投此目标），落 56-63 档；
-        // 其余需求 clamp 到预铺档之下（见 maxDemandPriority）。
+        // 预铺目标（STRUCTURE_STARTS）落 56-63 档；其余需求 clamp 到其下
         int priority = task.targetStatus == ChunkStatus.STRUCTURE_STARTS
                 ? PRTSFeaturesConfig.chunkPrefetchPriority
                 : priorityFor(level, pos.x, pos.z);
@@ -174,11 +173,7 @@ public final class ChunkSystemScheduler {
         return LOCK_UPGRADE_PAUSE;
     }
 
-    /**
-     * 切比雪夫距离定档：0=最近（≤1 块），最远/无玩家 = 需求档上限。
-     * v03 分带：需求 clamp 到预铺档之下（{@code chunk-prefetch.priority} - 1），
-     * 保证 56-63 档只有预铺任务，预铺永不挤占玩家需求。
-     */
+    /** 切比雪夫距离定档（0=最近）；需求 clamp 到预铺档之下。 */
     static int priorityFor(ServerLevel level, int x, int z) {
         int min = MAX_PRIORITY;
         for (ServerPlayer player : level.players()) {

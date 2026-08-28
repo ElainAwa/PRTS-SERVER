@@ -6,14 +6,12 @@
 package io.izzel.arclight.common.optimization.general.servercore;
 
 import io.izzel.arclight.common.compat.prts.PRTSFeaturesConfig;
-import net.minecraft.server.level.ChunkLevel;
 import net.minecraft.server.level.ServerChunkCache;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.level.TicketType;
 import net.minecraft.util.Unit;
 import net.minecraft.world.level.ChunkPos;
-import net.minecraft.world.level.chunk.status.ChunkStatus;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -28,19 +26,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.LongAdder;
 
 /**
- * 玩家方向区块预铺（v03：依赖根预铺引擎）。
- *
- * <p>对玩家前方窗口（默认 16×16）投 <b>STRUCTURE_STARTS 级票</b>
- * （level = {@code ChunkLevel.byStatus(STRUCTURE_STARTS)} = 41）：票自动创建
- * holder 并把块目标定在 structure_starts——生成任务图只展开 EMPTY + 根，
- * 由 M2 以预铺优先级档（56-63）执行；玩家接近后玩家的 FULL 票（33）覆盖，
- * 既有 reschedule 机制无缝升级到 FULL。这是「8 格依赖根提前铺满」的载体，
- * 与旧版 FULL 票线预铺（把前方块拉到 FULL，成本拖死波前）本质不同。
- *
- * <p>节流与上限：窗口重算仅在 跨块 ≥ window-step 或 距上次重算 ≥
- * window-recompute-ticks 时触发；每次补货到 max-pending 上限、最近优先。
- * idle 预生成（玩家静止 100 tick 位移 <2 块进入、单次 ≥4 块退出，滞回）在
- * 视距外环铺根。全部逻辑主线程执行，纯增益。
+ * 玩家方向区块预铺：对前方窗口投 FULL 级票，让生成链在玩家到达前跑完；
+ * 静止时在视距外环预铺。窗口重算节流、上限补货、最近优先，主线程执行。
  */
 public final class ChunkPrefetcher {
 
@@ -56,7 +43,6 @@ public final class ChunkPrefetcher {
 
     // ===== 遥测（servercore status 可见） =====
     private static final LongAdder TICKETS = new LongAdder();
-    private static final LongAdder TASKS = new LongAdder();
     private static final LongAdder SKIPPED_FULL = new LongAdder();
     private static final LongAdder RECOMPUTES = new LongAdder();
     private static final LongAdder IDLE_ENTERS = new LongAdder();
@@ -64,6 +50,9 @@ public final class ChunkPrefetcher {
 
     private ChunkPrefetcher() {
     }
+
+    /** idle 退出后的重入宽限（tick）：防止块边界悬停时 idle/窗口来回抖振。 */
+    private static final long IDLE_REENTER_GRACE_TICKS = 40;
 
     /** 每次玩家 tick 调用一次（主线程）。 */
     public static void onPlayerTick(ServerPlayer player) {
@@ -125,15 +114,14 @@ public final class ChunkPrefetcher {
             state.dirZ = Integer.compare(dz, 0);
         }
 
-        // idle 判定（评审口径修正）：100 tick 窗口内总位移 < 2 块才进入 idle
-        // （即 ≤6.4 m/s 才视为静止；正常飞行 1.25 块/s 一个窗口就超 2 块，绝不误判）。
-        // 单次位移 ≥ 4 块立即退出（滞回防块边界悬停抖振）。
+        // idle：100 tick 总位移 <2 块进入；任意跨块退出（40 tick 宽限防抖振）
         if (PRTSFeaturesConfig.chunkPrefetchIdleEnabled) {
             if (!state.idle) {
                 state.idleWindowTicks += elapsed;
                 state.idleDistance += moved;
                 if (state.idleWindowTicks >= PRTSFeaturesConfig.chunkPrefetchIdleEnterTicks) {
-                    if (state.idleDistance < 2) {
+                    if (state.idleDistance < 2
+                            && gameTime - state.lastIdleExitGameTime >= IDLE_REENTER_GRACE_TICKS) {
                         state.idle = true;
                         IDLE_ENTERS.increment();
                         LOGGER.info("[chunk-prefetch] {} entered idle pre-generation (radius={}, perTick={})",
@@ -144,32 +132,16 @@ public final class ChunkPrefetcher {
                     state.idleWindowTicks = 0;
                     state.idleDistance = 0;
                 }
-            } else if (moved >= PRTSFeaturesConfig.chunkPrefetchIdleExitBlocks) {
+            } else if (moved >= 1) {
+                // 任意跨块立即退出 idle（窗口严格优于环形；重入有 40 tick 宽限防块边界抖振）
                 state.idle = false;
-                state.windowDirty = true; // 立即切回方向性窗口
+                state.windowDirty = true;
                 state.idleWindowTicks = 0;
                 state.idleDistance = 0;
+                state.lastIdleExitGameTime = gameTime;
                 IDLE_EXITS.increment();
-                LOGGER.info("[chunk-prefetch] {} exited idle (moved {} blocks), back to directional window",
+                LOGGER.info("[chunk-prefetch] {} exited idle (crossed chunk, moved {}), back to directional window",
                         player.getGameProfile().getName(), moved);
-            }
-        }
-
-        // 显式投递根任务：票已生效（上一 interval 已建 holder）的窗口块补投
-        // STRUCTURE_STARTS 目标任务（原版对 34-41 级 holder 不自动建任务）。
-        // 失败（holder 未就绪/被卸载）保留重试；窗口重算时按新窗口重建。
-        if (!state.needsTask.isEmpty()) {
-            java.util.Iterator<Long> it = state.needsTask.iterator();
-            while (it.hasNext()) {
-                long packed = it.next();
-                try {
-                    ((PrefetchTicketSink) source).prts$scheduleRootTask(
-                            new ChunkPos(ChunkPos.getX(packed), ChunkPos.getZ(packed)));
-                    it.remove();
-                    TASKS.increment();
-                } catch (Throwable t) {
-                    // holder 未就绪：下个 interval 重试（纯增益，不阻塞玩家 tick）
-                }
             }
         }
 
@@ -190,11 +162,7 @@ public final class ChunkPrefetcher {
         recomputeWindow(player, level, source, state, sinceRecompute);
     }
 
-    /**
-     * 全量重算窗口并补货（主线程；跨块≥2 或 40 tick 触发，不每 tick 检查）。
-     * 候选按到玩家切比雪夫距离升序（最近优先）；已 FULL / 已有票跳过；
-     * 补货上限 max-pending；idle 模式按 perTick × 经过 tick 平滑限速。
-     */
+    /** 全量重算窗口并补货（最近优先、上限约束、idle 平滑限速）。 */
     private static void recomputeWindow(ServerPlayer player, ServerLevel level, ServerChunkCache source,
                                         State state, int sinceRecompute) {
         ChunkPos chunk = player.chunkPosition();
@@ -265,22 +233,13 @@ public final class ChunkPrefetcher {
                 continue; // 本窗口已选
             }
             if (!state.pending.contains(pos.toLong())) {
-                // 新块：投 STRUCTURE_STARTS 级票（重复投同票幂等，可省）
-                ((PrefetchTicketSink) source).prts$addPrefetchTicket(ticket(), pos,
-                        ChunkLevel.byStatus(ChunkStatus.STRUCTURE_STARTS), Unit.INSTANCE);
+                // 新块投 FULL 级票（level 33）：原版自动建生成任务，重复投幂等
+                source.addRegionTicket(ticket(), pos, 0, Unit.INSTANCE);
                 tickets++;
                 TICKETS.increment();
             }
         }
         state.pending = next;
-        // 任务投递集合与窗口同步：离开窗口的丢弃；新增票的块补投（延后一拍，票先建 holder）
-        state.needsTask.retainAll(next);
-        for (Long packed : next) {
-            if (!state.pendingBefore.contains(packed)) {
-                state.needsTask.add(packed);
-            }
-        }
-        state.pendingBefore = next;
 
         if (state.firstLog || level.getGameTime() - state.lastLogGameTime >= 20) {
             state.firstLog = false;
@@ -292,9 +251,9 @@ public final class ChunkPrefetcher {
     }
 
     public static String statusText() {
-        return "prefetch(tickets=" + TICKETS.sum() + " tasks=" + TASKS.sum()
-                + " fullSkip=" + SKIPPED_FULL.sum() + " recompute=" + RECOMPUTES.sum()
-                + " idleIn=" + IDLE_ENTERS.sum() + " idleOut=" + IDLE_EXITS.sum() + ")";
+        return "prefetch(tickets=" + TICKETS.sum() + " fullSkip=" + SKIPPED_FULL.sum()
+                + " recompute=" + RECOMPUTES.sum() + " idleIn=" + IDLE_ENTERS.sum()
+                + " idleOut=" + IDLE_EXITS.sum() + ")";
     }
 
     private static final class State {
@@ -317,10 +276,8 @@ public final class ChunkPrefetcher {
         boolean windowDirty;
         /** 当前窗口内已投票坐标。 */
         Set<Long> pending = new HashSet<>();
-        /** 上一窗口（重算时区分新增块）。 */
-        Set<Long> pendingBefore = new HashSet<>();
-        /** 已投票但尚未成功投递 STRUCTURE_STARTS 任务的坐标（延后一拍 + 失败重试）。 */
-        Set<Long> needsTask = new HashSet<>();
+        /** 上次退出 idle 的游戏刻（重入宽限，防块边界抖振）。 */
+        long lastIdleExitGameTime;
 
         void init(ServerPlayer player, long gameTime) {
             this.initialized = true;
@@ -332,8 +289,8 @@ public final class ChunkPrefetcher {
             this.lastGameTime = gameTime;
             this.lastRecomputeGameTime = gameTime;
             this.firstLog = true;
-            // 冷启动：登录即进入 idle 环形预铺（落地玩家静止，环 [11,18] 立即铺根；
-            // 一旦快速移动（≥4 块/interval）立即切方向性窗口）。方向未知也不阻塞环形。
+            // 冷启动：登录即进入 idle 环形预铺（落地玩家静止，环 [11,18] 立即 FULL 预铺；
+            // 一旦跨块立即切方向性窗口）。方向未知也不阻塞环形。
             this.idle = PRTSFeaturesConfig.chunkPrefetchIdleEnabled;
         }
     }
