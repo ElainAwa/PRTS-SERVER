@@ -120,6 +120,11 @@ public class PRTSFeaturesConfig {
     public static List<String> mainThreadEntityForce;
     /** 强制不路由的类名/前缀（危险调试用，覆盖学习与种子）。 */
     public static List<String> mainThreadEntityAllow;
+    /** SBW 空车休眠（S2.11 §2.16，默认关）：静止无乘客的非残骸 SBW 载具在调度层
+     *  降为心跳 tick（本 tick 跳过 dispatch）。只作用于 SBW 载具，其它模组实体零影响。 */
+    public static boolean sbwVehicleSleep;
+    /** 空车休眠心跳间隔（tick，默认 10 = 0.5 秒一跳，被推/上车/受击经心跳轮询恢复）。 */
+    public static int sbwVehicleSleepInterval;
     /** 优雅停机时把本会话学到的路由追加写回配置文件（默认关，后续版本启用）。 */
     public static boolean persistLearnedRoutes;
     /** 跨区写 journal 每区域队列上限（最旧条目丢弃，默认 4096）。 */
@@ -328,6 +333,9 @@ public class PRTSFeaturesConfig {
         beltPassengerDefer = config.getBoolean("parallel.belt-passenger-defer", false);
         mainThreadEntityForce = new ArrayList<>(config.getStringList("parallel.main-thread-entity-force"));
         mainThreadEntityAllow = new ArrayList<>(config.getStringList("parallel.main-thread-entity-allow"));
+        sbwVehicleSleep = config.getBoolean("parallel.sbw-vehicle-sleep", false);
+        sbwVehicleSleepInterval = Math.max(2, Math.min(120, config.getInt("parallel.sbw-vehicle-sleep-interval", 10)));
+        LOGGER.info("parallel sbw-vehicle-sleep={} interval={}", sbwVehicleSleep, sbwVehicleSleepInterval);
         persistLearnedRoutes = config.getBoolean("parallel.persist-learned-routes", false);
         ClassAffinityLedger.applyConfig(routeThreshold, routeWindowTicks, routeOnRead);
         LOGGER.info("parallel main-thread-routing={} threshold={} window={} ticks force={} allow={} persist={}",
