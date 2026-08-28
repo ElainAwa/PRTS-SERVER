@@ -144,6 +144,7 @@
     "chunksystem.StructureStartMixin_AtomicReferences",
     "chunksystem.StructureTemplateMixin_SyncCollections",
     "chunksystem.DistanceManagerMixin_SafeIteration",
+    "chunksystem.GenerationChunkHolderMixin_ReplaceProtoChunkSafe",
     "entityspatial.EntitySectionMixin_SpatialIndex",
     "entityspatial.EntityMixin_SectionIndexRebome",
     "poi.SectionStorageMixin_Presence",
