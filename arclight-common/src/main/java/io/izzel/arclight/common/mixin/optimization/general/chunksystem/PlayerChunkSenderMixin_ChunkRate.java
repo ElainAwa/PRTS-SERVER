@@ -33,8 +33,8 @@ public abstract class PlayerChunkSenderMixin_ChunkRate {
 
     private static final Logger LOGGER = LogManager.getLogger("PRTS-ChunkSend");
 
-    /** 目标速率下限（块/tick）：防 ack 自锁把吞吐锁死在个位数。 */
-    private static final float MIN_DESIRED_RATE = 32.0f;
+    /** 目标速率下限（块/tick）：客户端 ack 是服务端速率回声，下限即吞吐下限。 */
+    private static final float MIN_DESIRED_RATE = 128.0f;
 
     /** 初始速率（块/tick）：适度，避免首批发超量。 */
     private static final float START_RATE = 32.0f;
