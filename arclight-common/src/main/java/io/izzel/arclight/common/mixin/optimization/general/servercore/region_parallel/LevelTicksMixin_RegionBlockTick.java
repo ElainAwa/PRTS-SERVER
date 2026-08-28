@@ -5,32 +5,28 @@
 
 package io.izzel.arclight.common.mixin.optimization.general.servercore.region_parallel;
 
+import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import io.izzel.arclight.common.compat.prts.PRTSFeaturesConfig;
 import io.izzel.arclight.common.optimization.general.servercore.RegionTickManager;
 import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.ticks.LevelChunkTicks;
 import net.minecraft.world.ticks.LevelTicks;
 import net.minecraft.world.ticks.ScheduledTick;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.BiConsumer;
 
 /**
- * Region-level scheduled tick collection: redirects {@code BiConsumer.accept} in
- * {@code LevelTicks.runCollectedTicks} to dispatch block ticks into the owning
- * region's queue (fluid ticks fall through). {@code LevelTicks} is not thread-safe,
- * so {@link LevelTicks#schedule} on a worker is deferred to the main thread.
- *
- * <p>维度并行下 {@code LevelTicks.tick}（维度 worker 收集/清空计划 tick 容器）与
- * 主线程延迟调度 drain（{@code LevelTicks.schedule} 写入同一容器）并发访问
- * LevelChunkTicks → 哈希表撕裂 AIOOBE（生产 2026-08-29 崩溃）。tick 与
- * schedule 加同一把可重入锁串行化（tick 内重调度同线程重入安全）。
+ * 计划 tick 区域分发 + 并发串行化：block tick 进区域队列，fluid 落原路径；
+ * tick 容器访问（收集/调度/增删容器）加同一把可重入锁，
+ * 维度 worker 与主线程延迟调度并发安全。
  */
 @Mixin(LevelTicks.class)
 public abstract class LevelTicksMixin_RegionBlockTick {
@@ -48,34 +44,58 @@ public abstract class LevelTicksMixin_RegionBlockTick {
         }
     }
 
-    @Inject(method = "schedule(Lnet/minecraft/world/ticks/ScheduledTick;)V",
-        at = @At("HEAD"), cancellable = true)
-    private void arclight$regionScheduleLock(ScheduledTick<?> tick, CallbackInfo ci) {
-        // Only a real region worker defers; the owning LevelTicks is captured so the
-        // deferred task is re-scheduled into the correct dimension's tick list.
+    @WrapMethod(method = "schedule(Lnet/minecraft/world/ticks/ScheduledTick;)V")
+    private void arclight$regionScheduleLocked(ScheduledTick<?> tick, Operation<Void> original) {
         if (RegionTickManager.isRegionWorker()) {
             RegionTickManager.collectScheduleTick((LevelTicks<?>) (Object) this, tick);
-            ci.cancel();
-        } else {
-            this.prts$tickLock.lock();
+            return;
         }
-    }
-
-    @Inject(method = "schedule(Lnet/minecraft/world/ticks/ScheduledTick;)V",
-        at = @At("RETURN"))
-    private void arclight$regionScheduleUnlock(ScheduledTick<?> tick, CallbackInfo ci) {
-        if (!RegionTickManager.isRegionWorker()) {
+        this.prts$tickLock.lock();
+        try {
+            original.call(tick);
+        } finally {
             this.prts$tickLock.unlock();
         }
     }
 
-    @Inject(method = "tick(JILjava/util/function/BiConsumer;)V", at = @At("HEAD"))
-    private void arclight$tickLock(long gameTime, int subTickCount, BiConsumer<BlockPos, ?> consumer, CallbackInfo ci) {
+    @WrapMethod(method = "tick(JILjava/util/function/BiConsumer;)V")
+    private void arclight$tickLocked(long gameTime, int subTickCount, BiConsumer<BlockPos, ?> consumer,
+                                     Operation<Void> original) {
         this.prts$tickLock.lock();
+        try {
+            original.call(gameTime, subTickCount, consumer);
+        } finally {
+            this.prts$tickLock.unlock();
+        }
     }
 
-    @Inject(method = "tick(JILjava/util/function/BiConsumer;)V", at = @At("RETURN"))
-    private void arclight$tickUnlock(long gameTime, int subTickCount, BiConsumer<BlockPos, ?> consumer, CallbackInfo ci) {
-        this.prts$tickLock.unlock();
+    @WrapMethod(method = "sortContainersToTick(J)V")
+    private void arclight$sortLocked(long currentTick, Operation<Void> original) {
+        this.prts$tickLock.lock();
+        try {
+            original.call(currentTick);
+        } finally {
+            this.prts$tickLock.unlock();
+        }
+    }
+
+    @WrapMethod(method = "addContainer(Lnet/minecraft/world/level/ChunkPos;Lnet/minecraft/world/ticks/LevelChunkTicks;)V")
+    private void arclight$addContainerLocked(ChunkPos pos, LevelChunkTicks<?> container, Operation<Void> original) {
+        this.prts$tickLock.lock();
+        try {
+            original.call(pos, container);
+        } finally {
+            this.prts$tickLock.unlock();
+        }
+    }
+
+    @WrapMethod(method = "removeContainer(Lnet/minecraft/world/level/ChunkPos;)V")
+    private void arclight$removeContainerLocked(ChunkPos pos, Operation<Void> original) {
+        this.prts$tickLock.lock();
+        try {
+            original.call(pos);
+        } finally {
+            this.prts$tickLock.unlock();
+        }
     }
 }
