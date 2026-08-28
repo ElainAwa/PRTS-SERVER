@@ -1,5 +1,12 @@
 accessWidener v2 named
 # Arclight 1.21.1
+# fast_palette (Moonrise, GPL3): PalettedContainer.Data 访问面
+accessible class net/minecraft/world/level/chunk/PalettedContainer$Data
+accessible class net/minecraft/world/level/chunk/PaletteResize
+accessible field net/minecraft/world/level/chunk/PalettedContainer data Lnet/minecraft/world/level/chunk/PalettedContainer$Data;
+accessible field net/minecraft/world/level/chunk/PalettedContainer$Data storage Lnet/minecraft/util/BitStorage;
+accessible field net/minecraft/world/level/chunk/PalettedContainer$Data palette Lnet/minecraft/world/level/chunk/Palette;
+accessible method net/minecraft/world/level/chunk/PalettedContainer get (I)Ljava/lang/Object;
 accessible method net/minecraft/world/level/GameRules$BooleanValue deserialize (Ljava/lang/String;)V
 accessible method net/minecraft/world/level/GameRules$IntegerValue deserialize (Ljava/lang/String;)V
 accessible method net/minecraft/world/entity/decoration/ItemFrame setDirection (Lnet/minecraft/core/Direction;)V # For ItemsAdder

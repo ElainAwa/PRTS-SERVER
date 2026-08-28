@@ -1,0 +1,23 @@
+package io.izzel.arclight.common.mixin.optimization.general.fastpalette;
+
+import io.izzel.arclight.common.optimization.general.fastpalette.FastPalette;
+import io.izzel.arclight.common.optimization.general.fastpalette.FastPaletteData;
+import net.minecraft.util.CrudeIncrementalIntIdentityHashBiMap;
+import net.minecraft.world.level.chunk.HashMapPalette;
+import net.minecraft.world.level.chunk.Palette;
+import org.spongepowered.asm.mixin.Final;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+
+@Mixin(HashMapPalette.class)
+abstract class HashMapPaletteMixin<T> implements Palette<T>, FastPalette<T> {
+
+    @Shadow
+    @Final
+    private CrudeIncrementalIntIdentityHashBiMap<T> values;
+
+    @Override
+    public final T[] moonrise$getRawPalette(final FastPaletteData<T> container) {
+        return ((FastPalette<T>)this.values).moonrise$getRawPalette(container);
+    }
+}
