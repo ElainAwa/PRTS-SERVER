@@ -56,6 +56,7 @@ public final class ChunkPrefetcher {
 
     // ===== 遥测（servercore status 可见） =====
     private static final LongAdder TICKETS = new LongAdder();
+    private static final LongAdder TASKS = new LongAdder();
     private static final LongAdder SKIPPED_FULL = new LongAdder();
     private static final LongAdder RECOMPUTES = new LongAdder();
     private static final LongAdder IDLE_ENTERS = new LongAdder();
@@ -150,6 +151,24 @@ public final class ChunkPrefetcher {
                 IDLE_EXITS.increment();
                 LOGGER.info("[chunk-prefetch] {} exited idle (moved {} blocks), back to directional window",
                         player.getGameProfile().getName(), moved);
+            }
+        }
+
+        // 显式投递根任务：票已生效（上一 interval 已建 holder）的窗口块补投
+        // STRUCTURE_STARTS 目标任务（原版对 34-41 级 holder 不自动建任务）。
+        // 失败（holder 未就绪/被卸载）保留重试；窗口重算时按新窗口重建。
+        if (!state.needsTask.isEmpty()) {
+            java.util.Iterator<Long> it = state.needsTask.iterator();
+            while (it.hasNext()) {
+                long packed = it.next();
+                try {
+                    ((PrefetchTicketSink) source).prts$scheduleRootTask(
+                            new ChunkPos(ChunkPos.getX(packed), ChunkPos.getZ(packed)));
+                    it.remove();
+                    TASKS.increment();
+                } catch (Throwable t) {
+                    // holder 未就绪：下个 interval 重试（纯增益，不阻塞玩家 tick）
+                }
             }
         }
 
@@ -250,6 +269,14 @@ public final class ChunkPrefetcher {
             }
         }
         state.pending = next;
+        // 任务投递集合与窗口同步：离开窗口的丢弃；新增票的块补投（延后一拍，票先建 holder）
+        state.needsTask.retainAll(next);
+        for (Long packed : next) {
+            if (!state.pendingBefore.contains(packed)) {
+                state.needsTask.add(packed);
+            }
+        }
+        state.pendingBefore = next;
 
         if (state.firstLog || level.getGameTime() - state.lastLogGameTime >= 20) {
             state.firstLog = false;
@@ -261,9 +288,9 @@ public final class ChunkPrefetcher {
     }
 
     public static String statusText() {
-        return "prefetch(tickets=" + TICKETS.sum() + " fullSkip=" + SKIPPED_FULL.sum()
-                + " recompute=" + RECOMPUTES.sum() + " idleIn=" + IDLE_ENTERS.sum()
-                + " idleOut=" + IDLE_EXITS.sum() + ")";
+        return "prefetch(tickets=" + TICKETS.sum() + " tasks=" + TASKS.sum()
+                + " fullSkip=" + SKIPPED_FULL.sum() + " recompute=" + RECOMPUTES.sum()
+                + " idleIn=" + IDLE_ENTERS.sum() + " idleOut=" + IDLE_EXITS.sum() + ")";
     }
 
     private static final class State {
@@ -281,7 +308,12 @@ public final class ChunkPrefetcher {
         boolean idle;
         int idleCandidateTicks;
         boolean windowDirty;
+        /** 当前窗口内已投票坐标。 */
         Set<Long> pending = new HashSet<>();
+        /** 上一窗口（重算时区分新增块）。 */
+        Set<Long> pendingBefore = new HashSet<>();
+        /** 已投票但尚未成功投递 STRUCTURE_STARTS 任务的坐标（延后一拍 + 失败重试）。 */
+        Set<Long> needsTask = new HashSet<>();
 
         void init(ServerPlayer player, long gameTime) {
             this.initialized = true;
