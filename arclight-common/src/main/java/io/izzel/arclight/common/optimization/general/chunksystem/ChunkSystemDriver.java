@@ -21,6 +21,7 @@ import net.minecraft.util.StaticCache2D;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.chunk.ChunkAccess;
+import net.minecraft.world.level.chunk.storage.ChunkStorage;
 import net.minecraft.world.level.chunk.status.ChunkDependencies;
 import net.minecraft.world.level.chunk.status.ChunkPyramid;
 import net.minecraft.world.level.chunk.status.ChunkStatus;
@@ -32,6 +33,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -92,6 +95,13 @@ public final class ChunkSystemDriver {
     private static final ConcurrentHashMap.KeySetView<TaskKey, Boolean> SHARED_DEFERRED =
             ConcurrentHashMap.newKeySet();
 
+    /** Blender 旧区块探测预热的专用单线程：把首次 per-region 的 I/O 扫描移出 M2 worker 关键路径。 */
+    private static final ExecutorService BLENDER_PREWARM = Executors.newSingleThreadExecutor(r -> {
+        Thread thread = new Thread(r, "PRTS-BlenderPrewarm");
+        thread.setDaemon(true);
+        return thread;
+    });
+
     private final ServerLevel level;
     private final ResourceKey<Level> dimension;
     private final GeneratingChunkMap chunkMap;
@@ -140,6 +150,18 @@ public final class ChunkSystemDriver {
     }
 
     private void start() {
+        // 预热 Blender 旧区块探测：原版 BIOMES 步会在 worker 线程同步
+        // isOldChunkAround(...).join()，新 region 首次扫描可达数百 ms，导致
+        // 飞行前缘周期性“看到边界”。这里用专用单线程提前填充 IOWorker 的
+        // regionCacheForBlender，把首次 I/O 移出 M2 worker 关键路径。
+        BLENDER_PREWARM.execute(() -> {
+            try {
+                ((ChunkStorage) ChunkSystemDriver.this.chunkMap)
+                        .isOldChunkAround(ChunkSystemDriver.this.center, 8);
+            } catch (Throwable ignored) {
+                // 预热只是优化；失败时后续原版路径仍会按需探测。
+            }
+        });
         // 内圈半径 = LOADING 锥域对 EMPTY 的累计半径（原版首层调度半径，
         // 实测 1.21.1 各目标均为 1；target=EMPTY 时 getStepTo 对自身返回 0）。
         int innerRadius = this.target == ChunkStatus.EMPTY ? 0
@@ -234,6 +256,9 @@ public final class ChunkSystemDriver {
                 created.enqueue();
                 return created;
             });
+            // 共享任务可能由更远的驱动器先创建：被本驱动器采纳时立即提升到
+            // 本驱动器（通常更靠近玩家）的优先级，避免近处区块卡在低优先级队列。
+            task.raisePriority(ChunkSystemDriver.this.priority);
             this.pending.incrementAndGet();
             future.whenComplete((result, throwable) -> this.onUnitSettled());
             return task;
@@ -287,9 +312,10 @@ public final class ChunkSystemDriver {
         return future;
     }
 
-    /** 按 M2.0-2 审计表的每步写半径生成锁令牌。 */
+    /** 按每步写半径生成锁令牌；features 半径取配置（默认 2，可降为 1 缓解前沿串行化）。 */
     private static ChunkSystemScheduler.ChunkLockToken[] tokensFor(ResourceKey<Level> dimension, ChunkPos pos, ChunkStatus status) {
-        int radius = status == ChunkStatus.FEATURES ? 2
+        int radius = status == ChunkStatus.FEATURES
+                ? Math.max(1, PRTSFeaturesConfig.chunkSystemSchedulerLockRadius)
                 : status == ChunkStatus.STRUCTURE_STARTS ? 1 : 0;
         ChunkSystemScheduler.ChunkLockToken[] tokens =
                 new ChunkSystemScheduler.ChunkLockToken[(2 * radius + 1) * (2 * radius + 1)];
@@ -328,6 +354,7 @@ public final class ChunkSystemDriver {
         private final ChunkStatus status;
         private final CompletableFuture<ChunkResult<ChunkAccess>> future;
         private final ChunkSystemScheduler.ChunkLockToken[] lockTokens;
+        private final AtomicInteger priority = new AtomicInteger(ChunkSystemDriver.this.priority);
         private final AtomicBoolean inQueued = new AtomicBoolean(false);
         /** 阶段状态（任务实例串行执行，无需 volatile）。 */
         private ChunkStep step;
@@ -346,6 +373,20 @@ public final class ChunkSystemDriver {
             this.future = future;
             this.lockTokens = tokensFor(dimension, holder.getPos(), status);
             this.enqueuedAtNanos = System.nanoTime();
+        }
+
+        /** 共享任务被更高优先级（更小数值）驱动器采纳时提升队列优先级。 */
+        void raisePriority(int newPriority) {
+            while (true) {
+                int cur = this.priority.get();
+                if (newPriority >= cur) {
+                    return;
+                }
+                if (this.priority.compareAndSet(cur, newPriority)) {
+                    ChunkSystemDriver.this.executor().notifyPriorityChange(this);
+                    return;
+                }
+            }
         }
 
         void enqueue() {
@@ -519,7 +560,14 @@ public final class ChunkSystemDriver {
                 // 返回外部哨兵（如 UNLOADED_CHUNK_FUTURE）= 状态不再被允许：排空，
                 // 本 future 由原版失败清理机制（卸载/重新调度）结算
                 this.holderAware.prts$applyStep(workStep, chunkMap, cache);
-                ChunkSystemStats.executed(System.nanoTime() - start, start - this.enqueuedAtNanos);
+                long execNanos = System.nanoTime() - start;
+                long execMs = execNanos / 1_000_000L;
+                if (execMs >= 500) {
+                    LOGGER.warn("[chunk-system] slow step {} @ {} dim={} took {}ms (queueWait={}ms)",
+                            this.status, this.holder.getPos(), dimension.location(), execMs,
+                            (start - this.enqueuedAtNanos) / 1_000_000L);
+                }
+                ChunkSystemStats.executed(execNanos, start - this.enqueuedAtNanos);
             } finally {
                 releaseLocks.run();
             }
@@ -541,7 +589,7 @@ public final class ChunkSystemDriver {
 
         @Override
         public int priority() {
-            return priority;
+            return this.priority.get();
         }
 
         @Override

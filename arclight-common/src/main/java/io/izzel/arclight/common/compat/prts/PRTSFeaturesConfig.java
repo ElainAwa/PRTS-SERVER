@@ -97,6 +97,11 @@ public class PRTSFeaturesConfig {
     public static int chunkDemandStarveTicks;
     /** 玩家方向区块预取（默认关）：按移动方向对视距外投临时 ticket（到期自动回收）。 */
     public static boolean chunkPrefetchEnabled;
+    /** 进服热点预热：启动后把配置中心区域加载到 FULL（玩家首登免磁盘等待）。 */
+    public static boolean loginWarmupEnabled;
+    public static int loginWarmupRadius;
+    public static int loginWarmupPerTick;
+    public static int[][] loginWarmupCenters;
     /** 视距外预取深度（格）。 */
     public static int chunkPrefetchDepth;
     /** 每玩家预取重算间隔（tick）。 */
@@ -277,6 +282,8 @@ public class PRTSFeaturesConfig {
      *  thenApplyAsync(mainThreadExecutor) 改投调度器最低优先级档，配套事件捕获延迟队列。
      *  仅在 chunk-system-enabled 下生效；启动期语义（读盘路径），默认开。 */
     public static boolean chunkAsyncIoEnabled;
+    /** 反序列化线程数（1=串行保持原语义；>1 并行构建区块对象图，POI 段由 PoiManager 锁串行化）。 */
+    public static int chunkDeserializeThreads;
     /** World.random 跨线程检测模式（M2.2 四件套 ④）：warn=限流日志+回退（默认）、
      *  throw=抛异常、其他=不装装饰器。仅在 chunk-system-enabled 下生效。 */
     public static String worldgenRandomCheck;
@@ -412,6 +419,11 @@ public class PRTSFeaturesConfig {
         LOGGER.info("chunk-prefetch enabled={} depth={} interval={} timeout={}",
                 chunkPrefetchEnabled, chunkPrefetchDepth, chunkPrefetchIntervalTicks, chunkPrefetchTimeoutTicks);
         processQueueWake = config.getBoolean("parallel.process-queue-wake", true);
+        loginWarmupEnabled = config.getBoolean("parallel.login-warmup-enabled", true);
+        loginWarmupRadius = Math.max(0, config.getInt("parallel.login-warmup-radius", 32));
+        loginWarmupPerTick = Math.max(1, config.getInt("parallel.login-warmup-per-tick", 32));
+        loginWarmupCenters = parseNestedPairs(config.getString("parallel.login-warmup-centers",
+                "[[472,1358],[2113,1925],[-629,-278],[-672,256],[1242,2292]]"));
         onFaultFallbackVanilla = config.getBoolean("parallel.on-fault-fallback-vanilla", false);
         mobCollisionEnabled = config.getBoolean("mob-collision.enabled", false);
         mobCollisionPlayersAffected = config.getBoolean("mob-collision.players-affected", false);
@@ -543,6 +555,7 @@ public class PRTSFeaturesConfig {
         chunkSystemEnabled = config.getBoolean("parallel.chunk-system-enabled", false);
         chunkSystemFailFastGuards = config.getBoolean("parallel.chunk-system-fail-fast-guards", true);
         chunkAsyncIoEnabled = config.getBoolean("parallel.chunk-async-io-enabled", true);
+        chunkDeserializeThreads = Math.max(1, config.getInt("parallel.chunk-deserialize-threads", 1));
         worldgenRandomCheck = config.getString("parallel.worldgen-random-check", "warn");
         entitySpatialIndexEnabled = config.getBoolean("entity-spatial-index.enabled", true);
         entitySpatialIndexMinSectionSize = config.getInt("entity-spatial-index.min-section-size", 16);
@@ -583,6 +596,39 @@ public class PRTSFeaturesConfig {
         } catch (Exception e) {
             LOGGER.error("persist-learned-routes failed", e);
         }
+    }
+
+    /** 解析 [[x,z],[x,z],...] 为 int[][]；空/非法返回空数组。 */
+    private static int[][] parseNestedPairs(String value) {
+        String text = value.strip();
+        List<int[]> result = new ArrayList<>();
+        if (!text.startsWith("[") || !text.endsWith("]")) {
+            return new int[0][];
+        }
+        text = text.substring(1, text.length() - 1);
+        int idx = 0;
+        while (idx < text.length()) {
+            int open = text.indexOf('[', idx);
+            if (open < 0) {
+                break;
+            }
+            int close = text.indexOf(']', open);
+            if (close < 0) {
+                break;
+            }
+            String pair = text.substring(open + 1, close).trim();
+            String[] parts = pair.split(",");
+            if (parts.length == 2) {
+                try {
+                    result.add(new int[]{Integer.parseInt(parts[0].trim()),
+                            Integer.parseInt(parts[1].trim())});
+                } catch (NumberFormatException ignored) {
+                    // 忽略非法项
+                }
+            }
+            idx = close + 1;
+        }
+        return result.toArray(new int[0][]);
     }
 
     private static List<String> parseInlineList(String value) {

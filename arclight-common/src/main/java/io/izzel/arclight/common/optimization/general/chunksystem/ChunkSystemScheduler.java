@@ -134,14 +134,15 @@ public final class ChunkSystemScheduler {
         return IoDeserializeHolder.EXECUTOR;
     }
 
-    /** 反序列化专用单线程（懒加载；守护线程，随 JVM 退出）。 */
+    /** 反序列化线程池（懒加载；守护线程；线程数取配置，默认 1 保持串行语义）。 */
     private static final class IoDeserializeHolder {
         private static final java.util.concurrent.ExecutorService EXECUTOR =
-                java.util.concurrent.Executors.newSingleThreadExecutor(r -> {
-                    Thread t = new Thread(r, "PRTS-ChunkSystem-IoDeserialize");
-                    t.setDaemon(true);
-                    return t;
-                });
+                java.util.concurrent.Executors.newFixedThreadPool(
+                        Math.max(1, PRTSFeaturesConfig.chunkDeserializeThreads), r -> {
+                            Thread t = new Thread(r, "PRTS-ChunkSystem-IoDeserialize");
+                            t.setDaemon(true);
+                            return t;
+                        });
     }
 
     /** 宽锁域 = 中心 ± lockRadius（features 跨块写覆盖，实测半径 2）。 */

@@ -106,6 +106,18 @@ public final class AsyncTaskStats {
         return t == null ? 0.0 : t.avgMillis();
     }
 
+    /** 累计总耗时（纳秒；0 if absent）。与 {@link #count} 配对做窗口平均。 */
+    public long totalNanos(String name) {
+        Timer t = timers.get(name);
+        return t == null ? 0L : t.totalNanos();
+    }
+
+    /** 累计采样数（0 if absent）。 */
+    public long count(String name) {
+        Timer t = timers.get(name);
+        return t == null ? 0L : t.count();
+    }
+
     /** Sum of a counter (0 if absent; read-only, main thread). */
     public long counterSum(String name) {
         LongAdder c = counters.get(name);
@@ -257,6 +269,14 @@ public final class AsyncTaskStats {
         double avgMillis() {
             long c = count.sum();
             return c == 0 ? 0.0 : total.sum() / 1_000_000.0 / c;
+        }
+
+        long totalNanos() {
+            return total.sum();
+        }
+
+        long count() {
+            return count.sum();
         }
 
         double maxMillis() {
