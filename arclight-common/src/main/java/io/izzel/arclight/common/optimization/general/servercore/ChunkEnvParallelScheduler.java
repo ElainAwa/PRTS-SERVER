@@ -47,9 +47,8 @@ public final class ChunkEnvParallelScheduler {
 
     /** 子任务池(独立于 region/dimension 池,避免 await 时池线程被占导致的饿死)。 */
     private static volatile ThreadPoolExecutor pool;
-    /** 当前 tick 收集的待并行 chunk。 */
-    private static final List<Object[]> PENDING = new ArrayList<>();
-    private static boolean active;
+    /** 收集窗口：tickChunks 只在维度 tick 线程跑（每维度一线程），ThreadLocal 天然隔离多维度。 */
+    private static final ThreadLocal<PendingWindow> WINDOW = ThreadLocal.withInitial(PendingWindow::new);
     /** 每 chunk 锁表(radius=1 时锁定 3×3)。 */
     private static final ConcurrentHashMap<Long, ReentrantLock> LOCKS = new ConcurrentHashMap<>();
     /** 3×3 锁半径常量:覆盖流体跨界写与邻居更新反应写。 */
@@ -87,30 +86,36 @@ public final class ChunkEnvParallelScheduler {
         return p;
     }
 
-    /** tickChunks HEAD 调用:开启收集窗口(仅主线程,主世界路径)。 */
-    public static void begin(boolean onMainThread) {
-        PENDING.clear();
-        active = PRTSFeaturesConfig.chunkEnvParallel && onMainThread;
+    /** tickChunks HEAD 调用:开启本线程收集窗口(主线程或维度 worker)。 */
+    public static void begin(boolean onTickThread) {
+        if (!PRTSFeaturesConfig.chunkEnvParallel || !onTickThread) {
+            return;
+        }
+        PendingWindow w = WINDOW.get();
+        w.active = true;
+        w.tasks.clear();
     }
 
     /** @Redirect level.tickChunk:并行时收集;返回 true=已收集。 */
     public static boolean collect(ServerLevel level, LevelChunk chunk, int randomTickSpeed) {
-        if (!active) {
+        PendingWindow w = WINDOW.get();
+        if (!w.active) {
             return false;
         }
-        PENDING.add(new Object[]{level, chunk, randomTickSpeed});
+        w.tasks.add(new Object[]{level, chunk, randomTickSpeed});
         return true;
     }
 
-    /** 广播前收口:提交并行执行全部收集的 chunk 环境 tick,等待完成。 */
+    /** 广播前收口:提交本线程收集的 chunk 环境 tick,等待完成。 */
     public static void flush() {
-        if (!active || PENDING.isEmpty()) {
-            active = false;
+        PendingWindow w = WINDOW.get();
+        if (!w.active || w.tasks.isEmpty()) {
+            w.active = false;
             return;
         }
-        List<Object[]> tasks = new ArrayList<>(PENDING);
-        PENDING.clear();
-        active = false;
+        List<Object[]> tasks = new ArrayList<>(w.tasks);
+        w.tasks.clear();
+        w.active = false;
         CountDownLatch latch = new CountDownLatch(tasks.size());
         for (Object[] e : tasks) {
             ServerLevel level = (ServerLevel) e[0];
@@ -179,6 +184,12 @@ public final class ChunkEnvParallelScheduler {
 
     /** 仅用于单元级调试查询(状态行可扩展)。 */
     static int pendingSize() {
-        return PENDING.size();
+        return WINDOW.get().tasks.size();
+    }
+
+    /** 单维度收集窗口（tickChunks 每维度单线程，无需额外同步）。 */
+    private static final class PendingWindow {
+        boolean active;
+        final List<Object[]> tasks = new ArrayList<>();
     }
 }

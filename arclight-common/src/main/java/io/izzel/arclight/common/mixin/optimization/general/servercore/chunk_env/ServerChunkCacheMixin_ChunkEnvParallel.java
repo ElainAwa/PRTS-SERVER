@@ -33,7 +33,12 @@ public abstract class ServerChunkCacheMixin_ChunkEnvParallel {
 
     @Inject(method = "tickChunks", at = @At("HEAD"))
     private void arclight$chunkEnvBegin(CallbackInfo ci) {
-        ChunkEnvParallelScheduler.begin(this.level.getServer() != null && this.level.getServer().isSameThread());
+        // 主线程或维度 worker 线程都激活并行（维度 worker 上 tickChunks 是维度 tick 的一部分，
+        // 卡顿区块隔离在并行子任务池中，不拖累其它区块的随机 tick —— DR 语义）。
+        boolean onTickThread = this.level.getServer() != null
+                && (this.level.getServer().isSameThread()
+                || io.izzel.arclight.common.optimization.general.servercore.DimensionTickManager.isDimensionTickThread());
+        ChunkEnvParallelScheduler.begin(onTickThread);
     }
 
     @Redirect(method = "tickChunks",
@@ -45,10 +50,11 @@ public abstract class ServerChunkCacheMixin_ChunkEnvParallel {
         }
     }
 
-    @Redirect(method = "tickChunks",
+    // 广播循环 forEach 前冲刷并行收集的环境 tick（不用 @Redirect 与该循环的
+    // 既有 @Redirect 抢占同一指令，注入与重定向可共存）。
+    @Inject(method = "tickChunks",
         at = @At(value = "INVOKE", target = "Ljava/util/List;forEach(Ljava/util/function/Consumer;)V"))
-    private void arclight$flushChunkEnvTicks(List<?> list, Consumer<Object> consumer) {
+    private void arclight$flushChunkEnvTicks(CallbackInfo ci) {
         ChunkEnvParallelScheduler.flush();
-        list.forEach(consumer);
     }
 }

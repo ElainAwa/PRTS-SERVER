@@ -1453,17 +1453,12 @@ public final class RegionTickManager {
             }
         });
 
-        // 3. Tick players and pickup-interactive entities on the current thread.
+        // 3. 玩家与拾取交互实体路由主线程 POST drain（有玩家维度已提交 worker 池，
+        //    玩家 tick 必须主线程：容器菜单/网络包/Bukkit 玩家事件；region 完成后
+        //    drainMainThreadEntityTicks 用 tickEntitySafely 执行，语义与 consumer.accept 等价）。
         long postJoinStart = Util.getNanos();  // §1.1: 量化 join 后主线程工作
         for (Entity entity : localTicks) {
-            if (!(entity instanceof ServerPlayer)) {
-                // 区块已卸载时跳过：维度 worker 无法补生成，vanilla 此时已移除实体
-                ChunkPos cp = entity.chunkPosition();
-                if (!((ServerChunkCacheRegionBridge) level.getChunkSource()).arclight$hasLiveChunk(cp.x, cp.z)) {
-                    continue;
-                }
-            }
-            consumer.accept(entity);
+            queueMainThreadEntityTick(level, entity);
         }
         if (PRTSFeaturesConfig.mainWastedMsTelemetry) {
             // §1.1: join 后主线程工作(player + localTicks)的 ms;重叠上界 = max(0, barrierWait - postJoin)。

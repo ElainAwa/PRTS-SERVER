@@ -280,23 +280,21 @@ public final class DimensionTickManager {
                 }
                 return;
             }
-            java.util.ArrayList<ParallelTickUnit> playerless = new java.util.ArrayList<>();
+            // 有玩家维度也提交 worker 池：维度 tick 串行骨架（tickChunks/方块刻/dispatch）
+            // 在 worker 上并行，玩家实体 tick 由 dispatchAndTick 路由主线程 POST drain（见
+            // RegionTickManager.dispatchAndTick），玩家连接/网络包仍在主线程 tickChildren。
             java.util.ArrayList<ParallelTickUnit> withPlayers = new java.util.ArrayList<>();
-            for (int i = 0; i < n; i++) {
-                if (units[i].level().players().isEmpty()) {
-                    playerless.add(units[i]);
-                } else {
-                    withPlayers.add(units[i]);
-                }
-            }
-            // degraded 维度不进 worker 池,主线程串行 tick(计数恢复进度)。
             java.util.ArrayList<ParallelTickUnit> degraded = new java.util.ArrayList<>();
             java.util.ArrayList<ParallelTickUnit> parallelDims = new java.util.ArrayList<>();
-            for (ParallelTickUnit unit : playerless) {
+            for (int i = 0; i < n; i++) {
+                ParallelTickUnit unit = units[i];
                 if (isDegradedDimension(unit.level().dimension())) {
                     degraded.add(unit);
                 } else {
                     parallelDims.add(unit);
+                    if (!unit.level().players().isEmpty()) {
+                        withPlayers.add(unit);
+                    }
                 }
             }
             CountDownLatch latch = new CountDownLatch(parallelDims.size());
@@ -326,14 +324,7 @@ public final class DimensionTickManager {
                     latch.countDown();
                 }
             }
-            for (ParallelTickUnit unit : withPlayers) {
-                try {
-                    unit.tick(hasTimeLeft);
-                } catch (Throwable t) {
-                    failure.compareAndSet(null, t);
-                }
-            }
-            // degraded 维度主线程串行 tick(与 withPlayers 同路径,POST drains 正常覆盖)。
+            // degraded 维度主线程串行 tick（恢复计数进度，POST drains 正常覆盖）。
             for (ParallelTickUnit unit : degraded) {
                 try {
                     tickDimensionRecovery(unit.level().dimension());
