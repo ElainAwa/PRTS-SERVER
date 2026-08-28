@@ -24,6 +24,7 @@
     "trackingrange.EntityMixin_TrackingRange",
     "servercore.biome_lookups.NaturalSpawnerMixin",
     "servercore.async_pathfinding.PathNavigationMixin",
+    "servercore.async_pathfinding.MoveToTargetSinkMixin_PathReuse",
     "servercore.async_pathfinding.PathFinderMixin_Async",
     "servercore.async_pathfinding.AcquirePoiMixin_VillagerPathBudget",
     "servercore.async_pathfinding.MoveToTargetSinkMixin_VillagerPathBudget",
