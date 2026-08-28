@@ -192,9 +192,12 @@ public final class ChunkPrefetcher {
             int to = viewDist + PRTSFeaturesConfig.chunkPrefetchWindow;
             int half = PRTSFeaturesConfig.chunkPrefetchWindowWidth / 2;
             if (state.dirX != 0 && state.dirZ != 0) {
-                for (int k = from; k <= to; k++) {
-                    for (int j = from; j <= to; j++) {
-                        candidates.add(new ChunkPos(chunk.x + state.dirX * k, chunk.z + state.dirZ * j));
+                // 对角走廊：沿方向投影 p∈[from,to]、垂直偏移 q∈[-half,half] 的菱形带，
+                // 与轴向走廊同宽同深（不可用方块——256 块会把管线灌饱和）
+                for (int p = from; p <= to; p++) {
+                    for (int q = -half; q <= half; q++) {
+                        candidates.add(new ChunkPos(chunk.x + state.dirX * (p + q),
+                                chunk.z + state.dirZ * (p - q)));
                     }
                 }
             } else if (state.dirX != 0) {
