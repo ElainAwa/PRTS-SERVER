@@ -5,6 +5,7 @@
 
 package io.izzel.arclight.common.mixin.optimization.general.servercore.dimension_parallel;
 
+import io.izzel.arclight.common.bridge.core.world.server.ServerChunkProviderBridge;
 import io.izzel.arclight.common.optimization.general.servercore.DimensionTickManager;
 import net.minecraft.server.level.ServerChunkCache;
 import net.minecraft.server.level.ServerLevel;
@@ -33,6 +34,12 @@ public abstract class ServerLevelMixin_TickSyncCollect {
                                                  boolean tickPassengers) {
         ServerLevel level = (ServerLevel) (Object) this;
         if (DimensionTickManager.isDimensionTickThread()) {
+            // 生成驱动不能延迟：runDistanceManagerUpdates（含 runGenerationTasks → M2 任务提交、
+            // 玩家 ticket/区块需求更新）必须在维度 worker 上立即执行，否则生成驱动每 tick 只跑
+            // 一次且与玩家需求串行 → M2 worker 全空闲 + 区块加载跟不上（实测根因）。
+            // 广播链（tickChunks 的 ChunkMap.tick 发包 + 实体管理器）仍收集到 POST 主线程，
+            // 保持 93f00d9 的 Create 客户端同步修复语义。
+            ((ServerChunkProviderBridge) (Object) chunkSource).bridge$tickDistanceManager();
             DimensionTickManager.collectPostSync(level, () -> chunkSource.tick(hasTimeLeft, tickPassengers));
         } else {
             chunkSource.tick(hasTimeLeft, tickPassengers);

@@ -239,9 +239,12 @@ public final class ChunkSystemDriver {
      * （外部路径已完成/失败该步）。返回该状态的 future（供门控收集）。
      */
     private CompletableFuture<ChunkResult<ChunkAccess>> ensureTask(GenerationChunkHolder holder, ChunkStatus status) {
-        final CompletableFuture<ChunkResult<ChunkAccess>> future = this.futureFor(holder, status);
         TaskKey key = new TaskKey(this.dimension, holder.getPos().x, holder.getPos().z, status.getIndex());
         this.tasks.computeIfAbsent(key, k -> {
+            // 先物化 future（CAS 线程安全），再建共享任务；futureFor 的重调度判断
+            // 放到共享任务创建之后（本调用已创建/采纳 → 不投递多余重调度）。
+            final CompletableFuture<ChunkResult<ChunkAccess>> future =
+                    ((PRTSChunkSystemHolderAware) holder).prts$getOrCreateFuture(status);
             if (future.isDone()) {
                 return null;
             }
@@ -266,7 +269,7 @@ public final class ChunkSystemDriver {
             future.whenComplete((result, throwable) -> this.onUnitSettled());
             return task;
         });
-        return future;
+        return this.futureFor(holder, status);
     }
 
     private void onUnitSettled() {
@@ -303,7 +306,8 @@ public final class ChunkSystemDriver {
         ChunkGenerationTask existing = ((PRTSChunkSystemHolderAware) holder).prts$task().get();
         if (existing == null || status.isAfter(existing.targetStatus)) {
             TaskKey key = new TaskKey(this.dimension, holder.getPos().x, holder.getPos().z, status.getIndex());
-            if (SHARED_DEFERRED.add(key)) {
+            // 共享任务已存在（驱动 future 的调度单元）→ 无需重调度
+            if (!SHARED_TASKS.containsKey(key) && SHARED_DEFERRED.add(key)) {
                 ChunkSystemStats.rescheduleDeferred();
                 ((PRTSChunkMapRescheduleAware) this.chunkMap).prts$deferReschedule(holder, status);
             }
