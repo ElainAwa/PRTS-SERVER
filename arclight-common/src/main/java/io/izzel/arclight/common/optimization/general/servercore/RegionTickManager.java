@@ -22,6 +22,7 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.ExperienceOrb;
 import net.minecraft.world.entity.animal.Animal;
 import net.minecraft.world.entity.animal.WaterAnimal;
+import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.npc.Npc;
 import net.minecraft.world.level.ChunkPos;
@@ -58,6 +59,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.IntConsumer;
+import java.util.Locale;
 
 /**
  * Region-level tick parallelism: runs the overworld's block-tick / entity-tick /
@@ -353,6 +355,10 @@ public final class RegionTickManager {
         volatile long appliedTick = -1L;
         volatile int[] lastEntityDist;
         volatile long[] lastRegionTimingNanos;  // per-region tick time (last entity session)
+        // per-region 累计耗时/次数（仅本维度累加，评估窗口用；避免全局计时器
+        // 混入其它维度的空闲样本稀释平均）。
+        final long[] regionTotalNanos;
+        final long[] regionCount;
         // Per-tick submit budget breaker: submissions beyond journal-max-per-tick are
         // dropped (counted, not queued); callers naturally retry next tick.
         volatile long budgetTick = -1L;
@@ -360,8 +366,12 @@ public final class RegionTickManager {
         // Auto-scale per-dimension counters (only overworld drives the decision).
         int lowPeriods = 0;
         long lastEvalTick = -1L;
+        long lastEvalWallMs = 0L;  // 墙上时间间隔（低 TPS 时 tick 间隔会拉长 5 倍）
         long lastCrossRead = 0L;
         long lastTicks = 0L;
+        // 上次评估的 region 计时器累计快照（窗口平均用，随 reconfigure 重建）。
+        long[] lastRegionTotals = new long[0];
+        long[] lastRegionCounts = new long[0];
 
         DimensionState(int n) {
             this.entityQueues = newQueues(n);
@@ -370,6 +380,8 @@ public final class RegionTickManager {
             this.teTickQueues = newQueues(n);
             this.lastEntityDist = new int[n];
             this.lastRegionTimingNanos = new long[n];
+            this.regionTotalNanos = new long[n];
+            this.regionCount = new long[n];
         }
 
         @SuppressWarnings("unchecked")
@@ -489,19 +501,35 @@ public final class RegionTickManager {
         DimensionState st = state(overworld);
         int serverTick = server.getTickCount();
         long intervalTicks = Math.max(20L, PRTSFeaturesConfig.regionScaleIntervalSeconds * 20L);
-        if (serverTick - st.lastEvalTick < intervalTicks) {
+        long intervalMs = Math.max(1000L, PRTSFeaturesConfig.regionScaleIntervalSeconds * 1000L);
+        if (serverTick - st.lastEvalTick < intervalTicks
+                && System.currentTimeMillis() - st.lastEvalWallMs < intervalMs) {
             return;
         }
         st.lastEvalTick = serverTick;
+        st.lastEvalWallMs = System.currentTimeMillis();
         int n = REGION_COUNT;
         double maxAvg = 0.0;
         int active = 0;
         int[] dist = st.lastEntityDist;
+        // 窗口平均：用本维度（overworld）的 per-region 累计增量；全局计时器
+        // 混入其它维度的空闲样本会稀释平均（首次/重配后快照为空，增量即累计）。
+        long[] totalsNow = new long[n];
+        long[] countsNow = new long[n];
         for (int i = 0; i < n; i++) {
-            double avg = STATS.avgMillis("region" + i);
+            totalsNow[i] = st.regionTotalNanos[i];
+            countsNow[i] = st.regionCount[i];
+            long prevTotal = i < st.lastRegionTotals.length ? st.lastRegionTotals[i] : 0L;
+            long prevCount = i < st.lastRegionCounts.length ? st.lastRegionCounts[i] : 0L;
+            long dt = totalsNow[i] - prevTotal;
+            long dc = countsNow[i] - prevCount;
+            double avg = dc > 0 ? dt / 1_000_000.0 / dc : 0.0;
             if (avg > maxAvg) maxAvg = avg;
             if (i < dist.length && dist[i] > 0) active++;
         }
+        st.lastRegionTotals = totalsNow;
+        st.lastRegionCounts = countsNow;
+        LOGGER.info("[region-tick] auto-scale eval maxAvg={}ms active={}/{} n={}", String.format(Locale.ROOT, "%.1f", maxAvg), active, n, n);
         long crossNow = STATS.counterSum("cross.read");
         long ticksNow = STATS.counterSum("ticks");
         long crossDelta = crossNow - st.lastCrossRead;
@@ -516,11 +544,14 @@ public final class RegionTickManager {
         double crossBudget = PRTSFeaturesConfig.regionScaleCrossReadRatio;
         String reason = null;
         int target = n;
-        if (maxAvg > high && n < max && active >= n && crossRatio <= crossBudget) {
+        // 扩员不检查跨区读：cross.read 计数含实体寻路的正常跨区读（密集实体
+        // 场景每 tick 数千次），任何阈值都会挡住扩员；扩员拆开最慢区的收益
+        // 远大于条纹边界带来的跨区读增量。降员仍检查（低负载时跨区读少）。
+        if (maxAvg > high && n < max && active >= n) {
             target = n * 2;
             reason = String.format("high-load maxAvg=%.1fms active=%d crossRatio=%.3f", maxAvg, active, crossRatio);
             st.lowPeriods = 0;
-        } else if (maxAvg < low && active <= n / 2) {
+        } else if (maxAvg < low && active <= n / 2 && crossRatio <= crossBudget) {
             if (++st.lowPeriods >= PRTSFeaturesConfig.regionScaleStablePeriods && n > min) {
                 target = n / 2;
                 reason = String.format("low-load maxAvg=%.1fms active=%d periods=%d", maxAvg, active, st.lowPeriods);
@@ -1364,9 +1395,13 @@ public final class RegionTickManager {
                 return;
             }
             if (!level.tickRateManager().isEntityFrozen(entity)) {
-                entity.checkDespawn();
-                if (entity.isRemoved()) {
-                    return;
+                // vanilla checkDespawn 对 isPersistenceRequired 实体只重置 noActionTime（永不 discard），
+                // 5000 村民基准下这是纯主线程串行开销：persistent 实体直接跳过整个检查（语义等价）。
+                if (!(entity instanceof Mob mob) || !mob.isPersistenceRequired()) {
+                    entity.checkDespawn();
+                    if (entity.isRemoved()) {
+                        return;
+                    }
                 }
             }
             if (needsMainThreadTick(entity)) {
@@ -1561,8 +1596,13 @@ public final class RegionTickManager {
             drainScheduleTasks();
             STATS.tick(level.getServer() == null ? 0 : level.getServer().getTickCount());
             EventBusStats.tickIfNeeded(level.getServer() == null ? 0 : level.getServer().getTickCount());
-            // Save per-region timing for status display
-            state(level).lastRegionTimingNanos = regionTimings;
+            // Save per-region timing for status display + 本维度累计（评估窗口）
+            DimensionState ds = state(level);
+            ds.lastRegionTimingNanos = regionTimings;
+            for (int r = 0; r < REGION_COUNT; r++) {
+                ds.regionTotalNanos[r] += regionTimings[r];
+                ds.regionCount[r]++;
+            }
         } finally {
             IN_REGION_TICK.set(false);
         }

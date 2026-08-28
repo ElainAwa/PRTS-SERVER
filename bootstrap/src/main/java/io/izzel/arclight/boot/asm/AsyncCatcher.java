@@ -217,6 +217,8 @@ public class AsyncCatcher implements Implementer {
         if (operation != AsyncCatcherSpec.Operation.NONE
                 && (threadName.startsWith("PRTS-DimensionTick-")
                 || threadName.startsWith("PRTS-RegionTick-")
+                || threadName.startsWith("PRTS-EntityBatch")
+                || threadName.startsWith("PRTS-ChunkEnvTick")
                 || DIMENSION_TICK_EXEMPT.get())) {
             if (DIMENSION_TICK_EXEMPT.get()) {
                 return (CallbackInfoReturnable<T>) NOOP;
