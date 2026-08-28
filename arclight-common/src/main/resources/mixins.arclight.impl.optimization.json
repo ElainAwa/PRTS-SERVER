@@ -53,6 +53,7 @@
     "servercore.dimension_parallel.SimplePluginManagerMixin_DimParallel",
     "servercore.dimension_parallel.EntityCallbacksMixin_DimParallel",
     "servercore.dimension_parallel.ServerLevelAccessor_DimParallel",
+    "servercore.dimension_parallel.ServerLevelMixin_TickSyncCollect",
     "servercore.tickets.ChunkGeneratorMixin",
     "servercore.tickets.NaturalSpawnerMixin",
     "servercore.sync_loads.BeeMixin",
@@ -176,6 +177,7 @@
     "servercore.region_parallel.LevelMixin_RegionNeighborShapeLock",
     "servercore.region_parallel.PoiManagerMixin_PoiLock",
     "servercore.region_parallel.GroundPathNavigationMixin_RegionSafe",
-    "servercore.region_parallel.PathNavigationRegionMixin_RegionSafe"
+    "servercore.region_parallel.PathNavigationRegionMixin_RegionSafe",
+    "servercore.compat.KineticNetworkMixin_Create"
   ]
 }

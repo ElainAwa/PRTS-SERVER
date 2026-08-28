@@ -25,6 +25,7 @@ import java.lang.management.ThreadInfo;
 import java.lang.ref.WeakReference;
 import java.util.List;
 import java.util.Map;
+import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CountDownLatch;
@@ -214,6 +215,25 @@ public final class DimensionTickManager {
         return Thread.currentThread().getName().startsWith(DIMENSION_THREAD_PREFIX);
     }
 
+    // 维度 worker 收集的客户端同步链任务（ChunkMap 广播/实体管理器），POST 段主线程执行。
+    private static final Map<ServerLevel, Queue<Runnable>> POST_SYNC = new ConcurrentHashMap<>();
+
+    /** 收集维度 worker 上的同步链任务，POST 段主线程 drain（保持 ChunkMap 增量广播链完整）。 */
+    public static void collectPostSync(ServerLevel level, Runnable task) {
+        POST_SYNC.computeIfAbsent(level, k -> new ConcurrentLinkedQueue<>()).add(task);
+    }
+
+    /** POST 段（主线程）执行本 tick 收集的同步链任务，按 vanilla 顺序。 */
+    public static void drainPostSync(ServerLevel level) {
+        Queue<Runnable> q = POST_SYNC.remove(level);
+        if (q != null) {
+            Runnable t;
+            while ((t = q.poll()) != null) {
+                t.run();
+            }
+        }
+    }
+
     /** Defers a cross-dimension teleport from a worker thread to the post-barrier main thread. */
     public static void enqueueTransfer(Entity entity, DimensionTransition transition) {
         TRANSFERS.add(new PendingTransfer(entity, transition));
@@ -362,6 +382,9 @@ public final class DimensionTickManager {
                 RegionTickManager.drainMainThreadBlockEntityTicks(level);
                 // 维度 worker 收集的装置实体 tick 在主线程执行（getBlockEntity 非主线程固定为 null）
                 RegionTickManager.drainMainThreadEntityTicks(level);
+                // 维度 worker 收集的同步链（ChunkMap 广播/实体管理器）在主线程执行，
+                // 排在实体/BE drain 之后让广播读到本 tick 最新状态（客户端增量同步恢复）。
+                drainPostSync(level);
                 POST.fire(level, hasTimeLeft);
                 long elapsed = Util.getNanos() - startNanos[i];
                 perWorldTickTimes.computeIfAbsent(level.dimension(), k -> new long[100])[tickCount % 100] = elapsed;
