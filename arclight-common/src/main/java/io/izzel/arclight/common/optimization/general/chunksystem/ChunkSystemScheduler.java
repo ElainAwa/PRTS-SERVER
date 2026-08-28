@@ -9,6 +9,7 @@ import io.izzel.arclight.common.compat.prts.PRTSFeaturesConfig;
 import io.izzel.arclight.common.optimization.general.chunksystem.scheduler.ExecutorManager;
 import io.izzel.arclight.common.optimization.general.chunksystem.scheduler.LockToken;
 import io.izzel.arclight.common.optimization.general.chunksystem.scheduler.Task;
+import io.izzel.arclight.common.optimization.general.servercore.ChunkPrefetcher;
 import io.izzel.arclight.common.optimization.general.servercore.DimensionTickManager;
 import net.minecraft.server.level.ChunkGenerationTask;
 import net.minecraft.server.level.ServerLevel;
@@ -105,7 +106,11 @@ public final class ChunkSystemScheduler {
             throw new IllegalStateException("[chunk-system] submit must be called on the level's main thread");
         }
         ChunkPos pos = task.getCenter().getPos();
-        int priority = priorityFor(level, pos.x, pos.z);
+        // v03 分带：STRUCTURE_STARTS 目标 = 预铺（仅预铺投此目标），落 56-63 档；
+        // 其余需求 clamp 到预铺档之下（见 maxDemandPriority）。
+        int priority = task.targetStatus == ChunkStatus.STRUCTURE_STARTS
+                ? PRTSFeaturesConfig.chunkPrefetchPriority
+                : priorityFor(level, pos.x, pos.z);
         // 两阶段拆分开启时先以中心块锁提交（窄锁段）；进入 FEATURES 层前由
         // 换锁 mixin 暂停并换宽锁续跑。关闭时直接全宽锁域（现行行为）。
         boolean narrow = PRTSFeaturesConfig.chunkSystemSchedulerSplitStages;
@@ -169,7 +174,11 @@ public final class ChunkSystemScheduler {
         return LOCK_UPGRADE_PAUSE;
     }
 
-    /** 切比雪夫距离定档：0=最近（≤1 块），63=最远/无玩家。 */
+    /**
+     * 切比雪夫距离定档：0=最近（≤1 块），最远/无玩家 = 需求档上限。
+     * v03 分带：需求 clamp 到预铺档之下（{@code chunk-prefetch.priority} - 1），
+     * 保证 56-63 档只有预铺任务，预铺永不挤占玩家需求。
+     */
     static int priorityFor(ServerLevel level, int x, int z) {
         int min = MAX_PRIORITY;
         for (ServerPlayer player : level.players()) {
@@ -183,13 +192,19 @@ public final class ChunkSystemScheduler {
                 break;
             }
         }
-        return Math.min(min, MAX_PRIORITY);
+        return Math.min(min, maxDemandPriority());
+    }
+
+    /** 需求档上限 = 预铺档 - 1（预铺档配置 56-63，需求 0-55）。 */
+    static int maxDemandPriority() {
+        return Math.max(0, Math.min(MAX_PRIORITY, PRTSFeaturesConfig.chunkPrefetchPriority) - 1);
     }
 
     public static String statusText() {
         String state = PRTSFeaturesConfig.chunkSystemEnabled ? "statemachine-m2"
                 : PRTSFeaturesConfig.chunkSystemSchedulerEnabled ? "flowsched" : "vanilla";
-        return "state=" + state + " " + ChunkSystemStats.statusText();
+        return "state=" + state + " " + ChunkSystemStats.statusText()
+                + (PRTSFeaturesConfig.chunkPrefetchEnabled ? " " + ChunkPrefetcher.statusText() : "");
     }
 
     /** 区块写锁令牌：维度 + packed pos 判重（按生成圆域展开成方块）。 */

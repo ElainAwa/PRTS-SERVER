@@ -108,6 +108,26 @@ public class PRTSFeaturesConfig {
     public static int chunkPrefetchIntervalTicks;
     /** 预取 ticket 存活时长（tick，到期自动回收）。 */
     public static int chunkPrefetchTimeoutTicks;
+    /** 预铺窗口边长（区块矩形，v03：STRUCTURE_STARTS 级票，depth 已废弃）。 */
+    public static int chunkPrefetchWindow;
+    /** 窗口重算触发：跨块 ≥ windowStep。 */
+    public static int chunkPrefetchWindowStep;
+    /** 窗口重算触发：距上次重算 ≥ windowRecomputeTicks。 */
+    public static int chunkPrefetchWindowRecomputeTicks;
+    /** 预铺任务优先级档（56-63，需求档 clamp 到其下一档）。 */
+    public static int chunkPrefetchPriority;
+    /** 窗口内未完成预铺任务上限（窗口重算时补货，最近优先）。 */
+    public static int chunkPrefetchMaxPending;
+    /** idle 背景预生成（玩家静止时低优先级铺根，默认开）。 */
+    public static boolean chunkPrefetchIdleEnabled;
+    /** idle 预生成半径（区块）。 */
+    public static int chunkPrefetchIdleRadius;
+    /** idle 每 tick 预铺上限（平均速率）。 */
+    public static int chunkPrefetchIdlePerTick;
+    /** 进入 idle：连续 ticks 位移 < 2 块。 */
+    public static int chunkPrefetchIdleEnterTicks;
+    /** 退出 idle：单次位移 ≥ exitBlocks 块。 */
+    public static int chunkPrefetchIdleExitBlocks;
     /** processQueue 按需唤醒（marshal 请求在 tick 间及时服务；纯延迟优化，默认开）。 */
     public static boolean processQueueWake;
     /** 整服熔断（默认关）：连续 3 次 barrier 硬超时后,整个并行引擎退原版串行(重启恢复)。 */
@@ -416,8 +436,21 @@ public class PRTSFeaturesConfig {
         chunkPrefetchDepth = Math.max(1, config.getInt("chunk-prefetch.depth", 6));
         chunkPrefetchIntervalTicks = Math.max(1, config.getInt("chunk-prefetch.interval-ticks", 5));
         chunkPrefetchTimeoutTicks = Math.max(20, config.getInt("chunk-prefetch.timeout-ticks", 200));
-        LOGGER.info("chunk-prefetch enabled={} depth={} interval={} timeout={}",
-                chunkPrefetchEnabled, chunkPrefetchDepth, chunkPrefetchIntervalTicks, chunkPrefetchTimeoutTicks);
+        // v03：STRUCTURE_STARTS 级票窗口预铺（depth 废弃保留兼容）。
+        chunkPrefetchWindow = Math.max(4, config.getInt("chunk-prefetch.window", 16));
+        chunkPrefetchWindowStep = Math.max(1, config.getInt("chunk-prefetch.window-step", 2));
+        chunkPrefetchWindowRecomputeTicks = Math.max(10, config.getInt("chunk-prefetch.window-recompute-ticks", 40));
+        chunkPrefetchPriority = Math.min(63, Math.max(56, config.getInt("chunk-prefetch.prefetch-priority", 56)));
+        chunkPrefetchMaxPending = Math.max(16, config.getInt("chunk-prefetch.max-pending", 512));
+        chunkPrefetchIdleEnabled = config.getBoolean("chunk-prefetch.idle-enabled", true);
+        chunkPrefetchIdleRadius = Math.max(1, config.getInt("chunk-prefetch.idle-radius", 8));
+        chunkPrefetchIdlePerTick = Math.max(1, config.getInt("chunk-prefetch.idle-per-tick", 16));
+        chunkPrefetchIdleEnterTicks = Math.max(20, config.getInt("chunk-prefetch.idle-enter-ticks", 100));
+        chunkPrefetchIdleExitBlocks = Math.max(2, config.getInt("chunk-prefetch.idle-exit-blocks", 4));
+        LOGGER.info("chunk-prefetch enabled={} window={} step={} recompute={} priority={} maxPending={} idle(enabled={} radius={} perTick={} enter={} exit={}) timeout={}",
+                chunkPrefetchEnabled, chunkPrefetchWindow, chunkPrefetchWindowStep, chunkPrefetchWindowRecomputeTicks,
+                chunkPrefetchPriority, chunkPrefetchMaxPending, chunkPrefetchIdleEnabled, chunkPrefetchIdleRadius,
+                chunkPrefetchIdlePerTick, chunkPrefetchIdleEnterTicks, chunkPrefetchIdleExitBlocks, chunkPrefetchTimeoutTicks);
         processQueueWake = config.getBoolean("parallel.process-queue-wake", true);
         loginWarmupEnabled = config.getBoolean("parallel.login-warmup-enabled", true);
         loginWarmupRadius = Math.max(0, config.getInt("parallel.login-warmup-radius", 32));

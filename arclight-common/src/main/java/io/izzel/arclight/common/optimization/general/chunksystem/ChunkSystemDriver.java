@@ -133,7 +133,12 @@ public final class ChunkSystemDriver {
         this.centerHolder = genTask.getCenter();
         this.center = this.centerHolder.getPos();
         this.target = genTask.targetStatus;
-        this.priority = ChunkSystemScheduler.priorityFor(level, this.center.x, this.center.z);
+        // v03 分带：STRUCTURE_STARTS 目标 = 预铺（仅预铺投此目标）落 56-63 档；
+        // 其余需求经 priorityFor clamp 到预铺档之下。被更近驱动器采纳时
+        // raisePriority 单调提升，预铺根任务玩家接近后自然升档。
+        this.priority = this.target == ChunkStatus.STRUCTURE_STARTS
+                ? PRTSFeaturesConfig.chunkPrefetchPriority
+                : ChunkSystemScheduler.priorityFor(level, this.center.x, this.center.z);
         this.submitNanos = System.nanoTime();
     }
 
