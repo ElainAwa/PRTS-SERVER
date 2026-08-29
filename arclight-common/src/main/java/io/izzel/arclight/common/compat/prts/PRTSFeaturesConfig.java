@@ -418,6 +418,8 @@ public class PRTSFeaturesConfig {
         if (!file.exists()) {
             writeDefaultConfig(file);
         }
+        // append keys missing from the file so older configs gain new options automatically.
+        appendMissingKeys(file);
         config = YamlConfiguration.loadConfiguration(file);
         clearItemEnabled = config.getBoolean("entity-clear.item.enabled", false);
         clearItemInterval = config.getLong("entity-clear.item.interval-seconds", 300);
@@ -741,24 +743,157 @@ public class PRTSFeaturesConfig {
         return Math.max(lo, Math.min(hi, p));
     }
 
-    /** 首次运行写出默认配置模板（带说明注释），后续修改需重启生效。 */
-    private static void writeDefaultConfig(File file) {
-        String template = """
-                # PRTS 服务端功能配置（首次运行自动生成；修改后需重启生效）
+    /** Append template keys missing from the file (upgrades add new options without touching existing values). */
+    private static void appendMissingKeys(File file) {
+        try {
+            // merge template keys with existing file; append missing subtree blocks
+            YamlConfiguration tplCfg = YamlConfiguration.loadConfiguration(
+                    new java.io.StringReader(TEMPLATE));
+            YamlConfiguration curCfg = YamlConfiguration.loadConfiguration(file);
+            // collect missing leaf paths
+            java.util.Set<String> missingLeaves = new java.util.LinkedHashSet<>();
+            for (String key : tplCfg.getKeys(true)) {
+                if (!curCfg.contains(key)) {
+                    missingLeaves.add(key);
+                }
+            }
+            if (missingLeaves.isEmpty()) {
+                return;
+            }
+            // group leaves by nearest existing ancestor; emit each missing subtree once
+            java.util.Map<String, java.util.Set<String>> byRoot = new java.util.TreeMap<>();
+            for (String key : missingLeaves) {
+                String root = nearestExistingAncestor(curCfg, key);
+                byRoot.computeIfAbsent(root, k -> new java.util.TreeSet<>()).add(key);
+            }
+            StringBuilder missing = new StringBuilder();
+            // emit missing subtrees via YamlConfiguration (valid nesting), then re-indent
+            // under the existing root and append template comments to leaf lines.
+            for (java.util.Map.Entry<String, java.util.Set<String>> e : byRoot.entrySet()) {
+                String root = e.getKey();
+                YamlConfiguration sub = new YamlConfiguration();
+                for (String leaf : e.getValue()) {
+                    String rel = leaf.substring(root.isEmpty() ? 0 : root.length() + 1);
+                    sub.set(rel, tplCfg.get(leaf));
+                }
+                String dump = sub.saveToString();
+                int depth = root.isEmpty() ? 0 : root.split("\\.").length;
+                String pad = "  ".repeat(depth);
+                for (String line : dump.split(System.lineSeparator())) {
+                    String out = line.isEmpty() ? "" : pad + line;
+                    // append template comment if this line is a leaf (has a value)
+                    int colon = line.indexOf(':');
+                    if (colon > 0) {
+                        String keyPart = line.substring(0, colon).strip();
+                        String full = root.isEmpty() ? keyPart
+                                : root + "." + keyPart.replace(" ", "");
+                        String comment = findTemplateComment(full);
+                        if (comment != null && !out.contains("#")) {
+                            out = out + " # " + comment;
+                        }
+                    }
+                    missing.append(out).append(System.lineSeparator());
+                }
+            }
+            try (java.io.BufferedWriter w = java.nio.file.Files.newBufferedWriter(
+                    file.toPath(), java.nio.charset.StandardCharsets.UTF_8,
+                    java.nio.file.StandardOpenOption.APPEND)) {
+                w.write(System.lineSeparator() + "# auto-added missing keys" + System.lineSeparator());
+                w.write(missing.toString());
+            }
+            LOGGER.info("[PRTS-Features] appended {} missing config keys to prts-features.yml",
+                    missingLeaves.size());
+        } catch (Exception ex) {
+            LOGGER.warn("Failed to append missing config keys", ex);
+        }
+    }
 
-                # 玩家方向区块预取（默认关）：按移动方向对视距外 1..depth 投临时 ticket（到期自动回收）
+    /** Find the template source line (including comment) whose key path equals {@code rel}.
+     *  Walks template lines tracking indentation depth to build each line's full key path. */
+    private static String findTemplateComment(String rel) {
+        String[] stack = new String[24];
+        int depth = 0;
+        for (String line : TEMPLATE.split(System.lineSeparator())) {
+            String stripped = line.strip();
+            if (stripped.isEmpty() || stripped.startsWith("#")) {
+                continue;
+            }
+            // count leading spaces of the yaml line (template lines have 16-space java indent)
+            int lead = 0;
+            for (int i = 16; i < line.length() && line.charAt(i) == ' '; i++) {
+                lead++;
+            }
+            int level = lead / 2;
+            String key = stripped.substring(0, stripped.indexOf(':')).trim();
+            stack[level] = key;
+            for (int i = level + 1; i < stack.length; i++) {
+                stack[i] = null;
+            }
+            // build full path for this line
+            StringBuilder path = new StringBuilder();
+            for (int i = 0; i <= level; i++) {
+                if (stack[i] == null) {
+                    break;
+                }
+                if (path.length() > 0) {
+                    path.append('.');
+                }
+                path.append(stack[i]);
+            }
+            if (path.toString().equals(rel)) {
+                // return the inline comment after '#', or null
+                int hash = stripped.indexOf('#');
+                return hash >= 0 ? stripped.substring(hash + 1).strip() : null;
+            }
+        }
+        return null;
+    }
+
+    /** Nearest ancestor of {@code key} that already exists in the file, or empty string for top level. */
+    private static String nearestExistingAncestor(YamlConfiguration curCfg, String key) {
+        String[] parts = key.split("\\.");
+        for (int i = parts.length - 1; i >= 1; i--) {
+            String prefix = String.join(".", java.util.Arrays.copyOf(parts, i));
+            if (curCfg.contains(prefix)) {
+                return prefix;
+            }
+        }
+        return "";
+    }
+
+    private static String serialize(Object v) {
+        if (v instanceof java.util.List) {
+            StringBuilder sb = new StringBuilder("[");
+            for (Object o : (java.util.List<?>) v) {
+                if (sb.length() > 1) sb.append(", ");
+                sb.append(o instanceof String ? "\"" + o + "\"" : o);
+            }
+            return sb.append("]").toString();
+        }
+        if (v instanceof String) {
+            return "\"" + v + "\"";
+        }
+        return String.valueOf(v);
+    }
+
+    /** 首次运行写出默认配置模板（带说明注释），后续修改需重启生效。 */
+    /** Default config template (English comments; shared by appendMissingKeys and writeDefaultConfig). */
+    private static final String TEMPLATE = """
+                # PRTS server feature config (auto-generated on first run; restart to apply changes)
+
+                # Chunk prefetch toward player movement (default off): temporary tickets ahead of view distance
                 chunk-prefetch:
                   enabled: false
-                  depth: 6                # 视距外预取深度（格）
-                  interval-ticks: 5       # 每玩家预取重算间隔
-                  timeout-ticks: 200      # ticket 存活 tick（到期自动回收）
+                  depth: 6                # prefetch depth in chunks beyond view distance
+                  interval-ticks: 5       # per-player recompute interval
+                  timeout-ticks: 200      # ticket lifetime in ticks (auto-expired)
 
-                # 生物间碰撞（默认关）：关闭后生物不阻挡、可重叠穿行；玩家碰撞保留
+                # Mob collision (default off): mobs no longer block or push each other; player collision kept
                 mob-collision:
                   enabled: false
-                  players-affected: false   # true=玩家也参与关闭（全量，谨慎）
+                  players-affected: false   # true = players also lose collision (full, use with care)
 
-                # 物品/怪物清理（默认全关）
+                # Item/monster clearing (all off by default)
                 entity-clear:
                   item:
                     enabled: false
@@ -771,50 +906,50 @@ public class PRTSFeaturesConfig {
                     whitelist: []
                     message: ''
 
-                # 服务器 watchdog（默认关）
+                # Server watchdog (default off)
                 watchdog:
                   enabled: false
                   threshold-ms: 2000
                   warn-cooldown-ms: 60000
 
-                # 邻居更新熔断（防百万级连锁更新风暴）
+                # Neighbor update circuit breaker (stops million-scale update storms)
                 neighbor-update-breaker:
                   enabled: true
                   max-per-tick: 200000
 
-                # EventBus 分发遥测（诊断用；会给每个事件类挂 HIGHEST/LOWEST 计时监听器，默认关）
+                # EventBus dispatch telemetry (diagnostic; attaches timing listeners, default off)
                 eventbus:
                   telemetry-enabled: false
 
-                # AE2LT SetWorking 节流
+                # AE2LT SetWorking throttle
                 ae2lt-setworking-throttle:
                   enabled: true
                   min-ticks: 4
 
-                # 多线程并行引擎
+                # Multithreaded parallel engine
                 parallel:
-                  pathfinding-async: true            # 异步寻路
-                  dimension-parallel: true           # 维度并行
-                  region-parallel: true              # 主世界区域并行（实体 tick）
-                  region-block-entity-parallel: false # 方块实体 tick 并行（默认关：BE 间交互复杂有竞态）
-                  colony-npc-phase-stagger: true      # 殖民地 NPC 工作 AI 相位错峰（默认开）
-                  colony-npc-work-interval: 5        # 殖民地 NPC 工作 AI 执行间隔 tick（原版 5；大城市建议 10/20）
-                  colony-manager-tick-cache-enabled: true  # 殖民地 ServerTick 事件 getAllColonies 快照缓存（A/B：minecolonies 主线程自耗时 -60%）
-                  colony-manager-tick-cache-interval: 20   # 快照 TTL tick（1-120；create/delete 立即失效）
-                  chunk-demand-per-tick: 50           # 主线程每 tick 处理的 chunk 需求上限（统一需求调度）
-                  chunk-demand-min-drain-ms: 2         # 主线程排空最低保证窗口：低 TPS 超预算时仍至少排空该时长（防死亡螺旋；0=关闭）
-                  chunk-demand-player-priority: false # chunk 需求玩家距离优先级：按提交时距最近玩家分 4 桶优先消费（默认关）
-                  chunk-demand-starve-ticks: 600      # 低优先级桶队头超龄即优先消费（饿死兜底，仅 priority 开启时生效）
-                  chunk-system-scheduler:            # 区块系统调度器 M1：FlowSched 移植驱动原版生成 future 链（启动期生效，改值需重启）
-                    enabled: false                   # 总开关（关=原版 worldgen 邮箱 FIFO，逐位一致）
-                    workers: 1                       # worker 线程数（M1 固定 1 保串行语义；状态机重写后放开）
-                    split-stages: false              # 两阶段锁域拆分：features 前只锁中心块，FEATURES 层前换 5×5 锁（默认关）
-                  chunk-system-enabled: false        # 区块系统状态机 M2.1：单区块×单状态细粒度任务图（优先于上方 M1 开关；启动期生效）
-                  chunk-system-fail-fast-guards: true # M2.2 主线程边界 fail-fast 守卫（仅 chunk-system-enabled 下生效）
-                  chunk-async-io-enabled: true       # M2.2 IO 反序列化移出主线程（调度器最低优先级档，仅 chunk-system-enabled 下生效）
-                  worldgen-random-check: warn        # M2.2 World.random 跨线程检测：warn/throw/off（仅 chunk-system-enabled 下生效）
-                  region-count: 4                    # 区域数（2/4/8/16；16 时条纹宽自动扩到 16）
-                  region-auto-scale: true            # 按负载自动调整区域数
+                  pathfinding-async: true            # async pathfinding
+                  dimension-parallel: true           # per-dimension worker ticks
+                  region-parallel: true              # overworld region workers (entity tick)
+                  region-block-entity-parallel: false # block entity ticks on region workers (default off: BE interactions are racy)
+                  colony-npc-phase-stagger: true      # stagger MineColonies NPC work AI phases (default on)
+                  colony-npc-work-interval: 5        # colony NPC work AI interval in ticks (vanilla 5; big cities: 10/20)
+                  colony-manager-tick-cache-enabled: true  # cache getAllColonies snapshot for ServerTick event (A/B: -60% main-thread self time)
+                  colony-manager-tick-cache-interval: 20   # snapshot TTL in ticks (1-120; invalidated immediately on create/delete)
+                  chunk-demand-per-tick: 50           # max chunk demands processed by main thread per tick
+                  chunk-demand-min-drain-ms: 2         # minimum drain window per tick even when over budget (anti death-spiral; 0=off)
+                  chunk-demand-player-priority: false # prioritize chunk demands by player distance (4 buckets; default off)
+                  chunk-demand-starve-ticks: 600      # low-priority bucket head older than this is consumed first (only with priority on)
+                  chunk-system-scheduler:            # M1: FlowSched-style scheduler driving vanilla generation futures (startup-only)
+                    enabled: false                   # master switch (off = vanilla worldgen mailbox FIFO, bit-identical)
+                    workers: 1                       # worker threads (M1 fixed 1 to keep serial semantics)
+                    split-stages: false              # two-stage lock split: 1x1 lock before features, 5x5 before FEATURES (default off)
+                  chunk-system-enabled: false        # M2.1 chunk state machine: per-chunk per-status task graph (takes priority over M1; startup-only)
+                  chunk-system-fail-fast-guards: true # M2.2 main-thread boundary fail-fast guards (only with chunk-system-enabled)
+                  chunk-async-io-enabled: true       # M2.2 IO deserialization off main thread (lowest scheduler priority; only with chunk-system-enabled)
+                  worldgen-random-check: warn        # M2.2 World.random cross-thread detection: warn/throw/off (only with chunk-system-enabled)
+                  region-count: 4                    # region count (2/4/8/16; stripe width auto-expands at 16)
+                  region-auto-scale: true            # auto-adjust region count by load
                   region-scale-interval-seconds: 300
                   region-scale-high-mspt: 60.0
                   region-scale-low-mspt: 15.0
@@ -822,146 +957,148 @@ public class PRTSFeaturesConfig {
                   region-scale-min: 2
                   region-scale-max: 8
                   region-scale-cross-read-ratio: 0.05
-                  uneven-stripes: false              # S4 不等宽条带：高负载区让出边界组给低负载相邻区（默认关）
-                  rebalance-interval-seconds: 300    # 重平衡评估周期（与 auto-scale 同窗）
-                  rebalance-max-moves: 1             # 单轮最多移动边界组数（v1 恒 1）
-                  rebalance-min-groups: 1            # 移动后每区最少组数（N≥8 时区宽=1 组自动跳过）
-                  rebalance-imbalance-ratio: 2.0     # norm(H) > norm(L)*ratio 才重平衡（归一化口径，防抖）
-                  thread-policy: stats             # worker 世界访问策略: off/stats/enforce（生产用 stats）
-                  violation-log-per-minute: 20     # 违规日志每分钟每类限流条数
-                  main-thread-routing: auto        # auto 违规学习 / manual 只认种子列表
-                  route-threshold: 5               # 窗口内 MAIN_ONLY 违规次数即路由主线程（0=禁用学习；灰度后从 2 调宽）
-                  route-window-ticks: 2400         # 违规学习窗口（tick，2400=2分钟）
-                  route-on-read: true              # MAIN_ONLY_READ 是否计入路由（worker 读 BE 恒 null；false=只按写路由）
-                  crossref-probe: false              # 跨区引用探针：采样 worker 方块实体访问并分桶（默认关）
-                  crossref-value-snapshot: false      # 值快照：探针命中容器类时读时复制做影子验证（默认关）
-                  crossref-snapshot-cache: false      # 影子快照单条缓存（证伪实验，默认关；依赖 crossref-value-snapshot: true）
-                  belt-passenger-defer: false      # worker 实体撞传送带时 passenger 注册延迟到主线程（配合 route-on-read=false）
-                  main-thread-entity-force: []     # 强制主线程 tick 的类名/前缀
-                  main-thread-entity-allow: []     # 强制不路由的类名/前缀（危险调试用）
-                  persist-learned-routes: false    # 停机时把学到的路由写回配置（仅实体类，最多 200 条）
-                  block-tick-main-thread-when-serialized: true # 串行回退路径的方块 tick 在 worker 上时延迟到主线程 POST（默认开）
-                  journal-max-per-region: 4096     # 跨区写 journal 每区域队列上限（最旧丢弃）
-                  journal-lww-dedup: true          # 同 pos 未应用条目 LWW 合并（重试风暴主防线，默认开）
-                  journal-max-per-tick: 512        # 每维度每 tick 提交上限（超出丢弃计 budgetDropped，0=不限）
-                  journal-read-back: false         # read-your-writes overlay（预留接口，默认关）
-                  determinism-mode: false           # 确定性模式：跨区 journal 按区域序在调度线程统一应用（默认关）
-                  be-parallel-allow: []            # BE 三档：允许 region worker tick 的类型（registry key 或前缀*）
-                  be-main-thread-force: ["create:track", "lootr:lootr_chest"] # BE 三档：强制主线程类型（尖峰/跨区依赖）
-                  create-track-lazy-spread: false   # Create 长轨道假轨光栅化分摊（默认关）
-                  create-track-lazy-chunk-blocks: 64 # 分摊时单连接每 tick 最多栅格块数
-                  villager-poi-path-budget: 0       # 村民主线程 POI/单目标寻路预算（0=关闭）
-                  barrier-soft-degrade: false       # B组:主线程已落后时 barrier 时间切片 join（迟到 region 本轮跳剩余工作,存活实体下 tick 补；默认关,遥测对比后逐个开）
-                  barrier-target-ms: 50             # B组:整 tick 目标预算 ms；elapsed>它才激活软降级（0=永不）
-                  main-wasted-ms-telemetry: false   # 量化 barrier 等待 vs join 后主线程工作（players/localTicks）的重叠上界（纯遥测）
-                  barrier-timeout-action: degrade    # 硬超时行为 crash|degrade（degrade=转主线程串行+自动恢复）
-                  process-queue-wake: true           # processQueue 按需唤醒（marshal 请求 tick 间及时服务）
-                  on-fault-fallback-vanilla: false    # 连续 3 次 barrier 硬超时后退原版串行（重启恢复；默认关）
-                  chunk-env-parallel: false           # 区块环境 tick(随机/流体)并行：主线程 tickChunks 扇出到独立子任务池（默认关）
-                  chunk-env-threads: 0                # 子任务池大小（0=auto=CPU）
-                  chunk-env-lock: true                # 3×3 区块锁：互斥相邻 chunk 并发写（默认开）
-                  portal-async: false                  # 异步传送门：worker 上目标区块未 FULL 时提交异步加载并延后一 tick（默认关）
-                  entity-batch-parallel: false          # 实体批并行：region worker 实体阶段扇出到独立子任务池（默认关）
-                  entity-batch-threads: 0               # 批子任务池大小（0=auto=max(2, CPU-region_count)）
-                  entity-batch-allow: []                # 批并行白名单（显式放行 modded 类，registry key 或前缀*）
-                  entity-batch-deny: []                 # 批并行黑名单（强制排除，优先级高于白名单）
-                  barrier-timeout-recover-ticks: 6000 # degraded 自动恢复并行所需的连续正常 tick
+                  uneven-stripes: false              # S4 uneven stripes: busy regions yield boundary groups to neighbors (default off)
+                  rebalance-interval-seconds: 300    # rebalance evaluation period (same window as auto-scale)
+                  rebalance-max-moves: 1             # max boundary groups moved per round (v1 fixed 1)
+                  rebalance-min-groups: 1            # min groups per region after moving (skipped when width=1 group at N>=8)
+                  rebalance-imbalance-ratio: 2.0     # rebalance only when norm(H) > norm(L)*ratio (normalized, anti-jitter)
+                  thread-policy: stats             # worker world access policy: off/stats/enforce (prod: stats)
+                  violation-log-per-minute: 20     # per-class violation log rate limit per minute
+                  main-thread-routing: auto        # auto = learn from violations / manual = seed list only
+                  route-threshold: 5               # MAIN_ONLY violations in window before routing to main thread (0=no learning)
+                  route-window-ticks: 2400         # violation learning window (ticks; 2400 = 2 min)
+                  route-on-read: true              # count MAIN_ONLY_READ toward routing (worker BE reads are null; false=writes only)
+                  crossref-probe: false              # cross-region reference probe: sample worker BE access buckets (default off)
+                  crossref-value-snapshot: false      # value snapshot: copy-on-read shadow validation on probe hits (default off)
+                  crossref-snapshot-cache: false      # single-entry shadow snapshot cache (falsification experiment; default off)
+                  belt-passenger-defer: false      # defer passenger registration to main thread on belt hit (with route-on-read=false)
+                  main-thread-entity-force: []     # class names/prefixes forced to main-thread tick
+                  main-thread-entity-allow: []     # class names/prefixes allowed on workers (overrides seed/learned routing; debug)
+                  persist-learned-routes: false    # write learned routes back to config on shutdown (entities only, max 200)
+                  block-tick-main-thread-when-serialized: true # deferred block ticks run on main thread POST in serial fallback (default on)
+                  journal-max-per-region: 4096     # cross-region write journal cap per region (oldest dropped)
+                  journal-lww-dedup: true          # LWW merge for unapplied same-pos entries (retry-storm defense, default on)
+                  journal-max-per-tick: 512        # journal submissions cap per dimension per tick (over = budgetDropped; 0=unlimited)
+                  journal-read-back: false         # read-your-writes overlay (reserved; default off)
+                  determinism-mode: false           # determinism: cross-region journal applied in region order on scheduler thread (default off)
+                  be-parallel-allow: []            # BE tiers: registry keys/prefixes* allowed to tick on region workers
+                  be-main-thread-force: ["create:track", "lootr:lootr_chest", "create:redstone_link"] # BE tiers: forced to main thread (spikes/cross-region deps)
+                  create-track-lazy-spread: false   # spread Create long-track fake rail rasterization (default off)
+                  create-track-lazy-chunk-blocks: 64 # max rasterized blocks per connection per tick
+                  villager-poi-path-budget: 0       # villager main-thread POI/single-target path budget (0=off)
+                  barrier-soft-degrade: false       # B-group: time-sliced barrier join when main thread is behind (late regions skip remaining work; default off)
+                  barrier-target-ms: 50             # B-group: whole-tick target budget ms; soft degrade activates when elapsed > it (0=never)
+                  main-wasted-ms-telemetry: false   # measure barrier wait vs post-join main-thread overlap upper bound (telemetry only)
+                  barrier-timeout-action: degrade    # hard timeout behavior: crash|degrade (degrade = serial main-thread + auto-recover)
+                  process-queue-wake: true           # wake processQueue on demand (marshal requests served between ticks)
+                  on-fault-fallback-vanilla: false    # fall back to vanilla serial after 3 consecutive barrier hard timeouts (restart to recover)
+                  chunk-env-parallel: false           # chunk environment ticks (random/fluid) fanned out to a sub-pool (default off)
+                  chunk-env-threads: 0                # sub-pool size (0=auto=CPU)
+                  chunk-env-lock: true                # 3x3 chunk lock: mutually exclude concurrent writes on adjacent chunks (default on)
+                  portal-async: false                  # async portal: submit async load when target chunk not FULL, defer 1 tick (default off)
+                  entity-batch-parallel: false          # entity batch parallel: region worker entity phase fanned out to a sub-pool (default off)
+                  entity-batch-threads: 0               # batch sub-pool size (0=auto=max(2, CPU-region_count))
+                  entity-batch-allow: []                # batch whitelist (explicitly allow modded classes; registry key or prefix*)
+                  entity-batch-deny: []                 # batch blacklist (forced exclusion; higher priority than whitelist)
+                  barrier-timeout-recover-ticks: 6000 # consecutive normal ticks required to auto-recover from degraded
+                  worker-tick-budget: 4096        # dimension worker scheduled-tick cap per tick (lava backlog anti-freeze)
+                  dimension-worker-multitick: 4    # playerless dimension ticks per barrier session (backlog catch-up)
+                  dimension-worker-session-ms: 8000 # multitick session wall-clock cap (anti barrier timeout)
+                  login-warmup-enabled: true           # login warmup: smaller radius/rate to avoid boot load storms
+                  login-warmup-radius: 8
+                  login-warmup-per-tick: 8
 
-                # 可靠区块保存（WAL 预写日志，默认关）
+                # Reliable chunk save (WAL pre-write log, default off)
                 reliable-chunk-save:
                   enabled: false
                   interval-seconds: 30
                   chunks-per-tick: 50
 
-                # 区块生成削峰（0 = 关闭对应限制）
-                generation-tasks-per-tick: 50        # 每 tick 提交预算
-                chunkgen-inflight-limit: 128         # 滚动 2s 提交窗口（应 >= worldgen 能力）
+                # Chunk generation (0 = unlimited for that limit)
+                generation-tasks-per-tick: 50        # chunk generation submissions per tick (0 = unlimited)
+                chunkgen-inflight-limit: 128         # rolling 2s submission window (should >= worldgen capacity)
+                generation-memory-guard-enabled: true  # heap pressure guard: throttle submissions when committed is high
+                generation-memory-guard-throttle-ratio: 0.65 # committed ratio at which submissions are halved
+                generation-memory-guard-pause-ratio: 0.85   # committed ratio at which submissions pause
+                # Barrier robustness
+                barrier-watchdog-aware: true         # watchdog aware of parallel barrier (no false kills)
+                barrier-timeout-ms: 120000           # barrier stall timeout in ms
 
-                # Barrier 健壮性
-                barrier-watchdog-aware: true         # watchdog 感知并行 barrier（防误杀）
-                barrier-timeout-ms: 120000           # barrier 卡死超时（毫秒）
-
-                # 光照：每 tick 传播预算 + 遥测（1.21.1 光照传播在光线程异步执行）
-                # 预算限制每 tick 传播工作量，风暴（大量方块变更）时超出部分顺延下一 tick；
-                # 最终光照一致，只是延迟，mod 无感知。0 = 不限（vanilla）。
+                # Lighting: per-tick propagation budget + telemetry (1.21.1 light propagates on light threads)
+                # Budget caps per-tick propagation work; storms spill to next tick. Final light is consistent,
+                # just delayed. 0 = unlimited (vanilla).
                 lighting:
-                  budget-enabled: true               # 每 tick 光照传播预算开关
-                  budget-per-tick: 100000            # 每 tick 最多传播的方块数（默认保守，只拦风暴；按 [light-engine] 日志调）
-                  telemetry-enabled: true            # 采集队列长度/耗时进 [light-engine] 日志
-                  threaded: false                    # 独立光照线程：光邮箱+任务排序器迁出共享后台池（默认关；开启后每维度一个守护线程）
+                  budget-enabled: true               # per-tick light propagation budget switch
+                  budget-per-tick: 100000            # max propagated blocks per tick (conservative; tune with [light-engine] log)
+                  telemetry-enabled: true            # queue depth/elapsed into [light-engine] log
+                  threaded: false                    # dedicated light threads: light mailbox + sorter off shared pool (default off; one daemon per dimension)
 
-                # 实体空间索引：EntitySection 内懒 4×4×4 子格索引（默认开）
-                # 加速纯空间 AABB 查询（getEntities(AABB)）与 typed 查询（getEntitiesOfClass 等，
-                # entityspatial 二期：在 vanilla 类列表上按覆盖格子预筛，结果/顺序与原版逐位一致）；
-                # 返回顺序与原版一致；对 Lithium/Canary/Radium/Recruits 让位。
-                # 2026-08-16 真机 A/B：120 只僵尸高密度场景 avg mspt 5.1→3.4ms（-33%）。
+                # Entity spatial index: lazy 4x4x4 sub-grid index inside EntitySections (default on)
+                # Speeds up pure-space AABB queries (getEntities(AABB)) and typed queries; result order
+                # is bit-identical to vanilla; yields to Lithium/Canary/Radium/Recruits.
                 entity-spatial-index:
-                  enabled: true                      # 默认开（可随时关；异常时看 [entity-spatial-index] 日志）
-                  min-section-size: 16               # section 实体数达到该值才建索引（小 section 走原版线性扫描）
-                  telemetry-enabled: true            # 采集查询/候选数进 [entity-spatial-index] 日志
+                  enabled: true                      # default on (disable if [entity-spatial-index] shows anomalies)
+                  min-section-size: 16               # section entity count before building the index (small sections stay vanilla-linear)
+                  telemetry-enabled: true            # query/candidate counts into [entity-spatial-index] log
 
-                # POI 查询加速：PoiManager.getInChunk 空 chunk 存在性预检（默认开）
-                # 1.21.1 的 PoiSection 已按 PoiType 分桶（vanilla 自带），剩余成本 = 查询范围内
-                # 大量无 POI 区块的全垂直 section 扫描；本优化维护「区块是否有 POI」位掩码，
-                # 已知空区块直接跳过，只迭代有 POI section 的 y 层。语义零变化；冷区块
-                # （未读盘）保持原版 getOrLoad 路径（含同步读盘），磁盘 POI 不会漏。
+                # POI query acceleration: empty-chunk existence precheck in PoiManager.getInChunk (default on)
+                # 1.21.1 PoiSection is already bucketed by PoiType; remaining cost is full vertical section
+                # scans over chunks without POIs. This maintains a per-chunk "has POI" bitmask and skips
+                # known-empty chunks. Zero semantics change; cold chunks keep vanilla getOrLoad (sync disk read).
                 poi-query:
-                  enabled: true                      # 默认开（纯读加速，语义零变化）
-                  telemetry-enabled: true            # 命中/跳过计数进 [poi-query] 日志
+                  enabled: true                      # default on (read-only acceleration, zero semantics change)
+                  telemetry-enabled: true            # hit/skip counts into [poi-query] log
 
-                # 碰撞批量收集：Entity.collide 上台阶分支二次收集去重（默认开）
-                # 1.21.1 collideBoundingBox 已「一次收集、逐轴 clip」；但 step-up 上台阶分支会对
-                # 扩展区域再次全量 collectColliders（走路生物每次地面移动都付）。本优化在同一
-                # collide 帧内缓存首次收集结果，step-up 只增量补取顶部条带。语义零变化
-                # （补集合并 = 全量结果）；对 Lithium/Canary/Radium 让位。
+                # Collision batch: dedupe the step-up re-collection in Entity.collide (default on)
+                # collideBoundingBox already collects once and clips per axis, but the step-up branch
+                # re-collects the raised region on every ground move. This caches the first collection
+                # within one collide frame and only fetches the top cap incrementally. Zero semantics
+                # change; yields to Lithium/Canary/Radium.
                 collision-batch:
-                  enabled: true                      # 默认开（纯读加速，语义零变化）
-                  telemetry-enabled: true            # 命中/增量/全量计数进 [collision-batch] 日志
+                  enabled: true                      # default on (read-only acceleration, zero semantics change)
+                  telemetry-enabled: true            # reused/incremental/full counts into [collision-batch] log
 
-                # 容器菜单广播预检短路（默认关，P3「先实测归因」）
-                # 1.21.1 的 broadcastChanges 每 tick 对每个打开菜单全量遍历全部槽位，每槽
-                # 做 getItem + requireNonNull + memoize lambda 分配（即使菜单长期静止）。
-                # 本优化在 HEAD 用与原版逐条等价的判定（lastSlots diff / remoteCarried diff /
-                # dataSlots 值快照）预检：全部相等 = 原版循环必然无动作，直接跳过整个循环，
-                # 省掉全部 lambda 分配与重复 diff。语义逐位一致：不是脏槽跟踪，是全量 diff
-                # 的提前等价物，mod 直写容器（Container.setItem 绕过 menu）同样被捕获。
-                # 注意：默认关——先用生产服 spark 看 broadcastChanges 子树占比再决定开启。
+                # Container menu broadcast precheck short-circuit (default off; P3 "measure first")
+                # broadcastChanges walks every slot of every open menu each tick even when idle. This
+                # prechecks with per-slot-equivalent predicates (lastSlots/remoteCarried/dataSlots diff)
+                # and skips the whole loop when nothing changed. Bit-identical: it is the equivalent of
+                # the full diff done earlier, not dirty-slot tracking; mod direct writes are still caught.
                 menu-broadcast:
-                  enabled: false                     # 默认关（实测归因后再开）
-                  telemetry-enabled: true            # 短路/全量/槽位检查数进 [menu-broadcast] 日志
+                  enabled: false                     # default off (enable after prod spark attribution)
+                  telemetry-enabled: true            # short/full/slot counts into [menu-broadcast] log
 
-                # 事件桥按需注册（P0-1，默认开）+ 空监听器预检（P0-2）
-                # Arclight 的 5 个 Forge 桥 dispatcher 从「启动时无条件注册」改为按
-                # 「有插件在听对应 Bukkit 事件」按需注册/注销（0→1 注册、1→0 注销）。
-                # 无插件监听的服务器上 Forge 事件照发、mod 监听器照收，只是桥自己的
-                # 监听器不在总线上——桥开销（CraftBlock/事件构造 + 空派发 + 回写）归零。
-                # 事件数量与时机零变化（只动 Arclight 自己的监听器，不动事件本身）。
-                # 生产服第一大热点 EventBus.post 子树（实测 75.5%）中 Arclight 桥的份额
-                # 由本优化消除；mod 监听器主体与事件构造（vanilla/NeoForge 调用侧）不在此列。
+                # Event bridge on-demand registration (P0-1, default on) + empty-listener precheck (P0-2)
+                # Arclight's 5 Forge bridge dispatchers register only when a plugin listens to the
+                # corresponding Bukkit event (0->1 register, 1->0 unregister). Servers without plugins
+                # keep Forge events flowing and mod listeners intact; only the bridge's own listeners
+                # leave the bus. Event count and timing unchanged.
                 event-bridge:
                   on-demand-registration:
-                    enabled: true                     # 桥监听器按需注册（默认开）
-                    eager-registration: false         # 恢复 mod 加载期常驻注册（顺序敏感场景逃生门）
-                    telemetry-enabled: true           # 转发/跳过/注册注销计数进 [event-bridge] 日志
+                    enabled: true                     # bridge listeners register on demand (default on)
+                    eager-registration: false         # restore mod-loading-time permanent registration (escape hatch)
+                    telemetry-enabled: true           # forwarded/skipped/register-unregister counts into [event-bridge] log
 
-                # 事件短路（P1-3/P1-4，默认开，零语义风险）
-                # EntityTickEvent：每实体每 tick ×2（频率之王）；无监听器时 Pre 恒未取消
-                # = entity.tick() 照跑，短路逐位等价。NeighborNotifyEvent：NeoForge 在
-                # vanilla 空壳 updateNeighborsAt 上 fire 事件且丢弃 isCanceled 结果——
-                # 无监听器时连 fire 都可跳过。两者有监听器时自动让位（length>0 判断）。
+                # Event short-circuit (P1-3/P1-4, default on, zero semantic risk)
+                # EntityTickEvent: per entity per tick x2 (top frequency); with no listeners Pre is never
+                # cancelled = entity.tick() runs anyway, skipping is bit-equivalent. NeighborNotifyEvent:
+                # NeoForge fires it on the vanilla empty shell and discards the isCanceled result; with
+                # no listeners the fire itself can be skipped. Auto-yields when listeners exist.
                 event-shortcircuit:
                   entity-tick-event:
-                    enabled: true                     # 无监听器时跳过 EntityTickEvent 构造与 post
+                    enabled: true                     # skip EntityTickEvent construction+post when no listeners
                   neighbor-notify-event:
-                    enabled: true                     # 无监听器时跳过 NeighborNotifyEvent 构造与 post
+                    enabled: true                     # skip NeighborNotifyEvent construction+post when no listeners
                   block-form-event:
-                    enabled: true                     # P1-2 直接调用点：无监听器时跳过 BlockFormEvent/EntityBlockFormEvent 构造与派发（callBlockFormEvent 漏斗，8 个调用点统一覆盖）
+                    enabled: true                     # P1-2 direct call sites: skip BlockFormEvent/EntityBlockFormEvent when no listeners
                   mob-spawn-event:
-                    enabled: true                     # P2-3 无监听器时跳过 MobSpawnEvent.PositionCheck / MobDespawnEvent 构造与派发（内联原版判定结果，语义逐位等价）
-                  telemetry-enabled: true             # 短路/转发计数进 [event-shortcircuit] 日志
+                    enabled: true                     # P2-3 skip MobSpawnEvent.PositionCheck/MobDespawnEvent when no listeners (inlined vanilla result)
+                  telemetry-enabled: true             # short/forward counts into [event-shortcircuit] log
+
                 """;
+
+    private static void writeDefaultConfig(File file) {
         try {
-            Files.writeString(file.toPath(), template, StandardCharsets.UTF_8);
+            Files.writeString(file.toPath(), TEMPLATE, StandardCharsets.UTF_8);
         } catch (IOException e) {
             LOGGER.warn("Failed to write default prts-features.yml", e);
         }
