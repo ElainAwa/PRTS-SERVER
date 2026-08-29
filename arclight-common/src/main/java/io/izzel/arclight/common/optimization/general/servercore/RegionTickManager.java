@@ -82,6 +82,11 @@ public final class RegionTickManager {
     private static final ConcurrentHashMap<Class<?>, MethodHandle> MAIN_THREAD_BE_TICK_HANDLES =
             new ConcurrentHashMap<>();
 
+    /** 当前收集计划 tick 的维度（LevelTicks.tick 收集期设置）。 */
+    public static ServerLevel collectingLevel() {
+        return COLLECTING_LEVEL.get();
+    }
+
     /** 维度并行期间收集、由主线程统一执行的方块实体 tick，按维度分队列。 */
     private static final Map<ServerLevel, LinkedBlockingQueue<TickingBlockEntity>> MAIN_THREAD_TE_TICKS =
             java.util.Collections.synchronizedMap(new WeakHashMap<>());
@@ -892,6 +897,7 @@ public final class RegionTickManager {
                 LOGGER.error("[region-tick] main-thread block removal failed: {}", t.toString());
             }
         }
+        drainMainThreadBlockTicks(level);
     }
 
     /** 维度 worker 调用：把 onRemove 延迟到主线程执行（流体 setBlock 触发的

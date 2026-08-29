@@ -161,7 +161,7 @@ public final class WorldAccessGuard {
         if (POS_STACK_DUMPS.size() > 8192) {
             POS_STACK_DUMPS.clear();
         }
-        long[] cell = POS_STACK_DUMPS.computeIfAbsent(pos.asLong(), k -> new long[]{0, 1000});
+        long[] cell = POS_STACK_DUMPS.computeIfAbsent(pos.asLong(), k -> new long[]{0, 100});
         long count = ++cell[0];
         if (count < cell[1]) {
             return;
