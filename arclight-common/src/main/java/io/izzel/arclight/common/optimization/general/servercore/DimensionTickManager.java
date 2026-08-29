@@ -322,7 +322,9 @@ public final class DimensionTickManager {
             // B 组:本会话软降级门,发送后 playerless 维度的 vanilla hasTimeLeft 短路见
             // awaitDimensionBarrier 说明;仅影响被软降级的维度 worker。
             AtomicBoolean sessionDegrade = new AtomicBoolean(false);
-            for (final ParallelTickUnit unit : parallelDims) {
+            java.util.Map<ParallelTickUnit, Integer> ranByUnit = new java.util.concurrent.ConcurrentHashMap<>();
+            for (int i = 0; i < parallelDims.size(); i++) {
+                final ParallelTickUnit unit = parallelDims.get(i);
                 try {
                     POOL.execute(() -> {
                         try {
@@ -330,7 +332,19 @@ public final class DimensionTickManager {
                             // 让 ServerLevel.tick 的分块刻尽早让出,加快 wind-down。
                             BooleanSupplier unitTimeLeft =
                                     () -> !sessionDegrade.get() && hasTimeLeft.getAsBoolean();
-                            unit.tick(unitTimeLeft);
+                            // 无玩家维度多 tick:backlog（岩浆扩散）批量消化,时钟跑快
+                            // N 倍;会话墙钟上限防止 barrier 超时;软降级/有玩家时即停。
+                            int maxTicks = unit.level().players().isEmpty()
+                                    ? PRTSFeaturesConfig.dimensionWorkerMultitick : 1;
+                            long deadline = Util.getNanos()
+                                    + PRTSFeaturesConfig.dimensionWorkerSessionMs * 1_000_000L;
+                            int ran = 0;
+                            do {
+                                unit.tick(unitTimeLeft);
+                                ran++;
+                            } while (ran < maxTicks && !sessionDegrade.get()
+                                    && Util.getNanos() < deadline);
+                            ranByUnit.put(unit, ran);
                         } catch (Throwable t) {
                             failure.compareAndSet(null, t);
                         } finally {
@@ -387,9 +401,12 @@ public final class DimensionTickManager {
                 drainPostSync(level);
                 POST.fire(level, hasTimeLeft);
                 long elapsed = Util.getNanos() - startNanos[i];
-                perWorldTickTimes.computeIfAbsent(level.dimension(), k -> new long[100])[tickCount % 100] = elapsed;
-                recordDimensionTickTime(level.dimension(), tickCount, elapsed);
-                STATS.record(timerName(level.dimension()), elapsed);
+                // 多 tick 会话：perWorldTickTimes 记单 tick 均值，保 vanilla 语义。
+                Integer ran = ranByUnit.get(units[i]);
+                long perTick = ran != null && ran > 1 ? elapsed / ran : elapsed;
+                perWorldTickTimes.computeIfAbsent(level.dimension(), k -> new long[100])[tickCount % 100] = perTick;
+                recordDimensionTickTime(level.dimension(), tickCount, perTick);
+                STATS.record(timerName(level.dimension()), perTick);
             }
 
             // 5. Execute deferred cross-dimension transfers on the main thread.

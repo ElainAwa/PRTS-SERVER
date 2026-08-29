@@ -245,6 +245,13 @@ public class PRTSFeaturesConfig {
     // backlog 会让 worker 单 tick 磨数分钟，主线程 barrier 干等被用户视为卡死。
     public static int workerTickBudget;
 
+    // 无玩家维度每 barrier 会话最多 tick 数（1 = 单 tick）：多 tick 批量消化
+    // backlog，维度时钟跑快 N 倍（机器加速）；有玩家维度恒 1，防世界速度漂移。
+    public static int dimensionWorkerMultitick;
+
+    // 多 tick 会话墙钟上限（ms）：到点停（当前 tick 完成即止），防 barrier 超时。
+    public static long dimensionWorkerSessionMs;
+
     // Barrier semantics: make the vanilla watchdog barrier-aware so a main thread waiting
     // in the dimension barrier is not falsely killed after max-tick-time; false = vanilla
     // watchdog behavior.
@@ -579,6 +586,8 @@ public class PRTSFeaturesConfig {
                 config.getDouble("generation-memory-guard-pause-ratio", 0.85)));
         workerTickBudget = config.getInt("parallel.worker-tick-budget", 4096);
         if (workerTickBudget < 0) workerTickBudget = 0;
+        dimensionWorkerMultitick = Math.max(1, config.getInt("parallel.dimension-worker-multitick", 4));
+        dimensionWorkerSessionMs = Math.max(500, config.getLong("parallel.dimension-worker-session-ms", 8000L));
         barrierWatchdogAware = config.getBoolean("barrier-watchdog-aware", true);
         barrierTimeoutMs = config.getLong("barrier-timeout-ms", 120000L);
         if (barrierTimeoutMs < 1000L) barrierTimeoutMs = 120000L;
