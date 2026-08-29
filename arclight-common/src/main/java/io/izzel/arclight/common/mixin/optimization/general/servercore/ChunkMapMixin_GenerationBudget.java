@@ -35,6 +35,10 @@ public abstract class ChunkMapMixin_GenerationBudget {
     @Unique
     private static int prts$submitIndex = 0;
 
+    /** 卫兵告警节流：至少间隔 10s 才打一次日志，避免风暴期刷屏。 */
+    @Unique
+    private static long prts$guardLogCooldownNanos = 0L;
+
     @Shadow
     @Final
     private List<ChunkGenerationTask> pendingGenerationTasks;
@@ -45,6 +49,26 @@ public abstract class ChunkMapMixin_GenerationBudget {
         int limit = PRTSFeaturesConfig.chunkgenInflightLimit;
         if (budget <= 0 && limit <= 0) {
             return;
+        }
+        if (PRTSFeaturesConfig.generationMemoryGuardEnabled) {
+            double ratio = (double) Runtime.getRuntime().totalMemory()
+                    / Runtime.getRuntime().maxMemory();
+            if (ratio >= PRTSFeaturesConfig.generationMemoryGuardPauseRatio) {
+                // 暂停提交：等 GC 追回 committed 后再恢复，防加载风暴把堆顶满 Xmx
+                if (prts$guardLogCooldownNanos == 0L
+                        || System.nanoTime() - prts$guardLogCooldownNanos > 10_000_000_000L) {
+                    prts$guardLogCooldownNanos = System.nanoTime();
+                    org.apache.logging.log4j.LogManager.getLogger("PRTS-ChunkGen")
+                            .warn("[chunk-gen] memory guard PAUSE submissions (committed={}% of max)",
+                                    (int) (ratio * 100));
+                }
+                ci.cancel();
+                return;
+            }
+            if (ratio >= PRTSFeaturesConfig.generationMemoryGuardThrottleRatio) {
+                budget = Math.max(2, budget / 2);
+                limit = Math.max(2, limit / 2);
+            }
         }
         boolean overBudget = budget > 0 && this.pendingGenerationTasks.size() > budget;
         boolean overWindow = limit > 0 && prts$submittedInWindow(2_000_000_000L) >= limit;

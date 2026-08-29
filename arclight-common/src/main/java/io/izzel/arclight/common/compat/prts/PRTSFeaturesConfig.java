@@ -235,6 +235,12 @@ public class PRTSFeaturesConfig {
     // storm; 0 = unlimited.
     public static int chunkgenInflightLimit;
 
+    // 堆压力卫兵：committed/max 超阈值时压缩生成提交预算，让 GC 追回内存
+    //（登录/预热 chunk 加载风暴把 committed 顶到 Xmx 导致 RSS 超面板限制被杀）。
+    public static boolean generationMemoryGuardEnabled;
+    public static double generationMemoryGuardThrottleRatio;
+    public static double generationMemoryGuardPauseRatio;
+
     // Barrier semantics: make the vanilla watchdog barrier-aware so a main thread waiting
     // in the dimension barrier is not falsely killed after max-tick-time; false = vanilla
     // watchdog behavior.
@@ -562,6 +568,11 @@ public class PRTSFeaturesConfig {
         if (generationTasksPerTick < 0) generationTasksPerTick = 0;
         chunkgenInflightLimit = config.getInt("chunkgen-inflight-limit", 128);
         if (chunkgenInflightLimit < 0) chunkgenInflightLimit = 0;
+        generationMemoryGuardEnabled = config.getBoolean("generation-memory-guard-enabled", true);
+        generationMemoryGuardThrottleRatio = Math.min(0.95, Math.max(0.3,
+                config.getDouble("generation-memory-guard-throttle-ratio", 0.65)));
+        generationMemoryGuardPauseRatio = Math.min(0.99, Math.max(0.4,
+                config.getDouble("generation-memory-guard-pause-ratio", 0.85)));
         barrierWatchdogAware = config.getBoolean("barrier-watchdog-aware", true);
         barrierTimeoutMs = config.getLong("barrier-timeout-ms", 120000L);
         if (barrierTimeoutMs < 1000L) barrierTimeoutMs = 120000L;

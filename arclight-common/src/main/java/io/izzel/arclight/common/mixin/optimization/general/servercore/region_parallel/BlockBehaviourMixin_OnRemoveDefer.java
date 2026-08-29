@@ -22,7 +22,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * 流体 setBlock 触发 onRemove 时，Minecolonies 兼容钩子会跨线程读 BE，
  * 排主线程保语义且消除违规（刷石机每 tick 触发，生产 785k 违规来源）。
  */
-@Mixin(BlockBehaviour.class)
+// 优先级 1500（默认 1000）：HEAD 注入排在 minecolonies_compatibility 的
+// onRemove 钩子之前，worker 上先 cancel 才能挡住它跨线程 getBlockEntity。
+@Mixin(value = BlockBehaviour.class, priority = 1500)
 public abstract class BlockBehaviourMixin_OnRemoveDefer {
 
     @Shadow
