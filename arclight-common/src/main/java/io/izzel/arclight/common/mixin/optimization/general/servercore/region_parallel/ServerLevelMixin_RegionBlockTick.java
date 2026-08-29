@@ -81,13 +81,6 @@ public abstract class ServerLevelMixin_RegionBlockTick implements ServerLevelReg
         return maxTicks;
     }
 
-    @Redirect(method = "tick(Ljava/util/function/BooleanSupplier;)V",
-        at = @At(value = "INVOKE", target = "Lnet/minecraft/server/level/ServerChunkCache;tick(Ljava/util/function/BooleanSupplier;Z)V"))
-    private void arclight$regionBlockTickPhase(ServerChunkCache cache, BooleanSupplier hasTimeLeft, boolean tickChunks) {
-        RegionTickManager.runBlockTickPhase((ServerLevel) (Object) this);
-        cache.tick(hasTimeLeft, tickChunks);
-    }
-
     /**
      * Route collected block ticks into the right dimension's queues: while
      * {@link LevelTicks#tick} runs (block + fluid collection), the current level is
