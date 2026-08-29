@@ -162,6 +162,7 @@
     "servercore.region_parallel.ServerLevelMixin_EntityAddDefer",
     "servercore.region_parallel.ServerLevelMixin_RegionBlockTick",
     "servercore.region_parallel.LevelTicksMixin_RegionBlockTick",
+    "servercore.region_parallel.BlockBehaviourMixin_OnRemoveDefer",
     "servercore.region_parallel.LevelMixin_RegionBlockEntityTick",
     "servercore.region_parallel.LevelMixin_RegionRandom",
     "servercore.region_parallel.LegacyRandomSourceMixin_RegionSafe",
