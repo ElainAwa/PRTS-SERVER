@@ -55,8 +55,8 @@ public abstract class ChunkMapMixin_ChunkSystemSched implements PRTSChunkMapResc
         this.prts$deferredReschedules.add(() -> holder.scheduleChunkGenerationTask(status, self));
     }
 
-    @Inject(method = "runGenerationTasks", at = @At("HEAD"))
-    private void prts$drainDeferredReschedules(CallbackInfo ci) {
+    @Override
+    public void prts$drainDeferredReschedules() {
         if (!PRTSFeaturesConfig.chunkSystemEnabled) {
             return;
         }
@@ -66,10 +66,20 @@ public abstract class ChunkMapMixin_ChunkSystemSched implements PRTSChunkMapResc
         }
     }
 
+    @Inject(method = "runGenerationTasks", at = @At("HEAD"))
+    private void prts$drainDeferredReschedulesTick(CallbackInfo ci) {
+        this.prts$drainDeferredReschedules();
+    }
+
     @Inject(method = "runGenerationTask", at = @At("HEAD"), cancellable = true)
     private void prts$scheduleViaChunkSystem(ChunkGenerationTask task, CallbackInfo ci) {
         if (PRTSFeaturesConfig.chunkSystemEnabled) {
-            ChunkSystemDriver.submit(this.level, (ChunkMap) (Object) this, task);
+            try {
+                ChunkSystemDriver.submit(this.level, (ChunkMap) (Object) this, task);
+            } catch (Throwable t) {
+                org.apache.logging.log4j.LogManager.getLogger("PRTS-ChunkSystem")
+                        .error("[chunk-system] M2 submit failed for {} target={}", task.getCenter().getPos(), task.targetStatus, t);
+            }
             ci.cancel();
             return;
         }

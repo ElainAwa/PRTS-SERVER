@@ -491,9 +491,15 @@ public final class ChunkSystemDriver {
                                     if (Math.max(Math.abs(dx), Math.abs(dz)) != dist) {
                                         continue; // 只取切比雪夫环，内部距离已覆盖
                                     }
+                                    ChunkPos npos = new ChunkPos(pos.x + dx, pos.z + dz);
+                                    if (!cache.contains(npos.x, npos.z)) {
+                                        // 锥域（acquire 半径）外：与 vanilla 读检查范围一致；
+                                        // 越界 get 抛 IllegalArgumentException → 任务失败 → 中心排空 → FULL 永不完成
+                                        continue;
+                                    }
                                     CompletableFuture<ChunkResult<ChunkAccess>> neighborFuture =
                                             ChunkSystemDriver.this.futureFor(
-                                                    cache.get(pos.x + dx, pos.z + dz), required);
+                                                    cache.get(npos.x, npos.z), required);
                                     if (!neighborFuture.isDone()) {
                                         if (waiting == null) {
                                             waiting = new ArrayList<>();
@@ -529,7 +535,11 @@ public final class ChunkSystemDriver {
                                     if (dx == 0 && dz == 0) {
                                         continue;
                                     }
-                                    GenerationChunkHolder nh = cache.get(pos.x + dx, pos.z + dz);
+                                    ChunkPos npos = new ChunkPos(pos.x + dx, pos.z + dz);
+                                    if (!cache.contains(npos.x, npos.z)) {
+                                        continue; // 锥域外邻居：无并发写风险
+                                    }
+                                    GenerationChunkHolder nh = cache.get(npos.x, npos.z);
                                     // 只等"正在生成且生成锥覆盖 FEATURES"的邻居：未生成/未覆盖的邻居
                                     // 不会并发写本块，绝不能为其创建 FEATURES future（无人驱动→永久挂起，
                                     // 实测飞行 completed 卡死 784、inflight=217、busy=1%）。

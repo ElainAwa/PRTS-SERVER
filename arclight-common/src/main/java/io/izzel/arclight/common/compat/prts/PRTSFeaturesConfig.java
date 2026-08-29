@@ -656,7 +656,7 @@ public class PRTSFeaturesConfig {
         lightTelemetryEnabled = config.getBoolean("lighting.telemetry-enabled", true);
         lightThreadEnabled = config.getBoolean("lighting.threaded", true);
         chunkSystemSchedulerEnabled = config.getBoolean("parallel.chunk-system-scheduler.enabled", true);
-        chunkSystemSchedulerWorkers = Math.max(1, config.getInt("parallel.chunk-system-scheduler.workers", 1));
+        chunkSystemSchedulerWorkers = Math.max(1, config.getInt("parallel.chunk-system-scheduler.workers", 4));
         chunkSystemSchedulerLockRadius = Math.max(0, Math.min(2, config.getInt("parallel.chunk-system-scheduler.lock-radius", 2)));
         chunkSystemSchedulerSplitStages = config.getBoolean("parallel.chunk-system-scheduler.split-stages", true);
         chunkSystemSchedulerDepGating = config.getBoolean("parallel.chunk-system-scheduler.dep-gating", true);
@@ -1140,7 +1140,7 @@ public class PRTSFeaturesConfig {
                   chunk-demand-starve-ticks: 600      # low-priority bucket head older than this is consumed first (only with priority on)
                   chunk-system-scheduler:            # scheduler driving vanilla generation futures (startup-only)
                     enabled: true                    # master switch (off = vanilla worldgen mailbox FIFO, bit-identical)
-                    workers: 1                       # worker threads (fixed 1 to keep serial semantics)
+                    workers: 4                       # worker threads for worldgen task graph (M2 statemachine; more = faster fresh-chunk gen)
                     split-stages: true               # two-stage lock split: 1x1 lock before features, 5x5 before FEATURES
                     dep-gating: true                # dependency gating: batch wait for layer futures before re-queue
                   chunk-system-enabled: true         # chunk state machine: per-chunk per-status task graph (startup-only; overrides scheduler)
@@ -1375,7 +1375,7 @@ public class PRTSFeaturesConfig {
                   chunk-demand-starve-ticks: 600  # 低优先级队头超龄即消费（仅开启优先时生效）
                   chunk-system-scheduler:   # 区块调度器：驱动原版生成 future 链（启动期生效）
                     enabled: true  # 总开关（关=原版 FIFO，逐位一致）
-                    workers: 1  # 工作线程数（固定 1 保串行语义）
+                    workers: 4  # worldgen 任务图工作线程数（M2 状态机；越大全新区块生成越快）
                     split-stages: true  # 两阶段锁域拆分：features 前只锁中心块，FEATURES 前换 5x5 锁
                     dep-gating: true  # 依赖门控：层内 future 全部完成才重新入队
                   chunk-system-enabled: true  # 区块状态机：单区块单状态任务图（启动期生效）

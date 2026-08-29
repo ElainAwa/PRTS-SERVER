@@ -20,4 +20,7 @@ public interface ServerChunkCacheRegionBridge {
 
     /** 提交异步 chunk 加载需求（与 getChunk miss 同一条 ChunkDemandQueue 路径，不阻塞）。 */
     void arclight$submitChunkDemand(int x, int z);
+
+    /** 主线程消化 M2 挂起的重调度（推进生成链；waitUntilNextTick/等待循环调用）。 */
+    void arclight$drainDeferredReschedules();
 }

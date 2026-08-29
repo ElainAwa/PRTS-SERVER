@@ -12,10 +12,13 @@ import io.izzel.arclight.common.optimization.general.servercore.RegionTickManage
 import net.minecraft.core.Holder;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.server.level.ChunkHolder;
+import net.minecraft.server.level.ChunkLevel;
 import net.minecraft.server.level.ChunkMap;
 import net.minecraft.server.level.ChunkResult;
+import net.minecraft.server.level.DistanceManager;
 import net.minecraft.server.level.ServerChunkCache;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.TicketType;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.biome.Biomes;
@@ -27,6 +30,8 @@ import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
@@ -46,6 +51,21 @@ import java.util.concurrent.CompletableFuture;
 public abstract class ServerChunkCacheMixin_DimParallel implements io.izzel.arclight.common.bridge.core.world.server.ServerChunkCacheDemandBridge,
         io.izzel.arclight.common.bridge.core.world.server.ServerChunkCacheRegionBridge {
 
+    private static final Logger LOGGER = LogManager.getLogger("PRTS-ChunkDemand");
+
+    /** 超时日志去重（坐标 → 上次警告时间戳），防 isRainingAt 类每 tick 调用刷屏。 */
+    @Unique
+    private static final java.util.concurrent.ConcurrentHashMap<Long, Long> prts$lastTimeoutLog = new java.util.concurrent.ConcurrentHashMap<>();
+
+    /**
+     * 强制加载持久票：UNKNOWN 票 1 tick 过期（purgeStaleTickets），超时返回后生成会被
+     * 中止、进度丢失；此票永不超时，保证全新块生成在后台完成（下轮读取命中即收敛），
+     * FULL 命中后由调用方显式 removeTicket 释放（防区块泄漏）。
+     */
+    private static final net.minecraft.server.level.TicketType<net.minecraft.world.level.ChunkPos> PRTS_FORCE_LOAD =
+            net.minecraft.server.level.TicketType.create("prts_force_load",
+                    java.util.Comparator.comparingLong(net.minecraft.world.level.ChunkPos::toLong));
+
     @Shadow
     @Final
     private ServerLevel level;
@@ -53,6 +73,10 @@ public abstract class ServerChunkCacheMixin_DimParallel implements io.izzel.arcl
     @Shadow
     @Final
     private ChunkMap chunkMap;
+
+    @Shadow
+    @Final
+    private DistanceManager distanceManager;
 
     @Shadow
     @Final
@@ -65,6 +89,11 @@ public abstract class ServerChunkCacheMixin_DimParallel implements io.izzel.arcl
     @Shadow
     @Final
     private ChunkAccess[] lastChunk;
+
+    @Shadow
+    private boolean runDistanceManagerUpdates() {
+        throw new AssertionError();
+    }
 
     @Redirect(method = "getChunk(IILnet/minecraft/world/level/chunk/status/ChunkStatus;Z)Lnet/minecraft/world/level/chunk/ChunkAccess;",
         at = @At(value = "INVOKE", target = "Ljava/util/concurrent/CompletableFuture;join()Ljava/lang/Object;"))
@@ -127,8 +156,93 @@ public abstract class ServerChunkCacheMixin_DimParallel implements io.izzel.arcl
             cir.setReturnValue(cached);
             return;
         }
-        // 主线程回退 vanilla getChunk，保证 required 区块阻塞生成（否则玩家进未生成区拿到空气）
+        // 主线程：M2 死锁防护——vanilla join 会等生成链推进，而 M2 的 reschedule 消化
+        // 依赖主线程 runGenerationTasks（getChunk join 期间不跑）→ 生成永不完成 → 死锁。
+        // required=true：有界等待 + 主线程迷你 tick（消化 reschedule + drain 需求），
+        // 生成照常推进；超时返回空壳。required=false：提交需求立即空壳（不等待）。
         if (!DimensionTickManager.isDimensionTickThread() && !RegionTickManager.isRegionWorker()) {
+            // required=false（loadDemand 等内部调用）不提交需求：需求由队列调用方管理，
+            // 重复 submit 会形成 poll→submit→poll 死循环。直接返回空壳。
+            if (!required) {
+                cir.setReturnValue(new EmptyLevelChunk(this.level, new ChunkPos(x, z), arclight$voidBiome(this.level)));
+                return;
+            }
+            // required=true（玩家/登录/spawn 准备/强制加载）：复刻 vanilla
+            // getChunkFutureMainThread 的强制加载语义——先加持久 ticket（级别 33）
+            // 保证生成锥域 holder 存在（直接 scheduleGenerationTask 会因 acquireGeneration
+            // 无空检查 NPE），再主线程迷你循环推进生成链：runDistanceManagerUpdates
+            // （runAllUpdates 建 holder 锥域 → runGenerationTasks → M2 submit + reschedule
+            // 消化）驱动 M2 任务图，有界等待 FULL 完成。
+            // 与 vanilla UNKNOWN 票（1 tick 即过期，purge 后生成中止）不同：持久票保证
+            // 全新块生成在后台完成，1s 超时返回空壳后下轮读取命中（收敛），FULL 命中
+            // 后立即移除防泄漏。
+            long key = ChunkPos.asLong(x, z);
+            ChunkPos pos = new ChunkPos(x, z);
+            this.distanceManager.addTicket(PRTS_FORCE_LOAD, pos,
+                    ChunkLevel.byStatus(ChunkStatus.FULL), pos);
+            // 等待窗口只覆盖「快速可完成」的加载（磁盘读/已生成）：全新块的 FULL 锥域生成
+            // 需数秒（mod 结构多），等满超时是纯浪费——调用方（如 twilightforest isRainingAt
+            // 每 tick 强制加载）会反复卡死主线程（TPS→1）。短超时快速失败，持久票保证
+            // 后台生成完成，调用方重试/下轮读取即命中收敛。
+            long deadline = System.nanoTime() + 5_000_000L;
+            boolean schedWarned = false;
+            while (System.nanoTime() < deadline) {
+                this.runDistanceManagerUpdates();
+                ChunkHolder holder = this.chunkMap.visibleChunkMap.get(key);
+                if (holder == null) {
+                    holder = this.chunkMap.updatingChunkMap.get(key);
+                }
+                if (holder != null) {
+                    // 每迭代重试提交（幂等：已有同目标任务则不重复建）。一次性提交在邻居
+                    // holder 未齐时 acquireGeneration NPE 会静默丢任务（异常被调用方吞掉）
+                    // ——生成永不开始。此处捕获并打日志，下轮迭代自动重试。
+                    try {
+                        holder.scheduleChunkGenerationTask(ChunkStatus.FULL, this.chunkMap);
+                    } catch (Throwable t) {
+                        if (!schedWarned) {
+                            schedWarned = true;
+                            LOGGER.warn("[chunk-demand] scheduleChunkGenerationTask failed at ({}, {}), retrying", x, z, t);
+                        }
+                    }
+                }
+                ChunkAccess now = arclight$snapshotRead(x, z);
+                if (now != null) {
+                    // FULL 完成：释放持久票（vanilla UNKNOWN 1 tick 后同样释放），防区块泄漏
+                    this.distanceManager.removeTicket(PRTS_FORCE_LOAD, pos,
+                            ChunkLevel.byStatus(ChunkStatus.FULL), pos);
+                    cir.setReturnValue(now);
+                    return;
+                }
+                try {
+                    Thread.sleep(1L);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
+            long waitedMs = (System.nanoTime() - (deadline - 5_000_000L)) / 1_000_000L;
+            boolean inVisible = this.chunkMap.visibleChunkMap.containsKey(key);
+            boolean inUpdating = this.chunkMap.updatingChunkMap.containsKey(key);
+            // 诊断：holder 的生成任务/future 状态——区分「从未提交任务」与「任务卡住/生成慢」
+            String taskInfo = " n/a";
+            ChunkHolder hh = this.chunkMap.visibleChunkMap.get(key);
+            if (hh == null) {
+                hh = this.chunkMap.updatingChunkMap.get(key);
+            }
+            if (hh instanceof io.izzel.arclight.common.optimization.general.chunksystem.PRTSChunkSystemHolderAware aware) {
+                var taskRef = aware.prts$task().get();
+                taskInfo = " task=" + (taskRef == null ? "null" : taskRef.targetStatus.getName());
+            }
+            // 日志去重：同一坐标 10s 内只打一条（isRainingAt 类每 tick 调用会刷屏）
+            long nowNanos = System.nanoTime();
+            long logKey = key;
+            long last = prts$lastTimeoutLog.getOrDefault(logKey, 0L);
+            if (nowNanos - last > 10_000_000_000L) {
+                prts$lastTimeoutLog.put(logKey, nowNanos);
+                LOGGER.warn("[chunk-demand] force-load wait timeout at ({}, {}) dim={} after {}ms (visible={} updating={}{}); ticket kept for background gen",
+                        x, z, this.level.dimension().location(), waitedMs, inVisible, inUpdating, taskInfo);
+            }
+            cir.setReturnValue(new EmptyLevelChunk(this.level, new ChunkPos(x, z), arclight$voidBiome(this.level)));
             return;
         }
         // 卸载 promotion 中的区块仍在 updatingChunkMap：实体 tick 期间应读到真实数据
@@ -148,22 +262,21 @@ public abstract class ServerChunkCacheMixin_DimParallel implements io.izzel.arcl
         cir.setReturnValue(new EmptyLevelChunk(this.level, new ChunkPos(x, z), arclight$voidBiome(this.level)));
     }
 
-    /** 无锁快照读：只信 visibleChunkMap 的已完成 full future，二次身份复核排除卸载瞬间的陈旧 holder。 */
+    /**
+     * 无锁快照读：只信 visibleChunkMap 中 FULL 状态已完成的 holder，二次身份复核排除
+     * 卸载瞬间的陈旧 holder。注意读 FULL 状态而非 getFullChunkFuture（BLOCK_TICKING）：
+     * 后者需 3×3 邻居 FULL，单块强制加载（邻居仅 border 级 ticket）时永不完成——曾导致
+     * 生成早已完成却永远读不到、逐块 1s 超时重试（登录/殖民地同步卡死）。
+     */
     @Unique
     private ChunkAccess arclight$snapshotRead(int x, int z) {
         long key = ChunkPos.asLong(x, z);
         ChunkHolder holder = this.chunkMap.visibleChunkMap.get(key);
         if (holder != null) {
-            java.util.concurrent.CompletableFuture<net.minecraft.server.level.ChunkResult<net.minecraft.world.level.chunk.LevelChunk>> full = holder.getFullChunkFuture();
-            if (full != null) {
-                net.minecraft.server.level.ChunkResult<net.minecraft.world.level.chunk.LevelChunk> r = full.getNow(null);
-                if (r != null) {
-                    ChunkAccess cached = r.orElse(null);
-                    // holder 若已离开当前可见表，旧 chunk 的方块实体可能已被卸载清空
-                    if (cached != null && this.chunkMap.visibleChunkMap.get(key) == holder) {
-                        return cached;
-                    }
-                }
+            ChunkAccess cached = holder.getChunkIfPresent(ChunkStatus.FULL);
+            // holder 若已离开当前可见表，旧 chunk 的方块实体可能已被卸载清空
+            if (cached != null && this.chunkMap.visibleChunkMap.get(key) == holder) {
+                return cached;
             }
         }
         return null;
@@ -174,10 +287,7 @@ public abstract class ServerChunkCacheMixin_DimParallel implements io.izzel.arcl
     private ChunkAccess arclight$existingChunkRead(int x, int z) {
         ChunkHolder holder = this.chunkMap.updatingChunkMap.get(ChunkPos.asLong(x, z));
         if (holder != null) {
-            ChunkResult<LevelChunk> r = holder.getFullChunkFuture().getNow(null);
-            if (r != null) {
-                return r.orElse(null);
-            }
+            return holder.getChunkIfPresentUnchecked(ChunkStatus.FULL);
         }
         return null;
     }
@@ -186,6 +296,13 @@ public abstract class ServerChunkCacheMixin_DimParallel implements io.izzel.arcl
     @Override
     public boolean arclight$hasLiveChunk(int x, int z) {
         return arclight$snapshotRead(x, z) != null || arclight$existingChunkRead(x, z) != null;
+    }
+
+    @Override
+    public void arclight$drainDeferredReschedules() {
+        if (this.chunkMap instanceof io.izzel.arclight.common.optimization.general.chunksystem.PRTSChunkMapRescheduleAware aware) {
+            aware.prts$drainDeferredReschedules();
+        }
     }
 
     /** worker 安全读取：快照读优先，updating 兜底；无活区块返回 null。 */

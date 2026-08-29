@@ -163,7 +163,7 @@ public final class ChunkEnvParallelScheduler {
             }
         } catch (Throwable t) {
             // 单 chunk 环境 tick 异常不影响其他 chunk 与服务器。
-            LOGGER.error("[chunk-env] chunk {} tick failed: {}", pos, t.toString());
+            LOGGER.error("[chunk-env] chunk {} tick failed", pos, t);
         } finally {
             latch.countDown();
         }

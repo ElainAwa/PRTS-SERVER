@@ -25,4 +25,7 @@ public interface PRTSChunkMapRescheduleAware {
 
     /** 延迟投递一次 (holder, status) 的重调度请求；可在任意线程调用。 */
     void prts$deferReschedule(GenerationChunkHolder holder, ChunkStatus status);
+
+    /** 主线程消化挂起的重调度请求（推进 M2 生成链，防 getChunk join 死锁）。 */
+    void prts$drainDeferredReschedules();
 }
