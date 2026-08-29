@@ -241,6 +241,10 @@ public class PRTSFeaturesConfig {
     public static double generationMemoryGuardThrottleRatio;
     public static double generationMemoryGuardPauseRatio;
 
+    // 区域 worker 每阶段时间片（ms）：实体/方块刻/BE 循环到点让出，剩余丢弃
+    // 计 droppedWork（下 tick dispatch 重新入队，与原版省略 tick 同谱系）。
+    public static long regionWorkerSliceMs;
+
     // 维度 worker 每 tick 方块/流体计划 tick 预算（0 = vanilla 65536）。岩浆扩散
     // backlog 会让 worker 单 tick 磨数分钟，主线程 barrier 干等被用户视为卡死。
     public static int workerTickBudget;
@@ -593,6 +597,7 @@ public class PRTSFeaturesConfig {
         dimensionWorkerMultitick = Math.max(1, config.getInt("parallel.dimension-worker-multitick", 4));
         dimensionWorkerSessionMs = Math.max(500, config.getLong("parallel.dimension-worker-session-ms", 8000L));
         postDrainBudgetMs = Math.max(50, config.getLong("parallel.post-drain-budget-ms", 1000L));
+        regionWorkerSliceMs = Math.max(50, config.getLong("parallel.region-worker-slice-ms", 2000L));
         barrierWatchdogAware = config.getBoolean("barrier-watchdog-aware", true);
         barrierTimeoutMs = config.getLong("barrier-timeout-ms", 120000L);
         if (barrierTimeoutMs < 1000L) barrierTimeoutMs = 120000L;

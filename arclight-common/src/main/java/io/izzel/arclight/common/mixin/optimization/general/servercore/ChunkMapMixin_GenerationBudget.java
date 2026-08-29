@@ -17,6 +17,8 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.gen.Invoker;
 
+import java.lang.management.GarbageCollectorMXBean;
+import java.lang.management.ManagementFactory;
 import java.util.Iterator;
 import java.util.List;
 
@@ -39,6 +41,14 @@ public abstract class ChunkMapMixin_GenerationBudget {
     @Unique
     private static long prts$guardLogCooldownNanos = 0L;
 
+    /** GC 压力采样（30s 滑动窗口）：上一窗口 GC 时间占比，叠加进卫兵提前降速。 */
+    @Unique
+    private static long prts$lastGcSampleNanos = 0L;
+    @Unique
+    private static long prts$lastGcTotalMs = 0L;
+    @Unique
+    private static double prts$gcRatio = 0.0;
+
     @Shadow
     @Final
     private List<ChunkGenerationTask> pendingGenerationTasks;
@@ -58,6 +68,15 @@ public abstract class ChunkMapMixin_GenerationBudget {
         if (PRTSFeaturesConfig.generationMemoryGuardEnabled) {
             double ratio = (double) Runtime.getRuntime().totalMemory()
                     / Runtime.getRuntime().maxMemory();
+            prts$sampleGcPressure();
+            boolean gcPressure = prts$gcRatio > 0.30 && ratio > 0.55;
+            if (gcPressure && prts$guardLogCooldownNanos == 0L
+                    || gcPressure && System.nanoTime() - prts$guardLogCooldownNanos > 30_000_000_000L) {
+                prts$guardLogCooldownNanos = System.nanoTime();
+                org.apache.logging.log4j.LogManager.getLogger("PRTS-ChunkGen")
+                        .warn("[chunk-gen] memory guard GC pressure (gc={}% committed={}%) throttling early",
+                                (int) (prts$gcRatio * 100), (int) (ratio * 100));
+            }
             if (ratio >= PRTSFeaturesConfig.generationMemoryGuardPauseRatio) {
                 // 暂停提交：等 GC 追回 committed 后再恢复，防加载风暴把堆顶满 Xmx
                 if (prts$guardLogCooldownNanos == 0L
@@ -70,7 +89,10 @@ public abstract class ChunkMapMixin_GenerationBudget {
                 ci.cancel();
                 return;
             }
-            if (ratio >= PRTSFeaturesConfig.generationMemoryGuardThrottleRatio) {
+            double throttleRatio = gcPressure
+                    ? Math.min(PRTSFeaturesConfig.generationMemoryGuardThrottleRatio, 0.55)
+                    : PRTSFeaturesConfig.generationMemoryGuardThrottleRatio;
+            if (ratio >= throttleRatio) {
                 budget = Math.max(2, budget / 2);
                 limit = Math.max(2, limit / 2);
             }
@@ -101,6 +123,25 @@ public abstract class ChunkMapMixin_GenerationBudget {
         if (submitted > 0 && !this.pendingGenerationTasks.isEmpty()) {
             this.mainThreadExecutor.execute(() -> ((ChunkMap) (Object) this).runGenerationTasks());
         }
+    }
+
+    /** 采样 30s 滑动窗口的 GC 时间占比（GarbageCollectorMXBean collectionTime）。 */
+    @Unique
+    private static void prts$sampleGcPressure() {
+        long now = System.nanoTime();
+        if (prts$lastGcSampleNanos != 0L && now - prts$lastGcSampleNanos < 30_000_000_000L) {
+            return;
+        }
+        long gcMs = 0L;
+        for (GarbageCollectorMXBean bean : ManagementFactory.getGarbageCollectorMXBeans()) {
+            gcMs += bean.getCollectionTime();
+        }
+        long elapsedMs = (now - prts$lastGcSampleNanos) / 1_000_000L;
+        if (prts$lastGcSampleNanos != 0L && elapsedMs > 0L) {
+            prts$gcRatio = (double) (gcMs - prts$lastGcTotalMs) / elapsedMs;
+        }
+        prts$lastGcSampleNanos = now;
+        prts$lastGcTotalMs = gcMs;
     }
 
     /** 统计最近 windowNanos（2s）内的提交次数。 */

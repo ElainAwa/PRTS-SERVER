@@ -62,6 +62,31 @@ public final class DimensionTickManager {
     private static final ConcurrentLinkedQueue<PendingEvent> PENDING_EVENTS = new ConcurrentLinkedQueue<>();
     private static final AtomicBoolean IN_DIMENSION_TICK = new AtomicBoolean(false);
 
+    // 预算自适应（总控闭环）：主线程按滚动平均 tick 时长压缩 worker 时间片，
+    // 落后越多压得越狠（下限 50%），恢复正常后每 tick 回升 5% 直到全速。
+    private static final double[] TICK_MS_RING = new double[100];
+    private static int tickMsIndex = 0;
+    private static volatile double workerSliceScale = 1.0;
+
+    /** 当前 worker 时间片缩放系数（region/dimension 共享）。 */
+    public static double currentSliceScale() {
+        return workerSliceScale;
+    }
+
+    private static void updateSliceScale(double tickMs) {
+        TICK_MS_RING[tickMsIndex++ % TICK_MS_RING.length] = tickMs;
+        double sum = 0.0;
+        for (double v : TICK_MS_RING) {
+            sum += v;
+        }
+        double avg = sum / TICK_MS_RING.length;
+        if (avg > 45.0) {
+            workerSliceScale = Math.max(0.5, 1.0 - (avg - 45.0) / 100.0);
+        } else {
+            workerSliceScale = Math.min(1.0, workerSliceScale + 0.05);
+        }
+    }
+
     private static final AsyncTaskStats STATS = AsyncTaskStats.builder("[dimension-tick]")
             .intervalTicks(600)
             .counter("ticks")
@@ -71,6 +96,8 @@ public final class DimensionTickManager {
             .counter("barrier.softDegrades")
             .counter("barrier.lateUnits")
             .timer("overworld").timer("nether").timer("end").timer("other")
+            // 调度器阶段遥测（主线程=调度器）：barrier 等待 / POST 回收 / worker 会话。
+            .timer("barrier.wait").timer("post.drain").timer("worker.session")
             .build();
 
     // 硬超时降级跟踪:degraded 维度由主线程串行 tick,连续正常 recover-ticks 后自动恢复并行。
@@ -263,6 +290,7 @@ public final class DimensionTickManager {
                                     SyncTime syncTime) {
         int n = units.length;
         STATS.increment("ticks");
+        long tickStartNanos = Util.getNanos();
 
         // 1. Pre phase (main thread, vanilla per-unit order).
         //    synchronizeTime runs inside the vanilla loop per unit; keep it here.
@@ -334,10 +362,13 @@ public final class DimensionTickManager {
                                     () -> !sessionDegrade.get() && hasTimeLeft.getAsBoolean();
                             // 无玩家维度多 tick:backlog（岩浆扩散）批量消化,时钟跑快
                             // N 倍;会话墙钟上限防止 barrier 超时;软降级/有玩家时即停。
+                            // 预算自适应:主线程落后时按缩放系数压缩 N 与会话上限。
+                            double scale = currentSliceScale();
                             int maxTicks = unit.level().players().isEmpty()
-                                    ? PRTSFeaturesConfig.dimensionWorkerMultitick : 1;
+                                    ? Math.max(1, (int) (PRTSFeaturesConfig.dimensionWorkerMultitick * scale)) : 1;
                             long deadline = Util.getNanos()
-                                    + PRTSFeaturesConfig.dimensionWorkerSessionMs * 1_000_000L;
+                                    + (long) (PRTSFeaturesConfig.dimensionWorkerSessionMs * scale) * 1_000_000L;
+                            long sessionStart = Util.getNanos();
                             int ran = 0;
                             do {
                                 unit.tick(unitTimeLeft);
@@ -345,6 +376,7 @@ public final class DimensionTickManager {
                             } while (ran < maxTicks && !sessionDegrade.get()
                                     && Util.getNanos() < deadline);
                             ranByUnit.put(unit, ran);
+                            STATS.record("worker.session", Util.getNanos() - sessionStart);
                         } catch (Throwable t) {
                             failure.compareAndSet(null, t);
                         } finally {
@@ -367,6 +399,7 @@ public final class DimensionTickManager {
                     failure.compareAndSet(null, t);
                 }
             }
+            long barrierStartNanos = Util.getNanos();
             try {
                 java.util.ArrayList<ResourceKey<Level>> dims = new java.util.ArrayList<>(parallelDims.size());
                 for (ParallelTickUnit unit : parallelDims) {
@@ -383,8 +416,10 @@ public final class DimensionTickManager {
             if (failure0 != null) {
                 throw new ReportedExceptionWrapping(failure0);
             }
+            STATS.record("barrier.wait", Util.getNanos() - barrierStartNanos);
 
             // 4. Post phase (main thread) + perWorldTickTimes in vanilla format.
+            long postStartNanos = Util.getNanos();
             for (int i = 0; i < n; i++) {
                 ServerLevel level = units[i].level();
                 // worker 触发的实体新增（掉落/蛋/投射物/XP）必须在主线程 addEntity，
@@ -408,6 +443,7 @@ public final class DimensionTickManager {
                 recordDimensionTickTime(level.dimension(), tickCount, perTick);
                 STATS.record(timerName(level.dimension()), perTick);
             }
+            STATS.record("post.drain", Util.getNanos() - postStartNanos);
 
             // 5. Execute deferred cross-dimension transfers on the main thread.
             drainTransfers();
@@ -417,6 +453,7 @@ public final class DimensionTickManager {
         } finally {
             IN_DIMENSION_TICK.set(false);
         }
+        updateSliceScale((Util.getNanos() - tickStartNanos) / 1_000_000.0);
 
         STATS.tick(tickCount);
     }

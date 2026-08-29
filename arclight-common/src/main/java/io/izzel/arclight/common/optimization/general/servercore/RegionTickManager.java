@@ -1379,9 +1379,10 @@ public final class RegionTickManager {
         }
         runWorkers(level, applyNow, region -> {
             BlockTick bt;
+            long deadline = sliceDeadline();
             while ((bt = st.blockTickQueues[region].poll()) != null) {
-                if (RegionTickManager.degradeStopRequested()) {
-                    // B 组软降级:该 region 本轮未达成的方块刻丢弃(计 droppedWork),
+                if (RegionTickManager.degradeStopRequested() || Util.getNanos() >= deadline) {
+                    // B 组软降级/时间片到点:该 region 本轮未达成的方块刻丢弃(计 droppedWork),
                     // 保证队列底部不被遗留跨 tick——下一 tick 的 vanilla 收集会重新入队。
                     STATS.increment("barrier.droppedWork");
                     continue;
@@ -1409,9 +1410,10 @@ public final class RegionTickManager {
         }
         runWorkers(level, applyNow, region -> {
             TickingBlockEntity te;
+            long deadline = sliceDeadline();
             while ((te = st.teTickQueues[region].poll()) != null) {
-                if (RegionTickManager.degradeStopRequested()) {
-                    // B 组软降级:该 region 本轮未达成的 BE/方块刻丢弃(计 droppedWork)。
+                if (RegionTickManager.degradeStopRequested() || Util.getNanos() >= deadline) {
+                    // B 组软降级/时间片到点:该 region 本轮未达成的 BE/方块刻丢弃(计 droppedWork)。
                     STATS.increment("barrier.droppedWork");
                     continue;
                 }
@@ -1508,9 +1510,10 @@ public final class RegionTickManager {
             EntityBatchScheduler.Batch batch = stopGate != null
                     ? EntityBatchScheduler.begin(level, region, stopGate) : null;
             Entity entity;
+            long deadline = sliceDeadline();
             while ((entity = st.entityQueues[region].poll()) != null) {
-                if (RegionTickManager.degradeStopRequested()) {
-                    // B 组软降级:该 region 本轮未达成的实体刻丢弃(计 droppedWork)。
+                if (RegionTickManager.degradeStopRequested() || Util.getNanos() >= deadline) {
+                    // B 组软降级/时间片到点:该 region 本轮未达成的实体刻丢弃(计 droppedWork)。
                     // 存活的实体下一 tick dispatch 重新入队 → 恰好被 tick 一次(被跳过的是本 tick);
                     // 已移除的实体直接丢弃。绝不遗留队列底部,否则 dispatch 重复入队会双 tick。
                     STATS.increment("barrier.droppedWork");
@@ -1675,6 +1678,13 @@ public final class RegionTickManager {
         } finally {
             IN_REGION_TICK.set(false);
         }
+    }
+
+    /** 区域 worker 时间片截止（纳秒）：实体/方块刻/BE 循环到点让出；
+     *  预算自适应：主线程落后时按缩放系数压缩。 */
+    private static long sliceDeadline() {
+        double scale = DimensionTickManager.currentSliceScale();
+        return Util.getNanos() + (long) (PRTSFeaturesConfig.regionWorkerSliceMs * scale) * 1_000_000L;
     }
 
     /** degraded level 的 region 阶段串行执行:先应用 journal,再逐 region 执行 work。 */
