@@ -719,13 +719,6 @@ public abstract class LivingEntityMixin extends EntityMixin implements LivingEnt
         }
     }
 
-    @Decorate(method = "updateFallFlying", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/LivingEntity;setSharedFlag(IZ)V"))
-    private void arclight$toggleGlide(LivingEntity livingEntity, int flag, boolean set) throws Throwable {
-        if (set != livingEntity.getSharedFlag(flag) && !CraftEventFactory.callToggleGlideEvent(livingEntity, set).isCancelled()) {
-            DecorationOps.callsite().invoke(livingEntity, flag, set);
-        }
-    }
-
     /**
      * @author IzzelAliz
      * @reason
