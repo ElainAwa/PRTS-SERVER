@@ -452,18 +452,18 @@ public class PRTSFeaturesConfig {
         parallelPathfindingAsync = config.getBoolean("parallel.pathfinding-async", true);
         parallelDimension = config.getBoolean("parallel.dimension-parallel", true);
         parallelRegion = config.getBoolean("parallel.region-parallel", true);
-        regionBlockEntityParallel = config.getBoolean("parallel.region-block-entity-parallel", false);
+        regionBlockEntityParallel = config.getBoolean("parallel.region-block-entity-parallel", true);
         parallelColonyPhaseStagger = config.getBoolean("parallel.colony-npc-phase-stagger", true);
         colonyNpcWorkInterval = Math.max(1, Math.min(60, config.getInt("parallel.colony-npc-work-interval", 5)));
         colonyManagerTickCacheEnabled = config.getBoolean("parallel.colony-manager-tick-cache-enabled", true);
         colonyManagerTickCacheInterval = Math.max(1, Math.min(120, config.getInt("parallel.colony-manager-tick-cache-interval", 20)));
         villagerPoiPathBudget = Math.max(0, config.getInt("parallel.villager-poi-path-budget", 0));
-        mainThreadPathAsync = config.getBoolean("parallel.main-thread-path-async", false);
+        mainThreadPathAsync = config.getBoolean("parallel.main-thread-path-async", true);
         mainThreadEntityDrainBudget = Math.max(0, config.getInt("parallel.main-thread-entity-drain-budget", 0));
-        persistLearnedRoutes = config.getBoolean("parallel.persist-learned-routes", false);
+        persistLearnedRoutes = config.getBoolean("parallel.persist-learned-routes", true);
         learnedRoutesFile = config.getString("parallel.learned-routes-file", "config/prts-learned-routes.json");
         learnedRoutesLimit = Math.max(1, config.getInt("parallel.learned-routes-limit", 200));
-        routeProbationEnabled = config.getBoolean("parallel.route-probation-enabled", false);
+        routeProbationEnabled = config.getBoolean("parallel.route-probation-enabled", true);
         routeProbationTicks = Math.max(100, config.getInt("parallel.route-probation-ticks", 12000));
         routeProbationMaxViolations = Math.max(0, config.getInt("parallel.route-probation-max-violations", 2));
         chunkDemandPerTick = config.getInt("parallel.chunk-demand-per-tick", 50);
@@ -472,13 +472,13 @@ public class PRTSFeaturesConfig {
         io.izzel.arclight.common.optimization.general.servercore.ChunkDemandQueue.maxPerTick = chunkDemandPerTick;
         chunkDemandMinDrainMs = Math.max(0, config.getInt("parallel.chunk-demand-min-drain-ms", 2));
         io.izzel.arclight.common.optimization.general.servercore.ChunkDemandQueue.minDrainMs = chunkDemandMinDrainMs;
-        chunkDemandPlayerPriority = config.getBoolean("parallel.chunk-demand-player-priority", false);
+        chunkDemandPlayerPriority = config.getBoolean("parallel.chunk-demand-player-priority", true);
         chunkDemandStarveTicks = Math.max(20, config.getInt("parallel.chunk-demand-starve-ticks", 600));
         io.izzel.arclight.common.optimization.general.servercore.ChunkDemandQueue.playerPriorityEnabled = chunkDemandPlayerPriority;
         io.izzel.arclight.common.optimization.general.servercore.ChunkDemandQueue.starveNanos = chunkDemandStarveTicks * 50_000_000L;
         LOGGER.info("parallel chunk-demand priority={} starve={} ticks", chunkDemandPlayerPriority, chunkDemandStarveTicks);
         // 玩家方向区块预取（默认关）。
-        chunkPrefetchEnabled = config.getBoolean("chunk-prefetch.enabled", false);
+        chunkPrefetchEnabled = config.getBoolean("chunk-prefetch.enabled", true);
         chunkPrefetchDepth = Math.max(1, config.getInt("chunk-prefetch.depth", 6));
         chunkPrefetchIntervalTicks = Math.max(1, config.getInt("chunk-prefetch.interval-ticks", 5));
         chunkPrefetchTimeoutTicks = Math.max(20, config.getInt("chunk-prefetch.timeout-ticks", 200));
@@ -505,14 +505,14 @@ public class PRTSFeaturesConfig {
         loginWarmupPerTick = Math.max(1, config.getInt("parallel.login-warmup-per-tick", 32));
         loginWarmupCenters = parseNestedPairs(config.getString("parallel.login-warmup-centers",
                 "[[472,1358],[2113,1925],[-629,-278],[-672,256],[1242,2292]]"));
-        onFaultFallbackVanilla = config.getBoolean("parallel.on-fault-fallback-vanilla", false);
+        onFaultFallbackVanilla = config.getBoolean("parallel.on-fault-fallback-vanilla", true);
         mobCollisionEnabled = config.getBoolean("mob-collision.enabled", false);
         mobCollisionPlayersAffected = config.getBoolean("mob-collision.players-affected", false);
-        chunkEnvParallel = config.getBoolean("parallel.chunk-env-parallel", false);
+        chunkEnvParallel = config.getBoolean("parallel.chunk-env-parallel", true);
         chunkEnvThreads = Math.max(0, config.getInt("parallel.chunk-env-threads", 0));
         chunkEnvLock = config.getBoolean("parallel.chunk-env-lock", true);
-        portalAsync = config.getBoolean("parallel.portal-async", false);
-        entityBatchParallel = config.getBoolean("parallel.entity-batch-parallel", false);
+        portalAsync = config.getBoolean("parallel.portal-async", true);
+        entityBatchParallel = config.getBoolean("parallel.entity-batch-parallel", true);
         entityBatchThreads = Math.max(0, config.getInt("parallel.entity-batch-threads", 0));
         entityBatchAllow = parseInlineList(config.getString("parallel.entity-batch-allow", "[]"));
         entityBatchDeny = parseInlineList(config.getString("parallel.entity-batch-deny", "[]"));
@@ -532,7 +532,7 @@ public class PRTSFeaturesConfig {
         regionScaleMax = clampPower(config.getInt("parallel.region-scale-max", 8), 2, 16);
         if (regionScaleMin > regionScaleMax) regionScaleMin = regionScaleMax;
         regionScaleCrossReadRatio = Math.max(0.0, config.getDouble("parallel.region-scale-cross-read-ratio", 0.05));
-        unevenStripes = config.getBoolean("parallel.uneven-stripes", false);
+        unevenStripes = config.getBoolean("parallel.uneven-stripes", true);
         rebalanceIntervalSeconds = config.getLong("parallel.rebalance-interval-seconds", 300);
         rebalanceMaxMoves = Math.max(1, config.getInt("parallel.rebalance-max-moves", 1));
         rebalanceMinGroups = Math.max(1, config.getInt("parallel.rebalance-min-groups", 1));
@@ -563,9 +563,13 @@ public class PRTSFeaturesConfig {
         routeThreshold = Math.max(0, config.getInt("parallel.route-threshold", 5));
         routeWindowTicks = Math.max(20, config.getLong("parallel.route-window-ticks", 2400));
         routeOnRead = config.getBoolean("parallel.route-on-read", true);
-        beltPassengerDefer = config.getBoolean("parallel.belt-passenger-defer", false);
+        beltPassengerDefer = config.getBoolean("parallel.belt-passenger-defer", true);
         mainThreadEntityForce = new ArrayList<>(config.getStringList("parallel.main-thread-entity-force"));
         mainThreadEntityAllow = new ArrayList<>(config.getStringList("parallel.main-thread-entity-allow"));
+        if (mainThreadEntityAllow.isEmpty()) {
+            // 默认放行村民上 worker（08-28 实锤：主线程实体时间 50.5ms -> 4.3ms）
+            mainThreadEntityAllow.add("net.minecraft.world.entity.npc");
+        }
         sbwVehicleSleep = config.getBoolean("parallel.sbw-vehicle-sleep", false);
         sbwVehicleSleepInterval = Math.max(2, Math.min(120, config.getInt("parallel.sbw-vehicle-sleep-interval", 10)));
         LOGGER.info("parallel sbw-vehicle-sleep={} interval={}", sbwVehicleSleep, sbwVehicleSleepInterval);
@@ -587,8 +591,12 @@ public class PRTSFeaturesConfig {
         blockTickMainThreadWhenSerialized = config.getBoolean("parallel.block-tick-main-thread-when-serialized", true);
         LOGGER.info("parallel block-tick-main-thread-when-serialized={}", blockTickMainThreadWhenSerialized);
         journalReadBack = config.getBoolean("parallel.journal-read-back", false);
-        determinismMode = config.getBoolean("parallel.determinism-mode", false);
+        determinismMode = config.getBoolean("parallel.determinism-mode", true);
         beParallelAllow = new ArrayList<>(config.getStringList("parallel.be-parallel-allow"));
+        if (beParallelAllow.isEmpty()) {
+            // 默认放行 Create BE 上区域 worker（08-28 实验 F 验证：动画正常、主线程释放）
+            beParallelAllow.add("create:*");
+        }
         beMainThreadForce = new ArrayList<>(config.getStringList("parallel.be-main-thread-force"));
         if (beMainThreadForce.isEmpty()) {
             // 实测：create:track 单次 tick 最大 342ms（列车图全局计算），铁主线程。
@@ -600,7 +608,7 @@ public class PRTSFeaturesConfig {
             // 读网络导致无线红石信号激活不了红石装置（08-29 实测 main_only_read），锁主线程。
             beMainThreadForce.add("create:redstone_link");
         }
-        createTrackLazySpread = config.getBoolean("parallel.create-track-lazy-spread", false);
+        createTrackLazySpread = config.getBoolean("parallel.create-track-lazy-spread", true);
         createTrackLazyChunkBlocks = Math.max(8, Math.min(512, config.getInt("parallel.create-track-lazy-chunk-blocks", 64)));
         LOGGER.info("parallel be-policy allow={} force={} parallelEnabled={} trackLazySpread={} chunk={} villagerPoiBudget={}",
                 beParallelAllow, beMainThreadForce, regionBlockEntityParallel,
@@ -629,7 +637,7 @@ public class PRTSFeaturesConfig {
         scheduleDrainBudgetMs = config.getLong("schedule-drain-budget-ms", 8L);
         if (scheduleDrainBudgetMs < 1L) scheduleDrainBudgetMs = 8L;
         // B 组:barrier 软降级(时间切片 join)。默认关——改动 tick 完整性语义,须遥测对比后逐个开。
-        barrierSoftDegrade = config.getBoolean("parallel.barrier-soft-degrade", false);
+        barrierSoftDegrade = config.getBoolean("parallel.barrier-soft-degrade", true);
         barrierTargetMs = Math.max(0, config.getInt("parallel.barrier-target-ms", 50));
         mainWastedMsTelemetry = config.getBoolean("parallel.main-wasted-ms-telemetry", false);
         LOGGER.info("parallel barrier-soft-degrade={} target-ms={} main-wasted-ms-telemetry={}",
@@ -644,13 +652,13 @@ public class PRTSFeaturesConfig {
         lightBudgetPerTick = config.getInt("lighting.budget-per-tick", 100000);
         if (lightBudgetPerTick < 0) lightBudgetPerTick = 0;
         lightTelemetryEnabled = config.getBoolean("lighting.telemetry-enabled", true);
-        lightThreadEnabled = config.getBoolean("lighting.threaded", false);
-        chunkSystemSchedulerEnabled = config.getBoolean("parallel.chunk-system-scheduler.enabled", false);
+        lightThreadEnabled = config.getBoolean("lighting.threaded", true);
+        chunkSystemSchedulerEnabled = config.getBoolean("parallel.chunk-system-scheduler.enabled", true);
         chunkSystemSchedulerWorkers = Math.max(1, config.getInt("parallel.chunk-system-scheduler.workers", 1));
         chunkSystemSchedulerLockRadius = Math.max(0, Math.min(2, config.getInt("parallel.chunk-system-scheduler.lock-radius", 2)));
-        chunkSystemSchedulerSplitStages = config.getBoolean("parallel.chunk-system-scheduler.split-stages", false);
-        chunkSystemSchedulerDepGating = config.getBoolean("parallel.chunk-system-scheduler.dep-gating", false);
-        chunkSystemEnabled = config.getBoolean("parallel.chunk-system-enabled", false);
+        chunkSystemSchedulerSplitStages = config.getBoolean("parallel.chunk-system-scheduler.split-stages", true);
+        chunkSystemSchedulerDepGating = config.getBoolean("parallel.chunk-system-scheduler.dep-gating", true);
+        chunkSystemEnabled = config.getBoolean("parallel.chunk-system-enabled", true);
         chunkSystemFailFastGuards = config.getBoolean("parallel.chunk-system-fail-fast-guards", true);
         chunkAsyncIoEnabled = config.getBoolean("parallel.chunk-async-io-enabled", true);
         chunkDeserializeThreads = Math.max(1, config.getInt("parallel.chunk-deserialize-threads", 1));
@@ -1060,7 +1068,7 @@ public class PRTSFeaturesConfig {
 
                 # Chunk prefetch toward player movement (default off): temporary tickets ahead of view distance
                 chunk-prefetch:
-                  enabled: false              # master switch
+                  enabled: true               # master switch
                   depth: 6                # prefetch depth in chunks beyond view distance
                   interval-ticks: 5       # per-player recompute interval
                   timeout-ticks: 200      # ticket lifetime in ticks (auto-expired)
@@ -1119,20 +1127,21 @@ public class PRTSFeaturesConfig {
                   pathfinding-async: true            # async pathfinding
                   dimension-parallel: true           # per-dimension worker ticks
                   region-parallel: true              # overworld region workers (entity tick)
-                  region-block-entity-parallel: false # block entity ticks on region workers (default off: BE interactions are racy)
+                  region-block-entity-parallel: true  # block entity ticks on region workers (BE interactions are racy, keep off if issues)
                   colony-npc-phase-stagger: true      # stagger MineColonies NPC work AI phases (default on)
                   colony-npc-work-interval: 5        # colony NPC work AI interval in ticks (vanilla 5; big cities: 10/20)
                   colony-manager-tick-cache-enabled: true  # cache getAllColonies snapshot for ServerTick event (A/B: -60% main-thread self time)
                   colony-manager-tick-cache-interval: 20   # snapshot TTL in ticks (1-120; invalidated immediately on create/delete)
                   chunk-demand-per-tick: 50           # max chunk demands processed by main thread per tick
                   chunk-demand-min-drain-ms: 2         # minimum drain window per tick even when over budget (anti death-spiral; 0=off)
-                  chunk-demand-player-priority: false # prioritize chunk demands by player distance (4 buckets; default off)
+                  chunk-demand-player-priority: true  # prioritize chunk demands by player distance (4 buckets)
                   chunk-demand-starve-ticks: 600      # low-priority bucket head older than this is consumed first (only with priority on)
                   chunk-system-scheduler:            # scheduler driving vanilla generation futures (startup-only)
-                    enabled: false                   # master switch (off = vanilla worldgen mailbox FIFO, bit-identical)
+                    enabled: true                    # master switch (off = vanilla worldgen mailbox FIFO, bit-identical)
                     workers: 1                       # worker threads (fixed 1 to keep serial semantics)
-                    split-stages: false              # two-stage lock split: 1x1 lock before features, 5x5 before FEATURES (default off)
-                  chunk-system-enabled: false        # chunk state machine: per-chunk per-status task graph (startup-only)
+                    split-stages: true               # two-stage lock split: 1x1 lock before features, 5x5 before FEATURES
+                    dep-gating: true                # dependency gating: batch wait for layer futures before re-queue
+                  chunk-system-enabled: true         # chunk state machine: per-chunk per-status task graph (startup-only; overrides scheduler)
                   chunk-system-fail-fast-guards: true # main-thread boundary fail-fast guards (only with chunk-system-enabled)
                   chunk-async-io-enabled: true       # IO deserialization off main thread (only with chunk-system-enabled)
                   worldgen-random-check: warn        # World.random cross-thread detection: warn/throw/off (only with chunk-system-enabled)
@@ -1145,7 +1154,7 @@ public class PRTSFeaturesConfig {
                   region-scale-min: 2              # min region count
                   region-scale-max: 8              # max region count
                   region-scale-cross-read-ratio: 0.05  # allowed cross reads
-                  uneven-stripes: false              # uneven stripes: busy regions yield boundary groups to neighbors (default off)
+                  uneven-stripes: true               # uneven stripes: busy regions yield boundary groups to neighbors
                   rebalance-interval-seconds: 300    # rebalance evaluation period (same window as auto-scale)
                   rebalance-max-moves: 1             # max boundary groups moved per round (fixed 1)
                   rebalance-min-groups: 1            # min groups per region after moving (skipped when width=1 group at N>=8)
@@ -1159,32 +1168,32 @@ public class PRTSFeaturesConfig {
                   crossref-probe: false              # cross-region reference probe: sample worker BE access buckets (default off)
                   crossref-value-snapshot: false      # value snapshot: copy-on-read shadow validation on probe hits (default off)
                   crossref-snapshot-cache: false      # single-entry shadow snapshot cache (falsification experiment; default off)
-                  belt-passenger-defer: false      # defer passenger registration to main thread on belt hit (with route-on-read=false)
+                  belt-passenger-defer: true       # defer passenger registration to main thread on belt hit (with route-on-read=false)
                   main-thread-entity-force: []     # class names/prefixes forced to main-thread tick
-                  main-thread-entity-allow: []     # class names/prefixes allowed on workers (overrides seed/learned routing; debug)
-                  persist-learned-routes: false    # write learned routes back to config on shutdown (entities only, max 200)
+                  main-thread-entity-allow: ["net.minecraft.world.entity.npc"] # class names/prefixes allowed on workers (overrides seed/learned routing)
+                  persist-learned-routes: true     # write learned routes back to config on shutdown (entities only, max 200)
                   block-tick-main-thread-when-serialized: true # deferred block ticks run on main thread POST in serial fallback (default on)
                   journal-max-per-region: 4096     # cross-region write journal cap per region (oldest dropped)
                   journal-lww-dedup: true          # LWW merge for unapplied same-pos entries (retry-storm defense, default on)
                   journal-max-per-tick: 512        # journal submissions cap per dimension per tick (over = budgetDropped; 0=unlimited)
                   journal-read-back: false         # read-your-writes overlay (reserved; default off)
-                  determinism-mode: false           # determinism: cross-region journal applied in region order on scheduler thread (default off)
-                  be-parallel-allow: []            # BE tiers: registry keys/prefixes* allowed to tick on region workers
+                  determinism-mode: true            # determinism: cross-region journal applied in region order on scheduler thread
+                  be-parallel-allow: ["create:*"] # BE tiers: registry keys/prefixes* allowed to tick on region workers
                   be-main-thread-force: ["create:track", "lootr:lootr_chest", "create:redstone_link"] # BE tiers: forced to main thread (spikes/cross-region deps)
-                  create-track-lazy-spread: false   # spread Create long-track fake rail rasterization (default off)
+                  create-track-lazy-spread: true    # spread Create long-track fake rail rasterization
                   create-track-lazy-chunk-blocks: 64 # max rasterized blocks per connection per tick
                   villager-poi-path-budget: 0       # villager main-thread POI/single-target path budget (0=off)
-                  barrier-soft-degrade: false       # time-sliced barrier join when main thread is behind (late regions skip remaining work; default off)
+                  barrier-soft-degrade: true        # time-sliced barrier join when main thread is behind (late regions skip remaining work)
                   barrier-target-ms: 50             # whole-tick target budget ms; soft degrade activates when elapsed > it (0=never)
                   main-wasted-ms-telemetry: false   # measure barrier wait vs post-join main-thread overlap upper bound (telemetry only)
                   barrier-timeout-action: degrade    # hard timeout behavior: crash|degrade (degrade = serial main-thread + auto-recover)
                   process-queue-wake: true           # wake processQueue on demand (marshal requests served between ticks)
-                  on-fault-fallback-vanilla: false    # fall back to vanilla serial after 3 consecutive barrier hard timeouts (restart to recover)
-                  chunk-env-parallel: false           # chunk environment ticks (random/fluid) fanned out to a sub-pool (default off)
+                  on-fault-fallback-vanilla: true     # fall back to vanilla serial after 3 consecutive barrier hard timeouts (restart to recover)
+                  chunk-env-parallel: true            # chunk environment ticks (random/fluid) fanned out to a sub-pool
                   chunk-env-threads: 0                # sub-pool size (0=auto=CPU)
                   chunk-env-lock: true                # 3x3 chunk lock: mutually exclude concurrent writes on adjacent chunks (default on)
-                  portal-async: false                  # async portal: submit async load when target chunk not FULL, defer 1 tick (default off)
-                  entity-batch-parallel: false          # entity batch parallel: region worker entity phase fanned out to a sub-pool (default off)
+                  portal-async: true                   # async portal: submit async load when target chunk not FULL, defer 1 tick
+                  entity-batch-parallel: true           # entity batch parallel: region worker entity phase fanned out to a sub-pool
                   entity-batch-threads: 0               # batch sub-pool size (0=auto=max(2, CPU-region_count))
                   entity-batch-allow: []                # batch whitelist (explicitly allow modded classes; registry key or prefix*)
                   entity-batch-deny: []                 # batch blacklist (forced exclusion; higher priority than whitelist)
@@ -1219,7 +1228,7 @@ public class PRTSFeaturesConfig {
                   budget-enabled: true               # per-tick light propagation budget switch
                   budget-per-tick: 100000            # max propagated blocks per tick (conservative; tune with [light-engine] log)
                   telemetry-enabled: true            # queue depth/elapsed into [light-engine] log
-                  threaded: false                    # dedicated light threads: light mailbox + sorter off shared pool (default off; one daemon per dimension)
+                  threaded: true                     # dedicated light threads: light mailbox + sorter off shared pool (one daemon per dimension)
 
                 # Entity spatial index: lazy 4x4x4 sub-grid index inside EntitySections (default on)
                 # Speeds up pure-space AABB queries (getEntities(AABB)) and typed queries; result order
@@ -1292,8 +1301,8 @@ public class PRTSFeaturesConfig {
                 locale: zh_cn  # 配置注释语言（zh_cn=中文，en_us=英文）
 
                 # 区块预取：向玩家移动方向提前加载区块（默认关），为视距外生成临时加载票证
-                chunk-prefetch:   # 区块预取：向玩家移动方向提前加载区块（默认关）
-                  enabled: false  # 总开关
+                chunk-prefetch:   # 区块预取：向玩家移动方向提前加载区块
+                  enabled: true  # 总开关
                   depth: 6  # 视距外预取深度（区块）
                   interval-ticks: 5  # 每玩家预取重算间隔（tick）
                   timeout-ticks: 200  # 票证存活时间（tick，到期自动回收）
@@ -1339,7 +1348,7 @@ public class PRTSFeaturesConfig {
                   max-per-tick: 200000  # 每 tick 更新上限
 
                 # 事件总线分发遥测（诊断用，附加计时监听器，默认关）
-                eventbus:   # 事件总线分发遥测（诊断用，默认关）
+                eventbus:   # 事件总线分发遥测（诊断用）
                   telemetry-enabled: false  # 附加计时监听器
 
                 # AE2LT 工作节流
@@ -1352,20 +1361,21 @@ public class PRTSFeaturesConfig {
                   pathfinding-async: true  # 异步寻路
                   dimension-parallel: true  # 维度并行：每维度独立工作线程
                   region-parallel: true  # 主世界区域并行（实体 tick）
-                  region-block-entity-parallel: false  # 方块实体 tick 上区域工作线程（默认关：实体间交互有竞态）
+                  region-block-entity-parallel: true  # 方块实体 tick 上区域工作线程（实体间交互有竞态，出问题可关）
                   colony-npc-phase-stagger: true  # 殖民地 NPC 工作 AI 相位错峰
                   colony-npc-work-interval: 5  # NPC 工作 AI 执行间隔（tick；大城市建议 10/20）
                   colony-manager-tick-cache-enabled: true  # 殖民地快照缓存（主线程自耗 -60%）
                   colony-manager-tick-cache-interval: 20  # 快照缓存有效期（tick）
                   chunk-demand-per-tick: 50  # 主线程每 tick 处理的区块需求上限
                   chunk-demand-min-drain-ms: 2  # 超预算时最低排空窗口（防死循环；0=关）
-                  chunk-demand-player-priority: false  # 区块需求按玩家距离优先
+                  chunk-demand-player-priority: true  # 区块需求按玩家距离优先
                   chunk-demand-starve-ticks: 600  # 低优先级队头超龄即消费（仅开启优先时生效）
                   chunk-system-scheduler:   # 区块调度器：驱动原版生成 future 链（启动期生效）
-                    enabled: false  # 总开关（关=原版 FIFO，逐位一致）
+                    enabled: true  # 总开关（关=原版 FIFO，逐位一致）
                     workers: 1  # 工作线程数（固定 1 保串行语义）
-                    split-stages: false  # 两阶段锁域拆分（默认关）
-                  chunk-system-enabled: false  # 区块状态机：单区块单状态任务图（启动期生效）
+                    split-stages: true  # 两阶段锁域拆分：features 前只锁中心块，FEATURES 前换 5x5 锁
+                    dep-gating: true  # 依赖门控：层内 future 全部完成才重新入队
+                  chunk-system-enabled: true  # 区块状态机：单区块单状态任务图（启动期生效）
                   chunk-system-fail-fast-guards: true  # 主线程边界快速失败守卫
                   chunk-async-io-enabled: true  # IO 反序列化移出主线程
                   worldgen-random-check: warn  # 世界生成随机数跨线程检测：warn/throw/off
@@ -1378,7 +1388,7 @@ public class PRTSFeaturesConfig {
                   region-scale-min: 2  # 最小区域数
                   region-scale-max: 8  # 最大区域数
                   region-scale-cross-read-ratio: 0.05  # 允许的跨区读取比例
-                  uneven-stripes: false  # 不等宽条带：繁忙区让出边界给相邻区
+                  uneven-stripes: true  # 不等宽条带：繁忙区让出边界给相邻区
                   rebalance-interval-seconds: 300  # 重平衡评估周期（秒）
                   rebalance-max-moves: 1  # 单轮最多移动边界组数
                   rebalance-min-groups: 1  # 移动后每区最少组数
@@ -1389,35 +1399,35 @@ public class PRTSFeaturesConfig {
                   route-threshold: 5  # 窗口内违规次数即路由主线程（0=不学习）
                   route-window-ticks: 2400  # 违规学习窗口（tick，2400=2分钟）
                   route-on-read: true  # 读违规是否计入路由（worker 读实体恒空）
-                  crossref-probe: false  # 跨区引用探针（默认关）
-                  crossref-value-snapshot: false  # 值快照：读时复制影子验证（默认关）
-                  crossref-snapshot-cache: false  # 影子快照单条缓存（默认关）
-                  belt-passenger-defer: false  # 传送带乘客注册延迟到主线程
+                  crossref-probe: false  # 跨区引用探针（诊断）
+                  crossref-value-snapshot: false  # 值快照：读时复制影子验证（诊断）
+                  crossref-snapshot-cache: false  # 影子快照单条缓存（诊断）
+                  belt-passenger-defer: true  # 传送带乘客注册延迟到主线程
                   main-thread-entity-force: []  # 强制主线程 tick 的实体类名/前缀
-                  main-thread-entity-allow: []  # 放行到工作线程的实体类名/前缀（覆盖种子和学习结果）
-                  persist-learned-routes: false  # 停机时把学到的路由写回配置
+                  main-thread-entity-allow: ["net.minecraft.world.entity.npc"]  # 放行到工作线程的实体类名/前缀（覆盖种子和学习结果）
+                  persist-learned-routes: true  # 停机时把学到的路由写回配置
                   block-tick-main-thread-when-serialized: true  # 串行回退时方块 tick 延迟到主线程
                   journal-max-per-region: 4096  # 跨区写日志每区域上限（最旧丢弃）
                   journal-lww-dedup: true  # 同位置未应用条目合并（防重试风暴）
                   journal-max-per-tick: 512  # 每维度每 tick 提交上限（0=不限）
-                  journal-read-back: false  # 读己写覆盖（预留，默认关）
-                  determinism-mode: false  # 确定性模式：跨区日志按区域序应用（默认关）
-                  be-parallel-allow: []  # 允许上区域工作线程的实体类型（注册键或前缀*）
+                  journal-read-back: false  # 读己写覆盖（预留接口）
+                  determinism-mode: true  # 确定性模式：跨区日志按区域序应用
+                  be-parallel-allow: ["create:*"]  # 允许上区域工作线程的实体类型（注册键或前缀*）
                   be-main-thread-force: ["create:track", "lootr:lootr_chest", "create:redstone_link"]  # 强制主线程的实体类型（尖峰/跨区依赖）
-                  create-track-lazy-spread: false  # Create 长轨道假轨栅格化分摊
+                  create-track-lazy-spread: true  # Create 长轨道假轨栅格化分摊：每 tick 处理一条连接的一个区块
                   create-track-lazy-chunk-blocks: 64  # 分摊时每连接每 tick 最大栅格块数
                   villager-poi-path-budget: 0  # 村民主线程寻路预算（0=关）
-                  barrier-soft-degrade: false  # 主线程落后时 barrier 时间切片等待
+                  barrier-soft-degrade: true  # 主线程落后时 barrier 时间切片等待
                   barrier-target-ms: 50  # 整 tick 目标预算（毫秒），超出则激活软降级
                   main-wasted-ms-telemetry: false  # 量化 barrier 等待重叠（纯遥测）
                   barrier-timeout-action: degrade  # 硬超时行为：crash/降级
                   process-queue-wake: true  # 按需唤醒进程队列
-                  on-fault-fallback-vanilla: false  # 连续 3 次硬超时后退回原版串行（重启恢复）
-                  chunk-env-parallel: false  # 区块环境 tick（随机/流体）并行
+                  on-fault-fallback-vanilla: true  # 连续 3 次硬超时后退回原版串行（重启恢复）
+                  chunk-env-parallel: true  # 区块环境 tick（随机/流体）并行
                   chunk-env-threads: 0  # 子任务池大小（0=自动）
                   chunk-env-lock: true  # 3x3 区块锁：互斥相邻区块并发写
-                  portal-async: false  # 异步传送门：目标区块未就绪时延后一 tick
-                  entity-batch-parallel: false  # 实体批并行：区域实体阶段扇出到子池
+                  portal-async: true  # 异步传送门：目标区块未就绪时延后一 tick
+                  entity-batch-parallel: true  # 实体批并行：区域实体阶段扇出到子池
                   entity-batch-threads: 0  # 批池大小（0=自动）
                   entity-batch-allow: []  # 批并行白名单（模组类）
                   entity-batch-deny: []  # 批并行黑名单（优先于白名单）
@@ -1452,7 +1462,7 @@ public class PRTSFeaturesConfig {
                   budget-enabled: true  # 每 tick 光照预算开关
                   budget-per-tick: 100000  # 每 tick 最大传播方块数（0=不限）
                   telemetry-enabled: true  # 队列深度/耗时进日志
-                  threaded: false  # 独立光照线程（默认关）
+                  threaded: true  # 独立光照线程：光照邮箱+排序器迁出共享池
 
                 # 实体空间索引：EntitySections 内惰性 4x4x4 子网格索引（默认开）
                 # 加速纯空间 AABB 查询（getEntities(AABB)）与类型化查询；结果顺序与原版完全一致
@@ -1484,7 +1494,7 @@ public class PRTSFeaturesConfig {
                 # 用每槽等价谓词（lastSlots/remoteCarried/dataSlots 差异）预检，无变化时跳过整个循环
                 # 位级一致：等价于提前完成的完整差异，而非脏槽跟踪；mod 直接写入仍能捕获
 
-                menu-broadcast:   # 容器菜单广播预检短路（默认关）
+                menu-broadcast:   # 容器菜单广播预检短路
                   enabled: false  # 总开关
                   telemetry-enabled: true  # 短路/全量计数进日志
 
