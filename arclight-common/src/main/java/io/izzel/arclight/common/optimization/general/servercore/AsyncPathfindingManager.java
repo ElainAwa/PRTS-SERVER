@@ -97,7 +97,7 @@ public final class AsyncPathfindingManager {
 
         @Override
         public Thread newThread(Runnable r) {
-            Thread t = new Thread(r, "PRTS-AsyncPathfinding-" + n.incrementAndGet());
+            Thread t = new Thread(null, r, "PRTS-AsyncPathfinding-" + n.incrementAndGet(), 8L * 1024 * 1024);
             t.setDaemon(true);
             return t;
         }

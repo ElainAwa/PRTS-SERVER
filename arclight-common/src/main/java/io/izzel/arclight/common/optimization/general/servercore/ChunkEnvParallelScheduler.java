@@ -75,7 +75,8 @@ public final class ChunkEnvParallelScheduler {
                             : Math.max(2, Runtime.getRuntime().availableProcessors());
                     p = new ThreadPoolExecutor(threads, threads, 0L, TimeUnit.MILLISECONDS,
                             new LinkedBlockingQueue<>(), r -> {
-                        Thread t = new Thread(r, "PRTS-ChunkEnvTick");
+                        // 8MB 栈与 JVM 主线程一致：流体/随机 tick 深递归在 1MB 默认栈上会 StackOverflowError
+                        Thread t = new Thread(null, r, "PRTS-ChunkEnvTick", 8L * 1024 * 1024);
                         t.setDaemon(true);
                         return t;
                     });

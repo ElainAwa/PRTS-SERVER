@@ -52,7 +52,7 @@ public final class DimensionTickManager {
     private static final ThreadPoolExecutor POOL = new ThreadPoolExecutor(
             0, 16, 60L, TimeUnit.SECONDS, new SynchronousQueue<>(),
             r -> {
-                Thread t = new Thread(r, DIMENSION_THREAD_PREFIX + THREAD_SEQ.incrementAndGet());
+                Thread t = new Thread(null, r, DIMENSION_THREAD_PREFIX + THREAD_SEQ.incrementAndGet(), 8L * 1024 * 1024);
                 t.setDaemon(true);
                 return t;
             },

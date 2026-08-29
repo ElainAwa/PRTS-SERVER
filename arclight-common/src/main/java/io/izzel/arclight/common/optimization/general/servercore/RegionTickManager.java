@@ -229,7 +229,7 @@ public final class RegionTickManager {
     private static final ThreadPoolExecutor REGION_POOL = new ThreadPoolExecutor(
             0, 64, 60L, TimeUnit.SECONDS, new SynchronousQueue<>(),
             r -> {
-                Thread t = new Thread(r, REGION_THREAD_PREFIX + THREAD_SEQ.incrementAndGet());
+                Thread t = new Thread(null, r, REGION_THREAD_PREFIX + THREAD_SEQ.incrementAndGet(), 8L * 1024 * 1024);
                 t.setDaemon(true);
                 return t;
             },

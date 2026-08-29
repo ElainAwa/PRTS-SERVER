@@ -56,13 +56,15 @@ public abstract class ServerLevelMixin_RegionBlockTick implements ServerLevelReg
         this.arclight$invokerRunBlockEvents();
     }
 
-    /** 维度 worker 上压缩方块/流体计划 tick 预算：岩浆扩散 backlog 会让单 tick
-     *  磨数分钟（主线程 barrier 干等）；0 = 保持 vanilla 65536。 */
+    /** 无玩家维度 worker 上压缩方块/流体计划 tick 预算：岩浆扩散 backlog 会让单 tick
+     *  磨数分钟（主线程 barrier 干等）。有玩家维度必须保持 vanilla 65536——预算压缩
+     *  会让液体流动/消退计划刻被限流（源头没了流出液体不消失）。0 = 保持 vanilla。 */
     @ModifyArg(method = "tick(Ljava/util/function/BooleanSupplier;)V",
         at = @At(value = "INVOKE", target = "Lnet/minecraft/world/ticks/LevelTicks;tick(JILjava/util/function/BiConsumer;)V", ordinal = 0),
         index = 1)
     private int arclight$workerBlockTickBudget(int maxTicks) {
-        if (DimensionTickManager.isDimensionTickThread() && PRTSFeaturesConfig.workerTickBudget > 0) {
+        if (DimensionTickManager.isDimensionTickThread() && PRTSFeaturesConfig.workerTickBudget > 0
+                && ((ServerLevel) (Object) this).players().isEmpty()) {
             return PRTSFeaturesConfig.workerTickBudget;
         }
         return maxTicks;
@@ -72,7 +74,8 @@ public abstract class ServerLevelMixin_RegionBlockTick implements ServerLevelReg
         at = @At(value = "INVOKE", target = "Lnet/minecraft/world/ticks/LevelTicks;tick(JILjava/util/function/BiConsumer;)V", ordinal = 1),
         index = 1)
     private int arclight$workerFluidTickBudget(int maxTicks) {
-        if (DimensionTickManager.isDimensionTickThread() && PRTSFeaturesConfig.workerTickBudget > 0) {
+        if (DimensionTickManager.isDimensionTickThread() && PRTSFeaturesConfig.workerTickBudget > 0
+                && ((ServerLevel) (Object) this).players().isEmpty()) {
             return PRTSFeaturesConfig.workerTickBudget;
         }
         return maxTicks;

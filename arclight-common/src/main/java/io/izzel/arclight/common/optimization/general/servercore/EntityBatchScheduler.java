@@ -65,7 +65,7 @@ public final class EntityBatchScheduler {
                             : Math.max(2, Runtime.getRuntime().availableProcessors() - RegionTickManager.regionCount());
                     p = new ThreadPoolExecutor(threads, threads, 0L, TimeUnit.MILLISECONDS,
                             new LinkedBlockingQueue<>(), r -> {
-                        Thread t = new Thread(r, "PRTS-EntityBatch");
+                        Thread t = new Thread(null, r, "PRTS-EntityBatch", 8L * 1024 * 1024);
                         t.setDaemon(true);
                         return t;
                     });
