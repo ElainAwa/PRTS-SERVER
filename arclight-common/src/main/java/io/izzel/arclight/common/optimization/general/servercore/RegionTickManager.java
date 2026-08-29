@@ -103,6 +103,13 @@ public final class RegionTickManager {
     private static final Map<ServerLevel, LinkedBlockingQueue<FluidTick>> MAIN_THREAD_FLUID_TICKS =
             java.util.Collections.synchronizedMap(new WeakHashMap<>());
 
+    /** worker 上收集、延迟到主线程 POST 执行的 block events（runBlockEvents：活塞
+     *  triggerEvent 移动链会经邻居形状更新读 MovingPistonBlock BE，worker 上
+     *  getBlockEntity 恒 null 导致形状/碰撞错误——方块消失但碰撞箱残留，实测根因），
+     *  按维度分队列。 */
+    private static final Map<ServerLevel, LinkedBlockingQueue<Runnable>> MAIN_THREAD_BLOCK_EVENTS =
+            java.util.Collections.synchronizedMap(new WeakHashMap<>());
+
     /** 维度并行期间收集、由主线程统一执行的实体 tick（Create 装置实体），按维度分队列。 */
     private static final Map<ServerLevel, LinkedBlockingQueue<Entity>> MAIN_THREAD_ENTITY_TICKS =
             java.util.Collections.synchronizedMap(new WeakHashMap<>());
@@ -975,6 +982,42 @@ public final class RegionTickManager {
      *  onRemove 会经 Minecolonies 钩子跨线程读 BE，排主线程保语义）。 */
     public static void queueMainThreadBlockRemoval(Runnable removal) {
         MAIN_THREAD_REMOVALS.add(removal);
+    }
+
+    /** 维度 worker 调用：把本维度的 block events 队列执行排到主线程 POST
+     *  （runBlockEvents 在 worker 上执行会经形状更新链读 MovingPistonBlock BE，
+     *  worker 上恒 null → 活塞移动链中断/碰撞箱残留）。 */
+    public static void queueMainThreadBlockEvents(ServerLevel level, Runnable blockEventsRunner) {
+        LinkedBlockingQueue<Runnable> queue;
+        synchronized (MAIN_THREAD_BLOCK_EVENTS) {
+            queue = MAIN_THREAD_BLOCK_EVENTS.computeIfAbsent(level, k -> new LinkedBlockingQueue<>());
+        }
+        queue.add(blockEventsRunner);
+    }
+
+    /** 主线程 POST 阶段调用：执行本维度排队的主线程 block events（预算内）。 */
+    public static void drainMainThreadBlockEvents(ServerLevel level) {
+        LinkedBlockingQueue<Runnable> queue;
+        synchronized (MAIN_THREAD_BLOCK_EVENTS) {
+            queue = MAIN_THREAD_BLOCK_EVENTS.get(level);
+        }
+        if (queue == null) {
+            return;
+        }
+        long deadline = Util.getNanos() + PRTSFeaturesConfig.postDrainBudgetMs * 1_000_000L;
+        Runnable runner;
+        int n = 0;
+        while ((runner = queue.poll()) != null) {
+            try {
+                runner.run();
+                STATS.increment("update.blockEventsMain");
+            } catch (Throwable t) {
+                LOGGER.error("[region-tick] main-thread block events failed: {}", t.toString());
+            }
+            if ((++n & 0xFF) == 0 && Util.getNanos() >= deadline) {
+                break;
+            }
+        }
     }
 
     /** 维度 worker 调用：把实体 tick 排到本维度的主线程队列。 */

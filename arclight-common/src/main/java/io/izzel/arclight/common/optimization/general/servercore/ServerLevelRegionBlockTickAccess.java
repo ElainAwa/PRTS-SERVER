@@ -21,4 +21,7 @@ public interface ServerLevelRegionBlockTickAccess {
 
     /** Runs one scheduled fluid tick (mirrors private ServerLevel.tickFluid). */
     void arclight$tickFluid(BlockPos pos, Fluid fluid);
+
+    /** Runs the pending block events queue (mirrors private ServerLevel.runBlockEvents). */
+    void arclight$runBlockEvents();
 }

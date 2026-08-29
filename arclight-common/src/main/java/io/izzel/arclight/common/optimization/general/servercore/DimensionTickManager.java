@@ -429,6 +429,9 @@ public final class DimensionTickManager {
                 RegionTickManager.drainMainThreadEntityAdds(level);
                 // 维度 worker 收集的方块 tick 在主线程执行（getBlockEntity 非主线程恒 null，比较器等 BE 依赖逻辑失效）
                 RegionTickManager.drainMainThreadBlockTicks(level);
+                // 维度 worker 收集的 block events（runBlockEvents：活塞移动链）在主线程执行，
+                // 排在方块 tick 之后保持 vanilla 顺序（计划刻 → block events → 实体/BE）。
+                RegionTickManager.drainMainThreadBlockEvents(level);
                 // 维度 worker 收集的方块实体 tick 在主线程执行（BE tick 依赖主线程 Bukkit API）
                 RegionTickManager.drainMainThreadBlockEntityTicks(level);
                 // 维度 worker 收集的装置实体 tick 在主线程执行（getBlockEntity 非主线程固定为 null）

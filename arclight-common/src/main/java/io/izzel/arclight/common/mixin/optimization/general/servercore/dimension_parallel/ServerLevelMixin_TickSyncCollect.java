@@ -7,6 +7,8 @@ package io.izzel.arclight.common.mixin.optimization.general.servercore.dimension
 
 import io.izzel.arclight.common.bridge.core.world.server.ServerChunkProviderBridge;
 import io.izzel.arclight.common.optimization.general.servercore.DimensionTickManager;
+import io.izzel.arclight.common.optimization.general.servercore.RegionTickManager;
+import io.izzel.arclight.common.optimization.general.servercore.ServerLevelRegionBlockTickAccess;
 import net.minecraft.server.level.ServerChunkCache;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.entity.PersistentEntitySectionManager;
@@ -55,6 +57,20 @@ public abstract class ServerLevelMixin_TickSyncCollect {
             DimensionTickManager.collectPostSync(level, manager::tick);
         } else {
             manager.tick();
+        }
+    }
+
+    @Redirect(method = "tick(Ljava/util/function/BooleanSupplier;)V",
+        at = @At(value = "INVOKE", target = "Lnet/minecraft/server/level/ServerLevel;runBlockEvents()V"))
+    private void arclight$collectBlockEvents(ServerLevel level) {
+        if (DimensionTickManager.isDimensionTickThread()) {
+            // 活塞 triggerEvent（moveBlocks）走 runBlockEvents；其形状更新链在
+            // worker 上读 MovingPistonBlock BE 恒 null → 移动链中断/碰撞箱残留，
+            // 排主线程 POST 执行（保留 vanilla 事件顺序与 reschedule 语义）。
+            RegionTickManager.queueMainThreadBlockEvents(level,
+                    ((ServerLevelRegionBlockTickAccess) level)::arclight$runBlockEvents);
+        } else {
+            ((ServerLevelRegionBlockTickAccess) level).arclight$runBlockEvents();
         }
     }
 }

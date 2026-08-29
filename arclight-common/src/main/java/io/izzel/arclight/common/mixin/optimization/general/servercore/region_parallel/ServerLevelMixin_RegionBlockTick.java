@@ -48,6 +48,14 @@ public abstract class ServerLevelMixin_RegionBlockTick implements ServerLevelReg
         this.arclight$invokerTickFluid(pos, fluid);
     }
 
+    @Invoker("runBlockEvents")
+    protected abstract void arclight$invokerRunBlockEvents();
+
+    @Override
+    public void arclight$runBlockEvents() {
+        this.arclight$invokerRunBlockEvents();
+    }
+
     /** 维度 worker 上压缩方块/流体计划 tick 预算：岩浆扩散 backlog 会让单 tick
      *  磨数分钟（主线程 barrier 干等）；0 = 保持 vanilla 65536。 */
     @ModifyArg(method = "tick(Ljava/util/function/BooleanSupplier;)V",

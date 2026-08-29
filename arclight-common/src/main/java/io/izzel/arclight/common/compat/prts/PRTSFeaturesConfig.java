@@ -582,6 +582,9 @@ public class PRTSFeaturesConfig {
             // 灰度实测：lootr:lootr_chest 在 worker 上复现 ReportedException
             // （08-16 13:18），安全阀兜住后永久 unsafe——默认直接锁主线程。
             beMainThreadForce.add("lootr:lootr_chest");
+            // 红石图网络（RedstoneLinkNetworkHandler）主线程专用：worker 并行 tick
+            // 读网络导致无线红石信号激活不了红石装置（08-29 实测 main_only_read），锁主线程。
+            beMainThreadForce.add("create:redstone_link");
         }
         createTrackLazySpread = config.getBoolean("parallel.create-track-lazy-spread", false);
         createTrackLazyChunkBlocks = Math.max(8, Math.min(512, config.getInt("parallel.create-track-lazy-chunk-blocks", 64)));
