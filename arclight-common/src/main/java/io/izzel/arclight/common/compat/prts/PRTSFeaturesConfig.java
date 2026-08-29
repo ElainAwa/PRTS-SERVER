@@ -415,11 +415,23 @@ public class PRTSFeaturesConfig {
         }
         initialized = true;
         File file = new File("prts-features.yml");
-        if (!file.exists()) {
-            writeDefaultConfig(file);
+        // locale 决定配置文件注释语言（zh_cn=中文默认，en_us=英文）
+        String locale = "zh_cn";
+        if (file.exists()) {
+            String v = YamlConfiguration.loadConfiguration(file).getString("locale", "");
+            if (v != null && v.trim().toLowerCase(java.util.Locale.ROOT).startsWith("en")) {
+                locale = "en_us";
+            }
         }
-        // append keys missing from the file so older configs gain new options automatically.
-        appendMissingKeys(file);
+        String template = locale.startsWith("en") ? TEMPLATE_EN : TEMPLATE_ZH;
+        if (!file.exists()) {
+            writeDefaultConfig(file, template);
+        }
+        // refresh comments to the chosen-locale template wording while keeping existing
+        // values; runs before append so stale-copy values migrate to their template path
+        normalizeConfigComments(file, template);
+        // append keys still missing from the file so older configs gain new options.
+        appendMissingKeys(file, template, locale.startsWith("en") ? "# auto-added missing keys" : "# 自动补充缺失的配置项");
         config = YamlConfiguration.loadConfiguration(file);
         clearItemEnabled = config.getBoolean("entity-clear.item.enabled", false);
         clearItemInterval = config.getLong("entity-clear.item.interval-seconds", 300);
@@ -744,13 +756,186 @@ public class PRTSFeaturesConfig {
     }
 
     /** Append template keys missing from the file (upgrades add new options without touching existing values). */
-    private static void appendMissingKeys(File file) {
+    /** Rebuild the config file from the english template, replacing template values
+     *  with existing file values where present. Keys absent from the template are
+     *  appended at the end. Runs once per startup. */
+    private static void normalizeConfigComments(File file, String template) {
         try {
-            // merge template keys with existing file; append missing subtree blocks
-            YamlConfiguration tplCfg = YamlConfiguration.loadConfiguration(
-                    new java.io.StringReader(TEMPLATE));
             YamlConfiguration curCfg = YamlConfiguration.loadConfiguration(file);
-            // collect missing leaf paths
+            java.util.Set<String> known = new java.util.LinkedHashSet<>(curCfg.getKeys(true));
+            // leaf -> single template path map (used to relocate stale copies whose leaf
+            // matches exactly one template key, e.g. an old normalize bug appended
+            // "chunk-prefetch.window" as a flat 2-space line under the last section).
+            java.util.Map<String, String> leafPaths = templateLeafPaths(template);
+            java.util.Map<String, Object> migrated = new java.util.HashMap<>();
+            for (String key : known) {
+                String leaf = key.substring(key.lastIndexOf('.') + 1);
+                String tplPath = leafPaths.get(leaf);
+                if (tplPath != null && !tplPath.isEmpty() && !tplPath.equals(key)) {
+                    migrated.putIfAbsent(leaf, curCfg.get(key));
+                }
+            }
+            StringBuilder sb = new StringBuilder();
+            String[] stack = new String[24];
+            for (String line : template.split(System.lineSeparator())) {
+                String stripped = line.strip();
+                if (stripped.isEmpty() || stripped.startsWith("#")) {
+                    // keep template comments and blank lines verbatim (text block already
+                    // strips the common java indent, so the line is emitted as-is)
+                    sb.append(line).append(System.lineSeparator());
+                    continue;
+                }
+                if (stripped.startsWith("-")) {
+                    // list items come from the parent key value; skip template items
+                    continue;
+                }
+                int lead = line.length() - line.stripLeading().length();
+                int level = lead / 2;
+                String key = stripped.substring(0, stripped.indexOf(':')).trim();
+                stack[level] = key;
+                for (int i = level + 1; i < stack.length; i++) {
+                    stack[i] = null;
+                }
+                StringBuilder path = new StringBuilder();
+                for (int i = 0; i <= level; i++) {
+                    if (stack[i] == null) {
+                        break;
+                    }
+                    if (path.length() > 0) {
+                        path.append('.');
+                    }
+                    path.append(stack[i]);
+                }
+                String full = path.toString();
+                String indent = "  ".repeat(level);
+                String comment = stripped.contains("#")
+                        ? " " + stripped.substring(stripped.indexOf('#')).strip() : "";
+                if (known.contains(full)) {
+                    // existing key: emit file value + template comment (section keys bare)
+                    if (curCfg.isConfigurationSection(full)) {
+                        sb.append(indent).append(key).append(":").append(System.lineSeparator());
+                    } else {
+                        Object v = curCfg.get(full);
+                        sb.append(indent).append(key).append(": ").append(serialize(v))
+                                .append(comment).append(System.lineSeparator());
+                    }
+                } else {
+                    // absent key: use migrated stale-copy value when a unique template
+                    // leaf exists, else the template default; always template comment
+                    String val = stripped.substring(stripped.indexOf(':') + 1).strip();
+                    int hash = val.indexOf('#');
+                    if (hash >= 0) {
+                        val = val.substring(0, hash).strip();
+                    }
+                    Object migratedVal = migrated.get(key);
+                    if (migratedVal != null && !curCfg.isConfigurationSection(full)) {
+                        val = serialize(migratedVal);
+                    }
+                    sb.append(indent).append(key).append(": ").append(val)
+                            .append(comment).append(System.lineSeparator());
+                }
+            }
+            // append keys present in the file but absent from the template;
+            // stale copies whose leaf resolves to a unique template path are dropped
+            // (their value was migrated to the template path above)
+            for (String key : known) {
+                if (templateHasKey(key, template)) {
+                    continue;
+                }
+                if (curCfg.isConfigurationSection(key)) {
+                    continue; // section ancestors are covered by their leaves
+                }
+                String leaf = key.substring(key.lastIndexOf('.') + 1);
+                if (leafPaths.containsKey(leaf)) {
+                    continue; // stale copy, value migrated to its template path
+                }
+                Object v = curCfg.get(key);
+                String indent = key.contains(".") ? "  " : "";
+                sb.append(indent).append(leaf).append(": ").append(serialize(v))
+                        .append(System.lineSeparator());
+            }
+            java.nio.file.Files.writeString(file.toPath(), sb.toString(),
+                    java.nio.charset.StandardCharsets.UTF_8);
+            LOGGER.info("[PRTS-Features] normalized config comments (locale template)");
+        } catch (Exception ex) {
+            LOGGER.warn("Failed to normalize config comments", ex);
+        }
+    }
+
+    /** Map every leaf name to its single template path (absent for ambiguous leaves). */
+    private static java.util.Map<String, String> templateLeafPaths(String template) {
+        java.util.Map<String, String> out = new java.util.HashMap<>();
+        String[] stack = new String[24];
+        for (String line : template.split(System.lineSeparator())) {
+            String stripped = line.strip();
+            if (stripped.isEmpty() || stripped.startsWith("#") || stripped.startsWith("-")) {
+                continue;
+            }
+            int lead = line.length() - line.stripLeading().length();
+            int level = lead / 2;
+            String k = stripped.substring(0, stripped.indexOf(':')).trim();
+            stack[level] = k;
+            for (int i = level + 1; i < stack.length; i++) {
+                stack[i] = null;
+            }
+            StringBuilder path = new StringBuilder();
+            for (int i = 0; i <= level; i++) {
+                if (stack[i] == null) {
+                    break;
+                }
+                if (path.length() > 0) {
+                    path.append('.');
+                }
+                path.append(stack[i]);
+            }
+            String full = path.toString();
+            String prev = out.put(k, full);
+            if (prev != null && !prev.equals(full)) {
+                out.put(k, ""); // ambiguous leaf (e.g. "enabled"): present, no migration target
+            }
+        }
+        return out;
+    }
+
+    /** True when the template contains a line whose full key path equals {@code key}. */
+    private static boolean templateHasKey(String key, String template) {
+        String[] stack = new String[24];
+        for (String line : template.split(System.lineSeparator())) {
+            String stripped = line.strip();
+            if (stripped.isEmpty() || stripped.startsWith("#") || stripped.startsWith("-")) {
+                continue;
+            }
+            int lead = line.length() - line.stripLeading().length();
+            int level = lead / 2;
+            String k = stripped.substring(0, stripped.indexOf(':')).trim();
+            stack[level] = k;
+            for (int i = level + 1; i < stack.length; i++) {
+                stack[i] = null;
+            }
+            StringBuilder path = new StringBuilder();
+            for (int i = 0; i <= level; i++) {
+                if (stack[i] == null) {
+                    break;
+                }
+                if (path.length() > 0) {
+                    path.append('.');
+                }
+                path.append(stack[i]);
+            }
+            if (path.toString().equals(key)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+        private static void appendMissingKeys(File file, String template, String addHeader) {
+        try {
+            // merge template keys with existing file; append missing subtrees as valid
+            // YAML via saveToString, attaching template comments to leaf lines.
+            YamlConfiguration tplCfg = YamlConfiguration.loadConfiguration(
+                    new java.io.StringReader(template));
+            YamlConfiguration curCfg = YamlConfiguration.loadConfiguration(file);
             java.util.Set<String> missingLeaves = new java.util.LinkedHashSet<>();
             for (String key : tplCfg.getKeys(true)) {
                 if (!curCfg.contains(key)) {
@@ -760,17 +945,16 @@ public class PRTSFeaturesConfig {
             if (missingLeaves.isEmpty()) {
                 return;
             }
-            // group leaves by nearest existing ancestor; emit each missing subtree once
+            // group leaves by nearest existing ancestor so we only emit absent subtrees
             java.util.Map<String, java.util.Set<String>> byRoot = new java.util.TreeMap<>();
             for (String key : missingLeaves) {
                 String root = nearestExistingAncestor(curCfg, key);
                 byRoot.computeIfAbsent(root, k -> new java.util.TreeSet<>()).add(key);
             }
             StringBuilder missing = new StringBuilder();
-            // emit missing subtrees via YamlConfiguration (valid nesting), then re-indent
-            // under the existing root and append template comments to leaf lines.
             for (java.util.Map.Entry<String, java.util.Set<String>> e : byRoot.entrySet()) {
                 String root = e.getKey();
+                // build a sub-config holding only the missing leaves under root
                 YamlConfiguration sub = new YamlConfiguration();
                 for (String leaf : e.getValue()) {
                     String rel = leaf.substring(root.isEmpty() ? 0 : root.length() + 1);
@@ -781,14 +965,12 @@ public class PRTSFeaturesConfig {
                 String pad = "  ".repeat(depth);
                 for (String line : dump.split(System.lineSeparator())) {
                     String out = line.isEmpty() ? "" : pad + line;
-                    // append template comment if this line is a leaf (has a value)
                     int colon = line.indexOf(':');
-                    if (colon > 0) {
+                    if (colon > 0 && !line.contains("#")) {
                         String keyPart = line.substring(0, colon).strip();
-                        String full = root.isEmpty() ? keyPart
-                                : root + "." + keyPart.replace(" ", "");
-                        String comment = findTemplateComment(full);
-                        if (comment != null && !out.contains("#")) {
+                        String full = root.isEmpty() ? keyPart : root + "." + keyPart;
+                        String comment = findTemplateComment(full, template);
+                        if (comment != null) {
                             out = out + " # " + comment;
                         }
                     }
@@ -798,7 +980,7 @@ public class PRTSFeaturesConfig {
             try (java.io.BufferedWriter w = java.nio.file.Files.newBufferedWriter(
                     file.toPath(), java.nio.charset.StandardCharsets.UTF_8,
                     java.nio.file.StandardOpenOption.APPEND)) {
-                w.write(System.lineSeparator() + "# auto-added missing keys" + System.lineSeparator());
+                w.write(System.lineSeparator() + addHeader + System.lineSeparator());
                 w.write(missing.toString());
             }
             LOGGER.info("[PRTS-Features] appended {} missing config keys to prts-features.yml",
@@ -808,28 +990,21 @@ public class PRTSFeaturesConfig {
         }
     }
 
-    /** Find the template source line (including comment) whose key path equals {@code rel}.
-     *  Walks template lines tracking indentation depth to build each line's full key path. */
-    private static String findTemplateComment(String rel) {
+    /** Find the template comment text for a full key path (walks template indentation). */
+    private static String findTemplateComment(String rel, String template) {
         String[] stack = new String[24];
-        int depth = 0;
-        for (String line : TEMPLATE.split(System.lineSeparator())) {
+        for (String line : template.split(System.lineSeparator())) {
             String stripped = line.strip();
-            if (stripped.isEmpty() || stripped.startsWith("#")) {
+            if (stripped.isEmpty() || stripped.startsWith("#") || stripped.startsWith("-")) {
                 continue;
             }
-            // count leading spaces of the yaml line (template lines have 16-space java indent)
-            int lead = 0;
-            for (int i = 16; i < line.length() && line.charAt(i) == ' '; i++) {
-                lead++;
-            }
+            int lead = line.length() - line.stripLeading().length();
             int level = lead / 2;
             String key = stripped.substring(0, stripped.indexOf(':')).trim();
             stack[level] = key;
             for (int i = level + 1; i < stack.length; i++) {
                 stack[i] = null;
             }
-            // build full path for this line
             StringBuilder path = new StringBuilder();
             for (int i = 0; i <= level; i++) {
                 if (stack[i] == null) {
@@ -841,7 +1016,6 @@ public class PRTSFeaturesConfig {
                 path.append(stack[i]);
             }
             if (path.toString().equals(rel)) {
-                // return the inline comment after '#', or null
                 int hash = stripped.indexOf('#');
                 return hash >= 0 ? stripped.substring(hash + 1).strip() : null;
             }
@@ -878,53 +1052,67 @@ public class PRTSFeaturesConfig {
 
     /** 首次运行写出默认配置模板（带说明注释），后续修改需重启生效。 */
     /** Default config template (English comments; shared by appendMissingKeys and writeDefaultConfig). */
-    private static final String TEMPLATE = """
+    private static final String TEMPLATE_EN = """
                 # PRTS server feature config (auto-generated on first run; restart to apply changes)
+
+                # Config comment language (zh_cn = Chinese, en_us = English)
+                locale: en_us              # config comment language (zh_cn = Chinese, en_us = English)
 
                 # Chunk prefetch toward player movement (default off): temporary tickets ahead of view distance
                 chunk-prefetch:
-                  enabled: false
+                  enabled: false              # master switch
                   depth: 6                # prefetch depth in chunks beyond view distance
                   interval-ticks: 5       # per-player recompute interval
                   timeout-ticks: 200      # ticket lifetime in ticks (auto-expired)
+                  window: 16              # prefetch window depth in chunks (depth is deprecated)
+                  window-width: 5         # corridor width in chunks (narrow = lower pipeline load)
+                  window-step: 2          # window recompute trigger: crossing block count
+                  window-recompute-ticks: 40  # window recompute trigger: min interval in ticks
+                  prefetch-priority: 56   # prefetch task priority band (56-63)
+                  max-pending: 512        # max pending prefetch tasks inside the window
+                  idle-enabled: true      # idle background prefill when player stands still (default on)
+                  idle-radius: 8          # idle prefill radius in chunks
+                  idle-per-tick: 16       # idle prefill rate cap per tick
+                  idle-enter-ticks: 100   # enter idle after this many low-movement ticks
+                  idle-exit-blocks: 4     # exit idle above this movement in chunks
 
                 # Mob collision (default off): mobs no longer block or push each other; player collision kept
                 mob-collision:
-                  enabled: false
+                  enabled: false              # master switch
                   players-affected: false   # true = players also lose collision (full, use with care)
 
                 # Item/monster clearing (all off by default)
                 entity-clear:
                   item:
-                    enabled: false
-                    interval-seconds: 300
-                    whitelist: []
-                    message: ''
+                    enabled: false         # clear dropped items
+                    interval-seconds: 30       # flush interval0       # scan interval
+                    whitelist: []              # item ids to keep
+                    message: ''                # broadcast on clear
                   monster:
-                    enabled: false
-                    interval-seconds: 600
-                    whitelist: []
-                    message: ''
+                    enabled: false         # clear monsters
+                    interval-seconds: 600       # scan interval
+                    whitelist: []              # monster ids to keep
+                    message: ''                # broadcast on clear
 
                 # Server watchdog (default off)
                 watchdog:
-                  enabled: false
-                  threshold-ms: 2000
-                  warn-cooldown-ms: 60000
+                  enabled: false              # master switch
+                  threshold-ms: 2000           # stall threshold
+                  warn-cooldown-ms: 60000      # warn cooldown
 
                 # Neighbor update circuit breaker (stops million-scale update storms)
                 neighbor-update-breaker:
-                  enabled: true
-                  max-per-tick: 200000
+                  enabled: true               # master switch
+                  max-per-tick: 200000        # update cap per tick
 
                 # EventBus dispatch telemetry (diagnostic; attaches timing listeners, default off)
                 eventbus:
-                  telemetry-enabled: false
+                  telemetry-enabled: false      # attach timing listeners
 
                 # AE2LT SetWorking throttle
                 ae2lt-setworking-throttle:
-                  enabled: true
-                  min-ticks: 4
+                  enabled: true               # master switch
+                  min-ticks: 4              # min ticks between checks
 
                 # Multithreaded parallel engine
                 parallel:
@@ -940,26 +1128,26 @@ public class PRTSFeaturesConfig {
                   chunk-demand-min-drain-ms: 2         # minimum drain window per tick even when over budget (anti death-spiral; 0=off)
                   chunk-demand-player-priority: false # prioritize chunk demands by player distance (4 buckets; default off)
                   chunk-demand-starve-ticks: 600      # low-priority bucket head older than this is consumed first (only with priority on)
-                  chunk-system-scheduler:            # M1: FlowSched-style scheduler driving vanilla generation futures (startup-only)
+                  chunk-system-scheduler:            # scheduler driving vanilla generation futures (startup-only)
                     enabled: false                   # master switch (off = vanilla worldgen mailbox FIFO, bit-identical)
-                    workers: 1                       # worker threads (M1 fixed 1 to keep serial semantics)
+                    workers: 1                       # worker threads (fixed 1 to keep serial semantics)
                     split-stages: false              # two-stage lock split: 1x1 lock before features, 5x5 before FEATURES (default off)
-                  chunk-system-enabled: false        # M2.1 chunk state machine: per-chunk per-status task graph (takes priority over M1; startup-only)
-                  chunk-system-fail-fast-guards: true # M2.2 main-thread boundary fail-fast guards (only with chunk-system-enabled)
-                  chunk-async-io-enabled: true       # M2.2 IO deserialization off main thread (lowest scheduler priority; only with chunk-system-enabled)
-                  worldgen-random-check: warn        # M2.2 World.random cross-thread detection: warn/throw/off (only with chunk-system-enabled)
+                  chunk-system-enabled: false        # chunk state machine: per-chunk per-status task graph (startup-only)
+                  chunk-system-fail-fast-guards: true # main-thread boundary fail-fast guards (only with chunk-system-enabled)
+                  chunk-async-io-enabled: true       # IO deserialization off main thread (only with chunk-system-enabled)
+                  worldgen-random-check: warn        # World.random cross-thread detection: warn/throw/off (only with chunk-system-enabled)
                   region-count: 4                    # region count (2/4/8/16; stripe width auto-expands at 16)
                   region-auto-scale: true            # auto-adjust region count by load
-                  region-scale-interval-seconds: 300
-                  region-scale-high-mspt: 60.0
-                  region-scale-low-mspt: 15.0
-                  region-scale-stable-periods: 2
-                  region-scale-min: 2
-                  region-scale-max: 8
-                  region-scale-cross-read-ratio: 0.05
-                  uneven-stripes: false              # S4 uneven stripes: busy regions yield boundary groups to neighbors (default off)
+                  region-scale-interval-seconds: 300   # scale eval period
+                  region-scale-high-mspt: 60.0     # scale up above this mspt
+                  region-scale-low-mspt: 15.0      # scale down below this mspt
+                  region-scale-stable-periods: 2    # stable windows required
+                  region-scale-min: 2              # min region count
+                  region-scale-max: 8              # max region count
+                  region-scale-cross-read-ratio: 0.05  # allowed cross reads
+                  uneven-stripes: false              # uneven stripes: busy regions yield boundary groups to neighbors (default off)
                   rebalance-interval-seconds: 300    # rebalance evaluation period (same window as auto-scale)
-                  rebalance-max-moves: 1             # max boundary groups moved per round (v1 fixed 1)
+                  rebalance-max-moves: 1             # max boundary groups moved per round (fixed 1)
                   rebalance-min-groups: 1            # min groups per region after moving (skipped when width=1 group at N>=8)
                   rebalance-imbalance-ratio: 2.0     # rebalance only when norm(H) > norm(L)*ratio (normalized, anti-jitter)
                   thread-policy: stats             # worker world access policy: off/stats/enforce (prod: stats)
@@ -986,8 +1174,8 @@ public class PRTSFeaturesConfig {
                   create-track-lazy-spread: false   # spread Create long-track fake rail rasterization (default off)
                   create-track-lazy-chunk-blocks: 64 # max rasterized blocks per connection per tick
                   villager-poi-path-budget: 0       # villager main-thread POI/single-target path budget (0=off)
-                  barrier-soft-degrade: false       # B-group: time-sliced barrier join when main thread is behind (late regions skip remaining work; default off)
-                  barrier-target-ms: 50             # B-group: whole-tick target budget ms; soft degrade activates when elapsed > it (0=never)
+                  barrier-soft-degrade: false       # time-sliced barrier join when main thread is behind (late regions skip remaining work; default off)
+                  barrier-target-ms: 50             # whole-tick target budget ms; soft degrade activates when elapsed > it (0=never)
                   main-wasted-ms-telemetry: false   # measure barrier wait vs post-join main-thread overlap upper bound (telemetry only)
                   barrier-timeout-action: degrade    # hard timeout behavior: crash|degrade (degrade = serial main-thread + auto-recover)
                   process-queue-wake: true           # wake processQueue on demand (marshal requests served between ticks)
@@ -1005,14 +1193,14 @@ public class PRTSFeaturesConfig {
                   dimension-worker-multitick: 4    # playerless dimension ticks per barrier session (backlog catch-up)
                   dimension-worker-session-ms: 8000 # multitick session wall-clock cap (anti barrier timeout)
                   login-warmup-enabled: true           # login warmup: smaller radius/rate to avoid boot load storms
-                  login-warmup-radius: 8
-                  login-warmup-per-tick: 8
+                  login-warmup-radius: 8            # warmup radius in chunks
+                  login-warmup-per-tick: 8         # chunks loaded per tick
 
                 # Reliable chunk save (WAL pre-write log, default off)
                 reliable-chunk-save:
-                  enabled: false
-                  interval-seconds: 30
-                  chunks-per-tick: 50
+                  enabled: false             # master switch
+                  interval-seconds: 30       # flush interval in seconds
+                  chunks-per-tick: 50        # chunks flushed per tick
 
                 # Chunk generation (0 = unlimited for that limit)
                 generation-tasks-per-tick: 50        # chunk generation submissions per tick (0 = unlimited)
@@ -1058,7 +1246,7 @@ public class PRTSFeaturesConfig {
                   enabled: true                      # default on (read-only acceleration, zero semantics change)
                   telemetry-enabled: true            # reused/incremental/full counts into [collision-batch] log
 
-                # Container menu broadcast precheck short-circuit (default off; P3 "measure first")
+                # Container menu broadcast precheck short-circuit (default off; measure first)
                 # broadcastChanges walks every slot of every open menu each tick even when idle. This
                 # prechecks with per-slot-equivalent predicates (lastSlots/remoteCarried/dataSlots diff)
                 # and skips the whole loop when nothing changed. Bit-identical: it is the equivalent of
@@ -1067,7 +1255,7 @@ public class PRTSFeaturesConfig {
                   enabled: false                     # default off (enable after prod spark attribution)
                   telemetry-enabled: true            # short/full/slot counts into [menu-broadcast] log
 
-                # Event bridge on-demand registration (P0-1, default on) + empty-listener precheck (P0-2)
+                # Event bridge on-demand registration (default on) with empty-listener precheck
                 # Arclight's 5 Forge bridge dispatchers register only when a plugin listens to the
                 # corresponding Bukkit event (0->1 register, 1->0 unregister). Servers without plugins
                 # keep Forge events flowing and mod listeners intact; only the bridge's own listeners
@@ -1078,7 +1266,7 @@ public class PRTSFeaturesConfig {
                     eager-registration: false         # restore mod-loading-time permanent registration (escape hatch)
                     telemetry-enabled: true           # forwarded/skipped/register-unregister counts into [event-bridge] log
 
-                # Event short-circuit (P1-3/P1-4, default on, zero semantic risk)
+                # Event short-circuit (default on, zero semantic risk)
                 # EntityTickEvent: per entity per tick x2 (top frequency); with no listeners Pre is never
                 # cancelled = entity.tick() runs anyway, skipping is bit-equivalent. NeighborNotifyEvent:
                 # NeoForge fires it on the vanilla empty shell and discards the isCanceled result; with
@@ -1089,16 +1277,248 @@ public class PRTSFeaturesConfig {
                   neighbor-notify-event:
                     enabled: true                     # skip NeighborNotifyEvent construction+post when no listeners
                   block-form-event:
-                    enabled: true                     # P1-2 direct call sites: skip BlockFormEvent/EntityBlockFormEvent when no listeners
+                    enabled: true                     # skip BlockFormEvent/EntityBlockFormEvent when no listeners
                   mob-spawn-event:
-                    enabled: true                     # P2-3 skip MobSpawnEvent.PositionCheck/MobDespawnEvent when no listeners (inlined vanilla result)
+                    enabled: true                     # skip MobSpawnEvent.PositionCheck/MobDespawnEvent when no listeners
                   telemetry-enabled: true             # short/forward counts into [event-shortcircuit] log
 
                 """;
 
-    private static void writeDefaultConfig(File file) {
+    /** 默认配置模板（中文注释；appendMissingKeys / normalizeConfigComments / writeDefaultConfig 共用）。 */
+    private static final String TEMPLATE_ZH = """
+                # PRTS 服务器功能配置（首次启动自动生成，修改后重启生效）
+
+                # 配置注释语言（zh_cn=中文，en_us=英文）
+                locale: zh_cn  # 配置注释语言（zh_cn=中文，en_us=英文）
+
+                # 区块预取：向玩家移动方向提前加载区块（默认关），为视距外生成临时加载票证
+                chunk-prefetch:   # 区块预取：向玩家移动方向提前加载区块（默认关）
+                  enabled: false  # 总开关
+                  depth: 6  # 视距外预取深度（区块）
+                  interval-ticks: 5  # 每玩家预取重算间隔（tick）
+                  timeout-ticks: 200  # 票证存活时间（tick，到期自动回收）
+                  window: 16  # 预铺窗口深度（区块；depth 已废弃）
+                  window-width: 5  # 预铺走廊宽度（区块）
+                  window-step: 2  # 窗口重算触发：跨块阈值
+                  window-recompute-ticks: 40  # 窗口重算触发：最小间隔（tick）
+                  prefetch-priority: 56  # 预铺任务优先级档（56-63）
+                  max-pending: 512  # 窗口内未完成预铺任务上限
+                  idle-enabled: true  # idle 背景预生成（默认开）
+                  idle-radius: 8  # idle 预生成半径（区块）
+                  idle-per-tick: 16  # idle 每 tick 预铺上限
+                  idle-enter-ticks: 100  # 进入 idle：连续低位移 tick 数
+                  idle-exit-blocks: 4  # 退出 idle 位移阈值（区块）
+
+                # 生物碰撞（默认关）：生物之间不再互相阻挡，保留玩家碰撞
+                mob-collision:   # 生物碰撞（默认关）：生物不再互相阻挡，玩家碰撞保留
+                  enabled: false  # 总开关
+                  players-affected: false  # true=玩家也失去碰撞（谨慎）
+
+                # 物品/怪物清理（默认全关）
+                entity-clear:   # 物品/怪物清理（默认全关）
+                  item:   # 掉落物清理
+                    enabled: false  # 清理掉落物
+                    interval-seconds: 30  # 扫描间隔（秒）
+                    whitelist: []  # 保留的物品 ID 列表
+                    message: ''  # 清理时广播消息
+                  monster:   # 怪物清理
+                    enabled: false  # 清理怪物
+                    interval-seconds: 600  # 扫描间隔（秒）
+                    whitelist: []  # 保留的怪物 ID 列表
+                    message: ''  # 清理时广播消息
+
+                # 服务器看门狗（默认关）
+                watchdog:   # 服务器看门狗（默认关）
+                  enabled: false  # 总开关
+                  threshold-ms: 2000  # 卡顿判定阈值（毫秒）
+                  warn-cooldown-ms: 60000  # 告警冷却（毫秒）
+
+                # 邻居更新熔断：防止百万级连锁更新风暴
+                neighbor-update-breaker:   # 邻居更新熔断：防止百万级连锁更新风暴
+                  enabled: true  # 总开关
+                  max-per-tick: 200000  # 每 tick 更新上限
+
+                # 事件总线分发遥测（诊断用，附加计时监听器，默认关）
+                eventbus:   # 事件总线分发遥测（诊断用，默认关）
+                  telemetry-enabled: false  # 附加计时监听器
+
+                # AE2LT 工作节流
+                ae2lt-setworking-throttle:   # AE2LT 工作节流
+                  enabled: true  # 总开关
+                  min-ticks: 4  # 最小检查间隔（tick）
+
+                # 多线程并行引擎
+                parallel:   # 多线程并行引擎
+                  pathfinding-async: true  # 异步寻路
+                  dimension-parallel: true  # 维度并行：每维度独立工作线程
+                  region-parallel: true  # 主世界区域并行（实体 tick）
+                  region-block-entity-parallel: false  # 方块实体 tick 上区域工作线程（默认关：实体间交互有竞态）
+                  colony-npc-phase-stagger: true  # 殖民地 NPC 工作 AI 相位错峰
+                  colony-npc-work-interval: 5  # NPC 工作 AI 执行间隔（tick；大城市建议 10/20）
+                  colony-manager-tick-cache-enabled: true  # 殖民地快照缓存（主线程自耗 -60%）
+                  colony-manager-tick-cache-interval: 20  # 快照缓存有效期（tick）
+                  chunk-demand-per-tick: 50  # 主线程每 tick 处理的区块需求上限
+                  chunk-demand-min-drain-ms: 2  # 超预算时最低排空窗口（防死循环；0=关）
+                  chunk-demand-player-priority: false  # 区块需求按玩家距离优先
+                  chunk-demand-starve-ticks: 600  # 低优先级队头超龄即消费（仅开启优先时生效）
+                  chunk-system-scheduler:   # 区块调度器：驱动原版生成 future 链（启动期生效）
+                    enabled: false  # 总开关（关=原版 FIFO，逐位一致）
+                    workers: 1  # 工作线程数（固定 1 保串行语义）
+                    split-stages: false  # 两阶段锁域拆分（默认关）
+                  chunk-system-enabled: false  # 区块状态机：单区块单状态任务图（启动期生效）
+                  chunk-system-fail-fast-guards: true  # 主线程边界快速失败守卫
+                  chunk-async-io-enabled: true  # IO 反序列化移出主线程
+                  worldgen-random-check: warn  # 世界生成随机数跨线程检测：warn/throw/off
+                  region-count: 4  # 区域数（2/4/8/16）
+                  region-auto-scale: true  # 按负载自动调整区域数
+                  region-scale-interval-seconds: 300  # 缩放评估周期（秒）
+                  region-scale-high-mspt: 60.0  # 高于此 mspt 时扩容
+                  region-scale-low-mspt: 15.0  # 低于此 mspt 时缩容
+                  region-scale-stable-periods: 2  # 需要稳定的周期数
+                  region-scale-min: 2  # 最小区域数
+                  region-scale-max: 8  # 最大区域数
+                  region-scale-cross-read-ratio: 0.05  # 允许的跨区读取比例
+                  uneven-stripes: false  # 不等宽条带：繁忙区让出边界给相邻区
+                  rebalance-interval-seconds: 300  # 重平衡评估周期（秒）
+                  rebalance-max-moves: 1  # 单轮最多移动边界组数
+                  rebalance-min-groups: 1  # 移动后每区最少组数
+                  rebalance-imbalance-ratio: 2.0  # 负载差超过此比例才重平衡
+                  thread-policy: stats  # 工作线程世界访问策略：off/stats/enforce
+                  violation-log-per-minute: 20  # 每类违规日志每分钟限流条数
+                  main-thread-routing: auto  # auto=违规学习 / manual=只认种子列表
+                  route-threshold: 5  # 窗口内违规次数即路由主线程（0=不学习）
+                  route-window-ticks: 2400  # 违规学习窗口（tick，2400=2分钟）
+                  route-on-read: true  # 读违规是否计入路由（worker 读实体恒空）
+                  crossref-probe: false  # 跨区引用探针（默认关）
+                  crossref-value-snapshot: false  # 值快照：读时复制影子验证（默认关）
+                  crossref-snapshot-cache: false  # 影子快照单条缓存（默认关）
+                  belt-passenger-defer: false  # 传送带乘客注册延迟到主线程
+                  main-thread-entity-force: []  # 强制主线程 tick 的实体类名/前缀
+                  main-thread-entity-allow: []  # 放行到工作线程的实体类名/前缀（覆盖种子和学习结果）
+                  persist-learned-routes: false  # 停机时把学到的路由写回配置
+                  block-tick-main-thread-when-serialized: true  # 串行回退时方块 tick 延迟到主线程
+                  journal-max-per-region: 4096  # 跨区写日志每区域上限（最旧丢弃）
+                  journal-lww-dedup: true  # 同位置未应用条目合并（防重试风暴）
+                  journal-max-per-tick: 512  # 每维度每 tick 提交上限（0=不限）
+                  journal-read-back: false  # 读己写覆盖（预留，默认关）
+                  determinism-mode: false  # 确定性模式：跨区日志按区域序应用（默认关）
+                  be-parallel-allow: []  # 允许上区域工作线程的实体类型（注册键或前缀*）
+                  be-main-thread-force: ["create:track", "lootr:lootr_chest", "create:redstone_link"]  # 强制主线程的实体类型（尖峰/跨区依赖）
+                  create-track-lazy-spread: false  # Create 长轨道假轨栅格化分摊
+                  create-track-lazy-chunk-blocks: 64  # 分摊时每连接每 tick 最大栅格块数
+                  villager-poi-path-budget: 0  # 村民主线程寻路预算（0=关）
+                  barrier-soft-degrade: false  # 主线程落后时 barrier 时间切片等待
+                  barrier-target-ms: 50  # 整 tick 目标预算（毫秒），超出则激活软降级
+                  main-wasted-ms-telemetry: false  # 量化 barrier 等待重叠（纯遥测）
+                  barrier-timeout-action: degrade  # 硬超时行为：crash/降级
+                  process-queue-wake: true  # 按需唤醒进程队列
+                  on-fault-fallback-vanilla: false  # 连续 3 次硬超时后退回原版串行（重启恢复）
+                  chunk-env-parallel: false  # 区块环境 tick（随机/流体）并行
+                  chunk-env-threads: 0  # 子任务池大小（0=自动）
+                  chunk-env-lock: true  # 3x3 区块锁：互斥相邻区块并发写
+                  portal-async: false  # 异步传送门：目标区块未就绪时延后一 tick
+                  entity-batch-parallel: false  # 实体批并行：区域实体阶段扇出到子池
+                  entity-batch-threads: 0  # 批池大小（0=自动）
+                  entity-batch-allow: []  # 批并行白名单（模组类）
+                  entity-batch-deny: []  # 批并行黑名单（优先于白名单）
+                  barrier-timeout-recover-ticks: 6000  # 降级后自动恢复所需连续正常 tick
+                  worker-tick-budget: 4096  # 维度工作线程每 tick 计划 tick 上限
+                  dimension-worker-multitick: 4  # 无玩家维度每会话多 tick（补 backlog）
+                  dimension-worker-session-ms: 8000  # 多 tick 会话墙钟上限（防 barrier 超时）
+                  login-warmup-enabled: true  # 进服预热：小半径/速率防启动加载风暴
+                  login-warmup-radius: 8  # 预热半径（区块）
+                  login-warmup-per-tick: 8  # 预热每 tick 加载数
+
+                # 可靠区块保存（WAL 预写日志，默认关）
+                reliable-chunk-save:   # 可靠区块保存（预写日志，默认关）
+                  enabled: false  # 总开关
+                  interval-seconds: 30  # 落盘间隔（秒）
+                  chunks-per-tick: 50  # 每 tick 落盘区块数
+
+                # 区块生成（0 = 该上限不限）
+                generation-tasks-per-tick: 50  # 区块生成每 tick 提交预算（0=不限）
+                chunkgen-inflight-limit: 128  # 滚动 2 秒提交窗口上限
+                generation-memory-guard-enabled: true  # 堆压力卫兵：高占用时限流生成
+                generation-memory-guard-throttle-ratio: 0.65  # 提交减半的堆占用比例
+                generation-memory-guard-pause-ratio: 0.85  # 暂停提交的堆占用比例
+                # 屏障鲁棒性
+                barrier-watchdog-aware: true  # 看门狗感知并行 barrier（防误杀）
+                barrier-timeout-ms: 120000  # barrier 卡死超时（毫秒）
+
+                # 光照：每 tick 传播预算 + 遥测（1.21.1 光照在光照线程上传播）
+                # 预算限制每 tick 传播工作量，超量顺延到下一 tick；最终光照一致，只是延迟。0 = 不限（原版）
+
+                lighting:   # 光照：每 tick 传播预算+遥测
+                  budget-enabled: true  # 每 tick 光照预算开关
+                  budget-per-tick: 100000  # 每 tick 最大传播方块数（0=不限）
+                  telemetry-enabled: true  # 队列深度/耗时进日志
+                  threaded: false  # 独立光照线程（默认关）
+
+                # 实体空间索引：EntitySections 内惰性 4x4x4 子网格索引（默认开）
+                # 加速纯空间 AABB 查询（getEntities(AABB)）与类型化查询；结果顺序与原版完全一致
+                # 与 Lithium/Canary/Radium 等优化模组兼容
+                entity-spatial-index:   # 实体空间索引：加速 AABB/类型查询（默认开）
+                  enabled: true  # 总开关
+                  min-section-size: 16  # 建索引的最小实体数（小分区走线性）
+                  telemetry-enabled: true  # 查询/候选计数进日志
+
+                # POI 查询加速：PoiManager.getInChunk 空区块存在性预检（默认开）
+                # 1.21.1 PoiSection 已按 PoiType 分桶；剩余开销是对无 POI 区块的完整纵向扫描
+                # 维护每区块“有 POI”位掩码并跳过已知空区块。零语义变化；冷区块保持原版 getOrLoad（同步磁盘读）
+
+                poi-query:   # POI 查询加速：空区块预检（默认开）
+                  enabled: true  # 总开关
+                  telemetry-enabled: true  # 命中/跳过计数进日志
+
+                # 碰撞批量：Entity.collide 上台阶重收集去重（默认开）
+                # collideBoundingBox 已收集一次并按轴裁剪，但上台阶分支每次地面移动都会重收集抬高区域
+                # 在一个碰撞帧内缓存首次收集，只增量获取顶部部分，零语义变化
+                # 与 Lithium/Canary/Radium 等优化模组兼容
+
+                collision-batch:   # 碰撞批量收集：上台阶分支去重（默认开）
+                  enabled: true  # 总开关
+                  telemetry-enabled: true  # 复用/增量/全量计数进日志
+
+                # 容器菜单广播预检短路（默认关，先测量再开启）
+                # broadcastChanges 每 tick 遍历所有打开菜单的所有槽位，即使空闲
+                # 用每槽等价谓词（lastSlots/remoteCarried/dataSlots 差异）预检，无变化时跳过整个循环
+                # 位级一致：等价于提前完成的完整差异，而非脏槽跟踪；mod 直接写入仍能捕获
+
+                menu-broadcast:   # 容器菜单广播预检短路（默认关）
+                  enabled: false  # 总开关
+                  telemetry-enabled: true  # 短路/全量计数进日志
+
+                # 事件桥按需注册（默认开）+ 空监听器预检
+                # Arclight 的 5 个 Forge 桥接分发器仅在插件监听对应 Bukkit 事件时注册（0->1 注册，1->0 注销）
+                # 无插件的服务器保持 Forge 事件流动、mod 监听器完整；只有桥自身的监听器离开总线
+                # 事件数量与时机不变
+
+                event-bridge:   # 事件桥按需注册（默认开）+空监听器预检
+                  on-demand-registration:   # 按需注册
+                    enabled: true  # 总开关
+                    eager-registration: false  # 恢复常驻注册（顺序敏感逃生门）
+                    telemetry-enabled: true  # 转发/跳过计数进日志
+
+                # 事件短路（默认开，零语义风险）
+                # EntityTickEvent：每实体每 tick 触发 2 次（最高频）；无监听器时 Pre 永不被取消 = entity.tick() 照常运行，跳过位级等价
+                # NeighborNotifyEvent：NeoForge 在原版空壳上触发并丢弃 isCanceled 结果；无监听器时可跳过触发本身
+                # 有监听器时自动让步
+
+                event-shortcircuit:   # 事件短路（默认开，零语义风险）
+                  entity-tick-event:   # 无监听器时跳过实体 tick 事件
+                    enabled: true  # 总开关
+                  neighbor-notify-event:   # 无监听器时跳过邻居通知事件
+                    enabled: true  # 总开关
+                  block-form-event:   # 无监听器时跳过方块生成事件
+                    enabled: true  # 总开关
+                  mob-spawn-event:   # 无监听器时跳过刷怪事件
+                    enabled: true  # 总开关
+                  telemetry-enabled: true  # 短路/转发计数进日志
+                """;
+
+    private static void writeDefaultConfig(File file, String template) {
         try {
-            Files.writeString(file.toPath(), TEMPLATE, StandardCharsets.UTF_8);
+            Files.writeString(file.toPath(), template, StandardCharsets.UTF_8);
         } catch (IOException e) {
             LOGGER.warn("Failed to write default prts-features.yml", e);
         }
