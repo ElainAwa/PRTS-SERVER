@@ -5,6 +5,8 @@
 
 package io.izzel.arclight.common.mixin.optimization.general.servercore.region_parallel;
 
+import io.izzel.arclight.common.compat.prts.PRTSFeaturesConfig;
+import io.izzel.arclight.common.optimization.general.servercore.DimensionTickManager;
 import io.izzel.arclight.common.optimization.general.servercore.RegionTickManager;
 import io.izzel.arclight.common.optimization.general.servercore.ServerLevelRegionBlockTickAccess;
 import net.minecraft.core.BlockPos;
@@ -15,6 +17,7 @@ import net.minecraft.world.ticks.LevelTicks;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Invoker;
 import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.ModifyArg;
 import org.spongepowered.asm.mixin.injection.Redirect;
 
 import java.util.function.BiConsumer;
@@ -35,6 +38,28 @@ public abstract class ServerLevelMixin_RegionBlockTick implements ServerLevelReg
     @Override
     public void arclight$tickBlock(BlockPos pos, Block block) {
         this.arclight$invokerTickBlock(pos, block);
+    }
+
+    /** 维度 worker 上压缩方块/流体计划 tick 预算：岩浆扩散 backlog 会让单 tick
+     *  磨数分钟（主线程 barrier 干等）；0 = 保持 vanilla 65536。 */
+    @ModifyArg(method = "tick(Ljava/util/function/BooleanSupplier;)V",
+        at = @At(value = "INVOKE", target = "Lnet/minecraft/world/ticks/LevelTicks;tick(JILjava/util/function/BiConsumer;)V", ordinal = 0),
+        index = 1)
+    private int arclight$workerBlockTickBudget(int maxTicks) {
+        if (DimensionTickManager.isDimensionTickThread() && PRTSFeaturesConfig.workerTickBudget > 0) {
+            return PRTSFeaturesConfig.workerTickBudget;
+        }
+        return maxTicks;
+    }
+
+    @ModifyArg(method = "tick(Ljava/util/function/BooleanSupplier;)V",
+        at = @At(value = "INVOKE", target = "Lnet/minecraft/world/ticks/LevelTicks;tick(JILjava/util/function/BiConsumer;)V", ordinal = 1),
+        index = 1)
+    private int arclight$workerFluidTickBudget(int maxTicks) {
+        if (DimensionTickManager.isDimensionTickThread() && PRTSFeaturesConfig.workerTickBudget > 0) {
+            return PRTSFeaturesConfig.workerTickBudget;
+        }
+        return maxTicks;
     }
 
     @Redirect(method = "tick(Ljava/util/function/BooleanSupplier;)V",

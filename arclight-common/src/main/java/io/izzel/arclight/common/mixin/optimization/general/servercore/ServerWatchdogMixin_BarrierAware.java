@@ -28,6 +28,9 @@ public abstract class ServerWatchdogMixin_BarrierAware {
 
     private static long prts$lastWarnNanos = 0L;
 
+    /** 卡死诊断：barrier 等待超 15s 且距上次 dump 超 30s 时打全线程栈。 */
+    private static long prts$lastDumpNanos = 0L;
+
     @Redirect(method = "run", at = @At(value = "INVOKE",
         target = "Lnet/minecraft/server/dedicated/DedicatedServer;getNextTickTime()J"))
     private long arclight$watchdogNextTickTime(DedicatedServer server) {
@@ -38,6 +41,10 @@ public abstract class ServerWatchdogMixin_BarrierAware {
                 long stalled = now - server.getNextTickTime();
                 LOGGER.warn("[PRTS-Barrier] main thread waiting in parallel barrier for {}ms; watchdog suppressed",
                         stalled / 1_000_000L);
+                if (stalled > 15_000_000_000L && now - prts$lastDumpNanos > 30_000_000_000L) {
+                    prts$lastDumpNanos = now;
+                    DimensionTickManager.barrierTimeoutDump("watchdog-stall");
+                }
             }
             return now;
         }

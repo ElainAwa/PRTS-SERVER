@@ -241,6 +241,10 @@ public class PRTSFeaturesConfig {
     public static double generationMemoryGuardThrottleRatio;
     public static double generationMemoryGuardPauseRatio;
 
+    // 维度 worker 每 tick 方块/流体计划 tick 预算（0 = vanilla 65536）。岩浆扩散
+    // backlog 会让 worker 单 tick 磨数分钟，主线程 barrier 干等被用户视为卡死。
+    public static int workerTickBudget;
+
     // Barrier semantics: make the vanilla watchdog barrier-aware so a main thread waiting
     // in the dimension barrier is not falsely killed after max-tick-time; false = vanilla
     // watchdog behavior.
@@ -573,6 +577,8 @@ public class PRTSFeaturesConfig {
                 config.getDouble("generation-memory-guard-throttle-ratio", 0.65)));
         generationMemoryGuardPauseRatio = Math.min(0.99, Math.max(0.4,
                 config.getDouble("generation-memory-guard-pause-ratio", 0.85)));
+        workerTickBudget = config.getInt("parallel.worker-tick-budget", 4096);
+        if (workerTickBudget < 0) workerTickBudget = 0;
         barrierWatchdogAware = config.getBoolean("barrier-watchdog-aware", true);
         barrierTimeoutMs = config.getLong("barrier-timeout-ms", 120000L);
         if (barrierTimeoutMs < 1000L) barrierTimeoutMs = 120000L;

@@ -470,7 +470,7 @@ public final class DimensionTickManager {
     }
 
     /** Barrier timeout diagnostic: dump all threads and return the crash message. */
-    static String barrierTimeoutDump(String where) {
+    public static String barrierTimeoutDump(String where) {
         StringBuilder sb = new StringBuilder("PRTS barrier timeout in ").append(where)
                 .append(" after ").append(PRTSFeaturesConfig.barrierTimeoutMs).append("ms");
         LOGGER.error("[PRTS-Barrier] {}", sb);
