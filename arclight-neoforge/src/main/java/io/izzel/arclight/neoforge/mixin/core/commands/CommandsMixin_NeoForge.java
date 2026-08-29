@@ -41,6 +41,17 @@ public abstract class CommandsMixin_NeoForge implements CommandsBridge {
         this.dispatcher = new BukkitDispatcher((Commands) (Object) this);
     }
 
+    @Inject(method = "<init>", at = @At(value = "INVOKE", remap = false,
+            target = "Lnet/neoforged/neoforge/event/EventHooks;onCommandRegister(Lcom/mojang/brigadier/CommandDispatcher;Lnet/minecraft/commands/Commands$CommandSelection;Lnet/minecraft/commands/CommandBuildContext;)V"))
+    private void arclight$neo$enterModPhase(CallbackInfo ci) {
+        // vanilla 注册（字节码 offset 15–686，构造器内 EventHooks.onCommandRegister 之前）
+        // 期间 modPhase=false：只进 dispatcher root，不包装进 Bukkit commandMap（vanilla 由
+        // CraftServer.setVanillaCommands 以 minecraft:* 注册）。onCommandRegister 触发
+        // RegisterCommandsEvent（bus.post 同步执行监听器）前置 true，此后 mod / NeoForge
+        // 自身命令才以 neoforge:* 注册进 Bukkit commandMap。
+        ((BukkitDispatcher) this.dispatcher).setModPhase(true);
+    }
+
     @Override
     public <S, T> void bridge$forge$mergeNode(CommandNode<S> sourceNode, CommandNode<T> resultNode,
                                               Map<CommandNode<S>, CommandNode<T>> sourceToResult,

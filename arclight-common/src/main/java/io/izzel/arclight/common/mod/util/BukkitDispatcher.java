@@ -27,20 +27,33 @@ public class BukkitDispatcher extends CommandDispatcher<CommandSourceStack> {
 
     private final Commands commands;
 
+    /**
+     * Commands.<init> 里 vanilla 命令注册（EventHooks.onCommandRegister 触发
+     * RegisterCommandsEvent 之前）为 false：只进 dispatcher root，不包装进 Bukkit
+     * commandMap——vanilla 命令由 CraftServer.setVanillaCommands 以 minecraft:* 注册；
+     * 平台层 mixin 在 event 触发前置 true，此后（mod + NeoForge 自身命令）才包装。
+     * 每次 <init> 都是新实例，字段天然复位，/reload 安全。
+     */
+    private boolean modPhase;
+
     public BukkitDispatcher(Commands commands) {
         this.commands = commands;
+    }
+
+    public void setModPhase(boolean modPhase) {
+        this.modPhase = modPhase;
     }
 
     @Override
     public LiteralCommandNode<CommandSourceStack> register(LiteralArgumentBuilder<CommandSourceStack> command) {
         LiteralCommandNode<CommandSourceStack> node = command.build();
-        if (!(node.getCommand() instanceof BukkitCommandWrapper)) {
+        if (modPhase && !(node.getCommand() instanceof BukkitCommandWrapper)) {
             VanillaCommandWrapper wrapper = new VanillaCommandWrapper(this.commands, node);
             Server server = Bukkit.getServer();
             if (server == null) {
                 PENDING.add(wrapper);
             } else {
-                ((CraftServer) server).getCommandMap().register("forge", wrapper);
+                ((CraftServer) server).getCommandMap().register("neoforge", wrapper);
             }
         }
         getRoot().addChild(node);
@@ -56,7 +69,7 @@ public class BukkitDispatcher extends CommandDispatcher<CommandSourceStack> {
         int flushed = 0;
         VanillaCommandWrapper wrapper;
         while ((wrapper = PENDING.poll()) != null) {
-            server.getCommandMap().register("forge", wrapper);
+            server.getCommandMap().register("neoforge", wrapper);
             flushed++;
         }
         if (flushed > 0) {
