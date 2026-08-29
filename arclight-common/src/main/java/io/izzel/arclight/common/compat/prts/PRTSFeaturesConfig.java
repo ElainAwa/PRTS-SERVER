@@ -501,8 +501,8 @@ public class PRTSFeaturesConfig {
                 chunkPrefetchIdleEnterTicks, chunkPrefetchIdleExitBlocks, chunkPrefetchTimeoutTicks);
         processQueueWake = config.getBoolean("parallel.process-queue-wake", true);
         loginWarmupEnabled = config.getBoolean("parallel.login-warmup-enabled", true);
-        loginWarmupRadius = Math.max(0, config.getInt("parallel.login-warmup-radius", 32));
-        loginWarmupPerTick = Math.max(1, config.getInt("parallel.login-warmup-per-tick", 32));
+        loginWarmupRadius = Math.max(0, config.getInt("parallel.login-warmup-radius", 4));
+        loginWarmupPerTick = Math.max(1, config.getInt("parallel.login-warmup-per-tick", 4));
         loginWarmupCenters = parseNestedPairs(config.getString("parallel.login-warmup-centers",
                 "[[472,1358],[2113,1925],[-629,-278],[-672,256],[1242,2292]]"));
         onFaultFallbackVanilla = config.getBoolean("parallel.on-fault-fallback-vanilla", true);
@@ -1205,8 +1205,8 @@ public class PRTSFeaturesConfig {
                   dimension-worker-multitick: 4    # playerless dimension ticks per barrier session (backlog catch-up)
                   dimension-worker-session-ms: 8000 # multitick session wall-clock cap (anti barrier timeout)
                   login-warmup-enabled: true           # login warmup: smaller radius/rate to avoid boot load storms
-                  login-warmup-radius: 8            # warmup radius in chunks
-                  login-warmup-per-tick: 8         # chunks loaded per tick
+                  login-warmup-radius: 4            # warmup radius in chunks (keep small for large worlds)
+                  login-warmup-per-tick: 4         # chunks loaded per tick (smooth IO)
 
                 # Reliable chunk save (WAL pre-write log, default off)
                 reliable-chunk-save:
@@ -1440,8 +1440,8 @@ public class PRTSFeaturesConfig {
                   dimension-worker-multitick: 4  # 无玩家维度每会话多 tick（补 backlog）
                   dimension-worker-session-ms: 8000  # 多 tick 会话墙钟上限（防 barrier 超时）
                   login-warmup-enabled: true  # 进服预热：小半径/速率防启动加载风暴
-                  login-warmup-radius: 8  # 预热半径（区块）
-                  login-warmup-per-tick: 8  # 预热每 tick 加载数
+                  login-warmup-radius: 4  # 预热半径（区块；大存档用小值防 IO 风暴）
+                  login-warmup-per-tick: 4  # 预热每 tick 加载数（小值更平滑）
 
                 # 可靠区块保存（WAL 预写日志，默认关）
                 reliable-chunk-save:   # 可靠区块保存（预写日志，默认关）
