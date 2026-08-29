@@ -86,6 +86,10 @@ public final class RegionTickManager {
     private static final Map<ServerLevel, LinkedBlockingQueue<TickingBlockEntity>> MAIN_THREAD_TE_TICKS =
             java.util.Collections.synchronizedMap(new WeakHashMap<>());
 
+    /** 维度 worker 上延迟到主线程执行的 onRemove（流体 setBlock 触发链）。 */
+    private static final java.util.concurrent.ConcurrentLinkedQueue<Runnable> MAIN_THREAD_REMOVALS =
+            new java.util.concurrent.ConcurrentLinkedQueue<>();
+
     /** 维度 worker 上收集、延迟到主线程 POST 执行的方块 tick（BE 依赖逻辑在 worker 上读不到方块实体），按维度分队列。 */
     private static final Map<ServerLevel, LinkedBlockingQueue<BlockTick>> MAIN_THREAD_BLOCK_TICKS =
             java.util.Collections.synchronizedMap(new WeakHashMap<>());
@@ -880,6 +884,20 @@ public final class RegionTickManager {
                 }
             }
         }
+        Runnable removal;
+        while ((removal = MAIN_THREAD_REMOVALS.poll()) != null) {
+            try {
+                removal.run();
+            } catch (Throwable t) {
+                LOGGER.error("[region-tick] main-thread block removal failed: {}", t.toString());
+            }
+        }
+    }
+
+    /** 维度 worker 调用：把 onRemove 延迟到主线程执行（流体 setBlock 触发的
+     *  onRemove 会经 Minecolonies 钩子跨线程读 BE，排主线程保语义）。 */
+    public static void queueMainThreadBlockRemoval(Runnable removal) {
+        MAIN_THREAD_REMOVALS.add(removal);
     }
 
     /** 维度 worker 调用：把实体 tick 排到本维度的主线程队列。 */
