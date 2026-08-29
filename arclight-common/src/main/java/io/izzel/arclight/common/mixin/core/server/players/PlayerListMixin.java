@@ -112,6 +112,7 @@ public abstract class PlayerListMixin implements PlayerListBridge {
     @Shadow public abstract boolean isWhiteListed(GameProfile profile);
     @Shadow @Final private IpBanList ipBans;
     @Shadow @Final @Mutable public List<ServerPlayer> players;
+    @Shadow @Final @Mutable private List<ServerPlayer> playersView;
     @Shadow public int maxPlayers;
     @Shadow public abstract boolean canBypassPlayerLimit(GameProfile profile);
     @Shadow protected abstract void save(ServerPlayer playerIn);
@@ -142,7 +143,11 @@ public abstract class PlayerListMixin implements PlayerListBridge {
         // 主线程仍在 add/remove 玩家（join/quit/respawn）——ArrayList 并发读写会抛 CME 或读到
         // 中间态，学习器会因此把模组实体路由回主线程（钉 worker 失效）。换 CopyOnWriteArrayList：
         // 玩家增删低频，全拷贝成本可忽略；读迭代弱一致且永不抛 CME。与 ServerLevelMixin 同款替换。
+        // ⚠ 必须同步刷新 playersView：vanilla 在构造时用 unmodifiableList(players) 生成了快照
+        // 视图，getPlayers()/tickChildren 的区块发送循环读的都是它——不刷新则视图永远指向
+        // 旧 ArrayList，玩家加不进视图 → chunk-send 循环空转 → 客户端收不到任何区块。
         this.players = new CopyOnWriteArrayList<>();
+        this.playersView = java.util.Collections.unmodifiableList(this.players);
     }
 
     @Redirect(method = "placeNewPlayer", at = @At(value = "INVOKE", target = "Lnet/minecraft/server/MinecraftServer;getLevel(Lnet/minecraft/resources/ResourceKey;)Lnet/minecraft/server/level/ServerLevel;"))
