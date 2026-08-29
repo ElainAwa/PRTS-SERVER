@@ -54,6 +54,9 @@ public final class WorldAccessGuard {
     private static volatile String traceClass = "";
     private static final ConcurrentHashMap<String, Boolean> TRACED = new ConcurrentHashMap<>();
 
+    /** [诊断] 同位置高频违规调用栈：pos -> [累计次数, 下次抓栈阈值]，阈值 1000/10000/... 递进。 */
+    private static final ConcurrentHashMap<Long, long[]> POS_STACK_DUMPS = new ConcurrentHashMap<>();
+
     /** Sets the diagnostic stack-trace target substring (empty disables). */
     public static void setTraceClass(String substr) {
         traceClass = substr == null ? "" : substr;
@@ -149,6 +152,26 @@ public final class WorldAccessGuard {
                         kind.name().toLowerCase(Locale.ROOT), owner, pos,
                         Thread.currentThread().getName(), TOTAL_READS.sum(), TOTAL_WRITES.sum());
             }
+        }
+        maybeStackDump(owner, kind, pos);
+    }
+
+    /** 同位置违规达阈值（1000/10000/...）时打一次当前线程调用栈，定位违规代码路径。 */
+    private static void maybeStackDump(String owner, AccessKind kind, BlockPos pos) {
+        if (POS_STACK_DUMPS.size() > 8192) {
+            POS_STACK_DUMPS.clear();
+        }
+        long[] cell = POS_STACK_DUMPS.computeIfAbsent(pos.asLong(), k -> new long[]{0, 1000});
+        long count = ++cell[0];
+        if (count < cell[1]) {
+            return;
+        }
+        cell[1] *= 10;
+        LOGGER.warn("[thread-policy-stack] {} by {} at {} count={} in {} ({} total)",
+                kind.name().toLowerCase(Locale.ROOT), owner, pos, count,
+                Thread.currentThread().getName(), TOTAL_READS.sum());
+        for (StackTraceElement el : Thread.currentThread().getStackTrace()) {
+            LOGGER.warn("  at {}", el);
         }
     }
 
