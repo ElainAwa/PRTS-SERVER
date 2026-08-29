@@ -45,6 +45,7 @@
     "servercore.compat.superbwarfare.VehicleEntitySleepMixin_Sbw",
     "servercore.compat.superbwarfare.MinecraftUtilMixin_Sbw",
     "servercore.compat.AbstractEntityCitizenMixin_ColonyPhase",
+    "servercore.compat.CompatibilityManagerMixin_DiscoverResilient",
     "servercore.compat.ColonyManagerMixin_ServerTickCache",
     "servercore.compat.EntityCitizenMixin_MainThreadDeath",
     "servercore.compat.UnlockableRecipesMixin_LoginSync",
