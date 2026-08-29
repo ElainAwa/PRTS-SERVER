@@ -1161,11 +1161,12 @@ public final class RegionTickManager {
     /**
      * 主线程实体判定：这些 mod 实体的 tick 会调用 Level.getBlockEntity（1.21.1 在
      * 非主线程固定返回 null）或读写主线程专属全局状态，在 region worker 上会自毁/失效。
+     * 殖民地 NPC（com.minecolonies.）不再列种子：worker 读 BE 已由
+     * LevelMixin_WorkerBlockEntityRead 放行，且 main-thread-entity-allow 默认钉 worker。
      */
     private static final String[] MAIN_THREAD_ENTITY_PREFIXES = {
             "com.simibubi.create.content.contraptions.", // Create 装置/座椅
             "com.simibubi.create.content.trains.",       // Create 列车实体
-            "com.minecolonies.",                          // 殖民地市民/袭击者/矿车
             "com.arxyt.colonypathingedition.",
             "com.dannyboythomas.hole_filler_mod.",        // 填洞球等投掷实体(落地放方块+取 BE)
             "net.minecraft.world.entity.vehicle.",        // 矿车/船：onMinecartPass→getBlockEntity 触发装配站

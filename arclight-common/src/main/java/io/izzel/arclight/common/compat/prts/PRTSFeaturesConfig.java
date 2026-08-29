@@ -569,6 +569,8 @@ public class PRTSFeaturesConfig {
         if (mainThreadEntityAllow.isEmpty()) {
             // 默认放行村民上 worker（08-28 实锤：主线程实体时间 50.5ms -> 4.3ms）
             mainThreadEntityAllow.add("net.minecraft.world.entity.npc");
+            // 默认放行殖民地 NPC 上 worker（worker 读 BE 已放行；自毁/异常由安全阀兜底回主线程）
+            mainThreadEntityAllow.add("com.minecolonies.");
         }
         sbwVehicleSleep = config.getBoolean("parallel.sbw-vehicle-sleep", false);
         sbwVehicleSleepInterval = Math.max(2, Math.min(120, config.getInt("parallel.sbw-vehicle-sleep-interval", 10)));
@@ -1160,6 +1162,7 @@ public class PRTSFeaturesConfig {
                   rebalance-min-groups: 1            # min groups per region after moving (skipped when width=1 group at N>=8)
                   rebalance-imbalance-ratio: 2.0     # rebalance only when norm(H) > norm(L)*ratio (normalized, anti-jitter)
                   thread-policy: stats             # worker world access policy: off/stats/enforce (prod: stats)
+                  thread-policy-trace-class: ''    # [diag] capture one violation stack per class containing this substring
                   violation-log-per-minute: 20     # per-class violation log rate limit per minute
                   main-thread-routing: auto        # auto = learn from violations / manual = seed list only
                   route-threshold: 5               # MAIN_ONLY violations in window before routing to main thread (0=no learning)
@@ -1170,7 +1173,7 @@ public class PRTSFeaturesConfig {
                   crossref-snapshot-cache: false      # single-entry shadow snapshot cache (falsification experiment; default off)
                   belt-passenger-defer: true       # defer passenger registration to main thread on belt hit (with route-on-read=false)
                   main-thread-entity-force: []     # class names/prefixes forced to main-thread tick
-                  main-thread-entity-allow: ["net.minecraft.world.entity.npc"] # class names/prefixes allowed on workers (overrides seed/learned routing)
+                  main-thread-entity-allow: ["net.minecraft.world.entity.npc", "com.minecolonies."] # class names/prefixes allowed on workers (overrides seed/learned routing)
                   persist-learned-routes: true     # write learned routes back to config on shutdown (entities only, max 200)
                   block-tick-main-thread-when-serialized: true # deferred block ticks run on main thread POST in serial fallback (default on)
                   journal-max-per-region: 4096     # cross-region write journal cap per region (oldest dropped)
@@ -1394,6 +1397,7 @@ public class PRTSFeaturesConfig {
                   rebalance-min-groups: 1  # 移动后每区最少组数
                   rebalance-imbalance-ratio: 2.0  # 负载差超过此比例才重平衡
                   thread-policy: stats  # 工作线程世界访问策略：off/stats/enforce
+                  thread-policy-trace-class: ''  # 违规栈追踪：类名含该子串时抓一次调用栈（诊断）
                   violation-log-per-minute: 20  # 每类违规日志每分钟限流条数
                   main-thread-routing: auto  # auto=违规学习 / manual=只认种子列表
                   route-threshold: 5  # 窗口内违规次数即路由主线程（0=不学习）
@@ -1404,7 +1408,7 @@ public class PRTSFeaturesConfig {
                   crossref-snapshot-cache: false  # 影子快照单条缓存（诊断）
                   belt-passenger-defer: true  # 传送带乘客注册延迟到主线程
                   main-thread-entity-force: []  # 强制主线程 tick 的实体类名/前缀
-                  main-thread-entity-allow: ["net.minecraft.world.entity.npc"]  # 放行到工作线程的实体类名/前缀（覆盖种子和学习结果）
+                  main-thread-entity-allow: ["net.minecraft.world.entity.npc", "com.minecolonies."]  # 放行到工作线程的实体类名/前缀（覆盖种子和学习结果）
                   persist-learned-routes: true  # 停机时把学到的路由写回配置
                   block-tick-main-thread-when-serialized: true  # 串行回退时方块 tick 延迟到主线程
                   journal-max-per-region: 4096  # 跨区写日志每区域上限（最旧丢弃）

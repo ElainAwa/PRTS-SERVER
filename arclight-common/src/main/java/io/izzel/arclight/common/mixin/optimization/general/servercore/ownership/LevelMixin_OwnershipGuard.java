@@ -6,6 +6,8 @@
 package io.izzel.arclight.common.mixin.optimization.general.servercore.ownership;
 
 import io.izzel.arclight.common.optimization.general.servercore.ownership.CrossRefProbe;
+import io.izzel.arclight.common.optimization.general.servercore.DimensionTickManager;
+import io.izzel.arclight.common.optimization.general.servercore.RegionTickManager;
 import io.izzel.arclight.common.optimization.general.servercore.ownership.WorldAccessGuard;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.Entity;
@@ -33,7 +35,11 @@ public abstract class LevelMixin_OwnershipGuard {
             at = @At("HEAD"))
     private void arclight$guardGetBlockEntity(BlockPos pos, CallbackInfoReturnable<BlockEntity> cir) {
         Level level = (Level) (Object) this;
-        WorldAccessGuard.checkMainOnlyRead(level, pos);
+        // worker 读 BE 已由 LevelMixin_WorkerBlockEntityRead 放行（非阻塞活区块读），
+        // 不再记 MAIN_ONLY_READ 违规；跨区探针仍采集。
+        if (!RegionTickManager.isRegionWorker() && !DimensionTickManager.isDimensionTickThread()) {
+            WorldAccessGuard.checkMainOnlyRead(level, pos);
+        }
         CrossRefProbe.recordGetBlockEntity(level, pos);
     }
 
