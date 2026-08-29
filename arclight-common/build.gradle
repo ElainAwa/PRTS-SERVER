@@ -34,6 +34,9 @@ dependencies {
     compileOnly files('libs/unlockable_recipes-0.1.1.jar')
     // PlayerLoggedInEvent 超类 Event 在 neoforge-bus 里，universal 包不内嵌 bus 类
     compileOnly files('libs/bus-8.0.5.jar')
+    // 编译期引用 SuperbWarfare（S2.11 弹道/粒子/广播适配 mixin 的 target 校验；
+    // 运行期不依赖，mixin 用 @LoadIfMod 条件加载，无 SBW 时零影响）
+    compileOnly files('libs/superbwarfare-0.8.10-snapshot-mc1.21.1.jar')
 
     implementation libs.izzel.tools
     implementation libs.arclight.api

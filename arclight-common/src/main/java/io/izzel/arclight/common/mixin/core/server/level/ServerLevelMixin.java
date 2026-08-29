@@ -96,6 +96,7 @@ import org.objectweb.asm.Opcodes;
 import org.spigotmc.SpigotWorldConfig;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Mutable;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -110,6 +111,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 
 @Mixin(ServerLevel.class)
@@ -121,7 +123,7 @@ public abstract class ServerLevelMixin extends LevelMixin implements ServerLevel
     @Shadow public abstract <T extends ParticleOptions> int sendParticles(T type, double posX, double posY, double posZ, int particleCount, double xOffset, double yOffset, double zOffset, double speed);
     @Shadow protected abstract boolean sendParticles(ServerPlayer player, boolean longDistance, double posX, double posY, double posZ, Packet<?> packet);
     @Shadow @Nonnull public abstract MinecraftServer getServer();
-    @Shadow @Final private List<ServerPlayer> players;
+    @Shadow @Final @Mutable private List<ServerPlayer> players;
     @Shadow public abstract ServerChunkCache getChunkSource();
     @Shadow protected abstract void wakeUpAllPlayers();
     @Shadow @Final private ServerChunkCache chunkSource;
@@ -259,6 +261,11 @@ public abstract class ServerLevelMixin extends LevelMixin implements ServerLevel
             this.getWorld().readBukkitValues(data.getTag());
             this.getCraftServer().addWorld(this.getWorld());
         }
+        // 并发安全：region/dimension worker 会遍历 ServerLevel.players（如模组粒子/广播扇出）。
+        // ArrayList 在主线程 add/remove 与 worker 遍历并发 → CME/中间态，学习器会因此把模组
+        // 实体路由回主线程（钉 worker 失效）。换 CopyOnWriteArrayList：玩家 join/quit 低频，
+        // 全拷贝成本可忽略；读迭代弱一致且永不抛 CME。
+        this.players = new CopyOnWriteArrayList<>();
     }
 
     @Inject(method = "saveLevelData", at = @At("RETURN"))

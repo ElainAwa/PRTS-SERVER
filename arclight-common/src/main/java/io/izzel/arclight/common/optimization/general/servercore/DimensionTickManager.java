@@ -347,10 +347,12 @@ public final class DimensionTickManager {
             }
             CountDownLatch latch = new CountDownLatch(parallelDims.size());
             AtomicReference<Throwable> failure = new AtomicReference<>();
-            // B 组:本会话软降级门,发送后 playerless 维度的 vanilla hasTimeLeft 短路见
+            // B 组:本会话软降级门,发送后无玩家维度的 vanilla hasTimeLeft 短路见
             // awaitDimensionBarrier 说明;仅影响被软降级的维度 worker。
             AtomicBoolean sessionDegrade = new AtomicBoolean(false);
             java.util.Map<ParallelTickUnit, Integer> ranByUnit = new java.util.concurrent.ConcurrentHashMap<>();
+            // 主线程只做总控：所有维度（含玩家维度）的 tick 全在 worker 上执行；
+            // 玩家实体 tick 由 dispatchAndTick 路由主线程 POST drain（主线程只做回收）。
             for (int i = 0; i < parallelDims.size(); i++) {
                 final ParallelTickUnit unit = parallelDims.get(i);
                 try {
@@ -360,8 +362,8 @@ public final class DimensionTickManager {
                             // 让 ServerLevel.tick 的分块刻尽早让出,加快 wind-down。
                             BooleanSupplier unitTimeLeft =
                                     () -> !sessionDegrade.get() && hasTimeLeft.getAsBoolean();
-                            // 无玩家维度多 tick:backlog（岩浆扩散）批量消化,时钟跑快
-                            // N 倍;会话墙钟上限防止 barrier 超时;软降级/有玩家时即停。
+                            // 多 tick:无玩家维度跑 N 个 tick（backlog 批量消化,时钟快 N 倍）;
+                            // 有玩家维度恒 1 tick（单 tick 原子性,玩家节奏不漂移）。
                             // 预算自适应:主线程落后时按缩放系数压缩 N 与会话上限。
                             double scale = currentSliceScale();
                             int maxTicks = unit.level().players().isEmpty()
@@ -522,7 +524,6 @@ public final class DimensionTickManager {
         }
         return latch.await(PRTSFeaturesConfig.barrierTimeoutMs, TimeUnit.MILLISECONDS);
     }
-
     /** Barrier timeout diagnostic: dump all threads and return the crash message. */
     public static String barrierTimeoutDump(String where) {
         StringBuilder sb = new StringBuilder("PRTS barrier timeout in ").append(where)
