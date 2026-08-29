@@ -43,6 +43,11 @@ public abstract class ChunkMapMixin_GenerationBudget {
     @Final
     private List<ChunkGenerationTask> pendingGenerationTasks;
 
+    /** 主线程事件循环：managedBlock 会泵它，阻塞 getChunk 期间也能推进提交。 */
+    @Shadow
+    @Final
+    private net.minecraft.util.thread.BlockableEventLoop<Runnable> mainThreadExecutor;
+
     @Inject(method = "runGenerationTasks", at = @At("HEAD"), cancellable = true)
     private void arclight$budgetedRunGenerationTasks(CallbackInfo ci) {
         int budget = PRTSFeaturesConfig.generationTasksPerTick;
@@ -89,6 +94,12 @@ public abstract class ChunkMapMixin_GenerationBudget {
             it.remove();
             prts$submitTimes[prts$submitIndex++ % prts$submitTimes.length] = System.nanoTime();
             submitted++;
+        }
+        // 有剩余任务且本轮有提交：经主线程 executor 排后续 drain。主线程阻塞在
+        // getChunk 的 managedBlock 时 waitForTasks 会泵 executor，任务得以继续提交，
+        // 否则提交只随 tick 链推进，阻塞期间新任务永远排不上（启动预热卡死根因）。
+        if (submitted > 0 && !this.pendingGenerationTasks.isEmpty()) {
+            this.mainThreadExecutor.execute(() -> ((ChunkMap) (Object) this).runGenerationTasks());
         }
     }
 

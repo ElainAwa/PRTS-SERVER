@@ -6,8 +6,11 @@
 package io.izzel.arclight.common.optimization.general.chunksystem;
 
 import io.izzel.arclight.common.compat.prts.PRTSFeaturesConfig;
+import io.izzel.arclight.common.optimization.general.servercore.PrefetchTicketSink;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ChunkLevel;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.TicketType;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.chunk.status.ChunkStatus;
 
@@ -15,7 +18,7 @@ import java.util.ArrayDeque;
 import java.util.Queue;
 
 /**
- * 进服热点预热：服务器启动后逐 tick 把配置的坐标区域加载到 FULL，
+ * 进服热点预热：服务器启动后逐 tick 给配置坐标区域预铺 FULL 票，
  * 玩家首次进服时区块已在内存，避免重启后首登的磁盘读+反序列化等待。
  * 仅主线程调用（schedule 首次 tick、tick 每 tick），0 玩家同样生效。
  */
@@ -24,10 +27,14 @@ public final class LoginWarmup {
     private static boolean scheduled = false;
     private static final Queue<ChunkPos> PENDING = new ArrayDeque<>();
 
+    /** 预热票：1 小时 TTL，热点在重启后首登窗口保持加载，过期自动释放。 */
+    private static final net.minecraft.server.level.TicketType<com.mojang.datafixers.util.Unit> TICKET =
+            net.minecraft.server.level.TicketType.create("prts_login_warmup", (a, b) -> 0, 72000);
+
     private LoginWarmup() {
     }
 
-    /** 首次 tick 调用：按配置中心+半径铺开加载队列。 */
+    /** 首次 tick 调用：按配置中心+半径铺开预热队列。 */
     public static void schedule(MinecraftServer server) {
         if (scheduled || !PRTSFeaturesConfig.loginWarmupEnabled) {
             return;
@@ -57,7 +64,8 @@ public final class LoginWarmup {
         }
     }
 
-    /** 每 tick 调用：按预算消费队列（FULL 加载请求走正常加载链）。 */
+    /** 每 tick 调用：按预算预铺 FULL 票。非阻塞：holder/生成任务由距离管理器
+     *  与生成预算异步推进；阻塞式 getChunk 在生成节流下会等任务提交而卡死主线程。 */
     public static void tick(MinecraftServer server) {
         if (PENDING.isEmpty()) {
             return;
@@ -70,7 +78,10 @@ public final class LoginWarmup {
         while (budget-- > 0 && !PENDING.isEmpty()) {
             ChunkPos pos = PENDING.poll();
             try {
-                overworld.getChunk(pos.x, pos.z, ChunkStatus.FULL, false);
+                ((PrefetchTicketSink) overworld.getChunkSource())
+                        .prts$addPrefetchTicket(TICKET, pos,
+                                ChunkLevel.byStatus(ChunkStatus.FULL),
+                                com.mojang.datafixers.util.Unit.INSTANCE);
             } catch (Throwable ignored) {
                 // 预热只是优化；失败时玩家进服路径仍会按需加载。
             }
