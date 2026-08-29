@@ -252,6 +252,10 @@ public class PRTSFeaturesConfig {
     // 多 tick 会话墙钟上限（ms）：到点停（当前 tick 完成即止），防 barrier 超时。
     public static long dimensionWorkerSessionMs;
 
+    // 主线程 POST 各 drain 的时间预算（ms）：岩浆机背压大时延迟队列积压数万条，
+    // 无界清空会把主线程卡死数十秒；到点即停，剩余顺延下一会话。
+    public static long postDrainBudgetMs;
+
     // Barrier semantics: make the vanilla watchdog barrier-aware so a main thread waiting
     // in the dimension barrier is not falsely killed after max-tick-time; false = vanilla
     // watchdog behavior.
@@ -588,6 +592,7 @@ public class PRTSFeaturesConfig {
         if (workerTickBudget < 0) workerTickBudget = 0;
         dimensionWorkerMultitick = Math.max(1, config.getInt("parallel.dimension-worker-multitick", 4));
         dimensionWorkerSessionMs = Math.max(500, config.getLong("parallel.dimension-worker-session-ms", 8000L));
+        postDrainBudgetMs = Math.max(50, config.getLong("parallel.post-drain-budget-ms", 1000L));
         barrierWatchdogAware = config.getBoolean("barrier-watchdog-aware", true);
         barrierTimeoutMs = config.getLong("barrier-timeout-ms", 120000L);
         if (barrierTimeoutMs < 1000L) barrierTimeoutMs = 120000L;

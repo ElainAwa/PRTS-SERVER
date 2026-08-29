@@ -99,6 +99,10 @@ public final class RegionTickManager {
     private static final Map<ServerLevel, LinkedBlockingQueue<BlockTick>> MAIN_THREAD_BLOCK_TICKS =
             java.util.Collections.synchronizedMap(new WeakHashMap<>());
 
+    /** worker 上收集、延迟到主线程 POST 执行的流体 tick（岩浆扩散链主线程处理），按维度分队列。 */
+    private static final Map<ServerLevel, LinkedBlockingQueue<FluidTick>> MAIN_THREAD_FLUID_TICKS =
+            java.util.Collections.synchronizedMap(new WeakHashMap<>());
+
     /** 维度并行期间收集、由主线程统一执行的实体 tick（Create 装置实体），按维度分队列。 */
     private static final Map<ServerLevel, LinkedBlockingQueue<Entity>> MAIN_THREAD_ENTITY_TICKS =
             java.util.Collections.synchronizedMap(new WeakHashMap<>());
@@ -833,16 +837,18 @@ public final class RegionTickManager {
         queue.add(new BlockTick(pos, block));
     }
 
-    /** 主线程 POST 阶段调用：执行本维度排队的主线程方块 tick。 */
+    /** 主线程 POST 阶段调用：执行本维度排队的主线程方块 tick（时间预算内）。 */
     public static void drainMainThreadBlockTicks(ServerLevel level) {
         LinkedBlockingQueue<BlockTick> queue;
         synchronized (MAIN_THREAD_BLOCK_TICKS) {
-            queue = MAIN_THREAD_BLOCK_TICKS.remove(level);
+            queue = MAIN_THREAD_BLOCK_TICKS.get(level);
         }
         if (queue == null) {
             return;
         }
+        long deadline = Util.getNanos() + PRTSFeaturesConfig.postDrainBudgetMs * 1_000_000L;
         BlockTick bt;
+        int n = 0;
         while ((bt = queue.poll()) != null) {
             try {
                 ((ServerLevelRegionBlockTickAccess) level).arclight$tickBlock(bt.pos(), bt.block());
@@ -850,6 +856,45 @@ public final class RegionTickManager {
             } catch (Throwable t) {
                 LOGGER.error("[region-tick] main-thread block tick failed at {}: {}",
                         bt.pos(), t.toString());
+            }
+            if ((++n & 0xFF) == 0 && Util.getNanos() >= deadline) {
+                break;
+            }
+        }
+    }
+
+    /** 维度 worker 调用：把流体 tick 排到本维度的主线程队列（岩浆扩散链跨线程
+     *  setBlock/onRemove 在 worker 上产生违规与延迟堆积，一律主线程 POST 处理）。 */
+    public static void queueMainThreadFluidTick(ServerLevel level, BlockPos pos, net.minecraft.world.level.material.Fluid fluid) {
+        LinkedBlockingQueue<FluidTick> queue;
+        synchronized (MAIN_THREAD_FLUID_TICKS) {
+            queue = MAIN_THREAD_FLUID_TICKS.computeIfAbsent(level, k -> new LinkedBlockingQueue<>());
+        }
+        queue.add(new FluidTick(pos, fluid));
+    }
+
+    /** 主线程 POST 阶段调用：执行本维度排队的主线程流体 tick（时间预算内）。 */
+    public static void drainMainThreadFluidTicks(ServerLevel level) {
+        LinkedBlockingQueue<FluidTick> queue;
+        synchronized (MAIN_THREAD_FLUID_TICKS) {
+            queue = MAIN_THREAD_FLUID_TICKS.get(level);
+        }
+        if (queue == null) {
+            return;
+        }
+        long deadline = Util.getNanos() + PRTSFeaturesConfig.postDrainBudgetMs * 1_000_000L;
+        FluidTick ft;
+        int n = 0;
+        while ((ft = queue.poll()) != null) {
+            try {
+                ((ServerLevelRegionBlockTickAccess) level).arclight$tickFluid(ft.pos(), ft.fluid());
+                STATS.increment("update.fluidTicksMain");
+            } catch (Throwable t) {
+                LOGGER.error("[region-tick] main-thread fluid tick failed at {}: {}",
+                        ft.pos(), t.toString());
+            }
+            if ((++n & 0xFF) == 0 && Util.getNanos() >= deadline) {
+                break;
             }
         }
     }
@@ -863,18 +908,19 @@ public final class RegionTickManager {
         queue.add(ticker);
     }
 
-    /** 主线程 POST 阶段调用：执行本维度排队的主线程方块实体 tick。 */
+    /** 主线程 POST 阶段调用：执行本维度排队的主线程方块实体 tick（时间预算内）。 */
     public static void drainMainThreadBlockEntityTicks(ServerLevel level) {
         LinkedBlockingQueue<TickingBlockEntity> queue;
         synchronized (MAIN_THREAD_TE_TICKS) {
-            queue = MAIN_THREAD_TE_TICKS.remove(level);
+            queue = MAIN_THREAD_TE_TICKS.get(level);
         }
         if (queue == null) {
             return;
         }
-        java.util.Collection<TickingBlockEntity> batch = new ArrayList<>();
-        queue.drainTo(batch);
-        for (TickingBlockEntity ticker : batch) {
+        long deadline = Util.getNanos() + PRTSFeaturesConfig.postDrainBudgetMs * 1_000_000L;
+        TickingBlockEntity ticker;
+        int n = 0;
+        while ((ticker = queue.poll()) != null) {
             long start = Util.getNanos();
             try {
                 ticker.tick();
@@ -888,6 +934,9 @@ public final class RegionTickManager {
                     BlockEntityTickStats.recordMaxPos(teType, ticker.getPos());
                 }
             }
+            if ((++n & 0xFF) == 0 && Util.getNanos() >= deadline) {
+                break;
+            }
         }
         Runnable removal;
         while ((removal = MAIN_THREAD_REMOVALS.poll()) != null) {
@@ -898,6 +947,7 @@ public final class RegionTickManager {
             }
         }
         drainMainThreadBlockTicks(level);
+        drainMainThreadFluidTicks(level);
     }
 
     /** 维度 worker 调用：把 onRemove 延迟到主线程执行（流体 setBlock 触发的
@@ -1879,6 +1929,9 @@ public final class RegionTickManager {
     private static String blockEntityTypeKey(BlockEntityType<?> type) {
         ResourceLocation key = BuiltInRegistries.BLOCK_ENTITY_TYPE.getKey(type);
         return key != null ? key.toString() : String.valueOf(type);
+    }
+
+    private record FluidTick(BlockPos pos, net.minecraft.world.level.material.Fluid fluid) {
     }
 
     private record BlockTick(BlockPos pos, Block block) {

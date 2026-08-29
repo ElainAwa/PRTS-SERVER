@@ -39,8 +39,15 @@ public abstract class LevelTicksMixin_RegionBlockTick {
         at = @At(value = "INVOKE", target = "Ljava/util/function/BiConsumer;accept(Ljava/lang/Object;Ljava/lang/Object;)V"))
     private static void arclight$regionScheduledTick(BiConsumer<Object, Object> consumer, Object pos, Object type) {
         ServerLevel level = RegionTickManager.collectingLevel();
-        if (type instanceof Block && PRTSFeaturesConfig.parallelRegion && level != null) {
+        if (level == null) {
+            consumer.accept(pos, type);
+        } else if (type instanceof Block && PRTSFeaturesConfig.parallelRegion) {
             RegionTickManager.queueMainThreadBlockTick(level, (BlockPos) pos, (Block) type);
+        } else if (type instanceof net.minecraft.world.level.material.Fluid) {
+            // 流体 tick（岩浆扩散链）一律主线程 POST：setBlock/onRemove 跨线程链在
+            // worker 上产生违规与延迟堆积，主线程预算内处理保语义且背压有界。
+            RegionTickManager.queueMainThreadFluidTick(level, (BlockPos) pos,
+                    (net.minecraft.world.level.material.Fluid) type);
         } else {
             consumer.accept(pos, type);
         }
