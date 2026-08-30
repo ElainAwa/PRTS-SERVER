@@ -33,14 +33,29 @@ public abstract class ServerLevelMixin_TickSyncCollect {
         RegionTickManager.runBlockTickPhase(level);
         // 生成驱动留在 worker 立即执行；同步链仍收口主线程 POST
         if (DimensionTickManager.isDimensionTickThread()) {
-            // 与主线程强制加载泵共用生成属主锁
-            java.util.concurrent.locks.ReentrantLock genLock =
-                    io.izzel.arclight.common.optimization.general.servercore.ChunkGenerationOwnerLock.lock(level);
-            genLock.lock();
-            try {
-                ((ServerChunkProviderBridge) (Object) chunkSource).bridge$tickDistanceManager();
-            } finally {
-                genLock.unlock();
+            // Lithium 的 ChunkStatusTracker 要求主线程：检测到 Lithium 时
+            // 生成驱动收口 POST 主线程执行；否则留在 worker 立即执行
+            if (io.izzel.arclight.common.optimization.general.servercore.compat.LithiumCompat.loaded()) {
+                DimensionTickManager.collectPostSync(level, () -> {
+                    java.util.concurrent.locks.ReentrantLock genLock =
+                            io.izzel.arclight.common.optimization.general.servercore.ChunkGenerationOwnerLock.lock(level);
+                    genLock.lock();
+                    try {
+                        ((ServerChunkProviderBridge) (Object) chunkSource).bridge$tickDistanceManager();
+                    } finally {
+                        genLock.unlock();
+                    }
+                });
+            } else {
+                // 与主线程强制加载泵共用生成属主锁
+                java.util.concurrent.locks.ReentrantLock genLock =
+                        io.izzel.arclight.common.optimization.general.servercore.ChunkGenerationOwnerLock.lock(level);
+                genLock.lock();
+                try {
+                    ((ServerChunkProviderBridge) (Object) chunkSource).bridge$tickDistanceManager();
+                } finally {
+                    genLock.unlock();
+                }
             }
             DimensionTickManager.collectPostSync(level, () -> chunkSource.tick(hasTimeLeft, tickPassengers));
         } else {
