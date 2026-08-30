@@ -66,25 +66,28 @@ public abstract class ChunkMapMixin_GenerationBudget {
             return;
         }
         if (PRTSFeaturesConfig.generationMemoryGuardEnabled) {
-            double ratio = (double) Runtime.getRuntime().totalMemory()
-                    / Runtime.getRuntime().maxMemory();
+            Runtime runtime = Runtime.getRuntime();
+            double committedRatio = (double) runtime.totalMemory() / runtime.maxMemory();
+            double usedRatio = (double) (runtime.totalMemory() - runtime.freeMemory()) / runtime.maxMemory();
+            // Xms==Xmx 时 committed 恒为 1，必须改用 used 判定；否则按两者较大值
+            double ratio = committedRatio >= 1.0 ? usedRatio : Math.max(committedRatio, usedRatio);
             prts$sampleGcPressure();
             boolean gcPressure = prts$gcRatio > 0.30 && ratio > 0.55;
             if (gcPressure && prts$guardLogCooldownNanos == 0L
                     || gcPressure && System.nanoTime() - prts$guardLogCooldownNanos > 30_000_000_000L) {
                 prts$guardLogCooldownNanos = System.nanoTime();
                 org.apache.logging.log4j.LogManager.getLogger("PRTS-ChunkGen")
-                        .warn("[chunk-gen] memory guard GC pressure (gc={}% committed={}%) throttling early",
-                                (int) (prts$gcRatio * 100), (int) (ratio * 100));
+                        .warn("[chunk-gen] memory guard GC pressure (gc={}% used={}% committed={}%) throttling early",
+                                (int) (prts$gcRatio * 100), (int) (usedRatio * 100), (int) (committedRatio * 100));
             }
             if (ratio >= PRTSFeaturesConfig.generationMemoryGuardPauseRatio) {
-                // 暂停提交：等 GC 追回 committed 后再恢复，防加载风暴把堆顶满 Xmx
+                // 暂停提交：等 GC 追回 used 后再恢复，防加载风暴把堆顶满 Xmx
                 if (prts$guardLogCooldownNanos == 0L
                         || System.nanoTime() - prts$guardLogCooldownNanos > 10_000_000_000L) {
                     prts$guardLogCooldownNanos = System.nanoTime();
                     org.apache.logging.log4j.LogManager.getLogger("PRTS-ChunkGen")
-                            .warn("[chunk-gen] memory guard PAUSE submissions (committed={}% of max)",
-                                    (int) (ratio * 100));
+                            .warn("[chunk-gen] memory guard PAUSE submissions (used={}% committed={}%)",
+                                    (int) (usedRatio * 100), (int) (committedRatio * 100));
                 }
                 ci.cancel();
                 return;
