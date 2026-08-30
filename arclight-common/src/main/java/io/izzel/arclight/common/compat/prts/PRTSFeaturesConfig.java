@@ -1182,7 +1182,7 @@ public class PRTSFeaturesConfig {
                   journal-read-back: false         # read-your-writes overlay (reserved; default off)
                   determinism-mode: true            # determinism: cross-region journal applied in region order on scheduler thread
                   be-parallel-allow: ["create:*"] # BE tiers: registry keys/prefixes* allowed to tick on region workers
-                  be-main-thread-force: ["create:track", "lootr:lootr_chest", "create:redstone_link"] # BE tiers: forced to main thread (spikes/cross-region deps)
+                  be-main-thread-force: ["create:track", "lootr:lootr_chest", "create:redstone_link", "create:portable_storage_interface", "create:spout"] # BE tiers: forced to main thread (spikes/cross-region deps)
                   create-track-lazy-spread: true    # spread Create long-track fake rail rasterization
                   create-track-lazy-chunk-blocks: 64 # max rasterized blocks per connection per tick
                   villager-poi-path-budget: 0       # villager main-thread POI/single-target path budget (0=off)
@@ -1417,7 +1417,7 @@ public class PRTSFeaturesConfig {
                   journal-read-back: false  # 读己写覆盖（预留接口）
                   determinism-mode: true  # 确定性模式：跨区日志按区域序应用
                   be-parallel-allow: ["create:*"]  # 允许上区域工作线程的实体类型（注册键或前缀*）
-                  be-main-thread-force: ["create:track", "lootr:lootr_chest", "create:redstone_link"]  # 强制主线程的实体类型（尖峰/跨区依赖）
+                  be-main-thread-force: ["create:track", "lootr:lootr_chest", "create:redstone_link", "create:portable_storage_interface", "create:spout"]  # 强制主线程的实体类型（尖峰/跨区依赖；create PSI/spout 跨实体交互必须主线程串行）
                   create-track-lazy-spread: true  # Create 长轨道假轨栅格化分摊：每 tick 处理一条连接的一个区块
                   create-track-lazy-chunk-blocks: 64  # 分摊时每连接每 tick 最大栅格块数
                   villager-poi-path-budget: 0  # 村民主线程寻路预算（0=关）

@@ -51,6 +51,7 @@
     "servercore.compat.DeployerBlockEntityMixin_EnsurePlayer",
     "servercore.compat.BeltDeployerCallbacksMixin_TimerTolerance",
     "servercore.compat.CreateProcessingProbeMixin$SpoutProbe",
+    "servercore.compat.CreateProcessingProbeMixin$SpoutTickProbe",
     "servercore.compat.CreateProcessingProbeMixin$PsiProbe",
     "servercore.compat.CreateProcessingProbeMixin$PsiSwitchProbe",
     "servercore.compat.ChuteBlockEntityMixin_FreshCapability",

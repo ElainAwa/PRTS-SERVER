@@ -53,6 +53,18 @@ public abstract class ServerChunkCacheMixin_DimParallel implements io.izzel.arcl
 
     private static final Logger LOGGER = LogManager.getLogger("PRTS-ChunkDemand");
 
+    /**
+     * 主线程强制加载等待的按坐标冷却表：industrial_platform 的 preview 等
+     * 每 tick 调用 getBlockState → getChunk(FULL, required=true)，等待窗口内
+     * 若区块未就绪，每次调用都空耗 5ms（多坐标每 tick 累积 → TPS 崩 →
+     * 生成更慢 → 等待更多，正反馈；生产两次 watchdog 崩溃（13:14/17:13）
+     * 均为此模式：主线程在等待循环 sleep 饿死 60 秒）。冷却：同坐标
+     * 20 tick 内只等待一次，其余直接返回空壳（ticket 已在，后台生成继续，
+     * 下轮命中收敛），消除高频调用对主线程的拖累。
+     */
+    private static final java.util.concurrent.ConcurrentHashMap<Long, Long> PRTS_WAIT_COOLDOWN =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
     /** 超时日志去重（坐标 → 上次警告时间戳），防 isRainingAt 类每 tick 调用刷屏。 */
     @Unique
     private static final java.util.concurrent.ConcurrentHashMap<Long, Long> prts$lastTimeoutLog = new java.util.concurrent.ConcurrentHashMap<>();
@@ -180,11 +192,20 @@ public abstract class ServerChunkCacheMixin_DimParallel implements io.izzel.arcl
             ChunkPos pos = new ChunkPos(x, z);
             this.distanceManager.addTicket(PRTS_FORCE_LOAD, pos,
                     ChunkLevel.byStatus(ChunkStatus.FULL), pos);
+            // 高频调用冷却（preview 类每 tick getBlockState）：同坐标 20 tick 内
+            // 已等待过 → 直接空壳（ticket 持续，后台生成推进，下轮命中收敛）。
+            long gameTime = this.level.getGameTime();
+            Long lastWait = PRTS_WAIT_COOLDOWN.get(key);
+            if (lastWait != null && gameTime - lastWait < 20L) {
+                cir.setReturnValue(new EmptyLevelChunk(this.level, new ChunkPos(x, z), arclight$voidBiome(this.level)));
+                return;
+            }
+            PRTS_WAIT_COOLDOWN.put(key, gameTime);
             // 等待窗口只覆盖「快速可完成」的加载（磁盘读/已生成）：全新块的 FULL 锥域生成
             // 需数秒（mod 结构多），等满超时是纯浪费——调用方（如 twilightforest isRainingAt
             // 每 tick 强制加载）会反复卡死主线程（TPS→1）。短超时快速失败，持久票保证
             // 后台生成完成，调用方重试/下轮读取即命中收敛。
-            long deadline = System.nanoTime() + 5_000_000L;
+            long deadline = System.nanoTime() + 1_000_000L;
             boolean schedWarned = false;
             while (System.nanoTime() < deadline) {
                 this.runDistanceManagerUpdates();

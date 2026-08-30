@@ -87,11 +87,32 @@ public abstract class CreateProcessingProbeMixin {
     @Mixin(value = FillingBySpout.class, remap = false)
     public abstract static class SpoutProbe {
 
+        @Inject(method = "fillItem", at = @At("HEAD"))
+        private static void prts$probeFillHead(Level level, int amount, ItemStack stack, FluidStack fluid,
+                                               CallbackInfoReturnable<ItemStack> cir) {
+            LogManager.getLogger("PRTS-CreateProbe").info("spout fill t={} in={} nbt={} fluid={}/{} amount={}",
+                    Thread.currentThread().getName(), stack, prts$stackNbt(stack, level), fluid, fluid.getAmount(), amount);
+        }
+
         @Inject(method = "fillItem", at = @At("RETURN"))
         private static void prts$probeFill(Level level, int amount, ItemStack stack, FluidStack fluid,
                                            CallbackInfoReturnable<ItemStack> cir) {
-            LogManager.getLogger("PRTS-CreateProbe").info("spout fill t={} in={} -> out={}",
-                    Thread.currentThread().getName(), stack, cir.getReturnValue());
+            LogManager.getLogger("PRTS-CreateProbe").info("spout fill t={} in={} -> out={} outNbt={}",
+                    Thread.currentThread().getName(), stack, cir.getReturnValue(),
+                    prts$stackNbt(cir.getReturnValue(), level));
+        }
+
+        private static String prts$stackNbt(ItemStack stack, Level level) {
+            if (stack == null || stack.isEmpty()) {
+                return "empty";
+            }
+            try {
+                net.minecraft.nbt.Tag tag = stack.save(level.registryAccess());
+                String s = String.valueOf(tag);
+                return s.length() > 260 ? s.substring(0, 260) + "..." : s;
+            } catch (Throwable t) {
+                return "ERR:" + t.getClass().getSimpleName();
+            }
         }
     }
 
@@ -308,6 +329,44 @@ public abstract class CreateProcessingProbeMixin {
             }
             LogManager.getLogger("PRTS-CreateProbe").info("psi switch t={} {} @ {} conn={} cap={} caller={}{}{}",
                     Thread.currentThread().getName(), what, pos, ce, cap, caller, deep, chuteView);
+        }
+    }
+
+    /** 注液器 tick 探针：定位哪个注液器在工作/卡住（限流 5s，范围 ±32）。 */
+    @Mixin(value = com.simibubi.create.content.fluids.spout.SpoutBlockEntity.class, remap = false)
+    public abstract static class SpoutTickProbe {
+
+        private static long prts$lastSpoutLog = 0L;
+
+        @Inject(method = "tick", at = @At("HEAD"))
+        private void prts$probeSpoutTick(CallbackInfo ci) {
+            com.simibubi.create.content.fluids.spout.SpoutBlockEntity self =
+                    (com.simibubi.create.content.fluids.spout.SpoutBlockEntity) (Object) this;
+            net.minecraft.core.BlockPos pos = self.getBlockPos();
+            if (Math.abs(pos.getX() - 470) > 32 || Math.abs(pos.getY() - 66) > 16 || Math.abs(pos.getZ() - 1200) > 32) {
+                return;
+            }
+            long now = System.nanoTime();
+            if (now - prts$lastSpoutLog < 5_000_000_000L) {
+                return; // 限流 5s
+            }
+            prts$lastSpoutLog = now;
+            String fluid = "?";
+            String pticks = "?";
+            String below = "?";
+            try {
+                java.lang.reflect.Method gf = com.simibubi.create.content.fluids.spout.SpoutBlockEntity.class
+                        .getDeclaredMethod("getCurrentFluidInTank");
+                gf.setAccessible(true);
+                fluid = String.valueOf(gf.invoke(self));
+                pticks = String.valueOf(self.processingTicks);
+                net.minecraft.world.level.block.entity.BlockEntity be = self.getLevel() != null
+                        ? self.getLevel().getBlockEntity(pos.below(2)) : null;
+                below = be == null ? "null" : be.getClass().getSimpleName();
+            } catch (Throwable ignored) {
+            }
+            LogManager.getLogger("PRTS-CreateProbe").info("spout tick t={} pos={} fluid={} pticks={} below2={}",
+                    Thread.currentThread().getName(), pos, fluid, pticks, below);
         }
     }
 
