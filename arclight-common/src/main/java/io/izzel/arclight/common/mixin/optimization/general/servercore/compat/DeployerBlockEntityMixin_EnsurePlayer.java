@@ -18,6 +18,8 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+import java.util.concurrent.atomic.AtomicLong;
+
 /**
  * [修复] 存档加载的 Deployer 假玩家可能未创建（initialize 在异步反序列化路径未被触发）
  * → player==null → whenItemHeld 永远 HOLD（heldItem 空）→ 装配从不 activate（物品卡传送带，
@@ -35,16 +37,19 @@ public abstract class DeployerBlockEntityMixin_EnsurePlayer implements DeployerT
      *  交错/漂移一次即永久错过 → 物品堆积。容差窗口由 BeltDeployerCallbacksMixin_TimerTolerance
      *  实现，本字段为"每周期至多激活一次"防重复加工守卫。 */
     @Unique
-    private volatile long prts$lastBeltActivationTick;
+    private final AtomicLong prts$lastBeltActivationTick = new AtomicLong();
 
     @Unique
-    public long prts$getLastBeltActivationTick() {
-        return this.prts$lastBeltActivationTick;
-    }
-
-    @Unique
-    public void prts$setLastBeltActivationTick(long tick) {
-        this.prts$lastBeltActivationTick = tick;
+    public boolean prts$tryMarkBeltActivation(long now) {
+        while (true) {
+            long last = this.prts$lastBeltActivationTick.get();
+            if (now - last < 2L) {
+                return false;
+            }
+            if (this.prts$lastBeltActivationTick.compareAndSet(last, now)) {
+                return true;
+            }
+        }
     }
 
     @Accessor("timer")

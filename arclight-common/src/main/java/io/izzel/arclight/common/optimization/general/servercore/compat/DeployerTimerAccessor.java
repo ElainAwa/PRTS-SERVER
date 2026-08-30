@@ -18,8 +18,6 @@ public interface DeployerTimerAccessor {
     /** timer 字段读取（DeployerBlockEntity.timer，包私有）。 */
     int prts$getTimer();
 
-    /** 每周期至多激活一次的守卫（游戏刻）。 */
-    long prts$getLastBeltActivationTick();
-
-    void prts$setLastBeltActivationTick(long tick);
+    /** 每周期至多激活一次的原子守卫；成功占用返回 true。 */
+    boolean prts$tryMarkBeltActivation(long now);
 }

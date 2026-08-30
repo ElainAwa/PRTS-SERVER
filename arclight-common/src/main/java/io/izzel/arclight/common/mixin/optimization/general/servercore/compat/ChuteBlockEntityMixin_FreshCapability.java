@@ -8,6 +8,7 @@ package io.izzel.arclight.common.mixin.optimization.general.servercore.compat;
 import com.simibubi.create.content.logistics.chute.ChuteBlockEntity;
 import io.izzel.arclight.common.mod.mixins.annotation.LoadIfMod;
 import net.minecraft.core.Direction;
+import net.minecraft.server.level.ServerLevel;
 import net.neoforged.neoforge.capabilities.BlockCapabilityCache;
 import net.neoforged.neoforge.items.IItemHandler;
 import net.neoforged.neoforge.items.ItemStackHandler;
@@ -36,6 +37,24 @@ import org.spongepowered.asm.mixin.injection.Redirect;
 @Mixin(value = ChuteBlockEntity.class, remap = false)
 public abstract class ChuteBlockEntityMixin_FreshCapability {
 
+    private static final java.lang.reflect.Method GET_CAPABILITY;
+    private static final Object ITEM_HANDLER_BLOCK_CAP;
+
+    static {
+        java.lang.reflect.Method method = null;
+        Object cap = null;
+        try {
+            Class<?> blockCapCls = Class.forName("net.neoforged.neoforge.capabilities.BlockCapability");
+            cap = Class.forName("net.neoforged.neoforge.capabilities.Capabilities$ItemHandler")
+                    .getField("BLOCK").get(null);
+            method = ServerLevel.class.getMethod("getCapability", blockCapCls,
+                    net.minecraft.core.BlockPos.class, Object.class);
+        } catch (Throwable ignored) {
+        }
+        GET_CAPABILITY = method;
+        ITEM_HANDLER_BLOCK_CAP = cap;
+    }
+
     @Redirect(method = "grabCapability",
             at = @At(value = "INVOKE",
                     target = "Lnet/neoforged/neoforge/capabilities/BlockCapabilityCache;getCapability()Ljava/lang/Object;"))
@@ -45,15 +64,9 @@ public abstract class ChuteBlockEntityMixin_FreshCapability {
             // 0 槽 ItemStackHandler = PSI 空 handler 残留（失效缓存）
             // 直接查询：与 create 的 registerCapabilities provider 相同路径
             ChuteBlockEntity self = (ChuteBlockEntity) (Object) this;
-            if (self.getLevel() != null) {
-                // 全反射直查（common 层无 neoforge Level.getCapability 编译依赖）
+            if (self.getLevel() instanceof ServerLevel level && GET_CAPABILITY != null) {
                 try {
-                    Class<?> blockCapCls = Class.forName("net.neoforged.neoforge.capabilities.BlockCapability");
-                    Object itemCap = Class.forName("net.neoforged.neoforge.capabilities.Capabilities$ItemHandler")
-                            .getField("BLOCK").get(null);
-                    java.lang.reflect.Method gcm = self.getLevel().getClass()
-                            .getMethod("getCapability", blockCapCls, net.minecraft.core.BlockPos.class, Object.class);
-                    Object found = gcm.invoke(self.getLevel(), itemCap,
+                    Object found = GET_CAPABILITY.invoke(level, ITEM_HANDLER_BLOCK_CAP,
                             self.getBlockPos().relative(Direction.UP), Direction.DOWN);
                     if (found != null) {
                         return found;

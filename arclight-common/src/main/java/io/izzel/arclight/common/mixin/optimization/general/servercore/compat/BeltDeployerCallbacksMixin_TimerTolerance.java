@@ -56,9 +56,7 @@ public abstract class BeltDeployerCallbacksMixin_TimerTolerance {
         int step = (int) Mth.clamp(Math.abs(speed) * 2.0F, 8.0F, 512.0F); // 与 getTimerSpeed 一致
         if (step > 0 && timer <= 1000 && timer >= 1000 - step) {
             long now = deployer.getLevel().getGameTime();
-            long last = acc.prts$getLastBeltActivationTick();
-            if (now - last >= 2L) {
-                acc.prts$setLastBeltActivationTick(now);
+            if (acc.prts$tryMarkBeltActivation(now)) {
                 return 1000; // 窗口命中 → 原 ==1000 比较通过 → activate
             }
             return 999; // 同周期已激活过 → 强制不命中，防重复加工
