@@ -17,30 +17,14 @@ import org.apache.logging.log4j.Logger;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReentrantLock;
 
-/**
- * 区块环境 tick(随机 tick/流体)并行:主线程 tickChunks 内收集各 chunk,
- * 在广播前提交到独立子任务池并行执行真实 {@code ServerLevel.tickChunk}。
- *
- * <p>安全设计:<ul>
- *   <li>阶段隔离:vanilla 顺序为方块刻→ServerChunkCache.tick→runBlockEvents→实体循环,
- *       本阶段与 region worker 各阶段互不重叠,同 level 无其他写者;</li>
- *   <li>跨 chunk 写(流体跨界、邻居更新反应)用 3×3 区块锁(排序加锁)互斥;</li>
- *   <li>随机源:每任务 per-chunk 派生种子,经 LegacyRandomSource 线程本地分支生效,
- *       分布与原版一致且同 chunk 序列可复现;</li>
- *   <li>子任务设置 REGION_CONTEXT(区块所属 region),setBlock 跨区写走 journal、
- *       计划刻走主线程 deferral、实体新增走 EntityAddDefer——全部复用既有 worker 路径;</li>
- *   <li>雷击/冰雪等 addFreshEntity 走既有 defer;tickChunk 装饰器(thunderChance/闪电事件
- *       /事件归因)全部保留(调用的是真实 tickChunk)。</li>
- * </ul>
- */
+/** 区块环境 tick 并行：收集 chunk 后在独立池执行，条带锁隔离相邻区块写。 */
 public final class ChunkEnvParallelScheduler {
 
     private static final Logger LOGGER = LogManager.getLogger("Arclight");
@@ -49,10 +33,17 @@ public final class ChunkEnvParallelScheduler {
     private static volatile ThreadPoolExecutor pool;
     /** 收集窗口：tickChunks 只在维度 tick 线程跑（每维度一线程），ThreadLocal 天然隔离多维度。 */
     private static final ThreadLocal<PendingWindow> WINDOW = ThreadLocal.withInitial(PendingWindow::new);
-    /** 每 chunk 锁表(radius=1 时锁定 3×3)。 */
-    private static final ConcurrentHashMap<Long, ReentrantLock> LOCKS = new ConcurrentHashMap<>();
+    /** 固定条带锁：任务结束后无需回收，避免 per-chunk 锁表无界增长。 */
+    private static final int LOCK_STRIPES = 1024;
+    private static final ReentrantLock[] LOCKS = new ReentrantLock[LOCK_STRIPES];
     /** 3×3 锁半径常量:覆盖流体跨界写与邻居更新反应写。 */
     private static final int LOCK_RADIUS = 1;
+
+    static {
+        for (int i = 0; i < LOCK_STRIPES; i++) {
+            LOCKS[i] = new ReentrantLock();
+        }
+    }
 
     /** 子任务线程本地随机源(per-chunk 派生种子),由 LegacyRandomSource mixin 读取。 */
     private static final ThreadLocal<RandomSource> THREAD_LOCAL_RANDOM = new ThreadLocal<>();
@@ -74,12 +65,12 @@ public final class ChunkEnvParallelScheduler {
                             ? PRTSFeaturesConfig.chunkEnvThreads
                             : Math.max(2, Runtime.getRuntime().availableProcessors());
                     p = new ThreadPoolExecutor(threads, threads, 0L, TimeUnit.MILLISECONDS,
-                            new LinkedBlockingQueue<>(), r -> {
+                            new ArrayBlockingQueue<>(4096), r -> {
                         // 8MB 栈与 JVM 主线程一致：流体/随机 tick 深递归在 1MB 默认栈上会 StackOverflowError
                         Thread t = new Thread(null, r, "PRTS-ChunkEnvTick", 8L * 1024 * 1024);
                         t.setDaemon(true);
                         return t;
-                    });
+                    }, new ThreadPoolExecutor.CallerRunsPolicy());
                     pool = p;
                 }
             }
@@ -126,7 +117,16 @@ public final class ChunkEnvParallelScheduler {
         }
         try {
             if (!latch.await(10L, TimeUnit.SECONDS)) {
-                LOGGER.warn("[chunk-env] parallel tick barrier timeout ({} tasks), continuing", tasks.size());
+                // 超时后任务仍在写区块：绝不带着运行中的 worker 进入后续阶段。
+                // 与 barrier 硬超时同语义：dump 全线程后崩服，防止静默状态撕裂。
+                LOGGER.fatal("[chunk-env] parallel tick barrier timeout ({} tasks); dumping threads", tasks.size());
+                Thread.getAllStackTraces().forEach((thread, stack) -> {
+                    LOGGER.fatal("  thread {} state={}", thread.getName(), thread.getState());
+                    for (StackTraceElement el : stack) {
+                        LOGGER.fatal("    at {}", el);
+                    }
+                });
+                throw new IllegalStateException("[chunk-env] barrier timeout, refusing to continue with running workers");
             }
         } catch (InterruptedException ie) {
             Thread.currentThread().interrupt();
@@ -137,9 +137,9 @@ public final class ChunkEnvParallelScheduler {
         ChunkPos pos = chunk.getPos();
         try {
             // 3×3 区块锁:互斥相邻 chunk 的并发写(流体跨界/邻居更新反应)。
-            long[] keys = lockKeys(pos.x, pos.z);
-            for (long key : keys) {
-                LOCKS.computeIfAbsent(key, k -> new ReentrantLock()).lock();
+            int[] keys = lockKeys(pos.x, pos.z);
+            for (int key : keys) {
+                LOCKS[key].lock();
             }
             try {
                 // per-chunk 派生种子:分布与原版一致,同 chunk 序列可复现。
@@ -155,10 +155,7 @@ public final class ChunkEnvParallelScheduler {
                 }
             } finally {
                 for (int i = keys.length - 1; i >= 0; i--) {
-                    ReentrantLock lock = LOCKS.get(keys[i]);
-                    if (lock != null) {
-                        lock.unlock();
-                    }
+                    LOCKS[keys[i]].unlock();
                 }
             }
         } catch (Throwable t) {
@@ -170,13 +167,13 @@ public final class ChunkEnvParallelScheduler {
     }
 
     /** 3×3 区块锁 key 数组(排序,防死锁)。 */
-    private static long[] lockKeys(int chunkX, int chunkZ) {
-        long[] keys = new long[(1 + 2 * LOCK_RADIUS) * (1 + 2 * LOCK_RADIUS)];
+    private static int[] lockKeys(int chunkX, int chunkZ) {
+        int[] keys = new int[(1 + 2 * LOCK_RADIUS) * (1 + 2 * LOCK_RADIUS)];
         int idx = 0;
         for (int dx = -LOCK_RADIUS; dx <= LOCK_RADIUS; dx++) {
             for (int dz = -LOCK_RADIUS; dz <= LOCK_RADIUS; dz++) {
-                long k = ((long) (chunkX + dx) << 32) ^ (chunkZ + dz & 0xFFFFFFFFL);
-                keys[idx++] = k;
+                long packed = ChunkPos.asLong(chunkX + dx, chunkZ + dz);
+                keys[idx++] = (int) Math.floorMod(packed, (long) LOCK_STRIPES);
             }
         }
         Arrays.sort(keys);
