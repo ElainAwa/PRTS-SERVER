@@ -22,9 +22,14 @@ import org.spongepowered.asm.mixin.injection.Redirect;
 @Mixin(value = AbstractEntityAIStructure.class, remap = false)
 public abstract class AbstractEntityAIStructureMixin_QuietPlacementLog {
 
-    @Redirect(method = "*",
-            at = @At(value = "INVOKE", target = "Lorg/apache/logging/log4j/Logger;error(Ljava/lang/String;Ljava/lang/Object;)V"))
-    private void prts$quietPlacementError(Logger logger, String message, Object arg) {
-        logger.debug(message, arg);
+    @Redirect(method = "structureStep",
+            at = @At(value = "INVOKE", target = "Lorg/apache/logging/log4j/Logger;error(Ljava/lang/String;)V"))
+    private void prts$quietPlacementError(Logger logger, String message) {
+        // 只降 placement 失败日志；其他 error 原样保留
+        if (message != null && message.startsWith("Failed placement at:")) {
+            logger.debug(message);
+        } else {
+            logger.error(message);
+        }
     }
 }
