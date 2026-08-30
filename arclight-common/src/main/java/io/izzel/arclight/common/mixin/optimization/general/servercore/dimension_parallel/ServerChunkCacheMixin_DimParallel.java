@@ -62,7 +62,7 @@ public abstract class ServerChunkCacheMixin_DimParallel implements io.izzel.arcl
      * 20 tick 内只等待一次，其余直接返回空壳（ticket 已在，后台生成继续，
      * 下轮命中收敛），消除高频调用对主线程的拖累。
      */
-    private static final java.util.concurrent.ConcurrentHashMap<Long, Long> PRTS_WAIT_COOLDOWN =
+    private static final java.util.concurrent.ConcurrentHashMap<String, Long> PRTS_WAIT_COOLDOWN =
             new java.util.concurrent.ConcurrentHashMap<>();
 
     /** 超时日志去重（坐标 → 上次警告时间戳），防 isRainingAt 类每 tick 调用刷屏。 */
@@ -192,10 +192,11 @@ public abstract class ServerChunkCacheMixin_DimParallel implements io.izzel.arcl
             ChunkPos pos = new ChunkPos(x, z);
             this.distanceManager.addTicket(PRTS_FORCE_LOAD, pos,
                     ChunkLevel.byStatus(ChunkStatus.FULL), pos);
-            // 高频调用冷却（preview 类每 tick getBlockState）：同坐标 20 tick 内
+            // 高频调用冷却（preview 类每 tick getBlockState）：同维度同坐标 20 tick 内
             // 已等待过 → 直接空壳（ticket 持续，后台生成推进，下轮命中收敛）。
             long gameTime = this.level.getGameTime();
-            Long lastWait = PRTS_WAIT_COOLDOWN.get(key);
+            String cooldownKey = this.level.dimension().location().toString() + '/' + x + '/' + z;
+            Long lastWait = PRTS_WAIT_COOLDOWN.get(cooldownKey);
             if (lastWait != null && gameTime - lastWait < 20L) {
                 cir.setReturnValue(new EmptyLevelChunk(this.level, new ChunkPos(x, z), arclight$voidBiome(this.level)));
                 return;
@@ -204,7 +205,7 @@ public abstract class ServerChunkCacheMixin_DimParallel implements io.izzel.arcl
             if (PRTS_WAIT_COOLDOWN.size() >= 65536) {
                 PRTS_WAIT_COOLDOWN.clear();
             }
-            PRTS_WAIT_COOLDOWN.put(key, gameTime);
+            PRTS_WAIT_COOLDOWN.put(cooldownKey, gameTime);
             // 等待窗口只覆盖「快速可完成」的加载（磁盘读/已生成）：全新块的 FULL 锥域生成
             // 需数秒（mod 结构多），等满超时是纯浪费——调用方（如 twilightforest isRainingAt
             // 每 tick 强制加载）会反复卡死主线程（TPS→1）。短超时快速失败，持久票保证
