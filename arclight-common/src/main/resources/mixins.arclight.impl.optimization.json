@@ -203,6 +203,10 @@
     "servercore.region_parallel.PoiManagerMixin_PoiLock",
     "servercore.region_parallel.GroundPathNavigationMixin_RegionSafe",
     "servercore.region_parallel.PathNavigationRegionMixin_RegionSafe",
-    "servercore.compat.KineticNetworkMixin_Create"
+    "servercore.compat.KineticNetworkMixin_Create",
+    "servercore.compat.KineticTopologyMixin_Create$KineticBlockEntityTopology",
+    "servercore.compat.KineticTopologyMixin_Create$TorquePropagatorTopology",
+    "servercore.compat.KineticTopologyMixin_Create$GeneratorTopology",
+    "servercore.compat.ChainDriveBlockMixin_GuardShapeUpdate"
   ]
 }

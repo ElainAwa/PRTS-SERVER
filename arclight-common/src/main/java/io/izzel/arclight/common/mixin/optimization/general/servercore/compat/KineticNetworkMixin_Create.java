@@ -5,177 +5,282 @@
 
 package io.izzel.arclight.common.mixin.optimization.general.servercore.compat;
 
+import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.simibubi.create.content.kinetics.KineticNetwork;
+import com.simibubi.create.content.kinetics.base.KineticBlockEntity;
+import io.izzel.arclight.common.bridge.core.world.server.ServerChunkCacheRegionBridge;
 import io.izzel.arclight.common.mod.mixins.annotation.LoadIfMod;
+import io.izzel.arclight.common.optimization.general.servercore.DimensionTickManager;
+import io.izzel.arclight.common.optimization.general.servercore.RegionTickManager;
+import io.izzel.arclight.common.optimization.general.servercore.compat.KineticNetworkRepairBridge;
+import io.izzel.arclight.common.optimization.general.servercore.compat.KineticTopologyLock;
+import net.minecraft.server.level.ServerLevel;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
-import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.locks.ReentrantLock;
 
 /**
- * Create 的 KineticNetwork 是每维度全局可变结构（sources/members 两张 Map
- * 与 capacity/stress 字段），被维度 worker 的方块实体 tick 与主线程玩家交互
- * 并发读写，造成状态损坏。为每个网络实例加一把锁，通过 HEAD/RETURN 双注入
- * 串行化这些入口，避免并发损坏。仅 Create 加载时生效，单线程下无额外开销。
+ * KineticNetwork 实例锁（L2）。所有方法 try/finally 解锁；remove 因其内部
+ * 访问 TorquePropagator.networks 全局表，先取拓扑锁（L1）再取本锁。
  */
 @LoadIfMod(modid = "create", condition = LoadIfMod.ModCondition.PRESENT)
 @Mixin(value = KineticNetwork.class, remap = false)
-public abstract class KineticNetworkMixin_Create {
+public abstract class KineticNetworkMixin_Create implements KineticNetworkRepairBridge {
 
     @Unique
     private final ReentrantLock arclight$kineticLock = new ReentrantLock();
 
-    @Inject(method = "initFromTE", at = @At("HEAD"), remap = false)
-    private void arclight$lockInitFromTE(CallbackInfo ci) {
+    @Shadow
+    private float currentCapacity;
+
+    @Shadow
+    private float currentStress;
+
+    @Shadow
+    public Map<KineticBlockEntity, Float> sources;
+
+    @Shadow
+    public Map<KineticBlockEntity, Float> members;
+
+    @WrapMethod(method = "initFromTE")
+    private void arclight$wrapInitFromTE(float capacity, float stress, int size, Operation<Void> original) {
         this.arclight$kineticLock.lock();
+        try {
+            original.call(capacity, stress, size);
+        } finally {
+            this.arclight$kineticLock.unlock();
+        }
     }
 
-    @Inject(method = "initFromTE", at = @At("RETURN"), remap = false)
-    private void arclight$unlockInitFromTE(CallbackInfo ci) {
-        this.arclight$kineticLock.unlock();
-    }
-
-    @Inject(method = "addSilently", at = @At("HEAD"), remap = false)
-    private void arclight$lockAddSilently(CallbackInfo ci) {
+    @WrapMethod(method = "addSilently")
+    private void arclight$wrapAddSilently(KineticBlockEntity be, float capacity, float stress,
+                                          Operation<Void> original) {
         this.arclight$kineticLock.lock();
+        try {
+            original.call(be, capacity, stress);
+        } finally {
+            this.arclight$kineticLock.unlock();
+        }
     }
 
-    @Inject(method = "addSilently", at = @At("RETURN"), remap = false)
-    private void arclight$unlockAddSilently(CallbackInfo ci) {
-        this.arclight$kineticLock.unlock();
-    }
-
-    @Inject(method = "add", at = @At("HEAD"), remap = false)
-    private void arclight$lockAdd(CallbackInfo ci) {
+    @WrapMethod(method = "add")
+    private void arclight$wrapAdd(KineticBlockEntity be, Operation<Void> original) {
         this.arclight$kineticLock.lock();
+        try {
+            original.call(be);
+        } finally {
+            this.arclight$kineticLock.unlock();
+        }
     }
 
-    @Inject(method = "add", at = @At("RETURN"), remap = false)
-    private void arclight$unlockAdd(CallbackInfo ci) {
-        this.arclight$kineticLock.unlock();
-    }
-
-    @Inject(method = "updateCapacityFor", at = @At("HEAD"), remap = false)
-    private void arclight$lockUpdateCapacityFor(CallbackInfo ci) {
+    @WrapMethod(method = "updateCapacityFor")
+    private void arclight$wrapUpdateCapacityFor(KineticBlockEntity be, float capacity,
+                                                Operation<Void> original) {
         this.arclight$kineticLock.lock();
+        try {
+            original.call(be, capacity);
+        } finally {
+            this.arclight$kineticLock.unlock();
+        }
     }
 
-    @Inject(method = "updateCapacityFor", at = @At("RETURN"), remap = false)
-    private void arclight$unlockUpdateCapacityFor(CallbackInfo ci) {
-        this.arclight$kineticLock.unlock();
-    }
-
-    @Inject(method = "updateStressFor", at = @At("HEAD"), remap = false)
-    private void arclight$lockUpdateStressFor(CallbackInfo ci) {
+    @WrapMethod(method = "updateStressFor")
+    private void arclight$wrapUpdateStressFor(KineticBlockEntity be, float stress,
+                                              Operation<Void> original) {
         this.arclight$kineticLock.lock();
+        try {
+            original.call(be, stress);
+        } finally {
+            this.arclight$kineticLock.unlock();
+        }
     }
 
-    @Inject(method = "updateStressFor", at = @At("RETURN"), remap = false)
-    private void arclight$unlockUpdateStressFor(CallbackInfo ci) {
-        this.arclight$kineticLock.unlock();
+    @WrapMethod(method = "remove")
+    private void arclight$wrapRemove(KineticBlockEntity be, Operation<Void> original) {
+        KineticTopologyLock.LOCK.lock();
+        try {
+            this.arclight$kineticLock.lock();
+            try {
+                original.call(be);
+            } finally {
+                this.arclight$kineticLock.unlock();
+            }
+        } finally {
+            KineticTopologyLock.LOCK.unlock();
+        }
     }
 
-    @Inject(method = "remove", at = @At("HEAD"), remap = false)
-    private void arclight$lockRemove(CallbackInfo ci) {
+    @WrapMethod(method = "sync")
+    private void arclight$wrapSync(Operation<Void> original) {
         this.arclight$kineticLock.lock();
+        try {
+            original.call();
+        } finally {
+            this.arclight$kineticLock.unlock();
+        }
     }
 
-    @Inject(method = "remove", at = @At("RETURN"), remap = false)
-    private void arclight$unlockRemove(CallbackInfo ci) {
-        this.arclight$kineticLock.unlock();
-    }
-
-    @Inject(method = "sync", at = @At("HEAD"), remap = false)
-    private void arclight$lockSync(CallbackInfo ci) {
+    @WrapMethod(method = "updateCapacity")
+    private void arclight$wrapUpdateCapacity(Operation<Void> original) {
         this.arclight$kineticLock.lock();
+        try {
+            original.call();
+        } finally {
+            this.arclight$kineticLock.unlock();
+        }
     }
 
-    @Inject(method = "sync", at = @At("RETURN"), remap = false)
-    private void arclight$unlockSync(CallbackInfo ci) {
-        this.arclight$kineticLock.unlock();
-    }
-
-    @Inject(method = "updateCapacity", at = @At("HEAD"), remap = false)
-    private void arclight$lockUpdateCapacity(CallbackInfo ci) {
+    @WrapMethod(method = "updateStress")
+    private void arclight$wrapUpdateStress(Operation<Void> original) {
         this.arclight$kineticLock.lock();
+        try {
+            original.call();
+        } finally {
+            this.arclight$kineticLock.unlock();
+        }
     }
 
-    @Inject(method = "updateCapacity", at = @At("RETURN"), remap = false)
-    private void arclight$unlockUpdateCapacity(CallbackInfo ci) {
-        this.arclight$kineticLock.unlock();
-    }
-
-    @Inject(method = "updateStress", at = @At("HEAD"), remap = false)
-    private void arclight$lockUpdateStress(CallbackInfo ci) {
+    @WrapMethod(method = "updateNetwork")
+    private void arclight$wrapUpdateNetwork(Operation<Void> original) {
         this.arclight$kineticLock.lock();
+        try {
+            original.call();
+            // 修复性重算：有源有成员但缓存容量非正，直接重算并同步
+            if (this.currentCapacity <= 0f && this.members.size() > 0 && this.sources.size() > 0) {
+                ((KineticNetwork) (Object) this).updateCapacity();
+            }
+        } finally {
+            this.arclight$kineticLock.unlock();
+        }
     }
 
-    @Inject(method = "updateStress", at = @At("RETURN"), remap = false)
-    private void arclight$unlockUpdateStress(CallbackInfo ci) {
-        this.arclight$kineticLock.unlock();
+    @Unique
+    private static boolean arclight$isWorker() {
+        return RegionTickManager.isRegionWorker() || DimensionTickManager.isDimensionTickThread();
     }
 
-    @Inject(method = "updateNetwork", at = @At("HEAD"), remap = false)
-    private void arclight$lockUpdateNetwork(CallbackInfo ci) {
+    @Unique
+    private boolean arclight$hasNonLiveMember(Iterable<KineticBlockEntity> tes) {
+        for (KineticBlockEntity be : tes) {
+            if (be.getLevel() instanceof ServerLevel level
+                    && level.getChunkSource() instanceof ServerChunkCacheRegionBridge bridge
+                    && !bridge.arclight$hasLiveChunk(be.getBlockPos().getX() >> 4, be.getBlockPos().getZ() >> 4)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    @WrapMethod(method = "calculateCapacity")
+    private float arclight$wrapCalculateCapacity(Operation<Float> original) {
         this.arclight$kineticLock.lock();
+        try {
+            // worker 上源区块未 FULL 时跳过重算：原版 identity 清理会误删源并缓存 0 容量
+            if (arclight$isWorker() && arclight$hasNonLiveMember(this.sources.keySet())) {
+                return this.currentCapacity;
+            }
+            return original.call();
+        } finally {
+            this.arclight$kineticLock.unlock();
+        }
     }
 
-    @Inject(method = "updateNetwork", at = @At("RETURN"), remap = false)
-    private void arclight$unlockUpdateNetwork(CallbackInfo ci) {
-        this.arclight$kineticLock.unlock();
-    }
-
-    @Inject(method = "calculateCapacity", at = @At("HEAD"), remap = false)
-    private void arclight$lockCalculateCapacity(CallbackInfoReturnable<Float> cir) {
+    @WrapMethod(method = "calculateStress")
+    private float arclight$wrapCalculateStress(Operation<Float> original) {
         this.arclight$kineticLock.lock();
+        try {
+            // 同上：跳过会误删成员的 identity 清理，保留上一缓存值
+            if (arclight$isWorker() && arclight$hasNonLiveMember(this.members.keySet())) {
+                return this.currentStress;
+            }
+            return original.call();
+        } finally {
+            this.arclight$kineticLock.unlock();
+        }
     }
 
-    @Inject(method = "calculateCapacity", at = @At("RETURN"), remap = false)
-    private void arclight$unlockCalculateCapacity(CallbackInfoReturnable<Float> cir) {
-        this.arclight$kineticLock.unlock();
-    }
-
-    @Inject(method = "calculateStress", at = @At("HEAD"), remap = false)
-    private void arclight$lockCalculateStress(CallbackInfoReturnable<Float> cir) {
+    @WrapMethod(method = "getActualCapacityOf")
+    private float arclight$wrapGetActualCapacityOf(KineticBlockEntity be, Operation<Float> original) {
         this.arclight$kineticLock.lock();
+        try {
+            return original.call(be);
+        } finally {
+            this.arclight$kineticLock.unlock();
+        }
     }
 
-    @Inject(method = "calculateStress", at = @At("RETURN"), remap = false)
-    private void arclight$unlockCalculateStress(CallbackInfoReturnable<Float> cir) {
-        this.arclight$kineticLock.unlock();
-    }
-
-    @Inject(method = "getActualCapacityOf", at = @At("HEAD"), remap = false)
-    private void arclight$lockGetActualCapacityOf(CallbackInfoReturnable<Float> cir) {
+    @WrapMethod(method = "getActualStressOf")
+    private float arclight$wrapGetActualStressOf(KineticBlockEntity be, Operation<Float> original) {
         this.arclight$kineticLock.lock();
+        try {
+            return original.call(be);
+        } finally {
+            this.arclight$kineticLock.unlock();
+        }
     }
 
-    @Inject(method = "getActualCapacityOf", at = @At("RETURN"), remap = false)
-    private void arclight$unlockGetActualCapacityOf(CallbackInfoReturnable<Float> cir) {
-        this.arclight$kineticLock.unlock();
-    }
-
-    @Inject(method = "getActualStressOf", at = @At("HEAD"), remap = false)
-    private void arclight$lockGetActualStressOf(CallbackInfoReturnable<Float> cir) {
+    @WrapMethod(method = "getSize")
+    private int arclight$wrapGetSize(Operation<Integer> original) {
         this.arclight$kineticLock.lock();
+        try {
+            return original.call();
+        } finally {
+            this.arclight$kineticLock.unlock();
+        }
     }
 
-    @Inject(method = "getActualStressOf", at = @At("RETURN"), remap = false)
-    private void arclight$unlockGetActualStressOf(CallbackInfoReturnable<Float> cir) {
-        this.arclight$kineticLock.unlock();
-    }
-
-    @Inject(method = "getSize", at = @At("HEAD"), remap = false)
-    private void arclight$lockGetSize(CallbackInfoReturnable<Integer> cir) {
+    @Override
+    public boolean prts$repairCapacityIfNeeded() {
         this.arclight$kineticLock.lock();
+        try {
+            if (this.sources.isEmpty() || this.members.isEmpty() || this.currentCapacity > 0f) {
+                return this.currentCapacity > 0f;
+            }
+            ((KineticNetwork) (Object) this).updateCapacity();
+            return this.currentCapacity > 0f;
+        } finally {
+            this.arclight$kineticLock.unlock();
+        }
     }
 
-    @Inject(method = "getSize", at = @At("RETURN"), remap = false)
-    private void arclight$unlockGetSize(CallbackInfoReturnable<Integer> cir) {
-        this.arclight$kineticLock.unlock();
+    @Override
+    public boolean prts$needsSourceHeal() {
+        this.arclight$kineticLock.lock();
+        try {
+            return this.sources.isEmpty() && !this.members.isEmpty();
+        } finally {
+            this.arclight$kineticLock.unlock();
+        }
+    }
+
+    @Override
+    public boolean prts$resetSourceLessNetwork() {
+        KineticTopologyLock.LOCK.lock();
+        try {
+            this.arclight$kineticLock.lock();
+            try {
+                if (!this.sources.isEmpty() || this.members.isEmpty()) {
+                    return false;
+                }
+                List<KineticBlockEntity> snapshot = new ArrayList<>(this.members.keySet());
+                for (KineticBlockEntity be : snapshot) {
+                    ((KineticNetwork) (Object) this).remove(be);
+                    be.clearKineticInformation();
+                    // 保持脱离：无源碎片终态是停转；等真正有源侧传播到来再重新挂接
+                    be.updateSpeed = false;
+                }
+                return true;
+            } finally {
+                this.arclight$kineticLock.unlock();
+            }
+        } finally {
+            KineticTopologyLock.LOCK.unlock();
+        }
     }
 }
