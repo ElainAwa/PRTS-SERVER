@@ -18,12 +18,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-/**
- * 并行 worker 上放行 {@code Level.getBlockEntity}：vanilla 硬性线程守卫
- * （非主线程直接返回 null）会让区域 worker 上的实体（殖民地 NPC 等）拿不到
- * 方块实体而自毁。worker 路径改为非阻塞读活区块（visible/updating 已完成
- * future），区块未加载时返回 null，与 vanilla 语义一致。
- */
+/** worker 只读放行 getBlockEntity：读活区块已存在 BE，未加载返回 null。 */
 @Mixin(Level.class)
 public abstract class LevelMixin_WorkerBlockEntityRead {
 
@@ -41,7 +36,8 @@ public abstract class LevelMixin_WorkerBlockEntityRead {
         if (self.getChunkSource() instanceof ServerChunkCacheRegionBridge bridge) {
             ChunkAccess chunk = bridge.arclight$getChunkForRead(pos.getX() >> 4, pos.getZ() >> 4);
             if (chunk instanceof LevelChunk levelChunk) {
-                cir.setReturnValue(levelChunk.getBlockEntity(pos, LevelChunk.EntityCreationType.IMMEDIATE));
+                // 只读已存在 BE；worker 不能创建/注册方块实体
+                cir.setReturnValue(levelChunk.getBlockEntity(pos, LevelChunk.EntityCreationType.CHECK));
             } else {
                 cir.setReturnValue(null);
             }
