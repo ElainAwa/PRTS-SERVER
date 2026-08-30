@@ -200,6 +200,10 @@ public abstract class ServerChunkCacheMixin_DimParallel implements io.izzel.arcl
                 cir.setReturnValue(new EmptyLevelChunk(this.level, new ChunkPos(x, z), arclight$voidBiome(this.level)));
                 return;
             }
+            // 上限保护：冷却表是 per-chunk 长生命周期诊断数据，防止长期运行无界增长
+            if (PRTS_WAIT_COOLDOWN.size() >= 65536) {
+                PRTS_WAIT_COOLDOWN.clear();
+            }
             PRTS_WAIT_COOLDOWN.put(key, gameTime);
             // 等待窗口只覆盖「快速可完成」的加载（磁盘读/已生成）：全新块的 FULL 锥域生成
             // 需数秒（mod 结构多），等满超时是纯浪费——调用方（如 twilightforest isRainingAt
