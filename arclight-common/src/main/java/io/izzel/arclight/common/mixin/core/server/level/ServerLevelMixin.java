@@ -543,11 +543,11 @@ public abstract class ServerLevelMixin extends LevelMixin implements ServerLevel
         return Iterators.filter(raw, it -> it != null && ((ServerPlayerBridge)it).bridge$getBukkitEntity().canSee(player.bridge$getBukkitEntity()));
     }
 
-    @Redirect(method = "sendBlockUpdated",
+    @Decorate(method = "sendBlockUpdated",
             at = @At(value = "INVOKE", target = "Ljava/util/Set;iterator()Ljava/util/Iterator;"))
-    private Iterator<Mob> arclight$snapshotNavigatingMobs(Set<Mob> instance) {
+    private Iterator<Mob> arclight$snapshotNavigatingMobs(Set<Mob> instance) throws Throwable {
         if (!PRTSFeaturesConfig.parallelDimension && !PRTSFeaturesConfig.parallelRegion) {
-            return instance.iterator();
+            return (Iterator<Mob>) DecorationOps.callsite().invoke(instance);
         }
         // 并行开启时 navigatingMobs 的写侧在 EntityCallbacks mixin 里已对集合加锁，
         // 读侧必须用同一把锁做快照，否则 fastutil 集合 rehash 会让迭代器 wrapped 变 null。

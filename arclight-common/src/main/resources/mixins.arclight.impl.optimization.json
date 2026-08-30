@@ -35,6 +35,8 @@
     "servercore.ServerWatchdogMixin_BarrierAware",
     "servercore.SmartBlockEntityMixin_MainThreadInit",
     "servercore.compat.VoxelNeighborhoodStateMixin_Sable",
+    "servercore.compat.SableNativeSerializationMixin$RapierPhysicsPipelineLock",
+    "servercore.compat.SableNativeSerializationMixin$RapierRopeHandleLock",
     "servercore.compat.FunnelBlockMixin_Create",
     "servercore.compat.BeltBlockMixin_Create",
     "servercore.compat.TrackBlockEntityMixin_LazySpread",
