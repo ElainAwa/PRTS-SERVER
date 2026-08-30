@@ -35,6 +35,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -82,6 +84,14 @@ import java.util.concurrent.atomic.AtomicInteger;
 public final class ChunkSystemDriver {
 
     private static final Logger LOGGER = LogManager.getLogger("PRTS-ChunkSystem");
+
+    /** park 挂起超时诊断的共享调度器（守护线程，仅诊断用）。 */
+    private static final ScheduledExecutorService PARK_DIAG =
+            Executors.newSingleThreadScheduledExecutor(r -> {
+                Thread thread = new Thread(r, "PRTS-ChunkSystem-ParkDiag");
+                thread.setDaemon(true);
+                return thread;
+            });
 
     /**
      * §7-g 全局共享驱动任务表：跨驱动器收敛同一 (dimension, x, z, statusIndex) 的
@@ -382,6 +392,8 @@ public final class ChunkSystemDriver {
         private long suspendNanos;
         private long enqueuedAtNanos;
         private int parks;
+        /** park 超时诊断只打一次。 */
+        private final AtomicBoolean parkDiag = new AtomicBoolean(false);
         /** 当前挂起原因（诊断遥测，run 首行清除）。 */
         private String parkReason;
 
@@ -422,6 +434,20 @@ public final class ChunkSystemDriver {
             if (this.parkReason == null) {
                 this.parkReason = reason;
                 ChunkSystemStats.parkStart(reason);
+            }
+            // 诊断：挂起 10s 未恢复时打一条 WARN（一次性），直接暴露任务图断链点
+            //（任务永久挂哪个门：empty/prev/deps/fullNeighbors/decision）。
+            // 生产实测：FULL 任务挂 fullNeighbors 等邻居 FEATURES future 的场景。
+            if (this.parkDiag.compareAndSet(false, true)) {
+                final long parkAt = System.nanoTime();
+                PARK_DIAG.schedule(() -> {
+                    if (this.parkReason != null && reason.equals(this.parkReason)) {
+                        LOGGER.warn("[chunk-system] M2 task parked {}/{} {}s @ {} (dim={}) futureDone={} inQueued={} parks={}",
+                                this.status, reason, (System.nanoTime() - parkAt) / 1_000_000_000L,
+                                this.holder.getPos(), dimension.location(),
+                                this.future.isDone(), this.inQueued.get(), this.parks);
+                    }
+                }, 10, TimeUnit.SECONDS);
             }
             gate.whenComplete((result, throwable) -> this.enqueue());
         }

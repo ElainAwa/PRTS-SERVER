@@ -8,6 +8,7 @@ package io.izzel.arclight.common.mixin.optimization.general.servercore.compat;
 import com.simibubi.create.content.kinetics.deployer.DeployerBlockEntity;
 import com.simibubi.create.content.kinetics.deployer.DeployerFakePlayer;
 import io.izzel.arclight.common.mod.mixins.annotation.LoadIfMod;
+import io.izzel.arclight.common.optimization.general.servercore.compat.DeployerTimerAccessor;
 import net.minecraft.server.level.ServerLevel;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -24,7 +25,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  */
 @LoadIfMod(modid = "create", condition = LoadIfMod.ModCondition.PRESENT)
 @Mixin(value = DeployerBlockEntity.class, remap = false)
-public abstract class DeployerBlockEntityMixin_EnsurePlayer {
+public abstract class DeployerBlockEntityMixin_EnsurePlayer implements DeployerTimerAccessor {
 
     @Shadow(remap = false)
     private DeployerFakePlayer player;

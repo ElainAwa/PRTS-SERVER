@@ -8,6 +8,7 @@ package io.izzel.arclight.common.mixin.optimization.general.servercore.compat;
 import com.simibubi.create.content.kinetics.deployer.BeltDeployerCallbacks;
 import com.simibubi.create.content.kinetics.deployer.DeployerBlockEntity;
 import io.izzel.arclight.common.mod.mixins.annotation.LoadIfMod;
+import io.izzel.arclight.common.optimization.general.servercore.compat.DeployerTimerAccessor;
 import net.minecraft.util.Mth;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -44,14 +45,16 @@ public abstract class BeltDeployerCallbacksMixin_TimerTolerance {
                     target = "Lcom/simibubi/create/content/kinetics/deployer/DeployerBlockEntity;timer:I"))
     private static int prts$tolerateTimerWindow(DeployerBlockEntity deployer) {
         // 原 ==1000 判定放宽为回程起始窗口 [1000-step, 1000]
-        int timer = ((DeployerBlockEntityMixin_EnsurePlayer) (Object) deployer).prts$getTimer();
+        // （经独立接口访问，不直接引用另一个 mixin 类——交叉引用在类加载
+        // 顺序不利时 mixin 应用会 FATAL，生产实测）
+        DeployerTimerAccessor acc = (DeployerTimerAccessor) (Object) deployer;
+        int timer = acc.prts$getTimer();
         if (deployer.getLevel() == null) {
             return timer;
         }
         float speed = deployer.getSpeed();
         int step = (int) Mth.clamp(Math.abs(speed) * 2.0F, 8.0F, 512.0F); // 与 getTimerSpeed 一致
         if (step > 0 && timer <= 1000 && timer >= 1000 - step) {
-            DeployerBlockEntityMixin_EnsurePlayer acc = (DeployerBlockEntityMixin_EnsurePlayer) (Object) deployer;
             long now = deployer.getLevel().getGameTime();
             long last = acc.prts$getLastBeltActivationTick();
             if (now - last >= 2L) {

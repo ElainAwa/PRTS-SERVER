@@ -188,6 +188,14 @@ public abstract class ServerChunkCacheMixin_DimParallel implements io.izzel.arcl
             boolean schedWarned = false;
             while (System.nanoTime() < deadline) {
                 this.runDistanceManagerUpdates();
+                // 等待期间推进生成泵：M2 图与 reschedule 消化的推进依赖
+                // runGenerationTasks（原版每 tick 一次），主线程卡 5ms 等待时
+                // tick 次数下降 → 图推进变慢 → 生成更慢 → 等待更多（正反馈）。
+                // 循环内直接泵一轮：drain 是幂等的，重复调用安全，打破恶性循环。
+                try {
+                    this.chunkMap.runGenerationTasks();
+                } catch (Throwable ignored) {
+                }
                 ChunkHolder holder = this.chunkMap.visibleChunkMap.get(key);
                 if (holder == null) {
                     holder = this.chunkMap.updatingChunkMap.get(key);
