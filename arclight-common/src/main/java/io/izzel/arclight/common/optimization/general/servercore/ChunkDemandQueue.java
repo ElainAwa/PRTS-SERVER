@@ -24,11 +24,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
-/**
- * 统一异步 Chunk 需求调度：所有线程的 chunk 生成请求异步提交，未就绪时注册等待 future 并返回空壳占位，
- * 生成完成后经 completeChunk 通知等待者；支持按提交时到最近玩家距离分 4 桶优先消费（默认关，
- * {@code parallel.chunk-demand-player-priority}），低桶队头超龄优先消费防饿死。
- */
+/** 统一异步区块需求调度：提交等待、按玩家距离分桶、主线程限量消费。 */
 public final class ChunkDemandQueue {
 
     private static final Logger LOGGER = LogManager.getLogger("PRTS-ChunkDemand");
@@ -63,11 +59,7 @@ public final class ChunkDemandQueue {
     private ChunkDemandQueue() {
     }
 
-    /**
-     * 提交 chunk 需求并注册等待 future。immediate=true（主线程调用）时立即调度生成
-     * （worldgen 异步执行，完成后经 completeChunk 通知）；否则仅入队，由主线程 tick
-     * 消费。生成完成后 future 会被 completeChunk 完成（可 await 有界等待）。
-     */
+    /** 提交需求并注册等待 future；主线程立即调度，否则入队由 tick 消费。 */
     public static CompletableFuture<ChunkAccess> submitWait(ServerLevel level, ChunkMap chunkMap, int x, int z, boolean immediate) {
         DemandKey key = new DemandKey(level, ChunkPos.asLong(x, z));
         CompletableFuture<ChunkAccess> future = new CompletableFuture<>();
@@ -78,16 +70,17 @@ public final class ChunkDemandQueue {
             waiters.add(future);
             return waiters;
         });
-        submit(level, chunkMap, key, x, z, immediate);
+        submit(level, chunkMap, key, x, z, immediate, future);
         return future;
     }
 
     /** 提交无需等待结果的 chunk 需求。 */
     public static void submit(ServerLevel level, ChunkMap chunkMap, int x, int z, boolean immediate) {
-        submit(level, chunkMap, new DemandKey(level, ChunkPos.asLong(x, z)), x, z, immediate);
+        submit(level, chunkMap, new DemandKey(level, ChunkPos.asLong(x, z)), x, z, immediate, null);
     }
 
-    private static void submit(ServerLevel level, ChunkMap chunkMap, DemandKey key, int x, int z, boolean immediate) {
+    private static void submit(ServerLevel level, ChunkMap chunkMap, DemandKey key, int x, int z,
+                               boolean immediate, CompletableFuture<ChunkAccess> waiter) {
         if (immediate) {
             try {
                 chunkMap.scheduleGenerationTask(ChunkStatus.FULL, new ChunkPos(x, z));
@@ -107,6 +100,10 @@ public final class ChunkDemandQueue {
                 SEEN.remove(key);
                 DROPPED.incrementAndGet();
                 ChunkLoadStats.demandDropped();
+                if (waiter != null) {
+                    waiter.complete(null);
+                    removeWaiter(key, waiter);
+                }
                 return;
             }
             if (PENDING_COUNT.compareAndSet(pending, pending + 1)) {
@@ -119,12 +116,13 @@ public final class ChunkDemandQueue {
         ChunkLoadStats.demandSubmitted();
     }
 
-    /**
-     * 分桶（0=最近 → 3=最远/未知）。只有主线程才读 players() 算真实距离；
-     * worker 线程提交（或优先级关闭）一律落桶3，避免跨线程读玩家列表。
-     */
+    /** 按玩家距离分桶；主线程以外提交落最远桶。 */
     private static int assignBucket(ServerLevel level, int x, int z) {
-        if (!playerPriorityEnabled || !level.getServer().isSameThread()) {
+        // 关闭优先级时全部进桶0，poll 也只消费桶0
+        if (!playerPriorityEnabled) {
+            return 0;
+        }
+        if (!level.getServer().isSameThread()) {
             return 3;
         }
         int min = Integer.MAX_VALUE;
@@ -216,24 +214,18 @@ public final class ChunkDemandQueue {
             }
         }
         if (demand == null) {
-            if (queues.isEmpty()) {
-                PENDING.remove(level, queues);
-            }
+            // 不移除 PENDING：避免与 worker submit 的 check-then-remove 竞态
             return null;
         }
         PENDING_COUNT.decrementAndGet();
+        // 消费即清去重：失败的加载允许下一 tick 重新提交，SEEN 不会无限积压
+        SEEN.remove(demand.key());
         return demand.pos();
     }
 
-    /** drain 结束后调用：当前 ServerLevel 队列清空时重置其去重记录。 */
+    /** drain 结束后调用：去重随 poll 消费即时清理，这里不再做全局移除（避免与 submit 竞态）。 */
     public static void afterDrain(ServerLevel level) {
-        BucketQueues queues = PENDING.get(level);
-        if (queues == null || queues.isEmpty()) {
-            if (queues != null) {
-                PENDING.remove(level, queues);
-            }
-            SEEN.removeIf(key -> key.level() == level);
-        }
+        // no-op retained for call-site compatibility
     }
 
     private static void removeWaiter(DemandKey key, CompletableFuture<ChunkAccess> future) {

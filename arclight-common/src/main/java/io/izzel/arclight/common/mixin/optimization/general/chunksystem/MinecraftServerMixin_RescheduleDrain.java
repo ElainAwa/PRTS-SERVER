@@ -13,12 +13,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-/**
- * waitUntilNextTick（spawn 准备循环/空闲等待）时消化 M2 挂起的生成重调度：
- * vanilla 生成链由 worldgen worker 自驱，M2 的后续层提交依赖主线程消化
- * deferReschedule，而 spawn 准备阶段主线程不跑 runGenerationTasks →
- * 生成链断裂（Preparing spawn area 卡 0%）。在此统一消化，推进生成链。
- */
+/** 空闲等待时消化延迟的生成重调度，保持生成链推进。 */
 @Mixin(MinecraftServer.class)
 public abstract class MinecraftServerMixin_RescheduleDrain {
 
@@ -27,7 +22,15 @@ public abstract class MinecraftServerMixin_RescheduleDrain {
         MinecraftServer server = (MinecraftServer) (Object) this;
         for (ServerLevel level : server.getAllLevels()) {
             if (level.getChunkSource() instanceof ServerChunkCacheRegionBridge bridge) {
-                bridge.arclight$drainDeferredReschedules();
+                // 与维度 worker 的生成驱动共用属主锁，避免并发驱动 vanilla ChunkMap 管线
+                java.util.concurrent.locks.ReentrantLock genLock =
+                        io.izzel.arclight.common.optimization.general.servercore.ChunkGenerationOwnerLock.lock(level);
+                genLock.lock();
+                try {
+                    bridge.arclight$drainDeferredReschedules();
+                } finally {
+                    genLock.unlock();
+                }
             }
         }
     }
