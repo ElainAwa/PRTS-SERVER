@@ -1321,8 +1321,13 @@ public final class RegionTickManager {
             st.budgetUsed.increment();
         }
         // observedState：产生时的位置状态，应用时比对——已被主线程修改（玩家放置等）则跳过，
-        // 防止 journal 落地覆盖新放置（"刚放的方块消失"）。
-        BlockState observed = level.getBlockState(pos);
+        // 防止 journal 落地覆盖新放置（"刚放的方块消失"）。目标区块未 live 时不采样，
+        // 避免空壳读成空气导致合法写入被误丢。
+        BlockState observed = null;
+        if (level.getChunkSource() instanceof ServerChunkCacheRegionBridge bridge
+                && bridge.arclight$hasLiveChunk(pos.getX() >> 4, pos.getZ() >> 4)) {
+            observed = level.getBlockState(pos);
+        }
         st.journal.submit(target, new WorldWriteJournal.Entry(pos, state, flags, tick, source, observed));
         STATS.increment("cross.block");
         if (isRedstone(state.getBlock())) {
