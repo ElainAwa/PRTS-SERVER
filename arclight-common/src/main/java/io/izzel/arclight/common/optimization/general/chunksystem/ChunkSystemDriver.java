@@ -36,51 +36,12 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
-/**
- * 区块系统状态机驱动器（M2.1：细粒度「单区块×单状态」任务图）。
- *
- * <p>M1 把整个 {@link ChunkGenerationTask} 当一个调度单元（层屏障波前：
- * 吞吐 ≈ 波前宽度 ÷ 关键路径延迟，加算力无效）。本驱动器把它分解为
- * per-(holder, status) 的 {@link StatusStepTask}，任务间依赖即
- * {@link ChunkPyramid} 各步 {@code directDependencies}（运行时直读——与
- * {@code WorldGenRegion.getChunk} 的读合法性检查是同一张表，门控与读
- * 逐位同构）+ 自身前序状态 future（{@code ChunkMap.applyStep} 的
- * 「Parent chunk missing」前置）。
- *
- * <p>锁：按 M2.0-2 审计表的每步写半径（FEATURES ±2 实测、
- * STRUCTURE_STARTS ±1 保守、其余中心块），对照 M1 的 features→FULL 统一
- * 5×5 是重大并行度解锁。执行器复用 M1 的 {@link ExecutorManager}
- * （优先级队列 + 锁令牌排队 + listener 重入队）。
- *
- * <p>锥域持有：复用被拦截 {@code ChunkGenerationTask.create()} 已 acquire 的
- * cache 与 generation refCount（{@code ChunkMap.acquireGeneration} 对缺失
- * holder 会 NPE，不可重新 acquire）；本驱动器物化的全部 future 结算后
- * {@code releaseClaim}，与原版「全部已调度层 future 完成才释放」语义对齐
- * （pendingCount 归零判定，决策本身占一个计数位防提前释放）。
- *
- * <p>加载/生成分流：复刻原版 {@code scheduleNextLayer} 两段语义——先按
- * LOADING 锥域半径调度 EMPTY 层，内圈 EMPTY 全结算后跑
- * {@code canLoadWithoutGeneration}（逐字移植）决定 needsGeneration；
- * 需要生成则扩 EMPTY 到生成锥域半径，再按对应金字塔的层半径展开任务图。
- * 每任务的金字塔选择复刻 {@code scheduleChunkInLayer} 的 per-holder 规则
- * （{@code persisted != null && status.isAfter(persisted) → GENERATION}），
- * 选择时机在自身 EMPTY future 完成后（persisted 才可见）。
- *
- * <p>去重与失败：{@code acquireStatusBump} CAS 保证每块每步只执行一次
- * （多驱动器/外部路径并发推进同一 future 无害，败者等待）；future 失败
- * （UNLOADED 等）经门控 whenComplete 正常传播，各任务按原版机制排空。
- *
- * <p>跨线程 future 请求（突发风暴死锁修复，2026-08-25）：任务图在 worker 线程
- * 请求邻居 future 时，原版公开 {@code scheduleChunkGenerationTask} 的 reschedule 分支
- * （邻居无足够目标的驱动任务 → 新建生成任务进 pending 队列）不可用（非线程安全），
- * 而私有 {@code getOrCreateFuture} 只物化 future 不建驱动者——邻居永无人驱动则门控永挂。
- * {@link #futureFor} 复刻该分支：检测到缺驱动者时经 {@link PRTSChunkMapRescheduleAware}
- * 延迟投递到维度事件循环线程消化（{@code runGenerationTasks()} 冲刷前）。
- */
+/** 单区块×单状态任务图驱动器：细粒度调度生成步骤，依赖与锁按写半径展开。 */
 public final class ChunkSystemDriver {
 
     private static final Logger LOGGER = LogManager.getLogger("PRTS-ChunkSystem");
@@ -93,24 +54,23 @@ public final class ChunkSystemDriver {
                 return thread;
             });
 
-    /**
-     * §7-g 全局共享驱动任务表：跨驱动器收敛同一 (dimension, x, z, statusIndex) 的
-     * 驱动任务。风暴下各驱动器锥域高度重叠，per-driver 任务表会把同一 (holder,status)
-     * 重复驱动（449 FULL 块出 8295 任务/29 万次 run）；共享后调度 churn 显著下降。
-     * 任务对象全局唯一，{@code inQueued} 单入队 + 门控天然去重。
-     */
+    /** 全局共享驱动任务表：跨驱动器去重，任务对象唯一。 */
     private static final ConcurrentHashMap<TaskKey, StatusStepTask> SHARED_TASKS = new ConcurrentHashMap<>();
 
     /** 全局重调度请求去重：防多个驱动器对未来重复投递 reschedule（跨驱动器去重）。 */
     private static final ConcurrentHashMap.KeySetView<TaskKey, Boolean> SHARED_DEFERRED =
             ConcurrentHashMap.newKeySet();
 
-    /** Blender 旧区块探测预热的专用单线程：把首次 per-region 的 I/O 扫描移出 M2 worker 关键路径。 */
-    private static final ExecutorService BLENDER_PREWARM = Executors.newSingleThreadExecutor(r -> {
-        Thread thread = new Thread(r, "PRTS-BlenderPrewarm");
-        thread.setDaemon(true);
-        return thread;
-    });
+    /** Blender 旧区块探测预热单线程。 */
+    private static final ExecutorService BLENDER_PREWARM = new ThreadPoolExecutor(1, 1,
+            0L, TimeUnit.MILLISECONDS,
+            new java.util.concurrent.ArrayBlockingQueue<>(64),
+            r -> {
+                Thread thread = new Thread(r, "PRTS-BlenderPrewarm");
+                thread.setDaemon(true);
+                return thread;
+            },
+            new ThreadPoolExecutor.DiscardOldestPolicy());
 
     private final ServerLevel level;
     private final ResourceKey<Level> dimension;
@@ -124,7 +84,7 @@ public final class ChunkSystemDriver {
     private final int priority;
     private final long submitNanos;
 
-    /** 本驱动器已采纳的共享任务表（§7-g：任务对象全局共享，本表只做"本驱动器已注册结算"去重）。 */
+    /** 本驱动器已采纳的共享任务表，只做结算去重。 */
     private final ConcurrentHashMap<TaskKey, StatusStepTask> tasks = new ConcurrentHashMap<>();
     /** 待结算单元计数：决策占 1 位 + 每个已采纳任务 1 位；归零释放锥域持有。 */
     private final AtomicInteger pending = new AtomicInteger(1);
@@ -143,9 +103,7 @@ public final class ChunkSystemDriver {
         this.centerHolder = genTask.getCenter();
         this.center = this.centerHolder.getPos();
         this.target = genTask.targetStatus;
-        // 预铺目标（STRUCTURE_STARTS）落 56-63 档；其余需求按距离定档。
-        // 视距外预铺区（FULL 目标、距离 > viewDist）倒序定档：远端块先跑
-        // （远端先入走廊但按距离序排最后，链 3-5s 赶不上玩家 7s 到达）。
+        // 视距外预铺区按距离倒序定档，保证走廊深处先跑
         int dist = ChunkSystemScheduler.priorityFor(level, this.center.x, this.center.z);
         if (this.target == ChunkStatus.FULL) {
             int viewDist = level.getServer().getPlayerList().getViewDistance();
@@ -163,27 +121,22 @@ public final class ChunkSystemDriver {
         this.submitNanos = System.nanoTime();
     }
 
-    /**
-     * 提交原版生成任务并展开任务图。必须在该维度的主事件循环线程调用
-     * （与 M1 相同的 fail-fast 守卫）；任务图展开只读 holder 状态与
-     * 物化 future，无世界写入。
-     */
+    /** 提交原版生成任务并展开任务图，必须在维度事件循环线程调用。 */
     public static void submit(ServerLevel level, ChunkMap chunkMap, ChunkGenerationTask task) {
         if (!level.getServer().isSameThread() && !DimensionTickManager.isDimensionTickThread()) {
-            throw new IllegalStateException("[chunk-system] M2 submit must be called on the level's main thread");
+            throw new IllegalStateException("[chunk-system] submit must be called on the level's main thread");
         }
         new ChunkSystemDriver(level, chunkMap, task).start();
     }
 
     private void start() {
-        // 预热 Blender 旧区块探测：原版 BIOMES 步会在 worker 线程同步
-        // isOldChunkAround(...).join()，新 region 首次扫描可达数百 ms，导致
-        // 飞行前缘周期性“看到边界”。这里用专用单线程提前填充 IOWorker 的
-        // regionCacheForBlender，把首次 I/O 移出 M2 worker 关键路径。
+        // 预热旧区块探测，把首次 I/O 移出生成关键路径
+        // 只捕获 chunkMap/center，避免 pending lambda 强引用 driver
+        GeneratingChunkMap prewarmMap = this.chunkMap;
+        ChunkPos prewarmCenter = this.center;
         BLENDER_PREWARM.execute(() -> {
             try {
-                ((ChunkStorage) ChunkSystemDriver.this.chunkMap)
-                        .isOldChunkAround(ChunkSystemDriver.this.center, 8);
+                ((ChunkStorage) prewarmMap).isOldChunkAround(prewarmCenter, 8);
             } catch (Throwable ignored) {
                 // 预热只是优化；失败时后续原版路径仍会按需探测。
             }
@@ -208,30 +161,36 @@ public final class ChunkSystemDriver {
      * 可能跑在 worker 线程：{@link #ensureTask} 全程并发安全。
      */
     private void decide() {
-        boolean loadable = this.canLoadWithoutGeneration();
-        this.needsGeneration = !loadable;
-        ChunkPyramid pyramid = this.needsGeneration ? ChunkPyramid.GENERATION_PYRAMID : ChunkPyramid.LOADING_PYRAMID;
-        if (this.needsGeneration) {
-            int coneRadius = ChunkPyramid.GENERATION_PYRAMID.getStepTo(this.target).getAccumulatedRadiusOf(ChunkStatus.EMPTY);
-            for (int dx = -coneRadius; dx <= coneRadius; dx++) {
-                for (int dz = -coneRadius; dz <= coneRadius; dz++) {
-                    this.ensureTask(this.cache.get(this.center.x + dx, this.center.z + dz), ChunkStatus.EMPTY);
+        try {
+            boolean loadable = this.canLoadWithoutGeneration();
+            this.needsGeneration = !loadable;
+            ChunkPyramid pyramid = this.needsGeneration ? ChunkPyramid.GENERATION_PYRAMID : ChunkPyramid.LOADING_PYRAMID;
+            if (this.needsGeneration) {
+                int coneRadius = ChunkPyramid.GENERATION_PYRAMID.getStepTo(this.target).getAccumulatedRadiusOf(ChunkStatus.EMPTY);
+                for (int dx = -coneRadius; dx <= coneRadius; dx++) {
+                    for (int dz = -coneRadius; dz <= coneRadius; dz++) {
+                        this.ensureTask(this.cache.get(this.center.x + dx, this.center.z + dz), ChunkStatus.EMPTY);
+                    }
                 }
             }
-        }
-        for (ChunkStatus status : ChunkStatus.getStatusList()) {
-            if (status == ChunkStatus.EMPTY || status.isAfter(this.target)) {
-                continue;
-            }
-            int layerRadius = pyramid.getStepTo(this.target).getAccumulatedRadiusOf(status);
-            for (int dx = -layerRadius; dx <= layerRadius; dx++) {
-                for (int dz = -layerRadius; dz <= layerRadius; dz++) {
-                    this.ensureTask(this.cache.get(this.center.x + dx, this.center.z + dz), status);
+            for (ChunkStatus status : ChunkStatus.getStatusList()) {
+                if (status == ChunkStatus.EMPTY || status.isAfter(this.target)) {
+                    continue;
+                }
+                int layerRadius = pyramid.getStepTo(this.target).getAccumulatedRadiusOf(status);
+                for (int dx = -layerRadius; dx <= layerRadius; dx++) {
+                    for (int dz = -layerRadius; dz <= layerRadius; dz++) {
+                        this.ensureTask(this.cache.get(this.center.x + dx, this.center.z + dz), status);
+                    }
                 }
             }
+            this.decisionFuture.complete(this.needsGeneration);
+        } catch (Throwable t) {
+            LOGGER.error("[chunk-system] decide failed for {} target={}", this.center, this.target, t);
+            this.decisionFuture.complete(false);
+        } finally {
+            this.onUnitSettled(); // 决策占位计数归还
         }
-        this.decisionFuture.complete(this.needsGeneration);
-        this.onUnitSettled(); // 决策占位计数归还
     }
 
     /** 逐字移植原版 {@code ChunkGenerationTask.canLoadWithoutGeneration}。 */
@@ -271,8 +230,8 @@ public final class ChunkSystemDriver {
             if (future.isDone()) {
                 return null;
             }
-            // §7-g：任务对象全局共享（首个创建者持有），本驱动器只注册"采纳 + 结算回调"。
-            // 共享任务创建后由全局单例 enqueue；后续驱动器复用同一对象，inQueued 单入队天然去重。
+            // 任务对象全局共享，本驱动器只注册采纳与结算回调
+            // 共享任务由首个创建者 enqueue，后续驱动器复用
             StatusStepTask task = SHARED_TASKS.computeIfAbsent(key, kk -> {
                 StatusStepTask created = new StatusStepTask(holder, status, future);
                 ChunkSystemStats.taskCreated();
@@ -307,19 +266,7 @@ public final class ChunkSystemDriver {
         }
     }
 
-    /**
-     * 跨线程安全的 (holder, status) future 请求，等价原版公开
-     * {@code scheduleChunkGenerationTask} 的两段语义：
-     * <ol>
-     *   <li>物化 future（私有 {@code getOrCreateFuture}，CAS 线程安全，
-     *   含 isStatusDisallowed → UNLOADED 哨兵）；</li>
-     *   <li>无足够目标的驱动任务时触发重调度：原版直接新建生成任务进
-     *   pending 队列（非线程安全），此处改为经 {@link PRTSChunkMapRescheduleAware}
-     *   延迟投递到维度事件循环线程消化，保证邻居波前始终有驱动者。</li>
-     * </ol>
-     * 投递幂等（去重集合）；主线程消化时原版 {@code scheduleChunkGenerationTask}
-     * 对已建足目标的任务不重复建（并发窗口安全）。
-     */
+    /** 跨线程请求邻居 future；缺驱动者时延迟投递重调度。 */
     private CompletableFuture<ChunkResult<ChunkAccess>> futureFor(GenerationChunkHolder holder, ChunkStatus status) {
         final CompletableFuture<ChunkResult<ChunkAccess>> future =
                 ((PRTSChunkSystemHolderAware) holder).prts$getOrCreateFuture(status);
@@ -335,8 +282,7 @@ public final class ChunkSystemDriver {
                 ((PRTSChunkMapRescheduleAware) this.chunkMap).prts$deferReschedule(holder, status);
             }
         } else {
-            // 已有驱动器覆盖该 holder/status：清掉去重位，允许未来再次按需 defer，
-            // 防止永久去重导致"重调度被消费后，后续需求永远不再投递"的饿死（飞行实测卡死场景之一）。
+            // 已有驱动器覆盖该状态：清去重位，允许未来再次按需 defer
             SHARED_DEFERRED.remove(new TaskKey(this.dimension, holder.getPos().x, holder.getPos().z, status.getIndex()));
         }
         return future;
@@ -362,21 +308,12 @@ public final class ChunkSystemDriver {
     private record TaskKey(ResourceKey<Level> dimension, int x, int z, int statusIndex) {
     }
 
-    /**
-     * 单区块×单状态任务。阶段推进（跨唤醒持久）：
-     * <ol>
-     *   <li>EMPTY 门：等自身 EMPTY future（persisted 可见的前提）；EMPTY 任务跳过全部前置直接干活；</li>
-     *   <li>金字塔选择：复刻 {@code scheduleChunkInLayer} per-holder 规则；
-     *       generate 分支先等 {@link #decisionFuture}（needsGeneration 未决前禁止执行，
-     *       决策为 false 却需要生成 = 原版「Can't load chunk, but didn't expect to need
-     *       to generate」同语义的 fail-fast）；</li>
-     *   <li>依赖门：自身前序状态 future（applyStep 的 parent chunk 前置）+ 所选步骤
-     *       {@code directDependencies} 的邻块 future（dist≥1，与读检查同表）；</li>
-     *   <li>工作：{@code holder.applyStep}（acquireStatusBump CAS 去重，败者等待既有 future）。</li>
-     * </ol>
-     * 所有挂起都经 {@link #enqueue()} 的 {@code inQueued} CAS 单一入队点，
-     * 光线程等任意唤醒源天然去重（审计遗留风险 4 的落位）。
-     */
+    /** 重调度请求被维度事件循环线程消费后清去重位，防止 SHARED_DEFERRED 无界增长。 */
+    public static void deferredDrained(ResourceKey<Level> dimension, int x, int z, int statusIndex) {
+        SHARED_DEFERRED.remove(new TaskKey(dimension, x, z, statusIndex));
+    }
+
+    /** 单区块×单状态任务：EMPTY 门、金字塔选择、依赖门、applyStep 四阶段。 */
     private final class StatusStepTask implements Task {
 
         private final GenerationChunkHolder holder;
@@ -435,14 +372,12 @@ public final class ChunkSystemDriver {
                 this.parkReason = reason;
                 ChunkSystemStats.parkStart(reason);
             }
-            // 诊断：挂起 10s 未恢复时打一条 WARN（一次性），直接暴露任务图断链点
-            //（任务永久挂哪个门：empty/prev/deps/fullNeighbors/decision）。
-            // 生产实测：FULL 任务挂 fullNeighbors 等邻居 FEATURES future 的场景。
+            // 挂起 10s 打一条诊断，暴露卡住的门
             if (this.parkDiag.compareAndSet(false, true)) {
                 final long parkAt = System.nanoTime();
                 PARK_DIAG.schedule(() -> {
                     if (this.parkReason != null && reason.equals(this.parkReason)) {
-                        LOGGER.warn("[chunk-system] M2 task parked {}/{} {}s @ {} (dim={}) futureDone={} inQueued={} parks={}",
+                        LOGGER.warn("[chunk-system] task parked {}/{} {}s @ {} (dim={}) futureDone={} inQueued={} parks={}",
                                 this.status, reason, (System.nanoTime() - parkAt) / 1_000_000_000L,
                                 this.holder.getPos(), dimension.location(),
                                 this.future.isDone(), this.inQueued.get(), this.parks);
@@ -480,8 +415,8 @@ public final class ChunkSystemDriver {
                         }
                         ChunkStatus persisted = this.holder.getPersistedStatus();
                         if (persisted == null) {
-                            ChunkSystemStats.drained("emptyFailed");
-                            return; // EMPTY 失败（UNLOADED）：排空，等原版失败清理机制结算本 future
+                            this.prts$drain("emptyFailed");
+                            return; // EMPTY 失败（UNLOADED）：排空并结算，防依赖图挂起
                         }
                         boolean generate = this.status.isAfter(persisted);
                         if (generate) {
@@ -532,9 +467,9 @@ public final class ChunkSystemDriver {
                                         }
                                         waiting.add(neighborFuture);
                                     } else if (!neighborFuture.getNow(null).isSuccess()) {
-                                        // 邻居已判死（UNLOADED 哨兵/失败）：排空，
+                                        // 邻居已判死（UNLOADED 哨兵/失败）：排空并结算，
                                         // 同原版 markForCancellation 后任务终止的语义
-                                        ChunkSystemStats.drained("neighborDead");
+                                        this.prts$drain("neighborDead");
                                         return;
                                     }
                                 }
@@ -546,13 +481,8 @@ public final class ChunkSystemDriver {
                                     : CompletableFuture.allOf(waiting.toArray(new CompletableFuture<?>[0])), "deps");
                             return;
                         }
-                        // FULL→ticking 静默门（2026-08-26 §7-g 回退暴露的竞态隔离）：
-                        // GENERATION_PYRAMID 的 FULL 步没有 addRequirement，原版依赖门不等待邻居
-                        // FEATURES；但 FEATURES 步经 BulkSectionAccess 实际写半径可达 ±2，生成 worker
-                        // 可能在中央块 FULL 完成后仍写它的 section，而维度线程随后立刻 collectTicks →
-                        // ScheduledTick 队列被踩坏（NPE：triggerTick null）。
-                        // 修法：FULL 前等待"正在生成且未过 FEATURES"的邻居完成 FEATURES（已过 FEATURES/
-                        // 纯加载路径的邻居无并发写，跳过，避免把加载路径误创建 FEATURES 任务）。
+                        // FULL 前等待正在生成且未过 FEATURES 的邻居，
+                        // 防邻居生成写与中央块 tick 队列竞争
                         if (this.status == ChunkStatus.FULL) {
                             List<CompletableFuture<?>> fullWait = null;
                             ChunkPos pos = this.holder.getPos();
@@ -566,9 +496,7 @@ public final class ChunkSystemDriver {
                                         continue; // 锥域外邻居：无并发写风险
                                     }
                                     GenerationChunkHolder nh = cache.get(npos.x, npos.z);
-                                    // 只等"正在生成且生成锥覆盖 FEATURES"的邻居：未生成/未覆盖的邻居
-                                    // 不会并发写本块，绝不能为其创建 FEATURES future（无人驱动→永久挂起，
-                                    // 实测飞行 completed 卡死 784、inflight=217、busy=1%）。
+                                    // 只等覆盖 FEATURES 的生成邻居；其余不会并发写本块
                                     PRTSChunkSystemHolderAware nhAware = (PRTSChunkSystemHolderAware) nh;
                                     ChunkGenerationTask ntask = nhAware.prts$task().get();
                                     if (ntask == null || ntask.targetStatus.isBefore(ChunkStatus.FEATURES)) {
@@ -604,8 +532,8 @@ public final class ChunkSystemDriver {
                         }
                         ChunkResult<ChunkAccess> prevResult = prevFuture.getNow(null);
                         if (prevResult == null || !prevResult.isSuccess()) {
-                            ChunkSystemStats.drained("prevFailed");
-                            return; // 前序失败：排空（同 EMPTY 失败路径）
+                            this.prts$drain("prevFailed");
+                            return; // 前序失败：排空并结算（同 EMPTY 失败路径）
                         }
                         this.depsGated = true;
                     }
@@ -634,8 +562,16 @@ public final class ChunkSystemDriver {
             ChunkSystemStats.exception();
             // 让本 future 异常完成，依赖它的任务图得以排空（不卡死计数）
             this.future.completeExceptionally(t);
-            LOGGER.error("[chunk-system] M2 status task failed: {} @ {} (dim={})",
+            LOGGER.error("[chunk-system] status task failed: {} @ {} (dim={})",
                     this.status, this.holder.getPos(), dimension.location(), t);
+        }
+
+        /** 排空并结算自身 future，保证依赖图与 pending 计数能收敛。 */
+        private void prts$drain(String reason) {
+            ChunkSystemStats.drained(reason);
+            if (!this.future.isDone()) {
+                this.future.complete(ChunkResult.error("prts drained: " + reason));
+            }
         }
 
         @Override

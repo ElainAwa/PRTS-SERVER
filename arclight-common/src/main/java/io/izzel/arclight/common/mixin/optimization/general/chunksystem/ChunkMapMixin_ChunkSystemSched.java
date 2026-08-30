@@ -24,17 +24,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.util.concurrent.ConcurrentLinkedQueue;
 
-/**
- * 区块系统调度器接入：把 {@code runGenerationTask} 的 worldgen 邮箱提交改经
- * PRTS 调度层。两条路径（配置互斥，启动期生效）：
- * <ul>
- *   <li>{@code chunk-system-enabled}（M2.1）：整任务分解为单区块×单状态细粒度
- *   任务图（{@link ChunkSystemDriver}）；</li>
- *   <li>{@code chunk-system-scheduler.enabled}（M1）：整任务进优先级队列，
- *   状态推进仍由原版 future 链完成。</li>
- * </ul>
- * 两者都关时走原版路径逐位一致。
- */
+/** 把区块生成任务按配置路由到细粒度状态机或优先级调度器。 */
 @Mixin(ChunkMap.class)
 public abstract class ChunkMapMixin_ChunkSystemSched implements PRTSChunkMapRescheduleAware {
 
@@ -42,17 +32,22 @@ public abstract class ChunkMapMixin_ChunkSystemSched implements PRTSChunkMapResc
     @Final
     ServerLevel level;
 
-    /**
-     * M2 门控（worker 线程）投递的延迟重调度请求，在 {@code runGenerationTasks()}
-     * 冲刷前由维度事件循环线程统一消化（原版主线程语义，见接口注释）。
-     */
+    /** 延迟重调度队列，由维度事件循环线程消化。 */
     @Unique
     private final ConcurrentLinkedQueue<Runnable> prts$deferredReschedules = new ConcurrentLinkedQueue<>();
 
     @Override
     public void prts$deferReschedule(GenerationChunkHolder holder, ChunkStatus status) {
         ChunkMap self = (ChunkMap) (Object) this;
-        this.prts$deferredReschedules.add(() -> holder.scheduleChunkGenerationTask(status, self));
+        this.prts$deferredReschedules.add(() -> {
+            try {
+                holder.scheduleChunkGenerationTask(status, self);
+            } finally {
+                // 消费即清去重位，避免 SHARED_DEFERRED 无界增长/永久抑制后续重调度
+                ChunkSystemDriver.deferredDrained(this.level.dimension(),
+                        holder.getPos().x, holder.getPos().z, status.getIndex());
+            }
+        });
     }
 
     @Override
@@ -62,7 +57,13 @@ public abstract class ChunkMapMixin_ChunkSystemSched implements PRTSChunkMapResc
         }
         Runnable request;
         while ((request = this.prts$deferredReschedules.poll()) != null) {
-            request.run();
+            try {
+                request.run();
+            } catch (Throwable t) {
+                // 单条失败不得打断 runGenerationTasks 的整个 tick 驱动链
+                org.apache.logging.log4j.LogManager.getLogger("PRTS-ChunkSystem")
+                        .warn("[chunk-system] deferred reschedule failed", t);
+            }
         }
     }
 
@@ -74,13 +75,18 @@ public abstract class ChunkMapMixin_ChunkSystemSched implements PRTSChunkMapResc
     @Inject(method = "runGenerationTask", at = @At("HEAD"), cancellable = true)
     private void prts$scheduleViaChunkSystem(ChunkGenerationTask task, CallbackInfo ci) {
         if (PRTSFeaturesConfig.chunkSystemEnabled) {
+            boolean submitted = false;
             try {
                 ChunkSystemDriver.submit(this.level, (ChunkMap) (Object) this, task);
+                submitted = true;
             } catch (Throwable t) {
                 org.apache.logging.log4j.LogManager.getLogger("PRTS-ChunkSystem")
-                        .error("[chunk-system] M2 submit failed for {} target={}", task.getCenter().getPos(), task.targetStatus, t);
+                        .error("[chunk-system] submit failed for {} target={}", task.getCenter().getPos(), task.targetStatus, t);
             }
-            ci.cancel();
+            if (submitted) {
+                ci.cancel();
+            }
+            // submit 失败时放行 vanilla 路径，避免生成请求静默丢失
             return;
         }
         if (!PRTSFeaturesConfig.chunkSystemSchedulerEnabled) {
