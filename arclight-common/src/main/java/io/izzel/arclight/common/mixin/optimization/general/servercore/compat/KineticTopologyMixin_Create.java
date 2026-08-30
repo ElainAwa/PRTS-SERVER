@@ -34,11 +34,16 @@ public abstract class KineticTopologyMixin_Create {
             if (self.getLevel() == null || self.getLevel().isClientSide) {
                 return;
             }
-            // 自愈：成员网络无源时周期性触发原版重挂接，让相邻网络重新合并
+            // 自愈：成员网络无源时周期性触发原版重挂接，让相邻网络重新合并；
+            // 首次错峰，避免加载完成瞬间全量方块实体同时取锁/BFS
+            if (this.prts$healCooldown == 0) {
+                this.prts$healCooldown = 1 + Math.floorMod(System.identityHashCode(this), 200);
+                return;
+            }
             if (--this.prts$healCooldown > 0) {
                 return;
             }
-            this.prts$healCooldown = 100;
+            this.prts$healCooldown = 400;
             if (!self.hasNetwork()) {
                 return;
             }

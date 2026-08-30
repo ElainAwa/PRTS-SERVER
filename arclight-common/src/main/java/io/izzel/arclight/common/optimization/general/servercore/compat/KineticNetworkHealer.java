@@ -67,7 +67,10 @@ public final class KineticNetworkHealer {
                 }
             }
         }
-        if (anchor == null || parent.get(anchor) == null && anchor != start) {
+        if (anchor == null) {
+            return false;
+        }
+        if (anchor != start && parent.get(anchor) == null) {
             return false;
         }
         // 反推 start -> anchor 路径，从 anchor 往回迁移动，保证符号按有源侧传播
