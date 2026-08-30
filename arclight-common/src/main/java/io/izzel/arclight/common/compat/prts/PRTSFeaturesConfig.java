@@ -95,6 +95,8 @@ public class PRTSFeaturesConfig {
     public static boolean chunkDemandPlayerPriority;
     /** 低优先级桶队头超龄即优先消费的阈值（tick，饿死兜底）。 */
     public static int chunkDemandStarveTicks;
+    /** 区块发送目标速率下限（块/tick），0=关闭下限。 */
+    public static float chunkSendRateFloor;
     /** 玩家方向区块预取（默认关）：按移动方向对视距外投临时 ticket（到期自动回收）。 */
     public static boolean chunkPrefetchEnabled;
     /** 进服热点预热：启动后把配置中心区域加载到 FULL（玩家首登免磁盘等待）。 */
@@ -306,38 +308,25 @@ public class PRTSFeaturesConfig {
      *  隔离光照传播与 worldgen 线程池争抢（每维度一个守护线程，默认关）。 */
     public static boolean lightThreadEnabled;
 
-    /** 区块系统调度器（M1：FlowSched 精简移植驱动原版生成 future 链，默认关；启动期生效，改值需重启）。 */
+    /** 区块系统调度器：驱动原版生成 future 链，启动期生效。 */
     public static boolean chunkSystemSchedulerEnabled;
-    /** 调度器 worker 线程数（仅调度层；M1 默认 1 保持原版串行语义，M2 起随状态机重写放开）。 */
+    /** 调度器 worker 线程数。 */
     public static int chunkSystemSchedulerWorkers;
-    /** 调度器锁域半径（区块数；0=仅中心块，1=3×3，2=5×5）。feature 阶段存在跨区块写，
-     *  实测写半径达 2（= ChunkStatus.FULL 累计生成半径），半径 &lt; 2 会触发并发写/死锁。 */
+    /** 调度器锁域半径；feature 阶段存在跨区块写，过小会触发并发写。 */
     public static int chunkSystemSchedulerLockRadius;
-    /** 两阶段锁域拆分（阶段二）：features 前步骤只锁中心块（原版声明写半径均为 0，
-     *  邻块读由 future 依赖链保序），进入 FEATURES 层前一次性暂停换 5×5 锁续跑。
-     *  目的：把锁串行限制在 features 段，恢复前段并行度。默认关，测服灰度。 */
+    /** 两阶段锁域拆分：FEATURES 前只锁中心块，进入前换大锁续跑。 */
     public static boolean chunkSystemSchedulerSplitStages;
-    /** 依赖门控（阶段四）：挂起时收集当前层全部未完成 future，全完成后才重新入队，
-     *  消除原版「尾 future 完成即唤醒→层内未就绪立即再挂起」的空转往返。默认关，测服灰度。 */
+    /** 依赖门控：层内 future 全完成后才重新入队，减少空转。 */
     public static boolean chunkSystemSchedulerDepGating;
-    /** 区块系统状态机（M2.1）：细粒度「单区块×单状态」任务图替代 M1 的整任务驱动。
-     *  任务依赖边运行时直接读 ChunkPyramid 各步 directDependencies（与 WorldGenRegion
-     *  读合法性检查同表），锁半径按 M2.0-2 审计表（FEATURES ±2 / STRUCTURE_STARTS ±1 /
-     *  其余中心块）。优先级高于 chunk-system-scheduler.enabled（两者同开时本项生效）。
-     *  启动期生效（早于 createLevels），改值需重启；默认关。 */
+    /** 区块系统状态机：细粒度单区块×单状态任务图，启动期生效。 */
     public static boolean chunkSystemEnabled;
-    /** 主线程边界 fail-fast 守卫（M2.2 四件套 ①）：ServerChunkCache.tick/save 等维度级事务
-     *  非属主线程（服务器主线程 ∪ 维度事件循环 ∪ region worker）调用即抛异常定位违约链。
-     *  仅在 chunk-system-enabled 下生效；默认开。 */
+    /** 主线程边界 fail-fast 守卫。 */
     public static boolean chunkSystemFailFastGuards;
-    /** IO 反序列化移出主线程（M2.2 IO 线程模型）：ChunkSerializer.read 段从
-     *  thenApplyAsync(mainThreadExecutor) 改投调度器最低优先级档，配套事件捕获延迟队列。
-     *  仅在 chunk-system-enabled 下生效；启动期语义（读盘路径），默认开。 */
+    /** IO 反序列化移出主线程。 */
     public static boolean chunkAsyncIoEnabled;
-    /** 反序列化线程数（1=串行保持原语义；>1 并行构建区块对象图，POI 段由 PoiManager 锁串行化）。 */
+    /** 反序列化线程数（固定 1，保持原语义）。 */
     public static int chunkDeserializeThreads;
-    /** World.random 跨线程检测模式（M2.2 四件套 ④）：warn=限流日志+回退（默认）、
-     *  throw=抛异常、其他=不装装饰器。仅在 chunk-system-enabled 下生效。 */
+    /** World.random 跨线程检测模式：warn=限流日志，throw=抛异常。 */
     public static String worldgenRandomCheck;
 
     // Entity spatial index - EntitySection 内懒 4×4×4 子格索引（默认开，2026-08-16 真机 A/B 验证）。
@@ -385,7 +374,7 @@ public class PRTSFeaturesConfig {
     // 注销）。无插件监听的服务器上 Forge 事件照发、mod 监听器照收，只是桥自己的监听器
     // 不在总线上——桥开销（CraftBlock/事件构造 + 空派发 + 回写）整块归零。
     // 防御层：dispatcher 入口 O(1) 空监听器预检（HandlerList 空则跳过构造+派发）。
-    // 兼容红线：事件数量与时机零变化（只动 Arclight 自己的监听器是否在总线）。
+    // 兼容约束：事件数量与时机零变化（只动 Arclight 自己的监听器是否在总线）。
     public static boolean eventBridgeOnDemandEnabled;
     /** 恢复 mod 加载期常驻注册（顺序敏感场景的逃生门）。 */
     public static boolean eventBridgeEagerRegistration;
@@ -476,6 +465,7 @@ public class PRTSFeaturesConfig {
         chunkDemandStarveTicks = Math.max(20, config.getInt("parallel.chunk-demand-starve-ticks", 600));
         io.izzel.arclight.common.optimization.general.servercore.ChunkDemandQueue.playerPriorityEnabled = chunkDemandPlayerPriority;
         io.izzel.arclight.common.optimization.general.servercore.ChunkDemandQueue.starveNanos = chunkDemandStarveTicks * 50_000_000L;
+        chunkSendRateFloor = Math.max(0f, (float) config.getDouble("parallel.chunk-send-rate-floor", 128.0));
         LOGGER.info("parallel chunk-demand priority={} starve={} ticks", chunkDemandPlayerPriority, chunkDemandStarveTicks);
         // 玩家方向区块预取（默认关）。
         chunkPrefetchEnabled = config.getBoolean("chunk-prefetch.enabled", true);
@@ -663,7 +653,8 @@ public class PRTSFeaturesConfig {
         chunkSystemEnabled = config.getBoolean("parallel.chunk-system-enabled", true);
         chunkSystemFailFastGuards = config.getBoolean("parallel.chunk-system-fail-fast-guards", true);
         chunkAsyncIoEnabled = config.getBoolean("parallel.chunk-async-io-enabled", true);
-        chunkDeserializeThreads = Math.max(1, config.getInt("parallel.chunk-deserialize-threads", 1));
+        // >1 会并发反序列化触发 POI rehash AIOOBE，强制收敛为 1（ChunkSystemScheduler 注释）
+        chunkDeserializeThreads = Math.min(1, Math.max(1, config.getInt("parallel.chunk-deserialize-threads", 1)));
         worldgenRandomCheck = config.getString("parallel.worldgen-random-check", "warn");
         entitySpatialIndexEnabled = config.getBoolean("entity-spatial-index.enabled", true);
         entitySpatialIndexMinSectionSize = config.getInt("entity-spatial-index.min-section-size", 16);
@@ -1138,9 +1129,10 @@ public class PRTSFeaturesConfig {
                   chunk-demand-min-drain-ms: 2         # minimum drain window per tick even when over budget (anti death-spiral; 0=off)
                   chunk-demand-player-priority: true  # prioritize chunk demands by player distance (4 buckets)
                   chunk-demand-starve-ticks: 600      # low-priority bucket head older than this is consumed first (only with priority on)
+                  chunk-send-rate-floor: 128        # floor for player chunk-send desired rate (chunks/tick; 0=vanilla ack tracking)
                   chunk-system-scheduler:            # scheduler driving vanilla generation futures (startup-only)
                     enabled: true                    # master switch (off = vanilla worldgen mailbox FIFO, bit-identical)
-                    workers: 4                       # worker threads for worldgen task graph (M2 statemachine; more = faster fresh-chunk gen)
+                    workers: 4                       # worker threads for worldgen task graph (statemachine; more = faster fresh-chunk gen)
                     split-stages: true               # two-stage lock split: 1x1 lock before features, 5x5 before FEATURES
                     dep-gating: true                # dependency gating: batch wait for layer futures before re-queue
                   chunk-system-enabled: true         # chunk state machine: per-chunk per-status task graph (startup-only; overrides scheduler)
@@ -1373,9 +1365,10 @@ public class PRTSFeaturesConfig {
                   chunk-demand-min-drain-ms: 2  # 超预算时最低排空窗口（防死循环；0=关）
                   chunk-demand-player-priority: true  # 区块需求按玩家距离优先
                   chunk-demand-starve-ticks: 600  # 低优先级队头超龄即消费（仅开启优先时生效）
+                  chunk-send-rate-floor: 128  # 玩家区块发送速率下限（块/tick；0=跟随客户端 ack）
                   chunk-system-scheduler:   # 区块调度器：驱动原版生成 future 链（启动期生效）
                     enabled: true  # 总开关（关=原版 FIFO，逐位一致）
-                    workers: 4  # worldgen 任务图工作线程数（M2 状态机；越大全新区块生成越快）
+                    workers: 4  # worldgen 任务图工作线程数（状态机；越大全新区块生成越快）
                     split-stages: true  # 两阶段锁域拆分：features 前只锁中心块，FEATURES 前换 5x5 锁
                     dep-gating: true  # 依赖门控：层内 future 全部完成才重新入队
                   chunk-system-enabled: true  # 区块状态机：单区块单状态任务图（启动期生效）
