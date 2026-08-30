@@ -2,113 +2,114 @@
 
 **[中文文档](./README_zh.md) · [English](./README.md)**
 
-> PRTS is a fork of [Arclight](https://github.com/IzzelAliz/Arclight) → [Luminara](https://github.com/CraftAmethyst/Luminara). This branch `1.21.1-Multithreading` is the experimental multi-threaded parallel engine development track.
+> PRTS is a fork of [Arclight](https://github.com/IzzelAliz/Arclight) → [Luminara](https://github.com/CraftAmethyst/Luminara). This branch `1.21.1-Multithreading` is the multi-threaded parallel engine development track.
 
 > ⚠ This project is currently developed entirely via vibecoding. With a small team, progress is slow. If you're interested in joining multi-threaded server development, contact: QQ 3031917948 / Telegram [t.me/Mon3trQAQ](https://t.me/Mon3trQAQ)
 
+The main thread acts as the scheduler and synchronization point: dimension workers, region workers and dedicated sub-task pools execute the heavy work, while players and world-authoritative writes stay on the main thread. Every parallel subsystem keeps a fallback path, so an overloaded or incompatible environment degrades gracefully instead of freezing or corrupting the world.
+
 ## Parallel Engine
 
-Splits single-threaded world tick into multi-threaded execution:
+Splits the single-threaded world tick into multi-threaded execution. All features below are enabled by default:
 
-- **Async Pathfinding** (`pathfinding-async`): Mob/villager pathfinding runs on worker threads
-- **Dimension Parallel** (`dimension-parallel`): Overworld/Nether/End tick in separate threads
-- **Region Parallel** (`region-parallel`): Entities divided into chunk stripes for parallel ticking
-  - Configurable region count (2/4/8/16, default 4)
-  - Auto load balancing (`region-auto-scale`)
-  - Players stay on main thread (containers/menus/events)
+- **Async Pathfinding** (`pathfinding-async`): mob/villager pathfinding runs on worker threads; valid navigation paths are reused
+- **Dimension Parallel** (`dimension-parallel`): overworld/nether/end tick on separate worker threads
+- **Region Parallel** (`region-parallel`): entities are divided into chunk stripes for parallel ticking
+  - Region count 2/4/8/16 (`region-count`, default 4)
+  - Load-based auto scaling (`region-auto-scale`)
+  - Uneven stripes: busy regions hand boundary groups to neighbours (`uneven-stripes`)
+- **Entity Batch Parallel** (`entity-batch-parallel`): the entity phase inside a region fans out to a sub-task pool; villagers and other persistent mobs tick off the main thread
+- **Chunk Environment Parallel** (`chunk-env-parallel`): random and fluid ticks fan out to a sub-task pool with a 3×3 chunk lock (`chunk-env-lock`) so adjacent chunks are never written concurrently
+- **Block Entity Tiered Scheduling** (`be-parallel-allow` / `be-main-thread-force`): Create block entities tick on region workers by default; known main-thread-only types (Create track, redstone link, portable storage interface, spout, Lootr chest) stay on the main thread
+- **Portal Async** (`portal-async`): portals into not-yet-generated chunks submit an async load instead of stalling the worker
+- **Playerless Dimension Multitick** (`dimension-worker-multitick`, default 4): dimensions without players tick several times per barrier session to drain backlog faster
 
 ### ThreadPolicy Auto-learning
 
-Runtime violation detection (worker calls main-thread-only APIs like `getBlockEntity`/`setBlock`), auto-routes unsafe classes to main thread:
+Runtime detection of main-thread-only API access on workers (`getBlockEntity` / `setBlock` etc.), auto-routing unsafe entity classes to the main thread:
 
-- Sliding window stats (default 2400 ticks window, 5 violations trigger routing)
-- Route learning persistence (`config/prts-learned-routes.json`, load on startup / save on shutdown)
-- Bidirectional Probation: auto-routed classes periodically tested on worker, restore parallel on success (exponential backoff 2x/4x/8x)
-- Safety valve: worker exception → permanent main-thread fallback
+- Sliding window statistics (default 2400 ticks; 5 violations trigger routing)
+- Route persistence (`config/prts-learned-routes.json`, loaded on startup / saved on shutdown)
+- Bidirectional probation: routed classes are periodically retested on workers and restored on success (exponential backoff)
+- Safety valve: worker exceptions permanently fall back to the main thread
+- Default policy `thread-policy: stats` counts violations without blocking; `enforce` is for test-server debugging only
 
-### Chunk Generation Peak Shaving
+## Chunk System
 
-- Submission budget (`generation-tasks-per-tick: 50`)
-- Rolling window throttle (`chunkgen-inflight-limit: 128`)
-- Teleport spike: 1.5-2.3s → ~430ms
+- **Fine-grained state machine** (`chunk-system-enabled`): chunk generation is scheduled as per-chunk × per-status tasks with priority bands and dependency gating, so fresh terrain arrives in order while many chunks progress in parallel
+- **Parallel worldgen scheduler** (`chunk-system-scheduler`): dependency-gated worldgen task graph on worker threads with staged lock domains
+- **Demand scheduling**: per-tick demand budget (`chunk-demand-per-tick`), minimum drain window (`chunk-demand-min-drain-ms`), player-distance priority with starvation guard (`chunk-demand-player-priority`), and a chunk-send rate floor (`chunk-send-rate-floor`, default 128 chunks/tick)
+- **Direction-aware prefetch** (`chunk-prefetch`): window + corridor prefetch in the movement direction, idle prefill while standing still (`idle-enabled`), and login warmup (`login-warmup-enabled`)
+- **Async chunk IO** (`chunk-async-io-enabled`): chunk deserialization runs off the main thread
+- **Generation budgets**: submissions per tick (`generation-tasks-per-tick`), rolling 2-second window (`chunkgen-inflight-limit`), and a heap pressure guard (`generation-memory-guard-*`) that throttles or pauses generation near the heap limit; it also works with equal `-Xms`/`-Xmx` startup arguments
 
-### Barrier Robustness
+## Barrier & Fault Handling
 
-- Watchdog-aware: parallel wait doesn't trigger false timeout
-- Timeout diagnostics (`barrier-timeout-ms: 120000`): dumps state and crashes on deadlock
+- Watchdog-aware waits (`barrier-watchdog-aware`): parallel joins don't trigger false watchdog kills
+- Soft degrade (`barrier-soft-degrade`, default on): when the main thread falls behind, late regions skip the remaining work of that tick instead of blocking the whole server
+- Hard timeout action (`barrier-timeout-action`, default `degrade`): on a real stall the affected dimension drops to main-thread serial ticking and auto-recovers (`barrier-timeout-recover-ticks`); `crash` dumps all threads and stops instead
+- Full fallback (`on-fault-fallback-vanilla`): repeated hard timeouts fall back to vanilla serial ticking until restart
 
-### Create Mod Compat
+## Mod Compatibility
 
-- Track lazy-spread: rasterize across ticks
-- Belt passenger deferred registration: prevent worker race
+- **Create**: kinetic network topology changes are serialized under locks and source-less split networks heal automatically, keeping chains and stress gauges consistent. Deployers, portable storage interfaces, chutes and spouts are routed safely; track fake-rail rasterization spreads across ticks (`create-track-lazy-spread`); belt passenger registration defers to the main thread
+- **Minecolonies**: citizens run on region workers with safe block entity reads; NPC work phases are staggered (`colony-npc-phase-stagger`) and the work interval is configurable
+- **Lithium**: generation driving routes to the main thread when Lithium is loaded, avoiding its thread checks
+- **Sable / Simulated**: native rope physics entry points are serialized, which currently only prevents cross-thread native deadlock crashes; physics structure bugs remain and are a follow-up fix
+- **SuperbWarfare**: engine-side adaptation for local projectile queries, IFF throttling and broadcast trimming; optional vehicle sleep (`sbw-vehicle-sleep`)
 
-## Future Plans
+## Event Bridge & Mainline Optimizations
 
-Directions under planning, not yet implemented or enabled by default. All new parallel capabilities land with conservative defaults and are validated with reproducible synthetic load and production gray rollout before any default change.
+Aligned with the mainline 1.21.1 tree:
 
-### Chunk Loading Multithreading
-
-- **Lighting threading**: move the lighting engine off the main thread onto a dedicated thread. Today only a per-tick propagation budget exists, which spreads large light updates across ticks but keeps the work on the main thread.
-- **Player-distance-priority chunk scheduling**: schedule chunk load demands by distance to players instead of a first-in-first-out queue, reducing wait time after login, teleport or random teleport.
-- **Long-term: parallel chunk state machine**: rework the vanilla chunk status chain (disk read, generation, installation) to run stages on worker threads, referencing the C2ME project's design. This requires changes to the NeoForge chunk state machine and related event timing; it will be developed and validated on a separate branch before merge.
-
-### Region Parallel Engine Evolution
-
-- **Uneven stripes**: entities are currently divided into fixed-width chunk stripes; plan to size regions by actual load to reduce whole-tick barrier waits caused by a single overloaded region.
-- **Cross-region access observation & value snapshots**: measure cross-region read/write frequency and hot values, snapshot high-frequency read-only values per task to reduce cross-region read overhead and the share of entities auto-routed back to the main thread.
-- **Authoritative region copies (long-term)**: maintain an authoritative copy of each region's data to remove cross-region read races. This has data-copy cost, and will only be evaluated after cross-region access measurement is in place.
-- **Deterministic total ordering (optional switch)**: apply cross-region writes in a fixed global order, off by default, as a debugging tool for concurrency issues.
-
-### Block Entity Parallelism Gray Rollout
-
-- Gradually allow more block entity types to tick on worker threads, starting with container-like types observed to be hot in production. Block entity ticks currently stay on the main thread by default, with only a small allowlist on workers.
-
-### Synthetic Load & Capacity Validation
-
-- Keep using reproducible synthetic loads (large-scale pathfinding entities, chunk generation bursts, continuous item flow) to measure the benefit of parallel execution before any production shadow rollout.
+- Event bridge registers Bukkit/Forge dispatchers on demand and short-circuits when no plugin listeners exist (`event-bridge.*`, `event-shortcircuit.*`)
+- Entity spatial index, POI query precheck, collision batch and neighbor-update breaker (default on)
+- Lighting: per-tick propagation budget (`lighting.budget-*`) and dedicated light threads (`lighting.threaded`)
+- Watchdog, entity clearing, AE2LT throttle and reliable chunk save (WAL)
+- Container menu broadcast precheck (`menu-broadcast`, default off — measure first)
+- Moonrise fast palette read path ported (not registered by default, pending validation)
 
 ## Configuration
 
-`prts-features.yml` (server root):
+`prts-features.yml` in the server root is generated on first start with a one-line comment for every switch. Comments default to Chinese; set `locale: en_us` and restart to switch them to English. Keys missing from older config files are added automatically.
+
+Main switches (defaults as generated):
 
 ```yaml
+locale: zh_cn                  # config comment language (zh_cn / en_us)
+
 parallel:
-  pathfinding-async: true        # Async pathfinding on worker threads
-  dimension-parallel: true       # Each dimension ticks on its own thread
-  region-parallel: true          # Non-player entities tick in parallel chunk stripes
-  region-count: 4                # Region count (2/4/8/16)
-  region-auto-scale: true        # Auto-adjust region count by load
+  pathfinding-async: true      # async pathfinding on worker threads
+  dimension-parallel: true     # per-dimension worker ticks
+  region-parallel: true        # entity ticks in parallel chunk stripes
+  region-count: 4              # region count (2/4/8/16)
+  region-auto-scale: true      # adjust region count by load
+  entity-batch-parallel: true  # entity phase fans out to a sub-task pool
+  chunk-env-parallel: true     # random/fluid ticks on a sub-task pool
+  portal-async: true           # async load for portals into ungenerated chunks
+  thread-policy: stats         # worker world access policy: off/stats/enforce
+  main-thread-routing: auto    # auto-route unsafe entity classes to main thread
+  route-threshold: 5           # violations before routing
+  route-window-ticks: 2400     # violation window in ticks
+  chunk-system-enabled: true   # per-chunk x per-status state machine
+  chunk-send-rate-floor: 128   # minimum chunk-send rate (chunks/tick)
+  be-parallel-allow: ["create:*"]  # BE types allowed on region workers
+  barrier-soft-degrade: true   # late regions skip work instead of blocking
+  barrier-timeout-action: degrade  # hard stall: degrade to serial + recover
+  dimension-worker-multitick: 4    # playerless dimension ticks per session
 
-  # ThreadPolicy: auto-routes entity classes that call main-thread-only APIs on workers
-  main-thread-routing: "auto"    # auto=auto-route; stats=count only
-  route-threshold: 5             # Violations to trigger routing in window
-  route-window-ticks: 2400       # Violation window (ticks, 2400 = 2 min)
-  route-on-read: true            # Whether read violations count; false=writes only
+chunk-prefetch:
+  enabled: true                # prefetch toward player movement
+  idle-enabled: true           # idle background prefill
 
-  # Route persistence: learned routes saved to JSON, restored on restart
-  persist-learned-routes: true   # Enable persistence
-  learned-routes-file: "config/prts-learned-routes.json"
-  learned-routes-limit: 200      # Max persisted classes
-
-  # Probation self-healing: routed classes retested on worker, cleared on no violation
-  route-probation-enabled: true  # Enable self-healing
-  route-probation-ticks: 12000   # Test interval (ticks)
-  route-probation-max-violations: 2  # Skip testing above this violation count
-
-  # Routed entity drain batching: cap main-thread routed entity ticks per tick
-  main-thread-entity-drain-budget: 0  # Max per tick (0 = unlimited)
-
-  # Villager POI path budget: limit main-thread villager pathfinding
-  villager-poi-path-budget: 0    # Per-tick budget (0 = unlimited, try 4-8 if lagging)
-
-# Chunk generation peak shaving
-generation-tasks-per-tick: 50    # Max generation tasks submitted per tick
-chunkgen-inflight-limit: 128     # Max submissions per 2s window
-
-# Barrier robustness
-barrier-watchdog-aware: true     # Pause watchdog while in barrier, prevent false kill
-barrier-timeout-ms: 120000       # Barrier stall timeout (ms)
+generation-tasks-per-tick: 50  # generation submissions per tick
+chunkgen-inflight-limit: 128   # rolling 2s submission window
+generation-memory-guard-enabled: true  # throttle generation under heap pressure
+barrier-watchdog-aware: true   # no false watchdog kills during barrier waits
+barrier-timeout-ms: 120000     # barrier stall timeout in ms
 ```
+
+The generated file is the full reference: every key has a bilingual one-line comment and new keys appear automatically after upgrades.
 
 ## Build & Deploy
 
@@ -116,23 +117,25 @@ barrier-timeout-ms: 120000       # Barrier stall timeout (ms)
 
 **Build**:
 ```bash
-./gradlew --no-daemon :bootstrap:neoforgeJar
+./gradlew collect --no-daemon
 ```
 
-**Deploy**: Copy `build/libs/PRTS-neoforge-1.21.1-*-Multithreading.jar` to server root, start server.
+**Deploy**: Copy `build/libs/PRTS-neoforge-1.21.1-*-Multithreading.jar` to the server root and start the server.
 
 **Download**: [GitHub Releases](https://github.com/ElainAwa/PRTS-SERVER/releases)
 
+## Future Plans
+
+- Fix Sable/Simulated physics structure bugs and move physics off the main thread (today the serialized native entry points only prevent crashes)
+- Expand the block entity tier allowlist beyond Create based on production measurements
+- Journal read-your-writes overlay (reserved, default off)
+- Enable the container menu broadcast precheck after production attribution
+- Keep validating every new parallel capability with reproducible synthetic loads before changing defaults
+
 ## Other Features
 
-Identical to main branch `1.21.1` (ServerCore port, entity tracking, chunk saving, async logging, powered-rail optimization, client-mod guard, redstone/pathfinding optimizations, etc.).
+Identical to the main branch `1.21.1` (ServerCore port, entity tracking, chunk saving, async logging, powered-rail optimization, client-mod guard, redstone/pathfinding optimizations, mod command bridge, etc.).
 
-## License
+## License & Copyright
 
-[GPL v3](LICENSE), same as upstream. Third-party copyrights and attributions in `THIRD-PARTY.md`.
-
-## Credits
-
-- [Arclight](https://github.com/IzzelAliz/Arclight) - Original Hybrid server
-- [Luminara](https://github.com/CraftAmethyst/Luminara) - Upstream fork
-- [ServerCore](https://github.com/Wesley1808/ServerCore) - Optimization port source
+[GPL v3](LICENSE), same as upstream. Copyright, licenses and attributions for third-party code are collected in `THIRD-PARTY.md` / `THIRD-PARTY.en.md`.
