@@ -25,7 +25,7 @@ import java.util.concurrent.atomic.LongAdder;
  */
 public final class WorldWriteJournal {
 
-    public record Entry(BlockPos pos, BlockState state, int flags, long submitTick, String sourceClass) {
+    public record Entry(BlockPos pos, BlockState state, int flags, long submitTick, String sourceClass, BlockState observedState) {
     }
 
     /** lwwDedup on: LinkedHashMap<BlockPos, Entry> (pos-keyed, insertion-ordered); off: ConcurrentLinkedQueue<Entry>. */
@@ -39,6 +39,7 @@ public final class WorldWriteJournal {
     private final LongAdder failed = new LongAdder();
     private final LongAdder lwwMerged = new LongAdder();
     private final LongAdder budgetDropped = new LongAdder();
+    private final LongAdder droppedStale = new LongAdder();
 
     @SuppressWarnings("unchecked")
     public WorldWriteJournal(int regionCount, int maxPerRegion, boolean lwwDedup) {
@@ -124,6 +125,13 @@ public final class WorldWriteJournal {
                 continue;
             }
             try {
+                // 防覆盖：条目产生时的位置状态若已被主线程/其他路径修改（玩家放置等），
+                // 跳过应用（worker 的计算基于旧状态，落地会覆盖新放置 → "刚放的方块消失"）。
+                BlockState current = level.getBlockState(entry.pos());
+                if (entry.observedState() != null && !current.equals(entry.observedState())) {
+                    this.droppedStale.increment();
+                    continue;
+                }
                 level.setBlock(entry.pos(), entry.state(), entry.flags());
                 this.applied.increment();
                 appliedNow++;
@@ -192,6 +200,7 @@ public final class WorldWriteJournal {
                 + " applied=" + this.applied.sum()
                 + " droppedOverflow=" + this.droppedOverflow.sum()
                 + " droppedUnloaded=" + this.droppedUnloaded.sum()
+                + " droppedStale=" + this.droppedStale.sum()
                 + " failed=" + this.failed.sum()
                 + " lwwMerged=" + this.lwwMerged.sum()
                 + " budgetDropped=" + this.budgetDropped.sum();

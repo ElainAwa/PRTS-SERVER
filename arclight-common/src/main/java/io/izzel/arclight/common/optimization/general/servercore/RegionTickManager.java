@@ -1320,7 +1320,10 @@ public final class RegionTickManager {
             }
             st.budgetUsed.increment();
         }
-        st.journal.submit(target, new WorldWriteJournal.Entry(pos, state, flags, tick, source));
+        // observedState：产生时的位置状态，应用时比对——已被主线程修改（玩家放置等）则跳过，
+        // 防止 journal 落地覆盖新放置（"刚放的方块消失"）。
+        BlockState observed = level.getBlockState(pos);
+        st.journal.submit(target, new WorldWriteJournal.Entry(pos, state, flags, tick, source, observed));
         STATS.increment("cross.block");
         if (isRedstone(state.getBlock())) {
             STATS.increment("cross.redstone");
