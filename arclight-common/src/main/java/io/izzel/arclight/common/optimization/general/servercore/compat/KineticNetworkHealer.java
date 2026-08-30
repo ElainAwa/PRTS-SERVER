@@ -47,48 +47,48 @@ public final class KineticNetworkHealer {
         if (GET_CONNECTED == null || GET_CONVEYED == null || start.getLevel() == null) {
             return false;
         }
-        // BFS 找有源锚点，IdentityHashMap 防 BE equals 重写
-        Map<KineticBlockEntity, KineticBlockEntity> parent = new IdentityHashMap<>();
-        Deque<KineticBlockEntity> queue = new ArrayDeque<>();
-        Set<KineticBlockEntity> visited = Collections.newSetFromMap(new IdentityHashMap<>());
-        queue.add(start);
-        visited.add(start);
-        KineticBlockEntity anchor = null;
-        while (!queue.isEmpty() && visited.size() < MAX_VISIT) {
-            KineticBlockEntity u = queue.poll();
-            if (hasSources(u)) {
-                anchor = u;
-                break;
-            }
-            for (KineticBlockEntity v : connected(u)) {
-                if (v != null && visited.add(v)) {
-                    parent.put(v, u);
-                    queue.add(v);
-                }
-            }
-        }
-        if (anchor == null) {
-            return false;
-        }
-        if (anchor != start && parent.get(anchor) == null) {
-            return false;
-        }
-        // 反推 start -> anchor 路径，从 anchor 往回迁移动，保证符号按有源侧传播
-        List<KineticBlockEntity> path = new ArrayList<>();
-        for (KineticBlockEntity cur = anchor; cur != null; cur = parent.get(cur)) {
-            path.add(cur);
-        }
-        Collections.reverse(path);
-        if (path.isEmpty() || path.get(0) != start) {
-            return false;
-        }
         KineticTopologyLock.LOCK.lock();
         try {
-            for (int i = 1; i < path.size(); i++) {
+            // BFS 找有源锚点，IdentityHashMap 防 BE equals 重写
+            Map<KineticBlockEntity, KineticBlockEntity> parent = new IdentityHashMap<>();
+            Deque<KineticBlockEntity> queue = new ArrayDeque<>();
+            Set<KineticBlockEntity> visited = Collections.newSetFromMap(new IdentityHashMap<>());
+            queue.add(start);
+            visited.add(start);
+            KineticBlockEntity anchor = null;
+            while (!queue.isEmpty() && visited.size() < MAX_VISIT) {
+                KineticBlockEntity u = queue.poll();
+                if (hasSources(u)) {
+                    anchor = u;
+                    break;
+                }
+                for (KineticBlockEntity v : connected(u)) {
+                    if (v != null && visited.add(v)) {
+                        parent.put(v, u);
+                        queue.add(v);
+                    }
+                }
+            }
+            if (anchor == null) {
+                return false;
+            }
+            if (anchor != start && parent.get(anchor) == null) {
+                return false;
+            }
+            // 反推 start -> anchor 路径；从 anchor 向 start 逐跳迁移，
+            // 保证每跳的父节点都已经属于有源网络
+            List<KineticBlockEntity> path = new ArrayList<>();
+            for (KineticBlockEntity cur = anchor; cur != null; cur = parent.get(cur)) {
+                path.add(cur);
+            }
+            Collections.reverse(path);
+            if (path.isEmpty() || path.get(0) != start) {
+                return false;
+            }
+            for (int i = path.size() - 1; i >= 1; i--) {
                 KineticBlockEntity child = path.get(i - 1);
                 KineticBlockEntity next = path.get(i);
-                float speed = conveyed(next, child);
-                migrate(child, next, speed);
+                migrate(child, next, conveyed(next, child));
             }
             // 继续 BFS 愈合整片无源网络
             queue.clear();
@@ -98,7 +98,7 @@ public final class KineticNetworkHealer {
             while (!queue.isEmpty() && visited.size() < MAX_VISIT) {
                 KineticBlockEntity u = queue.poll();
                 for (KineticBlockEntity v : connected(u)) {
-                    if (v == null || v == start || !visited.add(v)) {
+                    if (v == null || !visited.add(v)) {
                         continue;
                     }
                     if (!hasSources(v)) {
