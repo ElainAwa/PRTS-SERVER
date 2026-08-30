@@ -39,7 +39,7 @@ public final class WorldWriteJournal {
     private final LongAdder failed = new LongAdder();
     private final LongAdder lwwMerged = new LongAdder();
     private final LongAdder budgetDropped = new LongAdder();
-    private final LongAdder droppedStale = new LongAdder();
+    private final LongAdder skippedStale = new LongAdder();
 
     @SuppressWarnings("unchecked")
     public WorldWriteJournal(int regionCount, int maxPerRegion, boolean lwwDedup) {
@@ -125,12 +125,15 @@ public final class WorldWriteJournal {
                 continue;
             }
             try {
-                // 防覆盖：条目产生时的位置状态若已被主线程/其他路径修改（玩家放置等），
+                // 防覆盖：仅 LWW 合并模式下比对（FIFO 模式同位置连续合法写会被误判）。
+                // 条目产生时的位置状态若已被主线程/其他路径修改（玩家放置等），
                 // 跳过应用（worker 的计算基于旧状态，落地会覆盖新放置 → "刚放的方块消失"）。
-                BlockState current = level.getBlockState(entry.pos());
-                if (entry.observedState() != null && !current.equals(entry.observedState())) {
-                    this.droppedStale.increment();
-                    continue;
+                if (this.lwwDedup && entry.observedState() != null) {
+                    BlockState current = level.getBlockState(entry.pos());
+                    if (!current.equals(entry.observedState())) {
+                        this.skippedStale.increment();
+                        continue;
+                    }
                 }
                 level.setBlock(entry.pos(), entry.state(), entry.flags());
                 this.applied.increment();
@@ -200,7 +203,7 @@ public final class WorldWriteJournal {
                 + " applied=" + this.applied.sum()
                 + " droppedOverflow=" + this.droppedOverflow.sum()
                 + " droppedUnloaded=" + this.droppedUnloaded.sum()
-                + " droppedStale=" + this.droppedStale.sum()
+                + " skippedStale=" + this.skippedStale.sum()
                 + " failed=" + this.failed.sum()
                 + " lwwMerged=" + this.lwwMerged.sum()
                 + " budgetDropped=" + this.budgetDropped.sum();
