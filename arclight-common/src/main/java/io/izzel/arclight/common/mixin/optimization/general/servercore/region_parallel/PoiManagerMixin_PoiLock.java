@@ -7,28 +7,26 @@ package io.izzel.arclight.common.mixin.optimization.general.servercore.region_pa
 
 import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Holder;
 import net.minecraft.core.SectionPos;
 import net.minecraft.world.entity.ai.village.poi.PoiManager;
-import net.minecraft.world.entity.ai.village.poi.PoiRecord;
-import net.minecraft.world.entity.ai.village.poi.PoiType;
-import net.minecraft.world.level.ChunkPos;
-import net.minecraft.world.level.LevelReader;
 import net.minecraft.world.level.chunk.LevelChunkSection;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 
-import java.util.Optional;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.BooleanSupplier;
-import java.util.function.Predicate;
-import java.util.stream.Stream;
 
 /**
- * Serializes all PoiManager section-storage access per manager instance.
- * Vanilla assumes main-thread-only storage; workers querying POIs or reading
- * chunks on IO threads can race the shared map and corrupt it.
+ * Village distance tracker serialization. {@code PoiManager$DistanceTracker}
+ * mutates a fastutil priority queue plus a level map that vanilla only touches
+ * on the main thread; region workers call sectionsToVillage from mob AI, so the
+ * tracker entry points are serialized per manager instance.
+ *
+ * <p>All five methods are wrapped with try/finally: a plain HEAD/RETURN
+ * {@code @Inject} pair would skip unlock on the exception path, and once a
+ * worker thread dies mid-method the lock is leaked forever - the main thread
+ * then blocks in PoiManager.tick waiting on the POI lock (observed deadlock
+ * with 2000 citizens). try/finally guarantees unlock on every path.
  */
 @Mixin(PoiManager.class)
 public abstract class PoiManagerMixin_PoiLock {
@@ -81,90 +79,6 @@ public abstract class PoiManagerMixin_PoiLock {
         this.arclight$poiLock.lock();
         try {
             original.call(pos, section);
-        } finally {
-            this.arclight$poiLock.unlock();
-        }
-    }
-
-    @WrapMethod(method = "getInChunk")
-    private Stream<PoiRecord> arclight$getInChunk(Predicate<Holder<PoiType>> typePredicate, ChunkPos pos,
-                                                  PoiManager.Occupancy status, Operation<Stream<PoiRecord>> original) {
-        this.arclight$poiLock.lock();
-        try {
-            // Materialize the lazy stream while the lock is held so storage
-            // reads and record iteration never escape the critical section.
-            return original.call(typePredicate, pos, status).toList().stream();
-        } finally {
-            this.arclight$poiLock.unlock();
-        }
-    }
-
-    @WrapMethod(method = "add")
-    private void arclight$add(BlockPos pos, Holder<PoiType> type, Operation<Void> original) {
-        this.arclight$poiLock.lock();
-        try {
-            original.call(pos, type);
-        } finally {
-            this.arclight$poiLock.unlock();
-        }
-    }
-
-    @WrapMethod(method = "remove")
-    private void arclight$remove(BlockPos pos, Operation<Void> original) {
-        this.arclight$poiLock.lock();
-        try {
-            original.call(pos);
-        } finally {
-            this.arclight$poiLock.unlock();
-        }
-    }
-
-    @WrapMethod(method = "release")
-    private boolean arclight$release(BlockPos pos, Operation<Boolean> original) {
-        this.arclight$poiLock.lock();
-        try {
-            return original.call(pos);
-        } finally {
-            this.arclight$poiLock.unlock();
-        }
-    }
-
-    @WrapMethod(method = "exists")
-    private boolean arclight$exists(BlockPos pos, Predicate<Holder<PoiType>> typePredicate, Operation<Boolean> original) {
-        this.arclight$poiLock.lock();
-        try {
-            return original.call(pos, typePredicate);
-        } finally {
-            this.arclight$poiLock.unlock();
-        }
-    }
-
-    @WrapMethod(method = "getType")
-    private Optional<Holder<PoiType>> arclight$getType(BlockPos pos, Operation<Optional<Holder<PoiType>>> original) {
-        this.arclight$poiLock.lock();
-        try {
-            return original.call(pos);
-        } finally {
-            this.arclight$poiLock.unlock();
-        }
-    }
-
-    @WrapMethod(method = "getFreeTickets")
-    private int arclight$getFreeTickets(BlockPos pos, Operation<Integer> original) {
-        this.arclight$poiLock.lock();
-        try {
-            return original.call(pos);
-        } finally {
-            this.arclight$poiLock.unlock();
-        }
-    }
-
-    @WrapMethod(method = "ensureLoadedAndValid")
-    private void arclight$ensureLoadedAndValid(LevelReader levelReader, BlockPos pos, int coordinateOffset,
-                                               Operation<Void> original) {
-        this.arclight$poiLock.lock();
-        try {
-            original.call(levelReader, pos, coordinateOffset);
         } finally {
             this.arclight$poiLock.unlock();
         }

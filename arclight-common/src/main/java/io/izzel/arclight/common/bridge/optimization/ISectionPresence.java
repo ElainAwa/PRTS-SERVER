@@ -34,4 +34,7 @@ public interface ISectionPresence {
 
     /** {@code LevelHeightAccessor.getMinSection()} of the owning storage. */
     int arclight$minSection();
+
+    /** {@code LevelHeightAccessor.getMaxSection()} of the owning storage. */
+    int arclight$maxSection();
 }

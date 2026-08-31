@@ -102,6 +102,11 @@ public abstract class SectionStorageMixin_Presence implements ISectionPresence {
         return this.levelHeightAccessor.getMinSection();
     }
 
+    @Override
+    public int arclight$maxSection() {
+        return this.levelHeightAccessor.getMaxSection();
+    }
+
     // ---- maintenance hooks: every load/create path funnels through these two ----
 
     @Inject(method = "getOrLoad", at = @At("RETURN"))

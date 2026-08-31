@@ -53,8 +53,19 @@ public abstract class PoiManagerMixin_QueryFastPath {
         ISectionPresence presence = (ISectionPresence) this;
         long chunkLong = chunkPos.toLong();
         if (!presence.arclight$isChunkKnown(chunkLong)) {
-            // never read from storage: vanilla path (may load the column from disk)
+            // Unknown column: iterate whatever sections are already loaded. Never
+            // call getOrLoad here - a blocking disk read races chunk deserialization
+            // on the shared storage map and can deadlock IO workers.
             PoiQueryStats.increment("vanillaChunks");
+            Stream.Builder<PoiRecord> builder = Stream.builder();
+            for (int y = presence.arclight$minSection(); y < presence.arclight$maxSection(); y++) {
+                Object section = presence.arclight$getSectionIfPresent(
+                        SectionPos.asLong(chunkPos.x, y, chunkPos.z));
+                if (section instanceof PoiSection poiSection) {
+                    poiSection.getRecords(predicate, occupancy).forEach(builder);
+                }
+            }
+            cir.setReturnValue(builder.build());
             return;
         }
         long mask = presence.arclight$presentMask(chunkLong);
