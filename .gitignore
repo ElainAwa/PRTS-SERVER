@@ -18,3 +18,4 @@ prts-test/
 docs/
 # local cage workflow docs (not published)
 .cage/
+AGENTS.md
