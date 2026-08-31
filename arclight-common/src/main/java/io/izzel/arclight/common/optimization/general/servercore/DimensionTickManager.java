@@ -532,7 +532,10 @@ public final class DimensionTickManager {
         StringBuilder sb = new StringBuilder("PRTS barrier timeout in ").append(where)
                 .append(" after ").append(PRTSFeaturesConfig.barrierTimeoutMs).append("ms");
         for (ThreadInfo ti : ManagementFactory.getThreadMXBean().dumpAllThreads(true, true)) {
-            sb.append('\n').append(ti);
+            sb.append("\n\"").append(ti.getThreadName()).append("\" ").append(ti.getThreadState());
+            for (StackTraceElement element : ti.getStackTrace()) {
+                sb.append("\n    at ").append(element);
+            }
         }
         LOGGER.error("[PRTS-Barrier] {}", sb);
         return sb.toString();

@@ -69,6 +69,10 @@ public abstract class ServerChunkCacheMixin_DimParallel implements io.izzel.arcl
     @Unique
     private long arclight$waitBudgetNanos;
 
+    /** 每 tick 只推进一次生成泵，避免扫描类模组逐格 getBlockState 时反复跑满生成队列。 */
+    @Unique
+    private long arclight$generationPumpTick = -1L;
+
     /** 强制加载持久票：保证超时后后台继续生成，FULL 命中时回收。 */
     private static final net.minecraft.server.level.TicketType<net.minecraft.world.level.ChunkPos> PRTS_FORCE_LOAD =
             net.minecraft.server.level.TicketType.create("prts_force_load",
@@ -213,10 +217,14 @@ public abstract class ServerChunkCacheMixin_DimParallel implements io.izzel.arcl
                 genLock.lock();
                 try {
                     this.runDistanceManagerUpdates();
-                    // 等待期间推进生成泵，避免等待与生成互相饿死
-                    try {
-                        this.chunkMap.runGenerationTasks();
-                    } catch (Throwable ignored) {
+                    // 等待期间推进生成泵；同 tick 只推一次，扫描类模组逐格
+                    // getBlockState 时不得每格都重跑整条生成队列（生产 12:13 卡死）。
+                    if (this.arclight$generationPumpTick != gameTime) {
+                        this.arclight$generationPumpTick = gameTime;
+                        try {
+                            this.chunkMap.runGenerationTasks();
+                        } catch (Throwable ignored) {
+                        }
                     }
                     ChunkHolder holder = this.chunkMap.visibleChunkMap.get(key);
                     if (holder == null) {
