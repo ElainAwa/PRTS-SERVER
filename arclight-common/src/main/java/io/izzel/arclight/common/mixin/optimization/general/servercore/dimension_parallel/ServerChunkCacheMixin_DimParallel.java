@@ -156,6 +156,11 @@ public abstract class ServerChunkCacheMixin_DimParallel implements io.izzel.arcl
         if (Boolean.TRUE.equals(this.arclight$internalLoad.get())) {
             return;
         }
+        // 主线程保持 vanilla 同步生成语义：required=true 必须拿到真区块。
+        // 空壳回退会让按 BlockState 身份比较的模组（rubberworks sapper）死循环。
+        if (!DimensionTickManager.isDimensionTickThread() && !RegionTickManager.isRegionWorker()) {
+            return;
+        }
         long key = ChunkPos.asLong(x, z);
         ChunkAccess cached;
         try {
