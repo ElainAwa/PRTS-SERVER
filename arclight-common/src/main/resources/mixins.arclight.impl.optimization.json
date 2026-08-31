@@ -48,6 +48,7 @@
     "servercore.compat.superbwarfare.MinecraftUtilMixin_Sbw",
     "servercore.compat.AbstractEntityCitizenMixin_ColonyPhase",
     "servercore.compat.CompatibilityManagerMixin_DiscoverResilient",
+    "servercore.compat.ColonyManagerMixin_CompatServerInstance",
     "servercore.compat.AbstractEntityAIStructureMixin_QuietPlacementLog",
     "servercore.compat.DeployerBlockEntityMixin_EnsurePlayer",
     "servercore.compat.BeltDeployerCallbacksMixin_TimerTolerance",
