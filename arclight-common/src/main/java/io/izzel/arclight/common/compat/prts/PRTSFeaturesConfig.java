@@ -556,6 +556,11 @@ public class PRTSFeaturesConfig {
         beltPassengerDefer = config.getBoolean("parallel.belt-passenger-defer", true);
         mainThreadEntityForce = new ArrayList<>(config.getStringList("parallel.main-thread-entity-force"));
         mainThreadEntityAllow = new ArrayList<>(config.getStringList("parallel.main-thread-entity-allow"));
+        if (mainThreadEntityForce.isEmpty()) {
+            // 殖民地矿车/坐凳实体在主线程，避免 worker 上 ENTITY_MOUNT 游戏事件被 ModernFix 跳过刷屏
+            mainThreadEntityForce.add("com.minecolonies.api.entity.other.MinecoloniesMinecart");
+            mainThreadEntityForce.add("com.minecolonies.core.entity.other.SittingEntity");
+        }
         if (mainThreadEntityAllow.isEmpty()) {
             // 默认放行村民上 worker（08-28 实锤：主线程实体时间 50.5ms -> 4.3ms）
             mainThreadEntityAllow.add("net.minecraft.world.entity.npc");
