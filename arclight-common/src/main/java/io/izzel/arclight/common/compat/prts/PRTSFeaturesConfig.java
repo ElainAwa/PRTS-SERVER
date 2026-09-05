@@ -71,6 +71,8 @@ public class PRTSFeaturesConfig {
     public static int mainThreadEntityDrainBudget;
     /** 主线程单目标移动寻路异步化（routed villager 主线程 A* 削峰；默认关）。 */
     public static boolean mainThreadPathAsync;
+    /** Create TreeCutter BFS 节点预算（0 = 关闭防护，保持原行为；建议 4096）。 */
+    public static int treeCutterNodeBudget;
     /** learned routes JSON 文件路径。 */
     public static String learnedRoutesFile;
     /** 最多持久化的 learned routes 数量。 */
@@ -448,6 +450,7 @@ public class PRTSFeaturesConfig {
         colonyManagerTickCacheInterval = Math.max(1, Math.min(120, config.getInt("parallel.colony-manager-tick-cache-interval", 20)));
         villagerPoiPathBudget = Math.max(0, config.getInt("parallel.villager-poi-path-budget", 0));
         mainThreadPathAsync = config.getBoolean("parallel.main-thread-path-async", true);
+        treeCutterNodeBudget = Math.max(0, config.getInt("parallel.tree-cutter-node-budget", 0));
         mainThreadEntityDrainBudget = Math.max(0, config.getInt("parallel.main-thread-entity-drain-budget", 0));
         persistLearnedRoutes = config.getBoolean("parallel.persist-learned-routes", true);
         learnedRoutesFile = config.getString("parallel.learned-routes-file", "config/prts-learned-routes.json");

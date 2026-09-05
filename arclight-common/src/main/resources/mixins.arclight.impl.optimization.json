@@ -39,6 +39,7 @@
     "servercore.compat.SableNativeSerializationMixin$RapierRopeHandleLock",
     "servercore.compat.FunnelBlockMixin_Create",
     "servercore.compat.BeltBlockMixin_Create",
+    "servercore.compat.TreeCutterMixin_Create",
     "servercore.compat.TrackBlockEntityMixin_LazySpread",
     "servercore.compat.superbwarfare.LevelMixin_Sbw",
     "servercore.compat.superbwarfare.FastMotionSyncMixin_Sbw",
