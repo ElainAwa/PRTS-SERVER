@@ -73,6 +73,8 @@ public class PRTSFeaturesConfig {
     public static boolean mainThreadPathAsync;
     /** Create TreeCutter BFS 节点预算（0 = 关闭防护，保持原行为；建议 4096）。 */
     public static int treeCutterNodeBudget;
+    /** Create TreeCutter 单次搜索时间预算毫秒（0 = 关闭该层；建议 10）。 */
+    public static long treeCutterTimeBudgetMs;
     /** learned routes JSON 文件路径。 */
     public static String learnedRoutesFile;
     /** 最多持久化的 learned routes 数量。 */
@@ -450,7 +452,8 @@ public class PRTSFeaturesConfig {
         colonyManagerTickCacheInterval = Math.max(1, Math.min(120, config.getInt("parallel.colony-manager-tick-cache-interval", 20)));
         villagerPoiPathBudget = Math.max(0, config.getInt("parallel.villager-poi-path-budget", 0));
         mainThreadPathAsync = config.getBoolean("parallel.main-thread-path-async", true);
-        treeCutterNodeBudget = Math.max(0, config.getInt("parallel.tree-cutter-node-budget", 0));
+        treeCutterNodeBudget = Math.max(0, config.getInt("parallel.tree-cutter-node-budget", 4096));
+        treeCutterTimeBudgetMs = Math.max(0, config.getLong("parallel.tree-cutter-time-budget-ms", 10));
         mainThreadEntityDrainBudget = Math.max(0, config.getInt("parallel.main-thread-entity-drain-budget", 0));
         persistLearnedRoutes = config.getBoolean("parallel.persist-learned-routes", true);
         learnedRoutesFile = config.getString("parallel.learned-routes-file", "config/prts-learned-routes.json");
@@ -1186,6 +1189,8 @@ public class PRTSFeaturesConfig {
                   create-track-lazy-spread: true    # spread Create long-track fake rail rasterization
                   create-track-lazy-chunk-blocks: 64 # max rasterized blocks per connection per tick
                   villager-poi-path-budget: 0       # villager main-thread POI/single-target path budget (0=off)
+                  tree-cutter-node-budget: 4096     # Create TreeCutter BFS node budget (0=off)
+                  tree-cutter-time-budget-ms: 10    # TreeCutter per-search time budget ms (0=off)
                   barrier-soft-degrade: true        # time-sliced barrier join when main thread is behind (late regions skip remaining work)
                   barrier-target-ms: 50             # whole-tick target budget ms; soft degrade activates when elapsed > it (0=never)
                   main-wasted-ms-telemetry: false   # measure barrier wait vs post-join main-thread overlap upper bound (telemetry only)
@@ -1422,6 +1427,8 @@ public class PRTSFeaturesConfig {
                   create-track-lazy-spread: true  # Create 长轨道假轨栅格化分摊：每 tick 处理一条连接的一个区块
                   create-track-lazy-chunk-blocks: 64  # 分摊时每连接每 tick 最大栅格块数
                   villager-poi-path-budget: 0  # 村民主线程寻路预算（0=关）
+                  tree-cutter-node-budget: 4096  # Create TreeCutter BFS 节点预算（0=关）
+                  tree-cutter-time-budget-ms: 10  # TreeCutter 单次搜索时间预算 ms（0=关）
                   barrier-soft-degrade: true  # 主线程落后时 barrier 时间切片等待
                   barrier-target-ms: 50  # 整 tick 目标预算（毫秒），超出则激活软降级
                   main-wasted-ms-telemetry: false  # 量化 barrier 等待重叠（纯遥测）
