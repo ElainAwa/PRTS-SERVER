@@ -11,6 +11,7 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Accessor;
 
 import java.util.concurrent.atomic.AtomicBoolean;
+import io.izzel.arclight.common.optimization.general.lightthread.LightChainDiag;
 
 /**
  * 光链诊断访问面（风暴卡死排查）：读 {@code ThreadedLevelLightEngine} 私有状态，

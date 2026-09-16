@@ -6,8 +6,8 @@
 package io.izzel.arclight.common.optimization.general.chunksystem.guards;
 
 import io.izzel.arclight.common.compat.prts.PRTSFeaturesConfig;
-import io.izzel.arclight.common.optimization.general.servercore.DimensionTickManager;
-import io.izzel.arclight.common.optimization.general.servercore.RegionTickManager;
+import io.izzel.arclight.common.optimization.parallel.DimensionTickManager;
+import io.izzel.arclight.common.optimization.parallel.RegionTickManager;
 import net.minecraft.server.MinecraftServer;
 
 /**

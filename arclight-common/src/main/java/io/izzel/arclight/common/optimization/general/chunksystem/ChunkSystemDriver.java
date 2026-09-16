@@ -9,7 +9,7 @@ import io.izzel.arclight.common.compat.prts.PRTSFeaturesConfig;
 import io.izzel.arclight.common.optimization.general.chunksystem.scheduler.ExecutorManager;
 import io.izzel.arclight.common.optimization.general.chunksystem.scheduler.LockToken;
 import io.izzel.arclight.common.optimization.general.chunksystem.scheduler.Task;
-import io.izzel.arclight.common.optimization.general.servercore.DimensionTickManager;
+import io.izzel.arclight.common.optimization.parallel.DimensionTickManager;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ChunkGenerationTask;
 import net.minecraft.server.level.ChunkMap;

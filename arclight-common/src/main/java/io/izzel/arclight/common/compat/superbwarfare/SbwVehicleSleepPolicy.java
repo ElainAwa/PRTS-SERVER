@@ -2,7 +2,7 @@ package io.izzel.arclight.common.compat.superbwarfare;
 
 import com.atsuishio.superbwarfare.entity.vehicle.base.VehicleEntity;
 import io.izzel.arclight.common.compat.prts.PRTSFeaturesConfig;
-import io.izzel.arclight.common.optimization.general.servercore.RegionTickManager.VehicleSleepPolicy;
+import io.izzel.arclight.common.optimization.parallel.RegionTickManager.VehicleSleepPolicy;
 import net.minecraft.world.entity.Entity;
 
 import java.util.Map;

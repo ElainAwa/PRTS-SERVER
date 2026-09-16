@@ -12,6 +12,7 @@ import org.objectweb.asm.Opcodes;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
+import io.izzel.arclight.common.optimization.eventbus.EventBusStats;
 
 /**
  * IO 反序列化事件捕获注入面（M2.2 四件套 ③，M2.3 修正）。

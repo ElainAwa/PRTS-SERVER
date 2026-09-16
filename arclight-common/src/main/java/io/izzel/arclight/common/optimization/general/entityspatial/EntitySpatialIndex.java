@@ -13,6 +13,7 @@ import net.minecraft.world.phys.AABB;
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import java.util.List;
+import io.izzel.arclight.common.mixin.optimization.general.entityspatial.EntitySectionMixin_SpatialIndex;
 
 /**
  * Lazily-built 4x4x4 sub-grid spatial index for one {@code EntitySection}, accelerating pure

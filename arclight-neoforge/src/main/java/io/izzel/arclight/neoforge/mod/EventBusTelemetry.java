@@ -5,7 +5,7 @@
 
 package io.izzel.arclight.neoforge.mod;
 
-import io.izzel.arclight.common.optimization.general.servercore.EventBusStats;
+import io.izzel.arclight.common.optimization.eventbus.EventBusStats;
 import net.minecraft.server.MinecraftServer;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;

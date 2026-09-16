@@ -6,6 +6,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.Vec3;
 import org.spongepowered.asm.mixin.Mixin;
+import io.izzel.arclight.common.optimization.general.entitytracking.NearbyEntityTracking;
 
 /** VMP mojmap 移植：记录玩家上一 tick 坐标供 NearbyEntityTracking 判移动/瞬移。禁 @Shadow（reobf refmap 失败），改用虚调用。 */
 

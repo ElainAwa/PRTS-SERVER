@@ -3,7 +3,7 @@ package io.izzel.arclight.neoforge;
 import io.izzel.arclight.api.Arclight;
 import io.izzel.arclight.common.compat.prts.PRTSFeaturesConfig;
 import io.izzel.arclight.common.mod.server.ArclightServer;
-import io.izzel.arclight.common.optimization.general.servercore.DimensionTickManager;
+import io.izzel.arclight.common.optimization.parallel.DimensionTickManager;
 import io.izzel.arclight.neoforge.mod.NeoForgeArclightServer;
 import io.izzel.arclight.neoforge.mod.event.ArclightEventDispatcherRegistry;
 import io.izzel.arclight.neoforge.mod.event.EventBusQuery;

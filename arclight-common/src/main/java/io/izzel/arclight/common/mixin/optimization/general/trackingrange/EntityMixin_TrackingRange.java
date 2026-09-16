@@ -8,6 +8,7 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import io.izzel.arclight.common.optimization.servercore.activation_range.ActivationType;
 
 // activation range 已换用 ServerCore 实现，此处仅补回 org.spigotmc.TrackingRange/ActivationRange
 // 直接访问的三个 Entity 字段，防止 NoSuchFieldError；不参与任何 tick 门控。

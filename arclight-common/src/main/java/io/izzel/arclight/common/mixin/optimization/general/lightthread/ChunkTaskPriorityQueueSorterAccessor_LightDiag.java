@@ -12,6 +12,7 @@ import org.spongepowered.asm.mixin.gen.Accessor;
 
 import java.util.Map;
 import java.util.Set;
+import io.izzel.arclight.common.optimization.general.lightthread.LightChainDiag;
 
 /**
  * 光链诊断访问面：读 {@code ChunkTaskPriorityQueueSorter} 私有状态（队列映射表 / sleeping 集合）。

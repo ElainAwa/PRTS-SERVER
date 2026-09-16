@@ -19,6 +19,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyArg;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import io.izzel.arclight.common.mixin.optimization.general.lightengine.LightEngineMixin_LightBudget;
 
 /**
  * 光照线程化的配套补跑：light 任务 lambda（{@code runUpdate()} 后清

@@ -12,6 +12,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
+import io.izzel.arclight.common.mixin.optimization.general.eventbridge.HandlerListMixin_EventBridge;
 
 /**
  * On-demand registration gate for the Forge event bridge.

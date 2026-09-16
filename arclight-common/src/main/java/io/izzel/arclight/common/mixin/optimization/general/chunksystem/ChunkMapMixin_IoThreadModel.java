@@ -29,6 +29,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import io.izzel.arclight.common.optimization.servercore.journal.ChunkJournal;
 
 /**
  * IO 线程模型（M2.2）：把 {@code scheduleChunkLoad} 的反序列化段

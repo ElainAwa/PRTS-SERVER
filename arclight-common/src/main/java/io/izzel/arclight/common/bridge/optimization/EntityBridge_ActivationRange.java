@@ -1,6 +1,6 @@
 package io.izzel.arclight.common.bridge.optimization;
 
-import io.izzel.arclight.common.optimization.general.servercore.activation_range.ActivationType;
+import io.izzel.arclight.common.optimization.servercore.activation_range.ActivationType;
 
 /**
  * 激活范围实体桥（替代 ServerCore 的 ActivationEntity + Inactive 接口注入）。

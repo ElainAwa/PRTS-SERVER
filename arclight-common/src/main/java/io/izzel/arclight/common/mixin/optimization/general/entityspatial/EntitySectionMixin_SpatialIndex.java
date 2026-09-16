@@ -31,6 +31,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+import io.izzel.arclight.common.mixin.optimization.entitybatch.EntitySectionMixin_RegionLock;
 
 /**
  * Lazily-built 4x4x4 sub-grid spatial index on {@code EntitySection}:

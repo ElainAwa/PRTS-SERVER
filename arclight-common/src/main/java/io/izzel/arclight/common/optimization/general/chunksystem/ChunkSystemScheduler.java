@@ -9,8 +9,8 @@ import io.izzel.arclight.common.compat.prts.PRTSFeaturesConfig;
 import io.izzel.arclight.common.optimization.general.chunksystem.scheduler.ExecutorManager;
 import io.izzel.arclight.common.optimization.general.chunksystem.scheduler.LockToken;
 import io.izzel.arclight.common.optimization.general.chunksystem.scheduler.Task;
-import io.izzel.arclight.common.optimization.general.servercore.ChunkPrefetcher;
-import io.izzel.arclight.common.optimization.general.servercore.DimensionTickManager;
+import io.izzel.arclight.common.optimization.chunkload.ChunkPrefetcher;
+import io.izzel.arclight.common.optimization.parallel.DimensionTickManager;
 import net.minecraft.server.level.ChunkGenerationTask;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import io.izzel.arclight.common.mixin.optimization.general.chunksystem.ChunkGenerationTaskMixin_LockSplit;
 
 /**
  * 区块系统调度器门面（M1：FlowSched 精简移植驱动原版生成 future 链）。

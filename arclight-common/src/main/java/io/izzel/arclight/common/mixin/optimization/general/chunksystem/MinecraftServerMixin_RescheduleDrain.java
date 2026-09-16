@@ -12,6 +12,7 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import io.izzel.arclight.common.optimization.chunkload.ChunkGenerationOwnerLock;
 
 /** 空闲等待时消化延迟的生成重调度，保持生成链推进。 */
 @Mixin(MinecraftServer.class)
@@ -24,7 +25,7 @@ public abstract class MinecraftServerMixin_RescheduleDrain {
             if (level.getChunkSource() instanceof ServerChunkCacheRegionBridge bridge) {
                 // 与维度 worker 的生成驱动共用属主锁，避免并发驱动 vanilla ChunkMap 管线
                 java.util.concurrent.locks.ReentrantLock genLock =
-                        io.izzel.arclight.common.optimization.general.servercore.ChunkGenerationOwnerLock.lock(level);
+                        io.izzel.arclight.common.optimization.chunkload.ChunkGenerationOwnerLock.lock(level);
                 genLock.lock();
                 try {
                     bridge.arclight$drainDeferredReschedules();

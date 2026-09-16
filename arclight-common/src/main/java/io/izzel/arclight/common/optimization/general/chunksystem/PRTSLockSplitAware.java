@@ -10,6 +10,7 @@ import net.minecraft.world.level.chunk.status.ChunkStatus;
 import javax.annotation.Nullable;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import io.izzel.arclight.common.mixin.optimization.general.chunksystem.ChunkGenerationTaskMixin_LockSplit;
 
 /**
  * 两阶段锁域拆分（阶段二）的任务状态接口，由

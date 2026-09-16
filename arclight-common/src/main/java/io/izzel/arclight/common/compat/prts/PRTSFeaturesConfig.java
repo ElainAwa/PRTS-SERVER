@@ -1,8 +1,8 @@
 package io.izzel.arclight.common.compat.prts;
 
-import io.izzel.arclight.common.optimization.general.servercore.ownership.ClassAffinityLedger;
-import io.izzel.arclight.common.optimization.general.servercore.ownership.ThreadPolicy;
-import io.izzel.arclight.common.optimization.general.servercore.ownership.WorldAccessGuard;
+import io.izzel.arclight.common.optimization.ownership.ClassAffinityLedger;
+import io.izzel.arclight.common.optimization.ownership.ThreadPolicy;
+import io.izzel.arclight.common.optimization.ownership.WorldAccessGuard;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -464,13 +464,13 @@ public class PRTSFeaturesConfig {
         chunkDemandPerTick = config.getInt("parallel.chunk-demand-per-tick", 50);
         // 非正数会让需求 drain 永久不执行（budget <= 0），退回默认值。
         if (chunkDemandPerTick < 1) chunkDemandPerTick = 50;
-        io.izzel.arclight.common.optimization.general.servercore.ChunkDemandQueue.maxPerTick = chunkDemandPerTick;
+        io.izzel.arclight.common.optimization.chunkload.ChunkDemandQueue.maxPerTick = chunkDemandPerTick;
         chunkDemandMinDrainMs = Math.max(0, config.getInt("parallel.chunk-demand-min-drain-ms", 2));
-        io.izzel.arclight.common.optimization.general.servercore.ChunkDemandQueue.minDrainMs = chunkDemandMinDrainMs;
+        io.izzel.arclight.common.optimization.chunkload.ChunkDemandQueue.minDrainMs = chunkDemandMinDrainMs;
         chunkDemandPlayerPriority = config.getBoolean("parallel.chunk-demand-player-priority", true);
         chunkDemandStarveTicks = Math.max(20, config.getInt("parallel.chunk-demand-starve-ticks", 600));
-        io.izzel.arclight.common.optimization.general.servercore.ChunkDemandQueue.playerPriorityEnabled = chunkDemandPlayerPriority;
-        io.izzel.arclight.common.optimization.general.servercore.ChunkDemandQueue.starveNanos = chunkDemandStarveTicks * 50_000_000L;
+        io.izzel.arclight.common.optimization.chunkload.ChunkDemandQueue.playerPriorityEnabled = chunkDemandPlayerPriority;
+        io.izzel.arclight.common.optimization.chunkload.ChunkDemandQueue.starveNanos = chunkDemandStarveTicks * 50_000_000L;
         chunkSendRateFloor = Math.max(0f, (float) config.getDouble("parallel.chunk-send-rate-floor", 128.0));
         LOGGER.info("parallel chunk-demand priority={} starve={} ticks", chunkDemandPlayerPriority, chunkDemandStarveTicks);
         // 玩家方向区块预取（默认关）。
@@ -512,7 +512,7 @@ public class PRTSFeaturesConfig {
         entityBatchThreads = Math.max(0, config.getInt("parallel.entity-batch-threads", 0));
         entityBatchAllow = parseInlineList(config.getString("parallel.entity-batch-allow", "[]"));
         entityBatchDeny = parseInlineList(config.getString("parallel.entity-batch-deny", "[]"));
-        io.izzel.arclight.common.optimization.general.servercore.EntityBatchScheduler
+        io.izzel.arclight.common.optimization.entitybatch.EntityBatchScheduler
                 .configure(entityBatchAllow, entityBatchDeny);
         int count = config.getInt("parallel.region-count", 4);
         if (count < 2) count = 2;
@@ -581,7 +581,7 @@ public class PRTSFeaturesConfig {
         crossrefProbe = config.getBoolean("parallel.crossref-probe", false);
         crossrefValueSnapshot = config.getBoolean("parallel.crossref-value-snapshot", false);
         crossrefSnapshotCache = config.getBoolean("parallel.crossref-snapshot-cache", false);
-        io.izzel.arclight.common.optimization.general.servercore.ownership.CrossRefProbe.applyConfig(crossrefProbe, crossrefValueSnapshot, crossrefSnapshotCache);
+        io.izzel.arclight.common.optimization.ownership.CrossRefProbe.applyConfig(crossrefProbe, crossrefValueSnapshot, crossrefSnapshotCache);
         LOGGER.info("parallel crossref-probe={} value-snapshot={} snapshot-cache={}", crossrefProbe, crossrefValueSnapshot, crossrefSnapshotCache);
         LOGGER.info("parallel main-thread-routing={} threshold={} window={} ticks force={} allow={} persist={}",
                 mainThreadRouting, routeThreshold, routeWindowTicks,
@@ -702,7 +702,7 @@ public class PRTSFeaturesConfig {
     /** Persist learned routes to independent JSON file (replaces old YAML append logic). */
     public static void persistLearnedRoutes() {
         try {
-            io.izzel.arclight.common.optimization.general.servercore.ownership.LearnedRoutePersistence.saveOnShutdown();
+            io.izzel.arclight.common.optimization.ownership.LearnedRoutePersistence.saveOnShutdown();
         } catch (Exception e) {
             LOGGER.error("persist-learned-routes failed", e);
         }

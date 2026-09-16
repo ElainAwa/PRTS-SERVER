@@ -6,7 +6,7 @@
 package io.izzel.arclight.common.optimization.general.chunksystem;
 
 import io.izzel.arclight.common.compat.prts.PRTSFeaturesConfig;
-import io.izzel.arclight.common.optimization.general.servercore.PrefetchTicketSink;
+import io.izzel.arclight.common.optimization.chunkload.PrefetchTicketSink;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ChunkLevel;
 import net.minecraft.server.level.ServerLevel;

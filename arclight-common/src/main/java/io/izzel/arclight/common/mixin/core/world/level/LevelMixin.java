@@ -9,7 +9,7 @@ import io.izzel.arclight.common.mod.mixins.annotation.TransformAccess;
 import io.izzel.arclight.common.mod.server.world.ArclightWorldConfig;
 import io.izzel.arclight.common.mod.util.ArclightCaptures;
 import io.izzel.arclight.common.mod.util.DistValidate;
-import io.izzel.arclight.common.optimization.general.servercore.LevelMainThreadAccess;
+import io.izzel.arclight.common.optimization.ownership.LevelMainThreadAccess;
 import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;

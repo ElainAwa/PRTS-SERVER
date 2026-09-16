@@ -22,6 +22,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantLock;
+import io.izzel.arclight.common.mixin.optimization.general.entitytracking.ChunkMap_TrackingMixin;
 
 /** 原 VMP com.ishland.vmp.common.playerwatching.NearbyEntityTracking 的 mojmap 移植。 */
 public class NearbyEntityTracking {

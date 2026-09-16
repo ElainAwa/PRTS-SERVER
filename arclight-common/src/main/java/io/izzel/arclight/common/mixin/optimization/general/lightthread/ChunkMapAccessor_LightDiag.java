@@ -9,6 +9,7 @@ import net.minecraft.server.level.ChunkMap;
 import net.minecraft.server.level.ChunkTaskPriorityQueueSorter;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Accessor;
+import io.izzel.arclight.common.optimization.general.lightthread.LightChainDiag;
 
 /**
  * 光链诊断访问面：读 {@code ChunkMap} 私有 {@code queueSorter}。

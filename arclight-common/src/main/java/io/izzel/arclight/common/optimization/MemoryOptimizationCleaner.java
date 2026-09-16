@@ -9,6 +9,7 @@ import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Map;
 import java.util.Collection;
+import io.izzel.arclight.common.mixin.optimization.general.MinecraftServerMixin_MemoryCleanup;
 
 /** 实验性内存缓存清理（默认关闭）。 */
 public class MemoryOptimizationCleaner {
