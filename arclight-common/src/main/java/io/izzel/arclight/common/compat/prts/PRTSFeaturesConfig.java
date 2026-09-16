@@ -464,13 +464,13 @@ public class PRTSFeaturesConfig {
         chunkDemandPerTick = config.getInt("parallel.chunk-demand-per-tick", 50);
         // 非正数会让需求 drain 永久不执行（budget <= 0），退回默认值。
         if (chunkDemandPerTick < 1) chunkDemandPerTick = 50;
-        io.izzel.arclight.common.optimization.chunkload.ChunkDemandQueue.maxPerTick = chunkDemandPerTick;
+        io.izzel.arclight.common.optimization.chunksystem.ChunkDemandQueue.maxPerTick = chunkDemandPerTick;
         chunkDemandMinDrainMs = Math.max(0, config.getInt("parallel.chunk-demand-min-drain-ms", 2));
-        io.izzel.arclight.common.optimization.chunkload.ChunkDemandQueue.minDrainMs = chunkDemandMinDrainMs;
+        io.izzel.arclight.common.optimization.chunksystem.ChunkDemandQueue.minDrainMs = chunkDemandMinDrainMs;
         chunkDemandPlayerPriority = config.getBoolean("parallel.chunk-demand-player-priority", true);
         chunkDemandStarveTicks = Math.max(20, config.getInt("parallel.chunk-demand-starve-ticks", 600));
-        io.izzel.arclight.common.optimization.chunkload.ChunkDemandQueue.playerPriorityEnabled = chunkDemandPlayerPriority;
-        io.izzel.arclight.common.optimization.chunkload.ChunkDemandQueue.starveNanos = chunkDemandStarveTicks * 50_000_000L;
+        io.izzel.arclight.common.optimization.chunksystem.ChunkDemandQueue.playerPriorityEnabled = chunkDemandPlayerPriority;
+        io.izzel.arclight.common.optimization.chunksystem.ChunkDemandQueue.starveNanos = chunkDemandStarveTicks * 50_000_000L;
         chunkSendRateFloor = Math.max(0f, (float) config.getDouble("parallel.chunk-send-rate-floor", 128.0));
         LOGGER.info("parallel chunk-demand priority={} starve={} ticks", chunkDemandPlayerPriority, chunkDemandStarveTicks);
         // 玩家方向区块预取（默认关）。
@@ -671,29 +671,29 @@ public class PRTSFeaturesConfig {
         entitySpatialIndexMinSectionSize = config.getInt("entity-spatial-index.min-section-size", 16);
         if (entitySpatialIndexMinSectionSize < 4) entitySpatialIndexMinSectionSize = 4;
         entitySpatialIndexTelemetryEnabled = config.getBoolean("entity-spatial-index.telemetry-enabled", true);
-        io.izzel.arclight.common.optimization.general.entityspatial.EntitySpatialIndexStats.setEnabled(entitySpatialIndexTelemetryEnabled);
+        io.izzel.arclight.common.optimization.entityspatial.EntitySpatialIndexStats.setEnabled(entitySpatialIndexTelemetryEnabled);
         poiQueryEnabled = config.getBoolean("poi-query.enabled", true);
         poiQueryTelemetryEnabled = config.getBoolean("poi-query.telemetry-enabled", true);
-        io.izzel.arclight.common.optimization.general.poi.PoiQueryStats.setEnabled(poiQueryTelemetryEnabled);
+        io.izzel.arclight.common.optimization.poi.PoiQueryStats.setEnabled(poiQueryTelemetryEnabled);
         collisionBatchEnabled = config.getBoolean("collision-batch.enabled", true);
         collisionBatchTelemetryEnabled = config.getBoolean("collision-batch.telemetry-enabled", true);
-        io.izzel.arclight.common.optimization.general.collision.CollisionBatchStats.setEnabled(collisionBatchTelemetryEnabled);
+        io.izzel.arclight.common.optimization.collision.CollisionBatchStats.setEnabled(collisionBatchTelemetryEnabled);
         menuBroadcastEnabled = config.getBoolean("menu-broadcast.enabled", false);
         menuBroadcastTelemetryEnabled = config.getBoolean("menu-broadcast.telemetry-enabled", true);
-        io.izzel.arclight.common.optimization.general.menubroadcast.MenuBroadcastStats.setEnabled(menuBroadcastTelemetryEnabled);
+        io.izzel.arclight.common.optimization.menubroadcast.MenuBroadcastStats.setEnabled(menuBroadcastTelemetryEnabled);
         eventBridgeOnDemandEnabled = config.getBoolean("event-bridge.on-demand-registration.enabled", true);
         eventBridgeEagerRegistration = config.getBoolean("event-bridge.on-demand-registration.eager-registration", false);
         eventBridgeTelemetryEnabled = config.getBoolean("event-bridge.on-demand-registration.telemetry-enabled", true);
-        io.izzel.arclight.common.optimization.general.eventbridge.EventBridgeStats.setEnabled(eventBridgeTelemetryEnabled);
+        io.izzel.arclight.common.optimization.eventbridge.EventBridgeStats.setEnabled(eventBridgeTelemetryEnabled);
         // enabled=false 或 eager-registration=true 都恢复「启动即全注册」旧行为；否则按门收敛。
-        io.izzel.arclight.common.optimization.general.eventbridge.EventBridgeRegistry.setActive(
+        io.izzel.arclight.common.optimization.eventbridge.EventBridgeRegistry.setActive(
                 eventBridgeOnDemandEnabled && !eventBridgeEagerRegistration);
         eventShortcircuitEntityTickEnabled = config.getBoolean("event-shortcircuit.entity-tick-event.enabled", true);
         eventShortcircuitNeighborNotifyEnabled = config.getBoolean("event-shortcircuit.neighbor-notify-event.enabled", true);
         eventShortcircuitTelemetryEnabled = config.getBoolean("event-shortcircuit.telemetry-enabled", true);
         eventShortcircuitBlockFormEnabled = config.getBoolean("event-shortcircuit.block-form-event.enabled", true);
         eventShortcircuitMobSpawnEnabled = config.getBoolean("event-shortcircuit.mob-spawn-event.enabled", true);
-        io.izzel.arclight.common.optimization.general.eventbridge.EventShortcircuitStats.setEnabled(eventShortcircuitTelemetryEnabled);
+        io.izzel.arclight.common.optimization.eventbridge.EventShortcircuitStats.setEnabled(eventShortcircuitTelemetryEnabled);
         LOGGER.info("event-bridge on-demand={} eager={} | event-shortcircuit entityTick={} neighborNotify={}",
                 eventBridgeOnDemandEnabled, eventBridgeEagerRegistration,
                 eventShortcircuitEntityTickEnabled, eventShortcircuitNeighborNotifyEnabled);

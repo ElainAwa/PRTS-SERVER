@@ -5,7 +5,7 @@
 
 package io.izzel.arclight.common.bridge.optimization;
 
-import io.izzel.arclight.common.optimization.general.collision.CollisionBatch;
+import io.izzel.arclight.common.optimization.collision.CollisionBatch;
 
 /**
  * Per-entity collision batch holder. Implemented by

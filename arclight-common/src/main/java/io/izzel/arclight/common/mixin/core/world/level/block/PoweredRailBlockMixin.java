@@ -1,7 +1,7 @@
 package io.izzel.arclight.common.mixin.core.world.level.block;
 
-import io.izzel.arclight.common.optimization.PoweredRailBlockBridge;
-import io.izzel.arclight.common.optimization.PoweredRailsOptimized;
+import io.izzel.arclight.common.optimization.poweredrails.PoweredRailBlockBridge;
+import io.izzel.arclight.common.optimization.poweredrails.PoweredRailsOptimized;
 import io.izzel.arclight.i18n.ArclightConfig;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.Level;

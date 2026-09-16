@@ -17,7 +17,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import java.util.concurrent.atomic.AtomicLong;
-import io.izzel.arclight.common.optimization.chunkload.ChunkEnvParallelScheduler;
+import io.izzel.arclight.common.optimization.chunksystem.ChunkEnvParallelScheduler;
 
 /**
  * Region-parallel workers tick entity AI off the main thread, so a
@@ -41,7 +41,7 @@ public abstract class LegacyRandomSourceMixin_RegionSafe {
     @Inject(method = "next", at = @At("HEAD"), cancellable = true)
     private void arclight$spinCasNext(int bits, CallbackInfoReturnable<Integer> cir) {
         // 区块环境子任务:使用 per-chunk 派生种子的线程本地随机(分布一致、序列可复现)。
-        RandomSource local = io.izzel.arclight.common.optimization.chunkload.ChunkEnvParallelScheduler.threadLocalRandom().get();
+        RandomSource local = io.izzel.arclight.common.optimization.chunksystem.ChunkEnvParallelScheduler.threadLocalRandom().get();
         if (local != null) {
             cir.setReturnValue(arclight$delegateNext((LegacyRandomSource) (Object) local, bits));
             return;

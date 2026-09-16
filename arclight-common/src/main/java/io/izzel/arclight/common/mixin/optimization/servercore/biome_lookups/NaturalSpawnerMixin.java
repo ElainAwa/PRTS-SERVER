@@ -9,7 +9,7 @@
 
 package io.izzel.arclight.common.mixin.optimization.servercore.biome_lookups;
 
-import io.izzel.arclight.common.optimization.chunkload.ChunkManager;
+import io.izzel.arclight.common.optimization.chunksystem.ChunkManager;
 import io.izzel.arclight.common.optimization.servercore.ServerCoreConfig;
 import io.izzel.arclight.common.optimization.servercore.ServerCoreConfig.Feature;
 import net.minecraft.core.BlockPos;

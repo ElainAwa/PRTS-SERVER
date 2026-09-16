@@ -5,7 +5,7 @@
 
 package io.izzel.arclight.common.optimization.pathfinding;
 
-import io.izzel.arclight.common.optimization.general.AsyncTaskStats;
+import io.izzel.arclight.common.optimization.misc.AsyncTaskStats;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;

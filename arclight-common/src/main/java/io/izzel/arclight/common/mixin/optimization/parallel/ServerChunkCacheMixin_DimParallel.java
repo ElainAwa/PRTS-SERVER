@@ -6,7 +6,7 @@
 package io.izzel.arclight.common.mixin.optimization.parallel;
 
 import io.izzel.arclight.common.compat.prts.PRTSFeaturesConfig;
-import io.izzel.arclight.common.optimization.chunkload.ChunkDemandQueue;
+import io.izzel.arclight.common.optimization.chunksystem.ChunkDemandQueue;
 import io.izzel.arclight.common.optimization.parallel.DimensionTickManager;
 import io.izzel.arclight.common.optimization.parallel.RegionTickManager;
 import net.minecraft.core.Holder;
@@ -38,10 +38,10 @@ import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import java.util.concurrent.CompletableFuture;
-import io.izzel.arclight.common.optimization.chunkload.ChunkGenerationOwnerLock;
-import io.izzel.arclight.common.optimization.chunkload.ChunkLoadStats;
-import io.izzel.arclight.common.optimization.general.chunksystem.PRTSChunkMapRescheduleAware;
-import io.izzel.arclight.common.optimization.general.chunksystem.PRTSChunkSystemHolderAware;
+import io.izzel.arclight.common.optimization.chunksystem.ChunkGenerationOwnerLock;
+import io.izzel.arclight.common.optimization.chunksystem.ChunkLoadStats;
+import io.izzel.arclight.common.optimization.chunksystem.PRTSChunkMapRescheduleAware;
+import io.izzel.arclight.common.optimization.chunksystem.PRTSChunkSystemHolderAware;
 
 /** 并行下 getChunk 的非阻塞读取与主线程有界等待。 */
 @Mixin(value = ServerChunkCache.class, priority = 2000)
@@ -221,7 +221,7 @@ public abstract class ServerChunkCacheMixin_DimParallel implements io.izzel.arcl
             long deadline = waitStart + 1_000_000L;
             boolean schedWarned = false;
             java.util.concurrent.locks.ReentrantLock genLock =
-                    io.izzel.arclight.common.optimization.chunkload.ChunkGenerationOwnerLock.lock(this.level);
+                    io.izzel.arclight.common.optimization.chunksystem.ChunkGenerationOwnerLock.lock(this.level);
             while (System.nanoTime() < deadline) {
                 genLock.lock();
                 try {
@@ -280,7 +280,7 @@ public abstract class ServerChunkCacheMixin_DimParallel implements io.izzel.arcl
             if (hh == null) {
                 hh = this.chunkMap.updatingChunkMap.get(key);
             }
-            if (hh instanceof io.izzel.arclight.common.optimization.general.chunksystem.PRTSChunkSystemHolderAware aware) {
+            if (hh instanceof io.izzel.arclight.common.optimization.chunksystem.PRTSChunkSystemHolderAware aware) {
                 var taskRef = aware.prts$task().get();
                 taskInfo = " task=" + (taskRef == null ? "null" : taskRef.targetStatus.getName());
             }
@@ -346,7 +346,7 @@ public abstract class ServerChunkCacheMixin_DimParallel implements io.izzel.arcl
 
     @Override
     public void arclight$drainDeferredReschedules() {
-        if (this.chunkMap instanceof io.izzel.arclight.common.optimization.general.chunksystem.PRTSChunkMapRescheduleAware aware) {
+        if (this.chunkMap instanceof io.izzel.arclight.common.optimization.chunksystem.PRTSChunkMapRescheduleAware aware) {
             aware.prts$drainDeferredReschedules();
         }
     }
@@ -393,7 +393,7 @@ public abstract class ServerChunkCacheMixin_DimParallel implements io.izzel.arcl
                 }
             }
         }
-        io.izzel.arclight.common.optimization.chunkload.ChunkLoadStats.installPass(loaded, System.nanoTime() - start);
+        io.izzel.arclight.common.optimization.chunksystem.ChunkLoadStats.installPass(loaded, System.nanoTime() - start);
         ChunkDemandQueue.afterDrain(this.level);
     }
 

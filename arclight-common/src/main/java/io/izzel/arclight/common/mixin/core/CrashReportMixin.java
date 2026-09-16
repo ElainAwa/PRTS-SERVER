@@ -2,7 +2,7 @@ package io.izzel.arclight.common.mixin.core;
 
 import io.izzel.arclight.api.ArclightVersion;
 import io.izzel.arclight.common.mod.server.ArclightServer;
-import io.izzel.arclight.common.optimization.general.chunksystem.ChunkSystemThreadState;
+import io.izzel.arclight.common.optimization.chunksystem.ChunkSystemThreadState;
 import net.minecraft.CrashReport;
 import net.minecraft.SystemReport;
 import org.bukkit.craftbukkit.v.CraftCrashReport;

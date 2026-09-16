@@ -1,8 +1,8 @@
 package io.izzel.arclight.neoforge.mod.event;
 
 import io.izzel.arclight.common.mod.server.ArclightServer;
-import io.izzel.arclight.common.optimization.general.eventbridge.EventBridgeRegistry;
-import io.izzel.arclight.common.optimization.general.eventbridge.EventBridgeStats;
+import io.izzel.arclight.common.optimization.eventbridge.EventBridgeRegistry;
+import io.izzel.arclight.common.optimization.eventbridge.EventBridgeStats;
 import net.neoforged.neoforge.common.NeoForge;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockDropItemEvent;

@@ -1,7 +1,7 @@
 package io.izzel.arclight.neoforge.mod.event;
 
 import io.izzel.arclight.common.bridge.core.server.level.ServerPlayerBridge;
-import io.izzel.arclight.common.optimization.general.eventbridge.EventBridgeStats;
+import io.izzel.arclight.common.optimization.eventbridge.EventBridgeStats;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.bus.api.SubscribeEvent;
 import org.bukkit.Bukkit;

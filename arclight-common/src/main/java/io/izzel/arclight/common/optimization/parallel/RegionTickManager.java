@@ -7,7 +7,7 @@ package io.izzel.arclight.common.optimization.parallel;
 
 import io.izzel.arclight.common.bridge.core.world.server.ServerChunkCacheRegionBridge;
 import io.izzel.arclight.common.compat.prts.PRTSFeaturesConfig;
-import io.izzel.arclight.common.optimization.general.AsyncTaskStats;
+import io.izzel.arclight.common.optimization.misc.AsyncTaskStats;
 import io.izzel.arclight.common.optimization.ownership.AccessViolation;
 import io.izzel.arclight.common.optimization.ownership.ClassAffinityLedger;
 import net.minecraft.Util;
@@ -65,7 +65,7 @@ import io.izzel.arclight.common.optimization.drain.BlockEntityTickStats;
 import io.izzel.arclight.common.optimization.drain.RoutedDrainStats;
 import io.izzel.arclight.common.optimization.drain.ServerLevelRegionBlockTickAccess;
 import io.izzel.arclight.common.optimization.entitybatch.EntityBatchScheduler;
-import io.izzel.arclight.common.optimization.eventbus.EventBusStats;
+import io.izzel.arclight.common.optimization.eventbridge.EventBusStats;
 import io.izzel.arclight.common.optimization.ownership.BlockEntityAffinity;
 import io.izzel.arclight.common.optimization.ownership.EntityAffinity;
 import io.izzel.arclight.common.optimization.ownership.LevelMainThreadAccess;

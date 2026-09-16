@@ -18,8 +18,8 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-import io.izzel.arclight.common.mixin.optimization.general.entityspatial.EntityMixin_SectionIndexRebome;
-import io.izzel.arclight.common.mixin.optimization.general.entityspatial.EntitySectionMixin_SpatialIndex;
+import io.izzel.arclight.common.mixin.optimization.entityspatial.EntityMixin_SectionIndexRebome;
+import io.izzel.arclight.common.mixin.optimization.entityspatial.EntitySectionMixin_SpatialIndex;
 
 /**
  * Per-section element write lock (mixin-injected per-instance field): uncontended

@@ -1,6 +1,6 @@
 package io.izzel.arclight.neoforge.mod.event;
 
-import io.izzel.arclight.common.optimization.general.eventbridge.EventBridgeStats;
+import io.izzel.arclight.common.optimization.eventbridge.EventBridgeStats;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.event.entity.living.AnimalTameEvent;
 import org.bukkit.craftbukkit.v.event.CraftEventFactory;

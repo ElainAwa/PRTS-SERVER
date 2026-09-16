@@ -10,7 +10,7 @@
 package io.izzel.arclight.common.mixin.optimization.servercore.features.misc;
 
 import com.llamalad7.mixinextras.sugar.Local;
-import io.izzel.arclight.common.optimization.chunkload.ChunkManager;
+import io.izzel.arclight.common.optimization.chunksystem.ChunkManager;
 import io.izzel.arclight.common.optimization.servercore.ServerCoreConfig;
 import net.minecraft.network.Connection;
 import net.minecraft.network.protocol.game.ClientboundMoveVehiclePacket;

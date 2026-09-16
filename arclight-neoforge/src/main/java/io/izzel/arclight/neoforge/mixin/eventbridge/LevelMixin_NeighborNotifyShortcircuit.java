@@ -1,7 +1,7 @@
 package io.izzel.arclight.neoforge.mixin.eventbridge;
 
 import io.izzel.arclight.common.compat.prts.PRTSFeaturesConfig;
-import io.izzel.arclight.common.optimization.general.eventbridge.EventShortcircuitStats;
+import io.izzel.arclight.common.optimization.eventbridge.EventShortcircuitStats;
 import io.izzel.arclight.neoforge.mod.event.EventBusQuery;
 import java.util.EnumSet;
 import net.minecraft.core.BlockPos;

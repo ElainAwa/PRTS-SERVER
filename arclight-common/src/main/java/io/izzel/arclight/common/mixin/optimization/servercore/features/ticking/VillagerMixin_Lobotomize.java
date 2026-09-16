@@ -10,7 +10,7 @@
 package io.izzel.arclight.common.mixin.optimization.servercore.features.ticking;
 
 import com.llamalad7.mixinextras.injector.v2.WrapWithCondition;
-import io.izzel.arclight.common.optimization.chunkload.ChunkManager;
+import io.izzel.arclight.common.optimization.chunksystem.ChunkManager;
 import io.izzel.arclight.common.optimization.servercore.ServerCoreConfig;
 import io.izzel.arclight.common.optimization.servercore.features.FeatureConfig;
 import net.minecraft.core.BlockPos;

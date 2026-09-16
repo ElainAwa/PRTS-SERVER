@@ -6,7 +6,7 @@
 package io.izzel.arclight.common.optimization.parallel;
 
 import io.izzel.arclight.common.compat.prts.PRTSFeaturesConfig;
-import io.izzel.arclight.common.optimization.general.AsyncTaskStats;
+import io.izzel.arclight.common.optimization.misc.AsyncTaskStats;
 import net.minecraft.Util;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;

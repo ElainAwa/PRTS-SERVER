@@ -17,7 +17,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
 
 import java.util.function.BooleanSupplier;
-import io.izzel.arclight.common.optimization.chunkload.ChunkGenerationOwnerLock;
+import io.izzel.arclight.common.optimization.chunksystem.ChunkGenerationOwnerLock;
 import io.izzel.arclight.common.optimization.compat.lithium.LithiumCompat;
 
 /** 维度 worker 上保留生成驱动，客户端同步链与实体管理收口到主线程 POST。 */
@@ -40,7 +40,7 @@ public abstract class ServerLevelMixin_TickSyncCollect {
             if (io.izzel.arclight.common.optimization.compat.lithium.LithiumCompat.loaded()) {
                 DimensionTickManager.collectPostSync(level, () -> {
                     java.util.concurrent.locks.ReentrantLock genLock =
-                            io.izzel.arclight.common.optimization.chunkload.ChunkGenerationOwnerLock.lock(level);
+                            io.izzel.arclight.common.optimization.chunksystem.ChunkGenerationOwnerLock.lock(level);
                     genLock.lock();
                     try {
                         ((ServerChunkProviderBridge) (Object) chunkSource).bridge$tickDistanceManager();
@@ -51,7 +51,7 @@ public abstract class ServerLevelMixin_TickSyncCollect {
             } else {
                 // 与主线程强制加载泵共用生成属主锁
                 java.util.concurrent.locks.ReentrantLock genLock =
-                        io.izzel.arclight.common.optimization.chunkload.ChunkGenerationOwnerLock.lock(level);
+                        io.izzel.arclight.common.optimization.chunksystem.ChunkGenerationOwnerLock.lock(level);
                 genLock.lock();
                 try {
                     ((ServerChunkProviderBridge) (Object) chunkSource).bridge$tickDistanceManager();

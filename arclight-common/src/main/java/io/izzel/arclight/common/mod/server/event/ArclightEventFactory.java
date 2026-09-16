@@ -6,7 +6,7 @@ import io.izzel.arclight.common.bridge.core.world.level.WorldBridge;
 import io.izzel.arclight.common.bridge.core.world.item.ItemStackBridge;
 import io.izzel.arclight.common.bridge.core.world.level.block.BlockBridge;
 import io.izzel.arclight.common.compat.prts.PRTSFeaturesConfig;
-import io.izzel.arclight.common.optimization.general.eventbridge.EventShortcircuitStats;
+import io.izzel.arclight.common.optimization.eventbridge.EventShortcircuitStats;
 import io.izzel.arclight.common.bridge.inject.InjectEntityBridge;
 import io.izzel.arclight.common.mod.util.ArclightCaptures;
 import io.izzel.arclight.common.mod.util.DistValidate;

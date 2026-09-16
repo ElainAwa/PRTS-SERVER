@@ -3,7 +3,7 @@ package io.izzel.arclight.neoforge.mod.event;
 import io.izzel.arclight.common.bridge.core.server.level.ServerPlayerBridge;
 import io.izzel.arclight.common.mod.util.ArclightCaptures;
 import io.izzel.arclight.common.mod.util.DistValidate;
-import io.izzel.arclight.common.optimization.general.eventbridge.EventBridgeStats;
+import io.izzel.arclight.common.optimization.eventbridge.EventBridgeStats;
 import io.izzel.arclight.neoforge.mod.util.ArclightBlockSnapshot;
 import net.minecraft.core.Direction;
 import net.minecraft.world.InteractionHand;

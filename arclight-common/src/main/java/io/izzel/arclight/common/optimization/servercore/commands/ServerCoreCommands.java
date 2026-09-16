@@ -14,7 +14,7 @@ import io.izzel.arclight.common.compat.prts.PRTSFeaturesConfig;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import io.izzel.arclight.common.optimization.pathfinding.AsyncPathfindingManager;
-import io.izzel.arclight.common.optimization.eventbus.EventBusStats;
+import io.izzel.arclight.common.optimization.eventbridge.EventBusStats;
 import io.izzel.arclight.common.optimization.ownership.BlockEntityAffinity;
 import io.izzel.arclight.common.optimization.ownership.EntityAffinity;
 import io.izzel.arclight.common.optimization.drain.BlockEntityTickStats;
@@ -34,10 +34,10 @@ import static com.mojang.brigadier.arguments.IntegerArgumentType.getInteger;
 import static com.mojang.brigadier.arguments.IntegerArgumentType.integer;
 import static net.minecraft.commands.Commands.argument;
 import static net.minecraft.commands.Commands.literal;
-import io.izzel.arclight.common.optimization.chunkload.ChunkLoadStats;
+import io.izzel.arclight.common.optimization.chunksystem.ChunkLoadStats;
 import io.izzel.arclight.common.optimization.drain.RoutedDrainStats;
-import io.izzel.arclight.common.optimization.general.chunksystem.ChunkSystemScheduler;
-import io.izzel.arclight.common.optimization.general.lightthread.LightChainDiag;
+import io.izzel.arclight.common.optimization.chunksystem.ChunkSystemScheduler;
+import io.izzel.arclight.common.optimization.light.LightChainDiag;
 import io.izzel.arclight.common.optimization.ownership.ClassAffinityLedger;
 import io.izzel.arclight.common.optimization.ownership.ThreadPolicy;
 import io.izzel.arclight.common.optimization.pathfinding.VillagerPathBudget;
@@ -190,15 +190,15 @@ public class ServerCoreCommands {
             ), source.getServer()));
 
             component.append(Formatter.parse("\n<dark_gray>» <c:#primary>ChunkLoading: <c:#secondary>%s".formatted(
-                    io.izzel.arclight.common.optimization.chunkload.ChunkLoadStats.statusText()
+                    io.izzel.arclight.common.optimization.chunksystem.ChunkLoadStats.statusText()
             ), source.getServer()));
 
             component.append(Formatter.parse("\n<dark_gray>» <c:#primary>ChunkSystem: <c:#secondary>%s".formatted(
-                    io.izzel.arclight.common.optimization.general.chunksystem.ChunkSystemScheduler.statusText()
+                    io.izzel.arclight.common.optimization.chunksystem.ChunkSystemScheduler.statusText()
             ), source.getServer()));
 
             component.append(Formatter.parse("\n<dark_gray>» <c:#primary>LightChain: <c:#secondary>%s".formatted(
-                    io.izzel.arclight.common.optimization.general.lightthread.LightChainDiag.statusText(source.getServer())
+                    io.izzel.arclight.common.optimization.light.LightChainDiag.statusText(source.getServer())
             ), source.getServer()));
 
             component.append(Formatter.parse("\n<dark_gray>» <c:#primary>RoutedDrain: <c:#secondary>%s".formatted(
