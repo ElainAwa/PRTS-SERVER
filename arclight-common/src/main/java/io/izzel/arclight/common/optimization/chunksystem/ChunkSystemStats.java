@@ -9,6 +9,7 @@ import io.izzel.arclight.common.compat.prts.PRTSFeaturesConfig;
 import io.izzel.arclight.common.optimization.chunksystem.guards.ChunkIoMainThreadQueue;
 import net.minecraft.world.level.chunk.status.ChunkStatus;
 
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -84,6 +85,8 @@ public final class ChunkSystemStats {
     private static final LongAdder RESCHEDULE_DEFERRED = new LongAdder();
     /** M2 诊断：当前 park 中任务的挂起原因分布（任务唤醒/排空时移除）。 */
     private static final ConcurrentHashMap<String, LongAdder> PARK_REASONS = new ConcurrentHashMap<>();
+    /** M2 诊断：当前挂起波起始时刻（首个挂起置位、全部唤醒清零），用于判断挂起持续多久。 */
+    private static final AtomicLong PARK_WAVE_START = new AtomicLong();
     /** M2 诊断：任务排空（静默 return）原因累计。 */
     private static final ConcurrentHashMap<String, LongAdder> DRAIN_REASONS = new ConcurrentHashMap<>();
 
@@ -119,6 +122,7 @@ public final class ChunkSystemStats {
 
     public static void parkStart(String reason) {
         PARK_REASONS.computeIfAbsent(reason, k -> new LongAdder()).increment();
+        PARK_WAVE_START.compareAndSet(0L, System.nanoTime());
     }
 
     public static void parkEnd(String reason) {
@@ -126,6 +130,13 @@ public final class ChunkSystemStats {
         if (adder != null) {
             adder.decrement();
         }
+        // 全部唤醒后清零，下一波重新计时
+        for (LongAdder live : PARK_REASONS.values()) {
+            if (live.sum() > 0) {
+                return;
+            }
+        }
+        PARK_WAVE_START.set(0L);
     }
 
     public static void drained(String reason) {
@@ -304,14 +315,19 @@ public final class ChunkSystemStats {
             sb.append(" resched=").append(resched);
         }
         StringBuilder parks = new StringBuilder();
-        PARK_REASONS.forEach((reason, adder) -> {
-            long n = adder.sum();
+        for (Map.Entry<String, LongAdder> e : PARK_REASONS.entrySet()) {
+            long n = e.getValue().sum();
             if (n > 0) {
-                parks.append(' ').append(reason).append('=').append(n);
+                parks.append(' ').append(e.getKey()).append('=').append(n);
             }
-        });
+        }
         if (parks.length() > 0) {
             sb.append(" parks={").append(parks.substring(1)).append('}');
+            // 挂起波年龄：判断"卡住不动"与"只是慢"的分界
+            long waveStart = PARK_WAVE_START.get();
+            if (waveStart != 0L) {
+                sb.append(" oldestPark=").append((System.nanoTime() - waveStart) / 1_000_000_000L).append('s');
+            }
         }
         StringBuilder drains = new StringBuilder();
         DRAIN_REASONS.forEach((reason, adder) -> {
