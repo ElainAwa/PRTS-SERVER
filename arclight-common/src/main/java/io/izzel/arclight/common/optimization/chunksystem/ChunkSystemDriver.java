@@ -128,6 +128,15 @@ public final class ChunkSystemDriver {
         this.centerHolder = genTask.getCenter();
         this.center = this.centerHolder.getPos();
         this.target = genTask.targetStatus;
+        // 主线程正阻塞等待本块（forceload / 进服强制加载 / 模组同步读）：整个锥域走紧急通道
+        // （最高档 = 队列里最先出队）。远处坐标否则会被 clamp 到需求档上限，与上千个预铺任务
+        // 同档排队（实测单块等待 231s）。依赖序不受影响：门 + 执行前物化校验决定"能不能跑"，
+        // 优先级只决定"谁先拿到 CPU"，抢跑只会多一次 park 重排，不会踩未物化依赖。
+        if (MainThreadChunkWaits.isAwaited(level, this.center)) {
+            this.priority = 0;
+            this.submitNanos = System.nanoTime();
+            return;
+        }
         // 视距外预铺区按距离倒序定档，保证走廊深处先跑
         int dist = ChunkSystemScheduler.priorityFor(level, this.center.x, this.center.z);
         if (this.target == ChunkStatus.FULL) {
@@ -406,6 +415,11 @@ public final class ChunkSystemDriver {
             this.future = future;
             this.lockTokens = tokensFor(dimension, holder.getPos(), status);
             this.enqueuedAtNanos = System.nanoTime();
+            // 本块正被主线程阻塞等待（且创建者不是紧急驱动器）：初始即最高档。
+            // 只在建任务时定档，避免额外 raisePriority 并发改优先级（队列实现对该并发不保证）。
+            if (this.priority.get() != 0 && MainThreadChunkWaits.isAwaited(dimension, holder.getPos())) {
+                this.priority.set(0);
+            }
         }
 
         /** 共享任务被更高优先级（更小数值）驱动器采纳时提升队列优先级。 */

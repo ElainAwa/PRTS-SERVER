@@ -67,6 +67,24 @@ public final class MainThreadChunkWaits {
         return AWAITED.isEmpty() ? java.util.List.of() : AWAITED.values();
     }
 
+    /** 该坐标是否正被某线程同步等待（无等待者时零分配快速返回）。 */
+    public static boolean isAwaited(ServerLevel level, net.minecraft.world.level.ChunkPos pos) {
+        return isAwaited(level.dimension(), pos);
+    }
+
+    /** 该维度该坐标是否正被某线程同步等待。 */
+    public static boolean isAwaited(ResourceKey<Level> dimension, net.minecraft.world.level.ChunkPos pos) {
+        if (AWAITED.isEmpty()) {
+            return false;
+        }
+        for (Wait wait : AWAITED.values()) {
+            if (wait.x() == pos.x && wait.z() == pos.z && wait.dimension().equals(dimension)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private static String key(ServerLevel level, int x, int z) {
         return level.dimension().location() + "|" + x + "|" + z;
     }
