@@ -47,16 +47,16 @@ public final class ChunkSystemDriver {
 
     private static final Logger LOGGER = LogManager.getLogger("PRTS-ChunkSystem");
 
-    /** park 挂起超时诊断的共享调度器（守护线程，仅诊断用）。 */
-    private static final ScheduledExecutorService PARK_DIAG =
-            Executors.newSingleThreadScheduledExecutor(r -> {
-                Thread thread = new Thread(r, "PRTS-ChunkSystem-ParkDiag");
-                thread.setDaemon(true);
-                return thread;
-            });
-
     /** 全局共享驱动任务表：跨驱动器去重，任务对象唯一。 */
     private static final ConcurrentHashMap<TaskKey, StatusStepTask> SHARED_TASKS = new ConcurrentHashMap<>();
+
+    /** 全局"状态 future 槽位被清空"纪元：任何 holder 的 failAndClear 都会 +1。 */
+    private static final AtomicLong FUTURE_CLEAR_EPOCH = new AtomicLong();
+
+    /** 槽位被清空（换票/卸载）时由 holder mixin 调用。 */
+    public static void futureCleared() {
+        FUTURE_CLEAR_EPOCH.incrementAndGet();
+    }
 
     /** 无覆盖缓存时的占位门：只有 park 看门狗的重评估能唤醒它（绝不用不覆盖的缓存硬跑）。 */
     private static final CompletableFuture<ChunkResult<ChunkAccess>> STEP_CACHE_MISS_GATE =
@@ -368,6 +368,7 @@ public final class ChunkSystemDriver {
                         new ChunkPos(pos.x + dx, pos.z + dz).toLong());
             }
         }
+        java.util.Arrays.sort(tokens); // 全局有序：冲突在最早令牌暴露，减少抢锁重试的写入/回滚
         return tokens;
     }
 
@@ -393,14 +394,16 @@ public final class ChunkSystemDriver {
         private ChunkStep step;
         private boolean depsGated;
         private long suspendNanos;
+        /** 门通过时的清除纪元（见 {@link ChunkSystemDriver#FUTURE_CLEAR_EPOCH}）。 */
+        private long gatedEpoch;
         /** 无进展起点：首次挂起置位，完成任一 step 才清零；重评估不重置。 */
         private long parkEpisodeStartNanos;
         private long enqueuedAtNanos;
         private int parks;
         /** park 超时诊断只打一次。 */
         private final AtomicBoolean parkDiag = new AtomicBoolean(false);
-        /** park 代号：每次挂起自增；看门狗检查带代号，过期检查直接退出。 */
-        private final AtomicLong parkGeneration = new AtomicLong();
+        /** 上次看门狗重评估时刻（清扫线程按 watchdog 间隔限流）。 */
+        private volatile long lastRedriveNanos;
         /** 当前挂起原因（诊断遥测，run 首行清除）。 */
         private String parkReason;
         /** 当前门对应的依赖 (holder, status)：看门狗据此补驱动，防"等在没有驱动者的 future 上"。 */
@@ -461,66 +464,16 @@ public final class ChunkSystemDriver {
             if (this.parkEpisodeStartNanos == 0L) {
                 this.parkEpisodeStartNanos = System.nanoTime();
             }
-            // 挂起 10s 打一条诊断，暴露卡住的门
-            if (this.parkDiag.compareAndSet(false, true)) {
-                final long parkAt = System.nanoTime();
-                PARK_DIAG.schedule(() -> {
-                    if (this.parkReason != null && reason.equals(this.parkReason) && diagLogAllowed()) {
-                        LOGGER.warn("[chunk-system] task parked {}/{} {}s @ {} (dim={}) futureDone={} inQueued={} parks={}",
-                                this.status, reason, (System.nanoTime() - parkAt) / 1_000_000_000L,
-                                this.holder.getPos(), dimension.location(),
-                                this.future.isDone(), this.inQueued.get(), this.parks);
-                    }
-                }, 10, TimeUnit.SECONDS);
-            }
+            // 不再给每次挂起排定时任务：JFR 实测"每 park 两个 ScheduledFuture"让
+            // ScheduledThreadPoolExecutor 的 DelayedWorkQueue 占 ~9% 采样。
+            // 改由单条清扫线程周期扫描（见 sweepParked），代价与挂起数无关的常数级。
             gate.whenComplete((result, throwable) -> this.enqueue());
-            this.prts$armParkWatchdog(gate, reason);
+            ensureSweeper();
         }
 
-        /** 给本次挂起装看门狗（每次挂起一个）：超时先重评估，超过排空阈值则结算本任务。 */
-        private void prts$armParkWatchdog(CompletableFuture<?> gate, String reason) {
-            long watchdogMs = PRTSFeaturesConfig.chunkSystemParkWatchdogMs;
-            if (watchdogMs <= 0L) {
-                return;
-            }
-            long generation = this.parkGeneration.incrementAndGet();
-            PARK_DIAG.schedule(() -> this.prts$checkPark(generation, gate, reason), watchdogMs, TimeUnit.MILLISECONDS);
-        }
-
-        /** 看门狗回调：门仍未完成时重新入队重评估；超过排空阈值则排空结算，防依赖图永久滞留。 */
-        private void prts$checkPark(long generation, CompletableFuture<?> gate, String reason) {
-            // 已被更新的挂起取代：由那次挂起的看门狗负责，避免重复重评估
-            if (generation != this.parkGeneration.get()) {
-                return;
-            }
-            if (gate.isDone() || this.future.isDone() || !reason.equals(this.parkReason)) {
-                return;
-            }
-            long episodeStart = this.parkEpisodeStartNanos != 0L ? this.parkEpisodeStartNanos : this.suspendNanos;
-            long parkedMs = (System.nanoTime() - episodeStart) / 1_000_000L;
-            long drainMs = PRTSFeaturesConfig.chunkSystemParkDrainMs;
-            if (drainMs > 0L && parkedMs >= drainMs) {
-                ChunkSystemStats.parkWatchdogDrain();
-                LOGGER.warn("[chunk-system] park watchdog drained {} @ {} (dim={}) after {}ms on {}",
-                        this.status, this.holder.getPos(), dimension.location(), parkedMs, reason);
-                if (this.parkReason != null) {
-                    ChunkSystemStats.parkEnd(this.parkReason);
-                    this.parkReason = null;
-                    this.parkEpisodeStartNanos = 0L;
-                }
-                this.prts$drain("parkTimeout");
-                return;
-            }
-            ChunkSystemStats.parkWatchdogRedrive();
-            if (diagLogAllowed()) {
-                LOGGER.warn("[chunk-system] park watchdog re-evaluating {} @ {} (dim={}) parked {}ms on {}",
-                        this.status, this.holder.getPos(), dimension.location(), parkedMs, reason);
-            }
-            // 门对应的依赖若还没有驱动者就补一个：仅重入队无法解决"无人完成的 future"
-            if (this.parkDep != null && this.parkDepStatus != null) {
-                ChunkSystemDriver.this.ensureTask(this.parkDep, this.parkDepStatus);
-            }
-            this.enqueue();
+        /** 清扫线程用：本任务所属驱动器（补驱动要给到同一个锥域）。 */
+        ChunkSystemDriver driver() {
+            return ChunkSystemDriver.this;
         }
 
         @Override
@@ -677,6 +630,8 @@ public final class ChunkSystemDriver {
                             return; // 前序失败：排空并结算（同 EMPTY 失败路径）
                         }
                         this.depsGated = true;
+                        // 门通过时刻的清除纪元：之后只要没人清槽位，执行前就不必重扫全锥
+                        this.gatedEpoch = FUTURE_CLEAR_EPOCH.get();
                     }
                 }
                 // 工作阶段（EMPTY 任务的 step 为 null，EMPTY 步两个金字塔同为恒等步，任取）
@@ -701,6 +656,7 @@ public final class ChunkSystemDriver {
                     return;
                 }
                 if (this.status != ChunkStatus.EMPTY) {
+                    // 父块校验很便宜（一次槽位读），每次执行都做
                     ChunkStatus missing = this.status.getParent();
                     if (this.holder.getChunkIfPresentUnchecked(missing) == null) {
                         ChunkSystemStats.gatedSuspend(1);
@@ -708,17 +664,41 @@ public final class ChunkSystemDriver {
                                 "prevMaterialize", this.holder, missing);
                         return;
                     }
-                    missing = this.prts$firstMissingDependency(workStep, stepCache);
-                    if (missing != null) {
-                        ChunkSystemStats.gatedSuspend(1);
-                        this.park(ChunkSystemDriver.this.ensureTask(this.holder, missing),
-                                "depMaterialize", this.holder, missing);
-                        return;
+                    // 依赖环物化校验是 O(环上坐标数) 的槽位读（JFR 实测占 ~12% 采样），
+                    // 而它只在"门通过之后确实有槽位被清"时才有必要 —— 用全局清除纪元
+                    // 把它降成常态一次 volatile 读；纪元变了才重扫（并刷新纪元）。
+                    if (this.gatedEpoch != FUTURE_CLEAR_EPOCH.get()) {
+                        missing = this.prts$firstMissingDependency(workStep, stepCache);
+                        if (missing != null) {
+                            this.gatedEpoch = FUTURE_CLEAR_EPOCH.get();
+                            ChunkSystemStats.gatedSuspend(1);
+                            this.park(ChunkSystemDriver.this.ensureTask(this.holder, missing),
+                                    "depMaterialize", this.holder, missing);
+                            return;
+                        }
+                        this.gatedEpoch = FUTURE_CLEAR_EPOCH.get();
                     }
                 }
                 // 返回外部哨兵（如 UNLOADED_CHUNK_FUTURE）= 状态不再被允许：排空，
                 // 本 future 由原版失败清理机制（卸载/重新调度）结算
-                this.holderAware.prts$applyStep(workStep, chunkMap, stepCache);
+                try {
+                    this.holderAware.prts$applyStep(workStep, chunkMap, stepCache);
+                } catch (Throwable t) {
+                    // 步内同步抛（典型：WorldGenRegion.getChunk 发现依赖在门/预检之后被清空或
+                    // 被替换 → "Requested chunk unavailable during world generation"）。
+                    // 原版会把它包成 ReportedException 并在主线程再抛一次；这里不判死：
+                    // 重新走门（depsGated=false）+ 复核依赖环，缺谁就 park 等谁物化后重试。
+                    // 复核后依赖齐全才按真失败向上抛。
+                    ChunkStatus missing = this.prts$firstMissingDependency(workStep, stepCache);
+                    if (missing != null) {
+                        ChunkSystemStats.gatedSuspend(1);
+                        this.depsGated = false;
+                        this.park(ChunkSystemDriver.this.ensureTask(this.holder, missing),
+                                "depRetry", this.holder, missing);
+                        return;
+                    }
+                    throw t;
+                }
                 long execNanos = System.nanoTime() - start;
                 long execMs = execNanos / 1_000_000L;
                 if (execMs >= 500) {
@@ -873,6 +853,86 @@ public final class ChunkSystemDriver {
                 for (int dz = -layerRadius; dz <= layerRadius; dz++) {
                     this.ensureTask(this.cache.get(this.center.x + dx, this.center.z + dz), status);
                 }
+            }
+        }
+    }
+
+    /** 单次清扫最多处理的任务数（代价有界）。 */
+    private static final int SWEEP_LIMIT = 4096;
+
+    /** 清扫线程只起一条。 */
+    private static final AtomicBoolean SWEEPER_STARTED = new AtomicBoolean();
+
+    private static void ensureSweeper() {
+        if (SWEEPER_STARTED.compareAndSet(false, true)) {
+            Thread thread = new Thread(() -> {
+                while (true) {
+                    try {
+                        Thread.sleep(1000L);
+                    } catch (InterruptedException e) {
+                        return;
+                    }
+                    try {
+                        sweepParked();
+                    } catch (Throwable t) {
+                        LOGGER.error("[chunk-system] park sweep failed", t);
+                    }
+                }
+            }, "PRTS-ChunkSystem-Sweeper");
+            thread.setDaemon(true);
+            thread.start();
+        }
+    }
+
+    /**
+     * 周期清扫挂起任务：按间隔重评估 + 补驱动，超排空阈值则结算，首次满 10s 打一条诊断。
+     * 取代"每次挂起排两个定时任务"的旧实现（JFR 实测后者占 ~9% 采样）。
+     */
+    private static void sweepParked() {
+        long watchdogMs = PRTSFeaturesConfig.chunkSystemParkWatchdogMs;
+        long drainMs = PRTSFeaturesConfig.chunkSystemParkDrainMs;
+        if (watchdogMs <= 0L && drainMs <= 0L) {
+            return;
+        }
+        long now = System.nanoTime();
+        int scanned = 0;
+        for (StatusStepTask task : SHARED_TASKS.values()) {
+            if (++scanned > SWEEP_LIMIT) {
+                return;
+            }
+            String reason = task.parkReason;
+            long episodeStart = task.parkEpisodeStartNanos;
+            if (reason == null || episodeStart == 0L || task.future.isDone()) {
+                continue;
+            }
+            long parkedMs = (now - episodeStart) / 1_000_000L;
+            if (drainMs > 0L && parkedMs >= drainMs) {
+                ChunkSystemStats.parkWatchdogDrain();
+                LOGGER.warn("[chunk-system] park watchdog drained {} @ {} (dim={}) after {}ms on {}",
+                        task.status, task.holder.getPos(), task.driver().dimension.location(), parkedMs, reason);
+                task.parkReason = null;
+                task.parkEpisodeStartNanos = 0L;
+                ChunkSystemStats.parkEnd(reason);
+                task.prts$drain("parkTimeout");
+                continue;
+            }
+            if (watchdogMs > 0L && parkedMs >= watchdogMs
+                    && now - task.lastRedriveNanos >= watchdogMs * 1_000_000L) {
+                task.lastRedriveNanos = now;
+                ChunkSystemStats.parkWatchdogRedrive();
+                if (diagLogAllowed()) {
+                    LOGGER.warn("[chunk-system] park watchdog re-evaluating {} @ {} (dim={}) parked {}ms on {}",
+                            task.status, task.holder.getPos(), task.driver().dimension.location(), parkedMs, reason);
+                }
+                // 门对应的依赖若还没有驱动者就补一个：仅重入队无法解决"无人完成的 future"
+                if (task.parkDep != null && task.parkDepStatus != null) {
+                    task.driver().ensureTask(task.parkDep, task.parkDepStatus);
+                }
+                task.enqueue();
+            } else if (parkedMs >= 10_000L && task.parkDiag.compareAndSet(false, true) && diagLogAllowed()) {
+                LOGGER.warn("[chunk-system] task parked {}/{} {}s @ {} (dim={}) futureDone={} inQueued={} parks={}",
+                        task.status, reason, parkedMs / 1000L, task.holder.getPos(),
+                        task.driver().dimension.location(), task.future.isDone(), task.inQueued.get(), task.parks);
             }
         }
     }

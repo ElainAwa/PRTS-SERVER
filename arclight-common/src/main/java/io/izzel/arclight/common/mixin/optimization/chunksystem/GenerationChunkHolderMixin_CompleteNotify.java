@@ -28,6 +28,18 @@ public abstract class GenerationChunkHolderMixin_CompleteNotify {
     @Shadow(remap = false)
     protected ChunkPos pos;
 
+    /**
+     * 槽位清空计数（换票/卸载会 failAndClear 掉未完成的状态 future）。
+     * 状态机任务据此判断"门通过之后世界是否变了"：没变就不必重做全锥物化校验
+     * （JFR 实测全锥校验的 getChunkIfPresentUnchecked 环扫占 ~12% 采样）。
+     */
+    @Inject(method = "failAndClearPendingFuture", at = @At("HEAD"))
+    private void arclight$bumpFutureClearEpoch(int status,
+                                               java.util.concurrent.CompletableFuture<net.minecraft.server.level.ChunkResult<ChunkAccess>> future,
+                                               CallbackInfo ci) {
+        io.izzel.arclight.common.optimization.chunksystem.ChunkSystemDriver.futureCleared();
+    }
+
     @Inject(method = "completeFuture", at = @At("RETURN"))
     private void arclight$notifyChunkComplete(ChunkStatus status, ChunkAccess chunk, CallbackInfo ci) {
         if (status != ChunkStatus.FULL || !(chunk instanceof LevelChunk levelChunk) || !(levelChunk.level instanceof ServerLevel level)) {

@@ -61,6 +61,14 @@ public abstract class LightEngineMixin_LightBudget {
     @Unique
     private static long prts$warnNanos = 0L;
 
+    /** tick 查询缓存：level→server 在实例存活期内不变，避免每次预算判定都做链式取值。 */
+    @Unique
+    private MinecraftServer prts$server;
+
+    /** 诊断限流的计数器闸门：每 256 次预算耗尽才看一次时钟（System.nanoTime 曾是热点）。 */
+    @Unique
+    private int prts$warnGate = 0;
+
     // Telemetry scratch (per-instance; runLightUpdates is not re-entrant per instance).
     @Unique
     private long prts$startNanos = 0L;
@@ -104,19 +112,30 @@ public abstract class LightEngineMixin_LightBudget {
 
     @Unique
     private long prts$tick() {
-        if (this.chunkSource == null) {
-            return -1L;
+        MinecraftServer server = this.prts$server;
+        if (server == null) {
+            if (this.chunkSource == null) {
+                return -1L;
+            }
+            Object level = this.chunkSource.getLevel();
+            if (!(level instanceof Level l)) {
+                return -1L;
+            }
+            server = l.getServer();
+            if (server == null) {
+                return -1L;
+            }
+            this.prts$server = server;
         }
-        Object level = this.chunkSource.getLevel();
-        if (!(level instanceof Level l)) {
-            return -1L;
-        }
-        MinecraftServer server = l.getServer();
-        return server == null ? -1L : server.getTickCount();
+        return server.getTickCount();
     }
 
     @Unique
     private void prts$warnIfStalled(long tick) {
+        // 闸门：预算耗尽每次都会走到这里，先做 256 次一档的计数，避免频繁 nanoTime
+        if ((++this.prts$warnGate & 0xFF) != 0) {
+            return;
+        }
         long now = System.nanoTime();
         if (now - prts$warnNanos > 5000000000L) {
             prts$warnNanos = now;

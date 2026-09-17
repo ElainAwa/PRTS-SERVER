@@ -161,6 +161,7 @@ public final class ChunkSystemScheduler {
                         new ChunkPos(pos.x + dx, pos.z + dz).toLong());
             }
         }
+        java.util.Arrays.sort(tokens); // 全局有序：冲突在最早令牌暴露，减少抢锁重试的写入/回滚
         return tokens;
     }
 
@@ -204,7 +205,20 @@ public final class ChunkSystemScheduler {
     }
 
     /** 区块写锁令牌：维度 + packed pos 判重（按生成圆域展开成方块）。 */
-    public record ChunkLockToken(ResourceKey<Level> dimension, long pos) implements LockToken {
+    public record ChunkLockToken(ResourceKey<Level> dimension, long pos) implements LockToken, Comparable<LockToken> {
+
+        /**
+         * 全局一致的令牌顺序（维度 + 区块长键）。任务按此顺序抢锁，
+         * 冲突总在同一个"最早令牌"上暴露，重试不再做无谓的写入/回滚。
+         */
+        @Override
+        public int compareTo(LockToken o) {
+            if (o instanceof ChunkLockToken other) {
+                int c = this.dimension.location().toString().compareTo(other.dimension.location().toString());
+                return c != 0 ? c : Long.compare(this.pos, other.pos);
+            }
+            return 0;
+        }
     }
 
     /**
