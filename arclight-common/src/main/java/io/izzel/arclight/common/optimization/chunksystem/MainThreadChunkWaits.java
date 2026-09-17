@@ -10,6 +10,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
 
 import java.util.Collection;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -20,14 +21,66 @@ import java.util.concurrent.ConcurrentHashMap;
  * （tick 与 RCON 全部停摆）。登记表只由等待线程自己登记与注销，
  * 其它线程的同坐标读取不会误删（{@code remove(key, value)} 语义）。
  *
- * <p>读取路径（预算 mixin 每 ~100µs 扫一次）刻意不做字符串拼接：
- * {@link #waits()} 返回可直接按维度/坐标比较的记录集合。
+ * <p>放行扫描是 O(待提交任务数)，而阻塞期间 {@code runGenerationTasks} 每 ~100µs
+ * 被调一次 —— 故 {@link Wait} 自带"已放行"标志与扫描限流，避免主线程把 CPU
+ * 全烧在全量扫描上（实测 1.3 万条待提交时主线程 100% 占用、worker 反而饿着）。
  */
 public final class MainThreadChunkWaits {
 
-    /** 维度 + 坐标 + 等待者。 */
-    public record Wait(ResourceKey<Level> dimension, int x, int z, Thread thread) {
+    /** 一个等待位。equals/hashCode 只按维度+坐标+线程，状态字段不参与。 */
+    public static final class Wait {
+
+        private final ResourceKey<Level> dimension;
+        private final int x;
+        private final int z;
+        private final Thread thread;
+
+        /** 上次扫描时刻（扫描限流；不记"已放行"，同一等待期间可能还需要放行后续任务）。 */
+        public volatile long lastScanNanos;
+
+        Wait(ResourceKey<Level> dimension, int x, int z, Thread thread) {
+            this.dimension = dimension;
+            this.x = x;
+            this.z = z;
+            this.thread = thread;
+        }
+
+        public ResourceKey<Level> dimension() {
+            return this.dimension;
+        }
+
+        public int x() {
+            return this.x;
+        }
+
+        public int z() {
+            return this.z;
+        }
+
+        public Thread thread() {
+            return this.thread;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (!(o instanceof Wait other)) {
+                return false;
+            }
+            return this.x == other.x && this.z == other.z
+                    && this.dimension.equals(other.dimension) && this.thread == other.thread;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(this.dimension, this.x, this.z, System.identityHashCode(this.thread));
+        }
     }
+
+    /** 扫描限流间隔：阻塞期间每 100µs 调一次，放行尝试每 100ms 一次足够。 */
+    public static final long SCAN_INTERVAL_NANOS = 100_000_000L;
 
     private static final ConcurrentHashMap<String, Wait> AWAITED = new ConcurrentHashMap<>();
 
@@ -78,7 +131,7 @@ public final class MainThreadChunkWaits {
             return false;
         }
         for (Wait wait : AWAITED.values()) {
-            if (wait.x() == pos.x && wait.z() == pos.z && wait.dimension().equals(dimension)) {
+            if (wait.x == pos.x && wait.z == pos.z && wait.dimension.equals(dimension)) {
                 return true;
             }
         }

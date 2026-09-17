@@ -165,13 +165,25 @@ public abstract class ChunkMapMixin_GenerationBudget {
         }
         boolean submitted = false;
         int bypassed = 0;
+        long now = System.nanoTime();
         for (MainThreadChunkWaits.Wait wait : waits) {
             if (bypassed >= 8 || this.pendingGenerationTasks.isEmpty()) {
                 break;
             }
+            // 不是本维度：无需再扫。
+            // 注意：不能记"已放行过"就永久跳过 —— 同一区块在等待期间还可能有第二个
+            // 任务（实测先 initialize_light 后 full），跳过就回到"主线程等一个永远
+            // 排不上队的任务"的老僵死（曾把启动卡在 Preparing spawn area）。
             if (!wait.dimension().equals(this.level.dimension())) {
                 continue;
             }
+            // 扫描是 O(待提交任务数)，而本方法在阻塞期间每 ~100µs 被调一次 →
+            // 必须限流，否则主线程把 CPU 全烧在全量扫描上（实测 1.3 万条待提交时
+            // 主线程 100% 占用、worldgen worker 反而饿着）。
+            if (now - wait.lastScanNanos < MainThreadChunkWaits.SCAN_INTERVAL_NANOS) {
+                continue;
+            }
+            wait.lastScanNanos = now;
             Iterator<ChunkGenerationTask> it = this.pendingGenerationTasks.iterator();
             while (it.hasNext()) {
                 ChunkGenerationTask task = it.next();
@@ -184,7 +196,7 @@ public abstract class ChunkMapMixin_GenerationBudget {
                 prts$submitTimes[prts$submitIndex++ % prts$submitTimes.length] = System.nanoTime();
                 bypassed++;
                 submitted = true;
-                long now = System.nanoTime();
+                wait.lastScanNanos = now;
                 if (now - prts$awaitedLogNanos > 10_000_000_000L) {
                     prts$awaitedLogNanos = now;
                     org.apache.logging.log4j.LogManager.getLogger("PRTS-ChunkGen")
