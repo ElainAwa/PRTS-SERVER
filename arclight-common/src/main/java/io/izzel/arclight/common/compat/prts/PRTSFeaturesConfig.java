@@ -301,6 +301,16 @@ public class PRTSFeaturesConfig {
     /** degraded 状态自动恢复并行所需的连续正常 tick 数。 */
     public static int barrierTimeoutRecoverTicks = 6000;
 
+    /** 区块状态机任务挂起看门狗：挂起超过该毫秒数就重评估一次（0=关）。 */
+    public static long chunkSystemParkWatchdogMs = 20000L;
+
+    /**
+     * 任务持续挂起超过该毫秒数仍未唤醒即排空并结算，避免依赖图永久滞留（0=关）。
+     * 排空会让等待该状态的依赖方判死（级联），因此必须远大于正常挂起时长：
+     * 生成风暴下 20~60s 的挂起属正常（实测 oldestPark=59s），故默认 5 分钟。
+     */
+    public static long chunkSystemParkDrainMs = 300000L;
+
     // Lighting - per-tick light propagation budget + telemetry (PRTS 光照预算化).
     // 限制每 tick 光照传播工作量，风暴时超出部分顺延下一 tick（最终光照一致，只是延迟）。
     public static boolean lightBudgetEnabled;
@@ -651,6 +661,14 @@ public class PRTSFeaturesConfig {
         barrierTimeoutRecoverTicks = Math.max(1, config.getInt("parallel.barrier-timeout-recover-ticks", 6000));
         LOGGER.info("parallel barrier-timeout-action={} recover-ticks={}",
                 barrierTimeoutAction, barrierTimeoutRecoverTicks);
+        chunkSystemParkWatchdogMs = Math.max(0L, config.getLong("parallel.chunk-system-park-watchdog-ms", 20000L));
+        chunkSystemParkDrainMs = Math.max(0L, config.getLong("parallel.chunk-system-park-drain-ms", 300000L));
+        if (chunkSystemParkDrainMs > 0L && chunkSystemParkWatchdogMs > 0L
+                && chunkSystemParkDrainMs < chunkSystemParkWatchdogMs) {
+            chunkSystemParkDrainMs = chunkSystemParkWatchdogMs;
+        }
+        LOGGER.info("parallel chunk-system park watchdog={}ms drain={}ms",
+                chunkSystemParkWatchdogMs, chunkSystemParkDrainMs);
         lightBudgetEnabled = config.getBoolean("lighting.budget-enabled", true);
         lightBudgetPerTick = config.getInt("lighting.budget-per-tick", 100000);
         if (lightBudgetPerTick < 0) lightBudgetPerTick = 0;
@@ -1225,6 +1243,8 @@ public class PRTSFeaturesConfig {
                 generation-memory-guard-enabled: true  # heap pressure guard: throttle submissions when committed is high
                 generation-memory-guard-throttle-ratio: 0.65 # committed ratio at which submissions are halved
                 generation-memory-guard-pause-ratio: 0.85   # committed ratio at which submissions pause
+                chunk-system-park-watchdog-ms: 20000  # re-evaluate a parked chunk task after this long (0 = off)
+                chunk-system-park-drain-ms: 300000    # settle a still-parked task after this long (0 = off; draining kills dependents)
                 # Barrier robustness
                 barrier-watchdog-aware: true         # watchdog aware of parallel barrier (no false kills)
                 barrier-timeout-ms: 120000           # barrier stall timeout in ms
@@ -1463,6 +1483,8 @@ public class PRTSFeaturesConfig {
                 generation-memory-guard-enabled: true  # 堆压力卫兵：高占用时限流生成
                 generation-memory-guard-throttle-ratio: 0.65  # 提交减半的堆占用比例
                 generation-memory-guard-pause-ratio: 0.85  # 暂停提交的堆占用比例
+                chunk-system-park-watchdog-ms: 20000  # 区块任务挂起多久后重评估一次（0=关）
+                chunk-system-park-drain-ms: 300000  # 持续挂起多久仍未唤醒就排空结算（0=关；排空会让依赖方判死，须远大于正常挂起时长）
                 # 屏障鲁棒性
                 barrier-watchdog-aware: true  # 看门狗感知并行 barrier（防误杀）
                 barrier-timeout-ms: 120000  # barrier 卡死超时（毫秒）

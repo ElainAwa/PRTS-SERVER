@@ -40,6 +40,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 /** 单区块×单状态任务图驱动器：细粒度调度生成步骤，依赖与锁按写半径展开。 */
 public final class ChunkSystemDriver {
@@ -57,9 +58,33 @@ public final class ChunkSystemDriver {
     /** 全局共享驱动任务表：跨驱动器去重，任务对象唯一。 */
     private static final ConcurrentHashMap<TaskKey, StatusStepTask> SHARED_TASKS = new ConcurrentHashMap<>();
 
+    /** 无覆盖缓存时的占位门：只有 park 看门狗的重评估能唤醒它（绝不用不覆盖的缓存硬跑）。 */
+    private static final CompletableFuture<ChunkResult<ChunkAccess>> STEP_CACHE_MISS_GATE =
+            new CompletableFuture<>();
+
     /** 全局重调度请求去重：防多个驱动器对未来重复投递 reschedule（跨驱动器去重）。 */
     private static final ConcurrentHashMap.KeySetView<TaskKey, Boolean> SHARED_DEFERRED =
             ConcurrentHashMap.newKeySet();
+
+    /** 诊断日志限流窗口起点 / 窗口内已发条数：风暴期数千任务同时挂起时防刷屏淹没有效证据。 */
+    private static final AtomicLong DIAG_WINDOW_START_NANOS = new AtomicLong(System.nanoTime());
+    private static final AtomicInteger DIAG_WINDOW_COUNT = new AtomicInteger();
+    private static final int DIAG_WINDOW_LIMIT = 5;
+    private static final long DIAG_WINDOW_NANOS = 10_000_000_000L;
+
+    /** 诊断日志配额：每 10s 最多 {@value #DIAG_WINDOW_LIMIT} 条，超出的抑制并汇总。 */
+    private static boolean diagLogAllowed() {
+        long now = System.nanoTime();
+        long start = DIAG_WINDOW_START_NANOS.get();
+        if (now - start > DIAG_WINDOW_NANOS && DIAG_WINDOW_START_NANOS.compareAndSet(start, now)) {
+            int suppressed = DIAG_WINDOW_COUNT.getAndSet(0);
+            if (suppressed > 0) {
+                LOGGER.warn("[chunk-system] {} park diagnostics suppressed in the last {}s (storm throttling)",
+                        suppressed, DIAG_WINDOW_NANOS / 1_000_000_000L);
+            }
+        }
+        return DIAG_WINDOW_COUNT.incrementAndGet() <= DIAG_WINDOW_LIMIT;
+    }
 
     /** Blender 旧区块探测预热单线程。 */
     private static final ExecutorService BLENDER_PREWARM = new ThreadPoolExecutor(1, 1,
@@ -230,6 +255,14 @@ public final class ChunkSystemDriver {
             if (future.isDone()) {
                 return null;
             }
+            // 只有"本驱动器锥域覆盖该步"或"本块自带覆盖的任务缓存"时才建任务：
+            // 任务对象一旦建出就绑定创建者的锥域缓存（共享表按 (维度,坐标,状态) 去重，
+            // 后续驱动器只是采纳、不会换缓存），用不覆盖的缓存跑大读半径的步会在
+            // StaticCache2D 越界（生产 2026-09-17 实测 structure_references 越界 520+ 次）。
+            // 不覆盖时交给"以本块为中心"的任务（尾部 futureFor 的延迟重调度）驱动。
+            if (!ChunkSystemDriver.this.prts$canDrive(holder, status)) {
+                return null;
+            }
             // 任务对象全局共享，本驱动器只注册采纳与结算回调
             // 共享任务由首个创建者 enqueue，后续驱动器复用
             StatusStepTask task = SHARED_TASKS.computeIfAbsent(key, kk -> {
@@ -288,6 +321,30 @@ public final class ChunkSystemDriver {
         return future;
     }
 
+    /** 该状态在 GENERATION 金字塔下的读半径（0 = 不读邻居）。 */
+    static int prts$readRadius(ChunkStatus status) {
+        return Math.max(0, ChunkPyramid.GENERATION_PYRAMID.getStepTo(status).directDependencies().size() - 1);
+    }
+
+    /** 该坐标是否有覆盖 radius 邻域的缓存。 */
+    private static boolean prts$covers(StaticCache2D<GenerationChunkHolder> cache, ChunkPos pos, int radius) {
+        return cache.contains(pos.x - radius, pos.z - radius) && cache.contains(pos.x + radius, pos.z + radius);
+    }
+
+    /**
+     * 本源驱动器能否安全驱动 (holder, status)：自己的锥域缓存覆盖该步，
+     * 或该块自带（以本块为心）的 vanilla 任务缓存覆盖该步。
+     */
+    private boolean prts$canDrive(GenerationChunkHolder holder, ChunkStatus status) {
+        int radius = prts$readRadius(status);
+        ChunkPos pos = holder.getPos();
+        if (prts$covers(this.cache, pos, radius)) {
+            return true;
+        }
+        ChunkGenerationTask own = ((PRTSChunkSystemHolderAware) holder).prts$task().get();
+        return own != null && prts$covers(((PRTSChunkSystemTaskAware) own).prts$cache(), pos, radius);
+    }
+
     /** 按每步写半径生成锁令牌；features 半径取配置（默认 2，可降为 1 缓解前沿串行化）。 */
     private static ChunkSystemScheduler.ChunkLockToken[] tokensFor(ResourceKey<Level> dimension, ChunkPos pos, ChunkStatus status) {
         int radius = status == ChunkStatus.FEATURES
@@ -327,12 +384,19 @@ public final class ChunkSystemDriver {
         private ChunkStep step;
         private boolean depsGated;
         private long suspendNanos;
+        /** 无进展起点：首次挂起置位，完成任一 step 才清零；重评估不重置。 */
+        private long parkEpisodeStartNanos;
         private long enqueuedAtNanos;
         private int parks;
         /** park 超时诊断只打一次。 */
         private final AtomicBoolean parkDiag = new AtomicBoolean(false);
+        /** park 代号：每次挂起自增；看门狗检查带代号，过期检查直接退出。 */
+        private final AtomicLong parkGeneration = new AtomicLong();
         /** 当前挂起原因（诊断遥测，run 首行清除）。 */
         private String parkReason;
+        /** 当前门对应的依赖 (holder, status)：看门狗据此补驱动，防"等在没有驱动者的 future 上"。 */
+        private GenerationChunkHolder parkDep;
+        private ChunkStatus parkDepStatus;
 
         StatusStepTask(GenerationChunkHolder holder, ChunkStatus status,
                        CompletableFuture<ChunkResult<ChunkAccess>> future) {
@@ -366,17 +430,28 @@ public final class ChunkSystemDriver {
         }
 
         private void park(CompletableFuture<?> gate, String reason) {
+            this.park(gate, reason, null, null);
+        }
+
+        private void park(CompletableFuture<?> gate, String reason,
+                          GenerationChunkHolder dep, ChunkStatus depStatus) {
+            this.parkDep = dep;
+            this.parkDepStatus = depStatus;
             this.suspendNanos = System.nanoTime();
             this.parks++;
             if (this.parkReason == null) {
                 this.parkReason = reason;
                 ChunkSystemStats.parkStart(reason);
             }
+            // 无进展计时：首次挂起置位，只有真正完成一个 step 才清零（重评估不重置）。
+            if (this.parkEpisodeStartNanos == 0L) {
+                this.parkEpisodeStartNanos = System.nanoTime();
+            }
             // 挂起 10s 打一条诊断，暴露卡住的门
             if (this.parkDiag.compareAndSet(false, true)) {
                 final long parkAt = System.nanoTime();
                 PARK_DIAG.schedule(() -> {
-                    if (this.parkReason != null && reason.equals(this.parkReason)) {
+                    if (this.parkReason != null && reason.equals(this.parkReason) && diagLogAllowed()) {
                         LOGGER.warn("[chunk-system] task parked {}/{} {}s @ {} (dim={}) futureDone={} inQueued={} parks={}",
                                 this.status, reason, (System.nanoTime() - parkAt) / 1_000_000_000L,
                                 this.holder.getPos(), dimension.location(),
@@ -385,6 +460,53 @@ public final class ChunkSystemDriver {
                 }, 10, TimeUnit.SECONDS);
             }
             gate.whenComplete((result, throwable) -> this.enqueue());
+            this.prts$armParkWatchdog(gate, reason);
+        }
+
+        /** 给本次挂起装看门狗（每次挂起一个）：超时先重评估，超过排空阈值则结算本任务。 */
+        private void prts$armParkWatchdog(CompletableFuture<?> gate, String reason) {
+            long watchdogMs = PRTSFeaturesConfig.chunkSystemParkWatchdogMs;
+            if (watchdogMs <= 0L) {
+                return;
+            }
+            long generation = this.parkGeneration.incrementAndGet();
+            PARK_DIAG.schedule(() -> this.prts$checkPark(generation, gate, reason), watchdogMs, TimeUnit.MILLISECONDS);
+        }
+
+        /** 看门狗回调：门仍未完成时重新入队重评估；超过排空阈值则排空结算，防依赖图永久滞留。 */
+        private void prts$checkPark(long generation, CompletableFuture<?> gate, String reason) {
+            // 已被更新的挂起取代：由那次挂起的看门狗负责，避免重复重评估
+            if (generation != this.parkGeneration.get()) {
+                return;
+            }
+            if (gate.isDone() || this.future.isDone() || !reason.equals(this.parkReason)) {
+                return;
+            }
+            long episodeStart = this.parkEpisodeStartNanos != 0L ? this.parkEpisodeStartNanos : this.suspendNanos;
+            long parkedMs = (System.nanoTime() - episodeStart) / 1_000_000L;
+            long drainMs = PRTSFeaturesConfig.chunkSystemParkDrainMs;
+            if (drainMs > 0L && parkedMs >= drainMs) {
+                ChunkSystemStats.parkWatchdogDrain();
+                LOGGER.warn("[chunk-system] park watchdog drained {} @ {} (dim={}) after {}ms on {}",
+                        this.status, this.holder.getPos(), dimension.location(), parkedMs, reason);
+                if (this.parkReason != null) {
+                    ChunkSystemStats.parkEnd(this.parkReason);
+                    this.parkReason = null;
+                    this.parkEpisodeStartNanos = 0L;
+                }
+                this.prts$drain("parkTimeout");
+                return;
+            }
+            ChunkSystemStats.parkWatchdogRedrive();
+            if (diagLogAllowed()) {
+                LOGGER.warn("[chunk-system] park watchdog re-evaluating {} @ {} (dim={}) parked {}ms on {}",
+                        this.status, this.holder.getPos(), dimension.location(), parkedMs, reason);
+            }
+            // 门对应的依赖若还没有驱动者就补一个：仅重入队无法解决"无人完成的 future"
+            if (this.parkDep != null && this.parkDepStatus != null) {
+                ChunkSystemDriver.this.ensureTask(this.parkDep, this.parkDepStatus);
+            }
+            this.enqueue();
         }
 
         @Override
@@ -406,11 +528,13 @@ public final class ChunkSystemDriver {
                 }
                 if (this.status != ChunkStatus.EMPTY) {
                     if (this.step == null) {
-                        // 阶段 1+2：EMPTY 门 + 金字塔选择
+                        // 阶段 1+2：EMPTY 门 + 金字塔选择。EMPTY 同样必须"有驱动者"：
+                        // futureFor 只取/建槽位，锥外分块（由门按需拉起的任务）的 EMPTY
+                        // 无人完成 → 该任务 park 到看门狗兜底才恢复，故一律 ensureTask。
                         CompletableFuture<ChunkResult<ChunkAccess>> emptyFuture =
-                                ChunkSystemDriver.this.futureFor(this.holder, ChunkStatus.EMPTY);
+                                ChunkSystemDriver.this.ensureTask(this.holder, ChunkStatus.EMPTY);
                         if (!emptyFuture.isDone()) {
-                            this.park(emptyFuture, "empty");
+                            this.park(emptyFuture, "empty", this.holder, ChunkStatus.EMPTY);
                             return;
                         }
                         ChunkStatus persisted = this.holder.getPersistedStatus();
@@ -435,11 +559,13 @@ public final class ChunkSystemDriver {
                                 .getStepTo(this.status);
                     }
                     if (!this.depsGated) {
-                        // 阶段 3：自身前序 + 邻块依赖门
+                        // 阶段 3：自身前序 + 邻块依赖门。门必须"有驱动者"：futureFor 只取/建 future 槽位，
+                        // 无人完成时整条链永久 park（v04 实测三条终端状态），故三处门一律 ensureTask 建驱动；
+                        // 建出的父/邻任务可能尚未物化父区块，执行前的二次校验见下方 prevMaterialize。
                         CompletableFuture<ChunkResult<ChunkAccess>> prevFuture =
-                                ChunkSystemDriver.this.futureFor(this.holder, this.status.getParent());
+                                ChunkSystemDriver.this.ensureTask(this.holder, this.status.getParent());
                         if (!prevFuture.isDone()) {
-                            this.park(prevFuture, "prev");
+                            this.park(prevFuture, "prev", this.holder, this.status.getParent());
                             return;
                         }
                         ChunkDependencies deps = this.step.directDependencies();
@@ -459,8 +585,7 @@ public final class ChunkSystemDriver {
                                         continue;
                                     }
                                     CompletableFuture<ChunkResult<ChunkAccess>> neighborFuture =
-                                            ChunkSystemDriver.this.futureFor(
-                                                    cache.get(npos.x, npos.z), required);
+                                            ChunkSystemDriver.this.ensureTask(cache.get(npos.x, npos.z), required);
                                     if (!neighborFuture.isDone()) {
                                         if (waiting == null) {
                                             waiting = new ArrayList<>();
@@ -507,7 +632,7 @@ public final class ChunkSystemDriver {
                                         continue; // 已过 FEATURES：无生成写入风险
                                     }
                                     CompletableFuture<ChunkResult<ChunkAccess>> nf =
-                                            ChunkSystemDriver.this.futureFor(nh, ChunkStatus.FEATURES);
+                                            ChunkSystemDriver.this.ensureTask(nh, ChunkStatus.FEATURES);
                                     if (!nf.isDone()) {
                                         if (fullWait == null) {
                                             fullWait = new ArrayList<>();
@@ -541,9 +666,43 @@ public final class ChunkSystemDriver {
                 // 工作阶段（EMPTY 任务的 step 为 null，EMPTY 步两个金字塔同为恒等步，任取）
                 ChunkStep workStep = this.step != null ? this.step
                         : ChunkPyramid.GENERATION_PYRAMID.getStepTo(ChunkStatus.EMPTY);
+                // 执行前二次校验：applyStep（WorldGenRegion）直接读"父状态 + 依赖环各坐标状态"
+                // 的 future 值，而门票级别变化会把槽位 failAndClear 清空，门通过之后仍可能失效
+                //（v04 §8 竞态）；未物化时绝不调用 applyStep，否则要么 Parent chunk missing
+                //（父块），要么 Requested chunk unavailable during world generation（依赖环）。
+                // 门只在首次通过（depsGated 之后跳过），所以这层校验必须每次执行都做。
+                // 执行缓存的选取：优先"以本块为中心的 vanilla 任务缓存"（原版不变式：
+                // 任务缓存半径 = 该 target 的 EMPTY 累计半径 ≥ 本步读半径，故必然覆盖本步）。
+                // 驱动器缓存以驱动器中心为心，锥内偏离中心的分块跑读半径大的步会
+                // StaticCache2D 越界（生产 2026-09-17 实测 structure_references 越界 520+ 次
+                // → 任务判死 → 生成链断裂 → 主线程永久等区块）。
+                StaticCache2D<GenerationChunkHolder> stepCache = this.prts$stepCache(workStep);
+                if (stepCache == null) {
+                    // 无任何覆盖本步的缓存：请求以本块为中心的重调度，等它的缓存到位再跑
+                    ChunkSystemDriver.this.futureFor(this.holder, this.status);
+                    ChunkSystemStats.gatedSuspend(1);
+                    this.park(STEP_CACHE_MISS_GATE, "stepCacheMiss", this.holder, this.status);
+                    return;
+                }
+                if (this.status != ChunkStatus.EMPTY) {
+                    ChunkStatus missing = this.status.getParent();
+                    if (this.holder.getChunkIfPresentUnchecked(missing) == null) {
+                        ChunkSystemStats.gatedSuspend(1);
+                        this.park(ChunkSystemDriver.this.ensureTask(this.holder, missing),
+                                "prevMaterialize", this.holder, missing);
+                        return;
+                    }
+                    missing = this.prts$firstMissingDependency(workStep, stepCache);
+                    if (missing != null) {
+                        ChunkSystemStats.gatedSuspend(1);
+                        this.park(ChunkSystemDriver.this.ensureTask(this.holder, missing),
+                                "depMaterialize", this.holder, missing);
+                        return;
+                    }
+                }
                 // 返回外部哨兵（如 UNLOADED_CHUNK_FUTURE）= 状态不再被允许：排空，
                 // 本 future 由原版失败清理机制（卸载/重新调度）结算
-                this.holderAware.prts$applyStep(workStep, chunkMap, cache);
+                this.holderAware.prts$applyStep(workStep, chunkMap, stepCache);
                 long execNanos = System.nanoTime() - start;
                 long execMs = execNanos / 1_000_000L;
                 if (execMs >= 500) {
@@ -552,9 +711,67 @@ public final class ChunkSystemDriver {
                             (start - this.enqueuedAtNanos) / 1_000_000L);
                 }
                 ChunkSystemStats.executed(execNanos, start - this.enqueuedAtNanos);
+                this.parkEpisodeStartNanos = 0L;   // 本步完成 = 有进展，重置无进展计时
             } finally {
                 releaseLocks.run();
             }
+        }
+
+        /**
+         * 依赖环上第一个"未物化"的状态（null = 全部已物化）。与
+         * {@code WorldGenRegion.getChunk} 的判据逐位对齐：按 {@code directDependencies}
+         * 的每个距离取该距离要求的最高状态，读不到区块对象就是未物化。
+         * 距离 0（本块自身）由调用方的父状态校验覆盖，这里从距离 1 起。
+         */
+        private ChunkStatus prts$firstMissingDependency(ChunkStep workStep,
+                                                      StaticCache2D<GenerationChunkHolder> stepCache) {
+            ChunkDependencies deps = workStep.directDependencies();
+            ChunkPos pos = this.holder.getPos();
+            for (int dist = 1; dist < deps.size(); dist++) {
+                ChunkStatus required = deps.get(dist);
+                if (required == null) {
+                    continue;
+                }
+                for (int dx = -dist; dx <= dist; dx++) {
+                    for (int dz = -dist; dz <= dist; dz++) {
+                        if (Math.max(Math.abs(dx), Math.abs(dz)) != dist) {
+                            continue; // 只取切比雪夫环
+                        }
+                        if (!stepCache.contains(pos.x + dx, pos.z + dz)) {
+                            continue; // 锥域外：不会参与本步读取
+                        }
+                        GenerationChunkHolder neighbor = stepCache.get(pos.x + dx, pos.z + dz);
+                        if (neighbor.getChunkIfPresentUnchecked(required) == null) {
+                            return required;
+                        }
+                    }
+                }
+            }
+            return null;
+        }
+
+        /**
+         * 选取本步的 {@link StaticCache2D}：本块自己的 vanilla 任务缓存（以本块为心）优先，
+         * 其次驱动器缓存（以驱动器中心为心，仅当覆盖本步）。返回 null 表示两者都不覆盖。
+         */
+        private StaticCache2D<GenerationChunkHolder> prts$stepCache(ChunkStep workStep) {
+            int readRadius = Math.max(0, workStep.directDependencies().size() - 1);
+            ChunkPos pos = this.holder.getPos();
+            ChunkGenerationTask own = this.holderAware.prts$task().get();
+            if (own != null) {
+                StaticCache2D<GenerationChunkHolder> ownCache = ((PRTSChunkSystemTaskAware) own).prts$cache();
+                if (ownCache != null && prts$covers(ownCache, pos, readRadius)) {
+                    return ownCache;
+                }
+            }
+            if (prts$covers(ChunkSystemDriver.this.cache, pos, readRadius)) {
+                return ChunkSystemDriver.this.cache;
+            }
+            if (diagLogAllowed()) {
+                LOGGER.warn("[chunk-system] step cache miss {} @ {} (dim={}) readRadius={} ownTask={} — requesting self-centered reschedule",
+                        this.status, pos, dimension.location(), readRadius, own != null);
+            }
+            return null;
         }
 
         @Override

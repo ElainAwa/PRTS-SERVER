@@ -6,8 +6,10 @@
 package io.izzel.arclight.common.mixin.optimization.chunksystem;
 
 import io.izzel.arclight.common.compat.prts.PRTSFeaturesConfig;
+import io.izzel.arclight.common.optimization.chunksystem.MainThreadChunkWaits;
 import net.minecraft.server.level.ChunkGenerationTask;
 import net.minecraft.server.level.ChunkMap;
+import net.minecraft.server.level.ServerLevel;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -53,6 +55,14 @@ public abstract class ChunkMapMixin_GenerationBudget {
     @Final
     private List<ChunkGenerationTask> pendingGenerationTasks;
 
+    @Shadow
+    @Final
+    private ServerLevel level;
+
+    /** 放行日志节流（10s 一条），避免风暴期刷屏。 */
+    @Unique
+    private static long prts$awaitedLogNanos = 0L;
+
     /** 主线程事件循环：managedBlock 会泵它，阻塞 getChunk 期间也能推进提交。 */
     @Shadow
     @Final
@@ -60,6 +70,13 @@ public abstract class ChunkMapMixin_GenerationBudget {
 
     @Inject(method = "runGenerationTasks", at = @At("HEAD"), cancellable = true)
     private void arclight$budgetedRunGenerationTasks(CallbackInfo ci) {
+        // 最高优先级：主线程此刻正阻塞等待的区块，无论预算/窗口/内存卫兵如何都要先提交，
+        // 否则它的生成任务可能永远排不上（提交窗口被其它路径占满时即僵死）。
+        if (prts$submitAwaited()) {
+            if (this.pendingGenerationTasks.isEmpty()) {
+                return; // 已全部提交：放行原版路径（列表为空，等价于空转）
+            }
+        }
         int budget = PRTSFeaturesConfig.generationTasksPerTick;
         int limit = PRTSFeaturesConfig.chunkgenInflightLimit;
         if (budget <= 0 && limit <= 0) {
@@ -126,6 +143,58 @@ public abstract class ChunkMapMixin_GenerationBudget {
         if (submitted > 0 && !this.pendingGenerationTasks.isEmpty()) {
             this.mainThreadExecutor.execute(() -> ((ChunkMap) (Object) this).runGenerationTasks());
         }
+    }
+
+    /**
+     * 提交主线程正在同步等待的区块对应的生成任务：绕过每 tick 预算、滚动窗口与内存卫兵。
+     *
+     * <p>只放行"主线程已经在等"的那一个/几个区块，其余仍按预算走，削峰语义不变；
+     * 放行粒度到"进入生成管线"为止，之后的依赖/步骤由管线自身推进（不再受提交预算约束）。
+     * 无等待者时零分配快速返回（本方法在阻塞期间的 pollTask 上每 ~100µs 被调用一次）。
+     *
+     * @return 是否提交了至少一个任务
+     */
+    @Unique
+    private boolean prts$submitAwaited() {
+        if (this.pendingGenerationTasks.isEmpty()) {
+            return false;
+        }
+        java.util.Collection<MainThreadChunkWaits.Wait> waits = MainThreadChunkWaits.waits();
+        if (waits.isEmpty()) {
+            return false;
+        }
+        boolean submitted = false;
+        int bypassed = 0;
+        for (MainThreadChunkWaits.Wait wait : waits) {
+            if (bypassed >= 8 || this.pendingGenerationTasks.isEmpty()) {
+                break;
+            }
+            if (!wait.dimension().equals(this.level.dimension())) {
+                continue;
+            }
+            Iterator<ChunkGenerationTask> it = this.pendingGenerationTasks.iterator();
+            while (it.hasNext()) {
+                ChunkGenerationTask task = it.next();
+                net.minecraft.world.level.ChunkPos pos = task.getCenter().getPos();
+                if (pos.x != wait.x() || pos.z != wait.z()) {
+                    continue;
+                }
+                this.arclight$runGenerationTask(task);
+                it.remove();
+                prts$submitTimes[prts$submitIndex++ % prts$submitTimes.length] = System.nanoTime();
+                bypassed++;
+                submitted = true;
+                long now = System.nanoTime();
+                if (now - prts$awaitedLogNanos > 10_000_000_000L) {
+                    prts$awaitedLogNanos = now;
+                    org.apache.logging.log4j.LogManager.getLogger("PRTS-ChunkGen")
+                            .warn("[chunk-gen] submit awaited chunk {} target={} bypassing budget (pending={})",
+                                    pos, task.targetStatus, this.pendingGenerationTasks.size());
+                }
+                break;
+            }
+        }
+        return submitted;
     }
 
     /** 采样 30s 滑动窗口的 GC 时间占比（GarbageCollectorMXBean collectionTime）。 */

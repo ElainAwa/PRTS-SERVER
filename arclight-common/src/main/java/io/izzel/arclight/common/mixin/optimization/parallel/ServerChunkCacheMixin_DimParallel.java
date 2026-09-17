@@ -163,6 +163,10 @@ public abstract class ServerChunkCacheMixin_DimParallel implements io.izzel.arcl
         // 主线程保持 vanilla 同步生成语义：required=true 必须拿到真区块。
         // 空壳回退会让按 BlockState 身份比较的模组（rubberworks sapper）死循环。
         if (!DimensionTickManager.isDimensionTickThread() && !RegionTickManager.isRegionWorker()) {
+            if (required) {
+                // 登记"主线程正在等这个区块"：生成预算对它放行，避免窗口被其它路径占满时饿死
+                io.izzel.arclight.common.optimization.chunksystem.MainThreadChunkWaits.begin(this.level, x, z);
+            }
             return;
         }
         long key = ChunkPos.asLong(x, z);
@@ -311,6 +315,14 @@ public abstract class ServerChunkCacheMixin_DimParallel implements io.izzel.arcl
         // 立即返回空壳（下 tick 主线程 drain 生成完成后 worker 就能读到真实区块）。
         ChunkDemandQueue.submit(this.level, this.chunkMap, x, z, false);
         cir.setReturnValue(new EmptyLevelChunk(this.level, new ChunkPos(x, z), arclight$voidBiome(this.level)));
+    }
+
+    /** 主线程等待结束：注销等待位（生成预算不再为它放行）。 */
+    @Inject(method = "getChunk(IILnet/minecraft/world/level/chunk/status/ChunkStatus;Z)Lnet/minecraft/world/level/chunk/ChunkAccess;",
+            at = @At("RETURN"))
+    private void arclight$waitEnd(int x, int z, ChunkStatus status, boolean required,
+                                  CallbackInfoReturnable<ChunkAccess> cir) {
+        io.izzel.arclight.common.optimization.chunksystem.MainThreadChunkWaits.end(this.level, x, z);
     }
 
     /** 无锁快照读：只信 FULL 完成且身份复核通过的 holder。 */

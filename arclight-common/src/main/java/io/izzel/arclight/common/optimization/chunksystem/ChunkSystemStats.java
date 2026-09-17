@@ -87,6 +87,9 @@ public final class ChunkSystemStats {
     private static final ConcurrentHashMap<String, LongAdder> PARK_REASONS = new ConcurrentHashMap<>();
     /** M2 诊断：当前挂起波起始时刻（首个挂起置位、全部唤醒清零），用于判断挂起持续多久。 */
     private static final AtomicLong PARK_WAVE_START = new AtomicLong();
+    /** park 看门狗：重评估次数与排空次数（兜底生效证据）。 */
+    private static final LongAdder PARK_WATCHDOG_REDRIVE = new LongAdder();
+    private static final LongAdder PARK_WATCHDOG_DRAIN = new LongAdder();
     /** M2 诊断：任务排空（静默 return）原因累计。 */
     private static final ConcurrentHashMap<String, LongAdder> DRAIN_REASONS = new ConcurrentHashMap<>();
 
@@ -137,6 +140,14 @@ public final class ChunkSystemStats {
             }
         }
         PARK_WAVE_START.set(0L);
+    }
+
+    public static void parkWatchdogRedrive() {
+        PARK_WATCHDOG_REDRIVE.increment();
+    }
+
+    public static void parkWatchdogDrain() {
+        PARK_WATCHDOG_DRAIN.increment();
     }
 
     public static void drained(String reason) {
@@ -320,6 +331,12 @@ public final class ChunkSystemStats {
             if (n > 0) {
                 parks.append(' ').append(e.getKey()).append('=').append(n);
             }
+        }
+        long watchdogRedrive = PARK_WATCHDOG_REDRIVE.sum();
+        long watchdogDrain = PARK_WATCHDOG_DRAIN.sum();
+        if (watchdogRedrive > 0 || watchdogDrain > 0) {
+            sb.append(" parkWatchdog={redrive=").append(watchdogRedrive)
+                    .append(" drain=").append(watchdogDrain).append('}');
         }
         if (parks.length() > 0) {
             sb.append(" parks={").append(parks.substring(1)).append('}');
