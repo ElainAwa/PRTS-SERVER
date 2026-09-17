@@ -15,14 +15,15 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.locks.ReentrantLock;
 import io.izzel.arclight.common.optimization.parallel.RegionLevel;
 import io.izzel.arclight.common.optimization.parallel.RegionTickManager;
 
@@ -35,18 +36,6 @@ public final class ChunkEnvParallelScheduler {
     private static volatile ThreadPoolExecutor pool;
     /** 收集窗口：tickChunks 只在维度 tick 线程跑（每维度一线程），ThreadLocal 天然隔离多维度。 */
     private static final ThreadLocal<PendingWindow> WINDOW = ThreadLocal.withInitial(PendingWindow::new);
-    /** 固定条带锁：任务结束后无需回收，避免 per-chunk 锁表无界增长。 */
-    private static final int LOCK_STRIPES = 1024;
-    private static final ReentrantLock[] LOCKS = new ReentrantLock[LOCK_STRIPES];
-    /** 3×3 锁半径常量:覆盖流体跨界写与邻居更新反应写。 */
-    private static final int LOCK_RADIUS = 1;
-
-    static {
-        for (int i = 0; i < LOCK_STRIPES; i++) {
-            LOCKS[i] = new ReentrantLock();
-        }
-    }
-
     /** 子任务线程本地随机源(per-chunk 派生种子),由 LegacyRandomSource mixin 读取。 */
     private static final ThreadLocal<RandomSource> THREAD_LOCAL_RANDOM = new ThreadLocal<>();
 
@@ -110,18 +99,49 @@ public final class ChunkEnvParallelScheduler {
         List<Object[]> tasks = new ArrayList<>(w.tasks);
         w.tasks.clear();
         w.active = false;
-        CountDownLatch latch = new CountDownLatch(tasks.size());
+        runPhased(tasks);
+    }
+
+    /**
+     * 相位批处理执行（无锁）：冲突模型是"两个 chunk 的 3×3 写区相交"（切比雪夫距离 ≤2）。
+     * 按行（chunkZ）分组后分 3 个相位（z mod 3）：同相位内各行 z 距离 ≥3，写区必不相交；
+     * 行内按 x 顺序串行执行。互斥性与原"每块抢 9 把 3×3 条带锁"等价（且更严格：
+     * 同行内不再并行），但每 tick 的锁开销从 18×N 次 lock/unlock 降为 0
+     * ——JFR 实测旧实现的 ReentrantLock CAS/获取释放占 ~32% 采样。
+     */
+    private static void runPhased(List<Object[]> tasks) {
+        Map<Integer, List<Object[]>> rows = new TreeMap<>();
         for (Object[] e : tasks) {
-            ServerLevel level = (ServerLevel) e[0];
-            LevelChunk chunk = (LevelChunk) e[1];
-            int speed = (Integer) e[2];
-            pool().execute(() -> runTask(level, chunk, speed, latch));
+            rows.computeIfAbsent(((LevelChunk) e[1]).getPos().z, k -> new ArrayList<>()).add(e);
         }
+        for (List<Object[]> row : rows.values()) {
+            row.sort(Comparator.comparingInt(e -> ((LevelChunk) e[1]).getPos().x));
+        }
+        for (int phase = 0; phase < 3; phase++) {
+            List<List<Object[]>> phaseRows = new ArrayList<>();
+            for (Map.Entry<Integer, List<Object[]>> entry : rows.entrySet()) {
+                if (Math.floorMod(entry.getKey(), 3) == phase) {
+                    phaseRows.add(entry.getValue());
+                }
+            }
+            if (phaseRows.isEmpty()) {
+                continue;
+            }
+            CountDownLatch latch = new CountDownLatch(phaseRows.size());
+            for (List<Object[]> row : phaseRows) {
+                pool().execute(() -> runRow(row, latch));
+            }
+            awaitBarrier(latch, tasks.size(), phase);
+        }
+    }
+
+    private static void awaitBarrier(CountDownLatch latch, int taskCount, int phase) {
         try {
             if (!latch.await(10L, TimeUnit.SECONDS)) {
                 // 超时后任务仍在写区块：绝不带着运行中的 worker 进入后续阶段。
                 // 与 barrier 硬超时同语义：dump 全线程后崩服，防止静默状态撕裂。
-                LOGGER.fatal("[chunk-env] parallel tick barrier timeout ({} tasks); dumping threads", tasks.size());
+                LOGGER.fatal("[chunk-env] parallel tick barrier timeout ({} tasks, phase {}); dumping threads",
+                        taskCount, phase);
                 Thread.getAllStackTraces().forEach((thread, stack) -> {
                     LOGGER.fatal("  thread {} state={}", thread.getName(), thread.getState());
                     for (StackTraceElement el : stack) {
@@ -135,51 +155,34 @@ public final class ChunkEnvParallelScheduler {
         }
     }
 
-    private static void runTask(ServerLevel level, LevelChunk chunk, int randomTickSpeed, CountDownLatch latch) {
-        ChunkPos pos = chunk.getPos();
+    /** 执行同一行（同 chunkZ）的一批 chunk 环境 tick：行内串行，避免相邻写区并发。 */
+    private static void runRow(List<Object[]> row, CountDownLatch latch) {
         try {
-            // 3×3 区块锁:互斥相邻 chunk 的并发写(流体跨界/邻居更新反应)。
-            int[] keys = lockKeys(pos.x, pos.z);
-            for (int key : keys) {
-                LOCKS[key].lock();
-            }
-            try {
-                // per-chunk 派生种子:分布与原版一致,同 chunk 序列可复现。
-                long seed = level.getSeed() ^ (pos.x * 341873128712L + pos.z * 132897987541L);
-                THREAD_LOCAL_RANDOM.set(new LegacyRandomSource(seed));
-                // 线程身份:区块所属 region,使 setBlock 跨区写/计划刻/实体新增走既有 worker 路径。
-                RegionTickManager.enterChunkEnvContext(level, RegionLevel.regionId(pos));
+            for (Object[] e : row) {
+                ServerLevel level = (ServerLevel) e[0];
+                LevelChunk chunk = (LevelChunk) e[1];
+                int randomTickSpeed = (Integer) e[2];
+                ChunkPos pos = chunk.getPos();
                 try {
-                    level.tickChunk(chunk, randomTickSpeed);
-                } finally {
-                    RegionTickManager.exitRegionContext();
-                    THREAD_LOCAL_RANDOM.remove();
-                }
-            } finally {
-                for (int i = keys.length - 1; i >= 0; i--) {
-                    LOCKS[keys[i]].unlock();
+                    // per-chunk 派生种子:分布与原版一致,同 chunk 序列可复现。
+                    long seed = level.getSeed() ^ (pos.x * 341873128712L + pos.z * 132897987541L);
+                    THREAD_LOCAL_RANDOM.set(new LegacyRandomSource(seed));
+                    // 线程身份:区块所属 region,使 setBlock 跨区写/计划刻/实体新增走既有 worker 路径。
+                    RegionTickManager.enterChunkEnvContext(level, RegionLevel.regionId(pos));
+                    try {
+                        level.tickChunk(chunk, randomTickSpeed);
+                    } finally {
+                        RegionTickManager.exitRegionContext();
+                        THREAD_LOCAL_RANDOM.remove();
+                    }
+                } catch (Throwable t) {
+                    // 单 chunk 环境 tick 异常不影响其他 chunk 与服务器。
+                    LOGGER.error("[chunk-env] chunk {} tick failed", pos, t);
                 }
             }
-        } catch (Throwable t) {
-            // 单 chunk 环境 tick 异常不影响其他 chunk 与服务器。
-            LOGGER.error("[chunk-env] chunk {} tick failed", pos, t);
         } finally {
             latch.countDown();
         }
-    }
-
-    /** 3×3 区块锁 key 数组(排序,防死锁)。 */
-    private static int[] lockKeys(int chunkX, int chunkZ) {
-        int[] keys = new int[(1 + 2 * LOCK_RADIUS) * (1 + 2 * LOCK_RADIUS)];
-        int idx = 0;
-        for (int dx = -LOCK_RADIUS; dx <= LOCK_RADIUS; dx++) {
-            for (int dz = -LOCK_RADIUS; dz <= LOCK_RADIUS; dz++) {
-                long packed = ChunkPos.asLong(chunkX + dx, chunkZ + dz);
-                keys[idx++] = (int) Math.floorMod(packed, (long) LOCK_STRIPES);
-            }
-        }
-        Arrays.sort(keys);
-        return keys;
     }
 
     /** 仅用于单元级调试查询(状态行可扩展)。 */

@@ -372,7 +372,63 @@ public final class ChunkSystemDriver {
         return tokens;
     }
 
-    private record TaskKey(ResourceKey<Level> dimension, int x, int z, int statusIndex) {
+    /**
+     * 共享任务表的键。不写成 record：每次 {@code computeIfAbsent}/{@code containsKey}
+     * 都要哈希，record 的 hashCode 走 ObjectMethods 引导并现算 {@code ResourceKey} 的哈希
+     * （JFR 实测 {@code Objects.hashCode} 占 ~2.5% 采样）。这里构造时算好并把维度缓存成字符串。
+     */
+    private static final class TaskKey {
+
+        private final ResourceKey<Level> dimension;
+        private final String dimensionOrder;
+        private final int x;
+        private final int z;
+        private final int statusIndex;
+        private final int hash;
+
+        TaskKey(ResourceKey<Level> dimension, int x, int z, int statusIndex) {
+            this.dimension = dimension;
+            this.dimensionOrder = dimension.location().toString();
+            this.x = x;
+            this.z = z;
+            this.statusIndex = statusIndex;
+            this.hash = ((31 * dimension.hashCode() + x) * 31 + z) * 31 + statusIndex;
+        }
+
+        ResourceKey<Level> dimension() {
+            return this.dimension;
+        }
+
+        int x() {
+            return this.x;
+        }
+
+        int z() {
+            return this.z;
+        }
+
+        int statusIndex() {
+            return this.statusIndex;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            return o instanceof TaskKey other && this.x == other.x && this.z == other.z
+                    && this.statusIndex == other.statusIndex && this.dimension.equals(other.dimension);
+        }
+
+        @Override
+        public int hashCode() {
+            return this.hash;
+        }
+
+        @Override
+        public String toString() {
+            return this.dimensionOrder + '/' + this.x + ',' + this.z + '#' + this.statusIndex;
+        }
     }
 
     /** 重调度请求被维度事件循环线程消费后清去重位，防止 SHARED_DEFERRED 无界增长。 */

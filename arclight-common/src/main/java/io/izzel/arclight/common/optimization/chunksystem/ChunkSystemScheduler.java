@@ -204,8 +204,35 @@ public final class ChunkSystemScheduler {
                 + (PRTSFeaturesConfig.chunkPrefetchEnabled ? " " + ChunkPrefetcher.statusText() : "");
     }
 
-    /** 区块写锁令牌：维度 + packed pos 判重（按生成圆域展开成方块）。 */
-    public record ChunkLockToken(ResourceKey<Level> dimension, long pos) implements LockToken, Comparable<LockToken> {
+    /**
+     * 区块写锁令牌：维度 + packed pos 判重（按生成圆域展开成方块）。
+     *
+     * <p>不写成 record：令牌每次抢锁都要进 {@code ConcurrentHashMap} 查找与排序比较，
+     * record 的 hashCode 走 ObjectMethods 引导、每次现算 {@code ResourceKey} 的哈希；
+     * 排序比较若现取 {@code location().toString()} 还会每次分配字符串。
+     * 这里把哈希与排序键在构造时算好（JFR 实测令牌哈希/查找占 ~5% 采样）。
+     */
+    public static final class ChunkLockToken implements LockToken, Comparable<LockToken> {
+
+        private final ResourceKey<Level> dimension;
+        private final long pos;
+        private final int hash;
+        private final String dimensionOrder;
+
+        public ChunkLockToken(ResourceKey<Level> dimension, long pos) {
+            this.dimension = dimension;
+            this.pos = pos;
+            this.dimensionOrder = dimension.location().toString();
+            this.hash = 31 * dimension.hashCode() + Long.hashCode(pos);
+        }
+
+        public ResourceKey<Level> dimension() {
+            return this.dimension;
+        }
+
+        public long pos() {
+            return this.pos;
+        }
 
         /**
          * 全局一致的令牌顺序（维度 + 区块长键）。任务按此顺序抢锁，
@@ -214,10 +241,29 @@ public final class ChunkSystemScheduler {
         @Override
         public int compareTo(LockToken o) {
             if (o instanceof ChunkLockToken other) {
-                int c = this.dimension.location().toString().compareTo(other.dimension.location().toString());
+                int c = this.dimensionOrder.compareTo(other.dimensionOrder);
                 return c != 0 ? c : Long.compare(this.pos, other.pos);
             }
             return 0;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            return o instanceof ChunkLockToken other
+                    && this.pos == other.pos && this.dimension.equals(other.dimension);
+        }
+
+        @Override
+        public int hashCode() {
+            return this.hash;
+        }
+
+        @Override
+        public String toString() {
+            return "ChunkLockToken[" + this.dimensionOrder + ", " + this.pos + ']';
         }
     }
 
