@@ -2,6 +2,8 @@
 
 **[English](./README.md) · [中文文档](./README_zh.md)**
 
+>当前服务端common中mixin文件较乱，且当前架构存在较多bug。所以当前分支的更新会放缓，目前正在筹划重构服务端，寻找可能的新架构，想要加入开发的请联系我，谢谢！
+
 > PRTS 是 [Arclight](https://github.com/IzzelAliz/Arclight) → [Luminara](https://github.com/CraftAmethyst/Luminara) 的 fork，本分支 `1.21.1-Multithreading` 为多线程并行引擎开发分支。
 
 > ⚠ 本项目当前全部为 vibecoding 开发，开发人员不足，项目推进缓慢。有兴趣参与多线程服务端开发请联系：QQ 3031917948 / Telegram [t.me/Mon3trQAQ](https://t.me/Mon3trQAQ)
