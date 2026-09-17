@@ -33,6 +33,8 @@ public final class ChunkSystemStats {
     /** 出队到开始执行的等待时长（排队延迟）。 */
     private static final LongAdder QUEUE_WAIT_NANOS = new LongAdder();
     private static final LongAdder EXCEPTIONS = new LongAdder();
+    /** 决策后自愈升级为生成模式（原版此处会抛 IllegalStateException → fatal 崩服）。 */
+    private static final LongAdder ESCALATED = new LongAdder();
     /** 按优先级段统计的提交数（0=最高优先级，6 段）。 */
     private static final LongAdder[] PRIORITY_SUBMITTED = new LongAdder[6];
 
@@ -167,6 +169,10 @@ public final class ChunkSystemStats {
         EXCEPTIONS.increment();
     }
 
+    public static void escalated() {
+        ESCALATED.increment();
+    }
+
     /** M2 状态机任务创建（与 {@link #taskSettled()} 配对，供 inflight 实活计数）。 */
     public static void taskCreated() {
         LIVE_TASKS.incrementAndGet();
@@ -298,6 +304,10 @@ public final class ChunkSystemStats {
                 .append(" inflight=").append(inflight)
                 .append(" executed=").append(executed)
                 .append(" exceptions=").append(exceptions);
+        long escalated = ESCALATED.sum();
+        if (escalated > 0) {
+            sb.append(" escalated=").append(escalated);
+        }
         if (executed > 0) {
             sb.append(String.format(" execAvg=%.2fms queueWaitAvg=%.2fms execMax=%dms",
                     EXEC_NANOS.sum() / (double) executed / 1_000_000.0,

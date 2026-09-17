@@ -563,10 +563,12 @@ public final class ChunkSystemDriver {
                                 return;
                             }
                             if (!needsGeneration) {
-                                // 原版 scheduleChunkInLayer 同语义不变量
-                                throw new IllegalStateException(
-                                        "Can't load chunk " + this.holder.getPos() + " to " + this.status
-                                                + ", but didn't expect to need to generate");
+                                // 原版 scheduleChunkInLayer 在此抛 IllegalStateException；但 PRTS 是
+                                // 多线程读 persisted，决策时的"整锥可从盘加载"可能已被并发改动
+                                //（主线程换票/卸载与 worker 读并发）。异常会沿生成链传下去，被原版
+                                // GenerationChunkHolder.applyStep 的 handle 标成 setFatalException → 崩服
+                                //（2026-09-17 实测 crash-12.44.49）。改为自愈：升级为生成模式并补齐锥域。
+                                ChunkSystemDriver.this.prts$escalateToGeneration();
                             }
                         }
                         this.step = (generate ? ChunkPyramid.GENERATION_PYRAMID : ChunkPyramid.LOADING_PYRAMID)
@@ -605,7 +607,7 @@ public final class ChunkSystemDriver {
                                             waiting = new ArrayList<>();
                                         }
                                         waiting.add(neighborFuture);
-                                    } else if (!neighborFuture.getNow(null).isSuccess()) {
+                                    } else if (!prts$now(neighborFuture).isSuccess()) {
                                         // 邻居已判死（UNLOADED 哨兵/失败）：排空并结算，
                                         // 同原版 markForCancellation 后任务终止的语义
                                         this.prts$drain("neighborDead");
@@ -653,7 +655,7 @@ public final class ChunkSystemDriver {
                                         }
                                         fullWait.add(nf);
                                     } else {
-                                        ChunkResult<ChunkAccess> nr = nf.getNow(null);
+                                        ChunkResult<ChunkAccess> nr = prts$now(nf);
                                         if (nr == null || !nr.isSuccess()) {
                                             // 邻居 FEATURES 已判死：不会写入，跳过等待
                                             continue;
@@ -669,7 +671,7 @@ public final class ChunkSystemDriver {
                                 return;
                             }
                         }
-                        ChunkResult<ChunkAccess> prevResult = prevFuture.getNow(null);
+                        ChunkResult<ChunkAccess> prevResult = prts$now(prevFuture);
                         if (prevResult == null || !prevResult.isSuccess()) {
                             this.prts$drain("prevFailed");
                             return; // 前序失败：排空并结算（同 EMPTY 失败路径）
@@ -728,6 +730,15 @@ public final class ChunkSystemDriver {
                 this.parkEpisodeStartNanos = 0L;   // 本步完成 = 有进展，重置无进展计时
             } finally {
                 releaseLocks.run();
+            }
+        }
+
+        /** 读依赖 future 的当前值：未完成/异常完成一律按"依赖已死"返回 null，绝不让异常逃出本任务。 */
+        private static ChunkResult<ChunkAccess> prts$now(CompletableFuture<ChunkResult<ChunkAccess>> future) {
+            try {
+                return future.getNow(null);
+            } catch (Throwable t) {
+                return null;
             }
         }
 
@@ -791,8 +802,11 @@ public final class ChunkSystemDriver {
         @Override
         public void propagateException(Throwable t) {
             ChunkSystemStats.exception();
-            // 让本 future 异常完成，依赖它的任务图得以排空（不卡死计数）
-            this.future.completeExceptionally(t);
+            // 以"失败结果"正常完成而不是异常完成：依赖方 getNow 不会抛 CompletionException
+            //（异常完成的 future 被 getNow 读到会 rethrow），也不会让原版
+            // getChunkIfPresentUnchecked / applyStep 的 handle 把异常升级成 fatal 崩服。
+            // 依赖方按既有的 !isSuccess() 分支排空，任务图与 pending 计数照常收敛。
+            this.future.complete(ChunkResult.error("prts task failed: " + t));
             LOGGER.error("[chunk-system] status task failed: {} @ {} (dim={})",
                     this.status, this.holder.getPos(), dimension.location(), t);
         }
@@ -818,6 +832,48 @@ public final class ChunkSystemDriver {
         @Override
         public String workLabel() {
             return "step " + this.status + " @ " + this.holder.getPos() + " dim=" + dimension.location();
+        }
+    }
+
+    /**
+     * 决策后才发现本锥确有区块需要生成（persisted 与决策依据不一致）：升级为生成模式，
+     * 并按 GENERATION 金字塔补齐整个锥域的任务（幂等，重复调用只做一次）。
+     * 替代原版 {@code scheduleChunkInLayer} 的 IllegalStateException —— 那条异常会沿
+     * 生成链被原版 applyStep 的 handle 升级成 fatal 崩服。
+     */
+    private void prts$escalateToGeneration() {
+        if (this.needsGeneration) {
+            return;
+        }
+        synchronized (this) {
+            if (this.needsGeneration) {
+                return;
+            }
+            this.needsGeneration = true;
+        }
+        ChunkSystemStats.escalated();
+        if (diagLogAllowed()) {
+            LOGGER.warn("[chunk-system] escalate to generation @ {} target={} (dim={}): persisted advanced past the load decision",
+                    this.center, this.target, this.dimension.location());
+        }
+        int coneRadius = ChunkPyramid.GENERATION_PYRAMID.getStepTo(this.target)
+                .getAccumulatedRadiusOf(ChunkStatus.EMPTY);
+        for (int dx = -coneRadius; dx <= coneRadius; dx++) {
+            for (int dz = -coneRadius; dz <= coneRadius; dz++) {
+                this.ensureTask(this.cache.get(this.center.x + dx, this.center.z + dz), ChunkStatus.EMPTY);
+            }
+        }
+        for (ChunkStatus status : ChunkStatus.getStatusList()) {
+            if (status == ChunkStatus.EMPTY || status.isAfter(this.target)) {
+                continue;
+            }
+            int layerRadius = ChunkPyramid.GENERATION_PYRAMID.getStepTo(this.target)
+                    .getAccumulatedRadiusOf(status);
+            for (int dx = -layerRadius; dx <= layerRadius; dx++) {
+                for (int dz = -layerRadius; dz <= layerRadius; dz++) {
+                    this.ensureTask(this.cache.get(this.center.x + dx, this.center.z + dz), status);
+                }
+            }
         }
     }
 
