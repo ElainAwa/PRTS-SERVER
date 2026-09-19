@@ -1,3 +1,13 @@
+
+> ## ⚠️ 本仓库已迁移 / This repository has moved
+>
+> 多线程并行版本现在位于新仓库：**[https://github.com/ElainAwa/PRTS-SERVER-Multithreading](https://github.com/ElainAwa/PRTS-SERVER-Multithreading)**
+> The multithreaded parallel line now lives in the new repository above.
+>
+> 新仓库包含完整提交历史、全部 `v1.21.1-*` 标签，以及并行内核蓝图文档。
+> 本仓库保留为历史归档，仍可写入，仅用于紧急回退与历史追溯。
+> This repository is kept as a historical archive (still writable) for emergency rollback and history.
+
 # PRTS-Multithreading — Minecraft 1.21.1 / NeoForge（多线程并行分支）
 
 **[English](./README.md) · [中文文档](./README_zh.md)**
